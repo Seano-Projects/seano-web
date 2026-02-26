@@ -86,7 +86,6 @@ const useRoleData = () => {
       const data = await response.json()
       setRoleData(Array.isArray(data) ? data : [])
     } catch (err) {
-      console.error('Fetch roles error:', err)
       setError(err.message)
       setRoleData([])
     } finally {
@@ -116,7 +115,6 @@ const useRoleData = () => {
 
       return { success: true, message: 'Role added successfully!', data: newRole }
     } catch (err) {
-      console.error('Add role error:', err)
       setError(err.message)
       return { success: false, message: err.message }
     } finally {
@@ -148,7 +146,6 @@ const useRoleData = () => {
 
       return { success: true, message: 'Role updated successfully!' }
     } catch (err) {
-      console.error('Update role error:', err)
       setError(err.message)
       return { success: false, message: err.message }
     } finally {
@@ -176,7 +173,6 @@ const useRoleData = () => {
 
       return { success: true, message: 'Role deleted successfully!' }
     } catch (err) {
-      console.error('Delete role error:', err)
       setError(err.message)
       return { success: false, message: err.message }
     } finally {

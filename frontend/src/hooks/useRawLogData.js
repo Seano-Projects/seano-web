@@ -64,7 +64,6 @@ const useRawLogData = () => {
         }
         setLoading(false)
       } catch (err) {
-        console.error('Error fetching raw logs stats:', err)
         setError(err.message)
 
         // Set empty state when API fails
@@ -141,7 +140,6 @@ const useRawLogData = () => {
 
       setLoading(false)
     } catch (err) {
-      console.error('Error refreshing raw logs stats:', err)
       setError(err.message)
       setLoading(false)
     }

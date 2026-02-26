@@ -19,7 +19,6 @@ const useVehicleData = () => {
 
       // Skip fetch if no token (not logged in)
       if (!token) {
-        console.log('No token found, skipping vehicle fetch')
         setVehicles([])
         setLoading(false)
         return
@@ -27,7 +26,6 @@ const useVehicleData = () => {
 
       try {
         setLoading(true)
-        console.log('Fetching vehicles with token...')
 
         const response = await fetch(`${API_BASE_URL}/vehicles`, {
           headers: {
@@ -38,16 +36,12 @@ const useVehicleData = () => {
 
         if (!response.ok) {
           const errorText = await response.text()
-          console.error('❌ Vehicles API error:', response.status, errorText)
           throw new Error(
             `HTTP error! status: ${response.status}, message: ${errorText}`
           )
         }
 
         const data = await response.json()
-        console.log('📦 Vehicles API response:', data)
-        console.log('📦 Response type:', typeof data)
-        console.log('📦 Is array?:', Array.isArray(data))
 
         // Handle different response formats
         let vehiclesArray = []
@@ -58,10 +52,8 @@ const useVehicleData = () => {
         } else if (data && data.vehicles && Array.isArray(data.vehicles)) {
           vehiclesArray = data.vehicles
         } else {
-          console.warn('⚠️ Unexpected vehicles response format:', data)
         }
 
-        console.log('✅ Vehicles array length:', vehiclesArray.length)
 
         // Process and validate API data
         const processedVehicles = vehiclesArray.map(vehicle => ({
@@ -84,7 +76,6 @@ const useVehicleData = () => {
           return hasChanged ? processedVehicles : prevVehicles
         })
       } catch (error) {
-        console.error('Error fetching vehicles:', error)
         // Set empty array on error instead of dummy data
         setVehicles([])
       } finally {
@@ -99,7 +90,6 @@ const useVehicleData = () => {
 
     // Re-fetch when user logs in
     const handleUserLogin = () => {
-      console.log('User logged in event detected, re-fetching vehicles')
       fetchVehicles()
     }
 

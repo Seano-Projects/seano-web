@@ -8,12 +8,10 @@ const DataHeader = ({
   lastRefresh = new Date(),
 }) => {
   const handleImport = () => {
-    console.log("Import data functionality");
     // Implement import logic here
   };
 
   const handleExport = () => {
-    console.log("Export data functionality");
     // Implement export logic here
   };
 

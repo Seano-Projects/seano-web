@@ -25,7 +25,6 @@ export const useCTDData = (vehicleCode = null) => {
     const token = localStorage.getItem('access_token')
 
     if (!token) {
-      console.log('No token found, skipping WebSocket connection')
       return
     }
 
@@ -35,12 +34,10 @@ export const useCTDData = (vehicleCode = null) => {
 
     const connect = () => {
       const wsUrl = `${WS_URL}/ws/sensor-data?token=${token}`
-      console.log('Attempting WebSocket connection to:', wsUrl)
 
       websocket = new WebSocket(wsUrl)
 
       websocket.onopen = () => {
-        console.log('✅ WebSocket connected successfully for CTD data')
         setIsConnected(true)
         setError(null)
         reconnectDelay = 1000
@@ -58,7 +55,6 @@ export const useCTDData = (vehicleCode = null) => {
 
         if (websocket?.readyState === WebSocket.OPEN) {
           websocket.send(JSON.stringify(subscribeMessage))
-          console.log('📤 Sent CTD subscription:', subscribeMessage)
         }
 
         // Ping to keep connection alive
@@ -74,7 +70,6 @@ export const useCTDData = (vehicleCode = null) => {
       websocket.onmessage = event => {
         try {
           const data = JSON.parse(event.data)
-          console.log('📨 CTD WebSocket message received:', data)
 
           if (data.type === 'sensor_data' && data.data) {
             // Add to CTD data array
@@ -84,34 +79,22 @@ export const useCTDData = (vehicleCode = null) => {
               return newData.slice(-1000)
             })
           } else if (data.type === 'pong') {
-            console.log('🏓 Pong received')
           } else if (data.type === 'error') {
-            console.error('❌ WebSocket error from server:', data.message)
             setError(data.message)
           }
-        } catch (err) {
-          console.error('❌ Failed to parse WebSocket message:', err)
-        }
+        } catch (err) {}
       }
 
       websocket.onerror = error => {
-        console.error('❌ WebSocket error:', error)
         setIsConnected(false)
         setError('WebSocket connection error')
       }
 
       websocket.onclose = event => {
-        console.log(
-          '🔌 WebSocket disconnected. Code:',
-          event.code,
-          'Reason:',
-          event.reason
-        )
         setIsConnected(false)
 
         // Reconnect with exponential backoff
         setTimeout(() => {
-          console.log(`♻️ Attempting to reconnect in ${reconnectDelay}ms...`)
           reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay)
           connect()
         }, reconnectDelay)

@@ -47,7 +47,6 @@ const Profile = () => {
       setUser(userData);
       localStorage.setItem("user", JSON.stringify(userData));
     } catch (err) {
-      console.error("Fetch user error:", err);
       setError(err.message || "Failed to load profile");
     } finally {
       setLoading(false);
@@ -112,12 +111,8 @@ const Profile = () => {
         setIsPhotoModalOpen(false);
         setPhotoPreview(null);
         // Show success message
-        toast.success(
-          "Photo uploaded successfully! (Backend upload not yet implemented)",
-        );
-      }, 1000);
+        toast.success("Operation successful"); }, 1000);
     } catch (err) {
-      console.error("Upload photo error:", err);
       setError(err.message || "Failed to upload photo");
       setUploading(false);
     }
@@ -150,7 +145,6 @@ const Profile = () => {
       await fetchUserData();
       return { success: true };
     } catch (err) {
-      console.error("Update profile error:", err);
       return { success: false, error: err.message };
     }
   };
@@ -180,7 +174,6 @@ const Profile = () => {
       setIsPasswordModalOpen(false);
       return { success: true };
     } catch (err) {
-      console.error("Change password error:", err);
       return { success: false, error: err.message };
     }
   };

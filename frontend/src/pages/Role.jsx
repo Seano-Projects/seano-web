@@ -62,7 +62,6 @@ const Role = () => {
           });
         }
       } catch (error) {
-        console.error("Failed to assign permissions:", error);
         // Role is created but permissions might not be assigned
         // Still return success but log the error
       }
@@ -95,7 +94,6 @@ const Role = () => {
         setShowEditModal(true);
       }
     } catch (error) {
-      console.error("Failed to fetch role details:", error);
       setSelectedRole(role);
       setShowEditModal(true);
     }
@@ -155,7 +153,6 @@ const Role = () => {
           );
         }
       } catch (error) {
-        console.error("Failed to update permissions:", error);
       }
     }
 
@@ -205,7 +202,6 @@ const Role = () => {
         setShowViewModal(true);
       }
     } catch (error) {
-      console.error("Failed to fetch role details:", error);
       setSelectedRole(role);
       setShowViewModal(true);
     }

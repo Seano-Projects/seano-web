@@ -29,7 +29,6 @@ const useSensorData = selectedVehicle => {
 
           setSensorData(latest)
         } catch (err) {
-          console.error(err)
           setSensorData([])
         }
       }

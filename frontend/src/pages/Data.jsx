@@ -82,9 +82,7 @@ const Data = () => {
       await refreshStats();
       await new Promise((resolve) => setTimeout(resolve, 500));
       setLastRefresh(new Date());
-      console.log("Data refreshed successfully");
     } catch (error) {
-      console.error("Failed to refresh data:", error);
     } finally {
       setIsRefreshing(false);
     }
@@ -100,7 +98,6 @@ const Data = () => {
 
   // Show error message if raw logs data failed to load
   if (rawLogsError && !rawLogsLoading) {
-    console.warn("Failed to load raw logs data:", rawLogsError);
   }
 
   // Safe render to prevent crashes
@@ -146,7 +143,6 @@ const Data = () => {
       </ErrorBoundary>
     );
   } catch (error) {
-    console.error("Error rendering Data page:", error);
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">

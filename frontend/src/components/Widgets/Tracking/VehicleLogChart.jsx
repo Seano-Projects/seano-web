@@ -73,7 +73,6 @@ const VehicleLogChart = ({ className = "", selectedVehicle }) => {
           setChartData(processed);
         }
       } catch (err) {
-        console.error("Failed to fetch vehicle log data:", err);
       }
     };
 

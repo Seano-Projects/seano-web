@@ -96,7 +96,6 @@ export const useAlertData = () => {
       calculateStats(sortedAlerts)
       setError(null)
     } catch (err) {
-      console.error('Error fetching alerts:', err)
       setError('Failed to load alerts')
       setAlerts([])
     } finally {
@@ -116,7 +115,6 @@ export const useAlertData = () => {
       try {
         const token = localStorage.getItem('access_token')
         if (!token) {
-          console.warn('No access token found')
           setConnectionStatus('disconnected')
           return
         }
@@ -125,7 +123,6 @@ export const useAlertData = () => {
         websocket = new WebSocket(`${WS_URL}/ws/alerts?token=${token}`)
 
         websocket.onopen = () => {
-          console.log('✅ WebSocket connected for alerts')
           setConnectionStatus('connected')
           setWs(websocket)
           reconnectAttempts = 0
@@ -167,32 +164,24 @@ export const useAlertData = () => {
                 return updated
               })
             }
-          } catch (err) {
-            console.error('Error parsing WebSocket message:', err)
-          }
+          } catch (err) {}
         }
 
         websocket.onerror = error => {
-          console.error('❌ WebSocket error:', error)
           setConnectionStatus('error')
         }
 
         websocket.onclose = () => {
-          console.log('🔌 WebSocket disconnected')
           setConnectionStatus('disconnected')
           setWs(null)
 
           // Attempt to reconnect
           if (reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++
-            console.log(
-              `Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`
-            )
             reconnectTimeout = setTimeout(connectWebSocket, reconnectDelay)
           }
         }
       } catch (err) {
-        console.error('Error connecting WebSocket:', err)
         setConnectionStatus('error')
       }
     }
@@ -235,7 +224,6 @@ export const useAlertData = () => {
 
       return true
     } catch (err) {
-      console.error('Error acknowledging alert:', err)
       return false
     }
   }, [])
@@ -252,7 +240,6 @@ export const useAlertData = () => {
       setStats({ critical: 0, warning: 0, info: 0, total: 0 })
       return true
     } catch (err) {
-      console.error('Error clearing alerts:', err)
       return false
     }
   }, [])

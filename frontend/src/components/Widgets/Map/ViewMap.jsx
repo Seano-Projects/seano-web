@@ -315,7 +315,6 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
         const shouldShow = userInteractedRef.current && distance > 200;
         setShowFocusButton(shouldShow);
       } catch (error) {
-        console.error("❌ Error checking distance:", error);
         setShowFocusButton(false);
       }
     },
@@ -469,7 +468,6 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
           isProgrammaticMoveRef.current = false;
         }, 1300);
       } catch (error) {
-        console.error("Error during vehicle focus:", error);
         isProgrammaticMoveRef.current = false;
       }
     }

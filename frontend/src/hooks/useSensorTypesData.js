@@ -22,7 +22,6 @@ const useSensorTypesData = () => {
       setSensorTypes(data)
       calculateStats(data)
     } catch (error) {
-      console.error('Error fetching sensor types:', error)
       setSensorTypes([])
       calculateStats([])
     } finally {

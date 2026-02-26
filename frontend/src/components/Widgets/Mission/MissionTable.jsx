@@ -29,7 +29,6 @@ const MissionTable = () => {
       setShowDeleteModal(false);
       setSelectedMission(null);
     } catch (error) {
-      console.error("Failed to delete mission:", error);
     } finally {
       setIsDeleting(false);
     }

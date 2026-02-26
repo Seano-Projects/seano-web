@@ -54,7 +54,6 @@ const useBatteryData = () => {
 
             if (!exists) {
               const updated = [logEntry, ...prev].slice(0, 100)
-              console.log('🔋 Added battery log entry:', logEntry)
               return updated
             }
             return prev

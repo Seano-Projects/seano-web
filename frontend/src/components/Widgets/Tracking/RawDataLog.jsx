@@ -40,9 +40,6 @@ const RawDataLog = ({ selectedVehicle }) => {
 
   // Debug: Check raw log structure
   if (rawLogs.length > 0) {
-    console.log("RawDataLog - First raw log structure:", rawLogs[0]);
-    console.log("RawDataLog - First log vehicle:", rawLogs[0].vehicle);
-    console.log("RawDataLog - First log vehicle_id:", rawLogs[0].vehicle_id);
   }
 
   // Filter logs by selected vehicle (handle both number and string IDs)
@@ -50,22 +47,11 @@ const RawDataLog = ({ selectedVehicle }) => {
     ? rawLogs.filter((log) => {
         const logVehicleId = log.vehicle?.id || log.vehicle_id;
         const match = logVehicleId == selectedVehicle.id;
-        if (!match && rawLogs.indexOf(log) === 0) {
-          console.log("RawDataLog - Filter mismatch:", {
-            logVehicleId,
-            selectedVehicleId: selectedVehicle.id,
-            logVehicle: log.vehicle,
-          });
-        }
         return match;
       })
     : rawLogs;
 
-  console.log("RawDataLog - Selected Vehicle:", selectedVehicle);
-  console.log("RawDataLog - Total raw logs:", rawLogs.length);
-  console.log("RawDataLog - Filtered logs:", filteredLogs.length);
   if (filteredLogs.length > 0) {
-    console.log("RawDataLog - Sample filtered log:", filteredLogs[0]);
   }
 
   const formatTime = (timestamp) => {

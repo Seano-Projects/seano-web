@@ -33,7 +33,6 @@ const Sensor = () => {
       setShowAddSensorModal(false);
       fetchSensors();
     } catch (error) {
-      console.error("Error creating sensor:", error);
       toast.error(error.response?.data?.detail || "Failed to create sensor");
     }
   };
@@ -59,7 +58,6 @@ const Sensor = () => {
       setShowEditSensorModal(false);
       setEditData(null);
     } catch (error) {
-      console.error("Error updating sensor:", error);
       toast.error(error.response?.data?.detail || "Failed to update sensor");
     }
   };
@@ -79,7 +77,6 @@ const Sensor = () => {
       setDeleteTarget(null);
       fetchSensors();
     } catch (error) {
-      console.error("Error deleting sensor:", error);
       toast.error(error.response?.data?.detail || "Failed to delete sensor");
     }
   };
@@ -105,13 +102,11 @@ const Sensor = () => {
       setDeleteTarget(null);
       fetchSensors();
     } catch (error) {
-      console.error("Error deleting sensors:", error);
       toast.error("Failed to delete some sensors");
     }
   };
 
   const handleViewSensor = (sensor) => {
-    console.log("Viewing sensor:", sensor);
     // TODO: Implement view sensor details
     toast.success(`Viewing sensor: ${sensor.name}`);
   };

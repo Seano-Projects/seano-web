@@ -47,15 +47,9 @@ const MenuGroup = ({
 
       // Check permission if required
       if (item.requiredPermission && !hasPermission(item.requiredPermission)) {
-        console.log(
-          `❌ ${title} - ${item.text}: Missing permission "${item.requiredPermission}"`,
-        );
         return false;
       }
 
-      console.log(
-        `✅ ${title} - ${item.text}: Has permission "${item.requiredPermission}"`,
-      );
       return true;
     });
   }, [user, items, hasPermission, title]);

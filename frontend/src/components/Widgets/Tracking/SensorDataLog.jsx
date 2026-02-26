@@ -41,28 +41,11 @@ const SensorDataLog = ({ selectedVehicle }) => {
     prevLogsLengthRef.current = sensorLogs.length;
   }, [sensorLogs]);
 
-  // Debug: Check sensor log structure
-  if (sensorLogs.length > 0) {
-    console.log("SensorDataLog - First sensor log structure:", sensorLogs[0]);
-    console.log("SensorDataLog - First log vehicle:", sensorLogs[0].vehicle);
-    console.log(
-      "SensorDataLog - First log vehicle_id:",
-      sensorLogs[0].vehicle_id,
-    );
-  }
-
   // Filter logs by selected vehicle first (handle both number and string IDs)
   const vehicleFilteredLogs = selectedVehicle?.id
     ? sensorLogs.filter((log) => {
         const logVehicleId = log.vehicle?.id || log.vehicle_id;
         const match = logVehicleId == selectedVehicle.id;
-        if (!match && sensorLogs.indexOf(log) === 0) {
-          console.log("SensorDataLog - Filter mismatch:", {
-            logVehicleId,
-            selectedVehicleId: selectedVehicle.id,
-            logVehicle: log.vehicle,
-          });
-        }
         return match;
       })
     : sensorLogs;
@@ -87,20 +70,6 @@ const SensorDataLog = ({ selectedVehicle }) => {
       vehicleFilteredLogs.map((log) => getSensorTypeName(log)).filter(Boolean),
     ),
   ];
-
-  console.log("SensorDataLog - Selected Vehicle:", selectedVehicle);
-  console.log("SensorDataLog - Total sensor logs:", sensorLogs.length);
-  console.log(
-    "SensorDataLog - Vehicle filtered logs:",
-    vehicleFilteredLogs.length,
-  );
-  console.log(
-    "SensorDataLog - Filtered logs (by sensor type):",
-    filteredLogs.length,
-  );
-  if (vehicleFilteredLogs.length > 0) {
-    console.log("SensorDataLog - Sample filtered log:", vehicleFilteredLogs[0]);
-  }
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString("en-US", {

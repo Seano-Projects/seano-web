@@ -143,14 +143,11 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
       resetMissionState();
       toast.success("Mission created successfully!");
     } catch (error) {
-      console.error("Error creating mission:", error);
       toast.error(error.response?.data?.detail || "Failed to create mission");
     }
   };
 
   const handleSelectMission = (mission) => {
-    console.log("Loading mission:", mission);
-    console.log("Home location from DB:", mission.home_location);
 
     // Clear previous mission data first
     setGeneratedPaths([]);
@@ -184,13 +181,11 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
 
     // Restore home location if exists
     if (mission.home_location) {
-      console.log("Setting home location:", mission.home_location);
       setHomeLocation({
         lat: mission.home_location.lat,
         lng: mission.home_location.lng,
       });
     } else {
-      console.log("No home location in mission data");
     }
 
     setWaypoints(loadedWaypoints);
@@ -213,9 +208,6 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
     }
 
     try {
-      console.log("Saving mission:", activeMission.id);
-      console.log("Waypoints to save:", waypoints);
-      console.log("Home location:", homeLocation);
 
       // Convert waypoints to save format, preserving zone/polygon data
       const waypointData = waypoints
@@ -260,7 +252,6 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
           return baseData;
         });
 
-      console.log("Converted waypoint data:", waypointData);
 
       const updateData = {
         waypoints: waypointData,
@@ -279,8 +270,6 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
 
       toast.success("Mission saved successfully!");
     } catch (error) {
-      console.error("Error saving mission:", error);
-      console.error("Error response:", error.response);
       toast.error(error.response?.data?.error || "Failed to save mission");
     }
   };

@@ -77,7 +77,6 @@ const useUserData = () => {
       const data = await response.json()
       setUserData(Array.isArray(data) ? data : [])
     } catch (err) {
-      console.error('Fetch users error:', err)
       setError(err.message)
       setUserData([])
     } finally {
@@ -103,7 +102,6 @@ const useUserData = () => {
       setUserData(prev => [...prev, newUser])
       return { success: true, data: newUser }
     } catch (err) {
-      console.error('Add user error:', err)
       return { success: false, error: err.message }
     }
   }
@@ -128,7 +126,6 @@ const useUserData = () => {
       )
       return { success: true, data: updatedUser }
     } catch (err) {
-      console.error('Update user error:', err)
       return { success: false, error: err.message }
     }
   }
@@ -149,7 +146,6 @@ const useUserData = () => {
       setUserData(prev => prev.filter(user => user.id !== userId))
       return { success: true }
     } catch (err) {
-      console.error('Delete user error:', err)
       return { success: false, error: err.message }
     }
   }

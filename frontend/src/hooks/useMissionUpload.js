@@ -77,7 +77,6 @@ const useMissionUpload = () => {
       setVehicleState(state)
       return state
     } catch (error) {
-      console.error('Error checking vehicle readiness:', error)
       setUploadState(prev => ({
         ...prev,
         error: 'Failed to check vehicle status',
@@ -220,7 +219,6 @@ const useMissionUpload = () => {
           message: 'Mission uploaded successfully to vehicle'
         }
       } catch (error) {
-        console.error('Mission upload error:', error)
 
         setUploadState({
           isUploading: false,

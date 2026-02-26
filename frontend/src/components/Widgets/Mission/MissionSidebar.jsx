@@ -224,9 +224,7 @@ const MissionSidebar = ({
 
   const handleGenerateWaypoints = () => {
     if (!homeLocation) {
-      toast.warning(
-        "Please set home location first before generating waypoints!",
-      );
+      toast.warning("Please set home location first!");
       return;
     }
 

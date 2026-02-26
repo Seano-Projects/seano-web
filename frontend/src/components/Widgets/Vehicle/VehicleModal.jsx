@@ -31,8 +31,6 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
 
   // Populate form when editing
   useEffect(() => {
-    console.log("VehicleModal useEffect - editData:", editData);
-    console.log("VehicleModal useEffect - isOpen:", isOpen);
 
     if (editData) {
       const newFormData = {
@@ -41,7 +39,6 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
         description: editData.description || "",
         status: editData.statusRaw || editData.status || "idle",
       };
-      console.log("Setting form data:", newFormData);
       setFormData(newFormData);
     } else {
       setFormData({
@@ -61,9 +58,6 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
     e.preventDefault();
     setLoading(true);
 
-    console.log("=== VEHICLE MODAL SUBMIT ===");
-    console.log("Current user from context:", user);
-    console.log("Form data:", formData);
 
     const vehicleData = {
       name: formData.name,
@@ -73,7 +67,6 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       user_id: user?.id || 1, // Use logged in user ID, default to 1
     };
 
-    console.log("Prepared vehicle data to submit:", vehicleData);
 
     try {
       await onSubmit(vehicleData, editData?.id);
@@ -81,7 +74,6 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       // Close modal on success (parent will handle refresh)
       onClose();
     } catch (error) {
-      console.error("Error in handleSubmit:", error);
     } finally {
       setLoading(false);
     }

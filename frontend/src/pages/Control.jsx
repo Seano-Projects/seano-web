@@ -60,7 +60,6 @@ const Control = () => {
   // Confirmation states
   const [showDisarmConfirm, setShowDisarmConfirm] = useState(false);
   const [showArmConfirm, setShowArmConfirm] = useState(false);
-  const [showModeConfirm, setShowModeConfirm] = useState(false);
   const [pendingMode, setPendingMode] = useState(null);
 
   // Search coordinates state
@@ -163,7 +162,7 @@ const Control = () => {
         toast.success("Location set successfully!");
       } else {
         toast.error(
-          "Invalid coordinates. Please use format: latitude, longitude. Example: -6.2088, 106.8456",
+          "Invalid coordinates! Please enter valid latitude and longitude.",
         );
       }
     }
@@ -213,7 +212,6 @@ const Control = () => {
 
   // Handlers
   const handleDisarmConfirm = () => {
-    console.log("System disarmed!");
     setIsArmed(false);
     setPowerOn(false);
     setShowDisarmConfirm(false);
@@ -221,7 +219,6 @@ const Control = () => {
   };
 
   const handleArmConfirm = () => {
-    console.log("System armed!");
     setIsArmed(true);
     setShowArmConfirm(false);
     // Add your arm logic here
@@ -235,7 +232,6 @@ const Control = () => {
 
   const handleModeChangeConfirm = () => {
     if (pendingMode) {
-      console.log(`Mode changed to: ${pendingMode}`);
       setActiveMode(pendingMode);
       setPendingMode(null);
       // Add your mode change logic here

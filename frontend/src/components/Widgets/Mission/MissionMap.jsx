@@ -86,28 +86,22 @@ const MissionMap = ({
 
   // Restore polygon/zone shapes when waypoints are loaded
   React.useEffect(() => {
-    console.log("Restoring zones - featureGroupRef:", featureGroupRef);
-    console.log("Restoring zones - waypoints:", waypoints);
 
     if (featureGroupRef && waypoints.length > 0) {
       // Clear existing zone layers first
       featureGroupRef.eachLayer((layer) => {
         if (layer.options && layer.options.isZoneLayer) {
-          console.log("Removing existing zone layer:", layer);
           featureGroupRef.removeLayer(layer);
         }
       });
 
       // Redraw zones from waypoints
       waypoints.forEach((wp) => {
-        console.log("Processing waypoint:", wp);
         if (wp.type === "zone" && wp.shape) {
-          console.log("Found zone waypoint to restore:", wp);
           let layer;
 
           if (wp.shape === "polygon" && wp.vertices) {
             // Recreate polygon
-            console.log("Recreating polygon with vertices:", wp.vertices);
             const latLngs = wp.vertices.map((v) => [v.lat, v.lng]);
             layer = L.polygon(latLngs, {
               color: "#018190",
@@ -117,7 +111,6 @@ const MissionMap = ({
             });
           } else if (wp.shape === "rectangle" && wp.bounds) {
             // Recreate rectangle
-            console.log("Recreating rectangle with bounds:", wp.bounds);
             const bounds = L.latLngBounds(
               [wp.bounds.south, wp.bounds.west],
               [wp.bounds.north, wp.bounds.east],
@@ -130,7 +123,6 @@ const MissionMap = ({
             });
           } else if (wp.shape === "circle" && wp.radius) {
             // Recreate circle
-            console.log("Recreating circle with radius:", wp.radius);
             layer = L.circle([wp.lat, wp.lng], {
               radius: wp.radius,
               color: "#018190",
@@ -141,18 +133,13 @@ const MissionMap = ({
           }
 
           if (layer) {
-            console.log("Adding layer to featureGroup:", layer);
             layer.waypointId = wp.id;
             featureGroupRef.addLayer(layer);
           } else {
-            console.log("No layer created for waypoint:", wp);
           }
         }
       });
     } else {
-      console.log(
-        "Skipping zone restoration - featureGroupRef or waypoints not ready",
-      );
     }
   }, [waypoints, featureGroupRef]);
 
@@ -197,11 +184,7 @@ const MissionMap = ({
         setShowSearchInput(false);
         setSearchQuery("");
       } else {
-        toast.error(
-          "Invalid coordinates. Please use format: latitude, longitude. Example: -6.2088, 106.8456",
-        );
-      }
-    }
+        toast.error("An error occurred"); }}
   };
 
   // Home icon definition

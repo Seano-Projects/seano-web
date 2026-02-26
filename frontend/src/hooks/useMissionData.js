@@ -99,7 +99,6 @@ const useMissionData = () => {
       )
       setStats(response.data)
     } catch (err) {
-      console.error('Error fetching mission stats:', err)
     }
   }
 
@@ -145,7 +144,6 @@ const useMissionData = () => {
       wsRef.current = new WebSocket(wsUrl)
 
       wsRef.current.onopen = () => {
-        console.log('Mission WebSocket connected')
       }
 
       wsRef.current.onmessage = event => {
@@ -177,16 +175,13 @@ const useMissionData = () => {
             }
           }
         } catch (err) {
-          console.error('Error parsing WebSocket message:', err)
         }
       }
 
       wsRef.current.onerror = error => {
-        console.error('Mission WebSocket error:', error)
       }
 
       wsRef.current.onclose = () => {
-        console.log('Mission WebSocket disconnected, reconnecting...')
         setTimeout(connectWebSocket, 3000)
       }
     }
@@ -224,20 +219,15 @@ const useMissionData = () => {
   // Function untuk update mission
   const updateMission = async (id, missionData) => {
     try {
-      console.log('🚀 updateMission called:', { id, missionData })
-      console.log('📍 API URL:', API_ENDPOINTS.MISSIONS.UPDATE(id))
 
       const response = await axios.put(
         API_ENDPOINTS.MISSIONS.UPDATE(id),
         missionData
       )
 
-      console.log('✅ Update success:', response.data)
       await fetchMissionData() // Refresh data
       return response.data
     } catch (error) {
-      console.error('❌ Update failed:', error)
-      console.error('Error details:', error.response?.data)
       throw error
     }
   }

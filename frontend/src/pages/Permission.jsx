@@ -98,7 +98,6 @@ const Permission = () => {
         setShowViewModal(true);
       }
     } catch (error) {
-      console.error("Failed to fetch permission details:", error);
       setSelectedPermission(permission);
       setShowViewModal(true);
     }

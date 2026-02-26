@@ -39,14 +39,9 @@ const Vehicle = () => {
         setLoading(true);
         const response = await axios.get(API_ENDPOINTS.VEHICLES.LIST);
 
-        console.log("=== RAW API RESPONSE ===");
-        console.log("Response data:", response.data);
-
         const data = response.data;
         const processedVehicles = Array.isArray(data)
           ? data.map((vehicle) => {
-              console.log("Processing vehicle:", vehicle);
-              console.log("Vehicle code from API:", vehicle.code);
               return {
                 ...vehicle,
                 code:
@@ -61,7 +56,6 @@ const Vehicle = () => {
             })
           : [];
 
-        console.log("Processed vehicles:", processedVehicles);
         setVehicles(processedVehicles);
 
         // Calculate stats
@@ -92,7 +86,6 @@ const Vehicle = () => {
           maintenanceYesterday: 0,
         });
       } catch (error) {
-        console.error("Error fetching vehicles:", error);
         setVehicles([]);
       } finally {
         setLoading(false);
@@ -105,12 +98,6 @@ const Vehicle = () => {
   // Update vehicle data with real-time WebSocket data
   useEffect(() => {
     if (!vehicleLogs || vehicleLogs.length === 0) return;
-
-    console.log(
-      "🔄 Updating vehicles with WebSocket data:",
-      vehicleLogs.length,
-      "logs",
-    );
 
     // Group latest logs by vehicle_id
     const latestLogsByVehicle = {};
@@ -125,15 +112,11 @@ const Vehicle = () => {
       }
     });
 
-    console.log("📊 Latest logs by vehicle:", latestLogsByVehicle);
-
     // Update vehicles with latest log data
     setVehicles((prevVehicles) =>
       prevVehicles.map((vehicle) => {
         const latestLog = latestLogsByVehicle[vehicle.id];
         if (!latestLog) return vehicle;
-
-        console.log(`🚗 Updating vehicle ${vehicle.id}:`, latestLog);
 
         // Use battery_percentage if available, otherwise calculate from voltage
         const batteryPercentage = latestLog.battery_percentage
@@ -183,7 +166,6 @@ const Vehicle = () => {
           status: "idle", // Vehicle is online if sending telemetry data
         };
 
-        console.log(`✅ Updated vehicle ${vehicle.id}:`, updatedVehicle);
         return updatedVehicle;
       }),
     );
@@ -196,15 +178,12 @@ const Vehicle = () => {
 
   const handleCreateOrUpdateVehicle = async (vehicleData, vehicleId = null) => {
     try {
-      console.log("Submitting vehicle data:", vehicleData);
-
       if (vehicleId) {
         // Update existing vehicle
         const response = await axios.put(
           API_ENDPOINTS.VEHICLES.UPDATE(vehicleId),
           vehicleData,
         );
-        console.log("Update response:", response.data);
         toast.success("Vehicle updated successfully!");
       } else {
         // Create new vehicle
@@ -212,7 +191,6 @@ const Vehicle = () => {
           API_ENDPOINTS.VEHICLES.CREATE,
           vehicleData,
         );
-        console.log("Create response:", response.data);
         toast.success("Vehicle created successfully!");
       }
 
@@ -223,9 +201,6 @@ const Vehicle = () => {
       // Refresh vehicle list immediately
       refreshVehicles();
     } catch (error) {
-      console.error("Error saving vehicle:", error);
-      console.error("Error response:", error.response);
-
       let errorMessage = "Failed to save vehicle";
 
       if (error.response?.status === 401) {
@@ -261,7 +236,6 @@ const Vehicle = () => {
       status: vehicle.statusRaw || vehicle.status.toLowerCase(),
       user_id: vehicle.user_id,
     };
-    console.log("handleEditVehicle - editData:", editData);
     setEditingVehicle(editData);
     setShowVehicleModal(true);
   };
@@ -286,8 +260,6 @@ const Vehicle = () => {
       // Refresh vehicle list immediately
       refreshVehicles();
     } catch (error) {
-      console.error("Error deleting vehicle:", error);
-
       let errorMessage = "Failed to delete vehicle";
       if (error.response?.status === 401) {
         errorMessage = "Authentication failed. Please login again.";
@@ -330,7 +302,6 @@ const Vehicle = () => {
       setVehicleToDelete(null);
       refreshVehicles();
     } catch (error) {
-      console.error("Error bulk deleting vehicles:", error);
       toast.error("Failed to delete some vehicles");
     } finally {
       setIsDeleting(false);

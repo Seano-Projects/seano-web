@@ -41,14 +41,14 @@ services:
     container_name: seano_frontend
     restart: always
     ports:
-      - "5173:5173"
+      - "8001:80"
     depends_on:
       - backend
     networks:
       - seano_net
     environment:
-      - VITE_API_URL=https://api.seano.cloud
-      - VITE_WS_URL=wss://api.seano.cloud
+      - VITE_USE_PROXY=true
+      - VITE_MODE=production
 
 networks:
   seano_net:

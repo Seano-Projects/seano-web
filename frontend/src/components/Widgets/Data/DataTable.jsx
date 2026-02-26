@@ -26,7 +26,6 @@ const DataTable = ({ hasActiveFilters, handleResetFilters }) => {
       const logsData = Array.isArray(response.data) ? response.data : [];
       setRawLogs(logsData);
     } catch (error) {
-      console.error("Error fetching raw logs:", error);
       setError(error.message || "Failed to fetch raw logs");
       setRawLogs([]);
     } finally {
@@ -71,7 +70,6 @@ const DataTable = ({ hasActiveFilters, handleResetFilters }) => {
       setSelectedIds([]);
       fetchRawLogs();
     } catch (error) {
-      console.error("Error bulk deleting logs:", error);
       toast.error("Failed to delete some logs");
     }
   };
@@ -85,7 +83,6 @@ const DataTable = ({ hasActiveFilters, handleResetFilters }) => {
       toast.success("Log deleted successfully!");
       fetchRawLogs();
     } catch (error) {
-      console.error("Error deleting log:", error);
       toast.error("Failed to delete log");
     }
   };

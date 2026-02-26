@@ -24,9 +24,6 @@ export function PermissionProvider({ children }) {
   useEffect(() => {
     const handleUserLogin = () => {
       if (isAuthenticated && user) {
-        console.log(
-          "🔄 User logged in event detected, refetching permissions...",
-        );
         fetchPermissions();
       }
     };
@@ -113,18 +110,12 @@ export function PermissionProvider({ children }) {
                 "permissions",
                 JSON.stringify(permissionNames),
               );
-              console.log(
-                "✅ Fetched permissions from user data:",
-                permissionNames,
-              );
               setLoading(false);
               return;
             }
           }
         } catch (err) {
-          console.log(
-            "⚠️ Could not fetch from /users/:id, trying other methods...",
-          );
+          // Could not fetch from /users/:id, trying other methods
         }
       }
 
@@ -161,18 +152,12 @@ export function PermissionProvider({ children }) {
                 "permissions",
                 JSON.stringify(permissionNames),
               );
-              console.log(
-                "✅ Fetched permissions from roles list:",
-                permissionNames,
-              );
               setLoading(false);
               return;
             }
           }
         } catch (err) {
-          console.log(
-            "⚠️ Could not fetch from /roles/, user may not have roles.view permission",
-          );
+          // Could not fetch from /roles/, user may not have roles.view permission
         }
       }
 
@@ -193,16 +178,10 @@ export function PermissionProvider({ children }) {
           setPermissions(permissionNames);
           // Cache in localStorage
           localStorage.setItem("permissions", JSON.stringify(permissionNames));
-          console.log(
-            "✅ Fetched permissions from /permissions endpoint:",
-            permissionNames,
-          );
           setLoading(false);
           return;
         }
-      } catch (err) {
-        console.log("⚠️ Could not fetch from /permissions/");
-      }
+      } catch (err) {}
 
       // Strategy 4: Use default permissions based on role name
       if (user?.role) {
@@ -213,11 +192,6 @@ export function PermissionProvider({ children }) {
             "permissions",
             JSON.stringify(defaultPermissions),
           );
-          console.log(
-            "✅ Using default permissions for role:",
-            user.role,
-            defaultPermissions,
-          );
           setLoading(false);
           return;
         }
@@ -227,29 +201,21 @@ export function PermissionProvider({ children }) {
       const cached = localStorage.getItem("permissions");
       if (cached) {
         setPermissions(JSON.parse(cached));
-        console.log("⚠️ Using cached permissions (all fetch methods failed)");
       } else {
-        console.warn("⚠️ No permissions available and no cache found");
         // Set empty array to prevent errors
         setPermissions([]);
       }
     } catch (err) {
-      console.error("Failed to fetch permissions:", err);
       setError(err.message);
       // Fallback to cached permissions
       const cached = localStorage.getItem("permissions");
       if (cached) {
         setPermissions(JSON.parse(cached));
-        console.log("⚠️ Using cached permissions (error occurred)");
       } else {
         // Use default permissions if available
         if (user?.role) {
           const defaultPermissions = getDefaultPermissionsByRole(user.role);
           setPermissions(defaultPermissions);
-          console.log(
-            "⚠️ Using default permissions due to error:",
-            defaultPermissions,
-          );
         } else {
           setPermissions([]);
         }

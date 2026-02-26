@@ -109,7 +109,6 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
           setLogData(processed);
         }
       } catch (err) {
-        console.error("Failed to fetch vehicle logs:", err);
       } finally {
         setLoading(false);
       }

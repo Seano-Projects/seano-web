@@ -109,10 +109,6 @@ axiosInstance.interceptors.response.use(
   async error => {
     const originalRequest = error.config
 
-    console.log(
-      `⚠️ DEBUG: Request error - Status: ${error.response?.status}, URL: ${originalRequest?.url}`
-    )
-
     // If 401 and we haven't tried to refresh yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true

@@ -22,7 +22,6 @@ const useSensorsData = () => {
       setSensors(data)
       calculateStats(data)
     } catch (error) {
-      console.error('Error fetching sensors:', error)
       setSensors([])
       calculateStats([])
     } finally {

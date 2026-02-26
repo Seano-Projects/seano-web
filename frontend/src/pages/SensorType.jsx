@@ -36,7 +36,6 @@ const SensorType = () => {
       setShowAddSensorTypeModal(false);
       fetchSensorTypes();
     } catch (error) {
-      console.error("Error creating sensor type:", error);
       toast.error(error.response?.data?.detail || "Failed to create sensor type");
     }
   };
@@ -61,7 +60,6 @@ const SensorType = () => {
       setEditData(null);
       fetchSensorTypes();
     } catch (error) {
-      console.error("Error updating sensor type:", error);
       toast.error(error.response?.data?.detail || "Failed to update sensor type");
     }
   };
@@ -81,7 +79,6 @@ const SensorType = () => {
       setDeleteTarget(null);
       fetchSensorTypes();
     } catch (error) {
-      console.error("Error deleting sensor type:", error);
       toast.error(error.response?.data?.detail || "Failed to delete sensor type");
     }
   };
@@ -107,7 +104,6 @@ const SensorType = () => {
       setDeleteTarget(null);
       fetchSensorTypes();
     } catch (error) {
-      console.error("Error deleting sensor types:", error);
       toast.error("Failed to delete some sensor types");
     }
   };

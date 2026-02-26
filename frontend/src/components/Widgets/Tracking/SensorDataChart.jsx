@@ -82,7 +82,6 @@ const SensorDataChart = ({ className = "", selectedVehicle }) => {
           }
         }
       } catch (err) {
-        console.error("Failed to fetch sensor data:", err);
       }
     };
 

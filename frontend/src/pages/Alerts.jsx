@@ -26,7 +26,6 @@ const Alerts = () => {
     clearAllAlerts,
   } = useAlertData() || {};
 
-  console.log("🔔 Alerts Data:", { alerts, stats, loading, connectionStatus });
 
   const { loading: timeoutLoading } = useLoadingTimeout(loading, 5000);
   const shouldShowSkeleton = timeoutLoading && loading && alerts.length === 0;

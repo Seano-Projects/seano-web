@@ -24,7 +24,6 @@ const SensorModal = ({ isOpen, onClose, onSubmit, editData }) => {
         const types = Array.isArray(response.data) ? response.data : [];
         setSensorTypeOptions(types);
       } catch (error) {
-        console.error("Error fetching sensor types:", error);
         setSensorTypeOptions([]);
       } finally {
         setLoadingTypes(false);

@@ -34,7 +34,6 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
       const response = await axiosInstance.get(API_ENDPOINTS.SENSORS.LIST);
       setAvailableSensors(response.data);
     } catch (error) {
-      console.error("Error fetching sensors:", error);
       toast.error("Failed to load sensors");
     }
   };
@@ -95,7 +94,6 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
       onSuccess();
       onClose();
     } catch (error) {
-      console.error("Error creating vehicle:", error);
       const msg = error.response?.data?.detail || "Failed to create vehicle";
       toast.error(msg);
     } finally {

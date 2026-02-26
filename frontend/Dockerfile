@@ -14,16 +14,21 @@ RUN cp /app/public/flight-indicators/img/heading_mechanics.svg /app/node_modules
 
 RUN bun run build
 
-# --- Stage 2: Production ---
-FROM oven/bun:1-alpine
+# --- Stage 2: Production with Nginx ---
+FROM nginx:alpine
 
-WORKDIR /app
-COPY --from=builder /app/dist ./dist
+# Copy built files
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-EXPOSE 5173
+# Copy custom nginx config
+COPY nginx-frontend.conf /etc/nginx/conf.d/default.conf
+
+# Remove default nginx config
+RUN rm -f /etc/nginx/conf.d/default.conf.default
+
+EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD bun -e "const http = require('http'); http.get('http://localhost:5173', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
 
-# Serve with compression enabled for better performance
-CMD ["bun", "x", "serve", "-s", "dist", "-p", "5173", "--cors"]
+CMD ["nginx", "-g", "daemon off;"]

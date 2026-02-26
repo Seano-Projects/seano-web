@@ -42,14 +42,11 @@ export function AuthProvider({ children }) {
 
         // If token expires in less than 6 hours, trigger refresh proactively
         if (timeUntilExpiry < sixHours) {
-          console.log("🔄 Token will expire soon, refreshing...");
           try {
             // Make a simple API call to trigger axios interceptor refresh
             await axiosInstance.get(API_ENDPOINTS.AUTH.ME);
-            console.log("✅ Token refreshed successfully");
           } catch (error) {
             // Clear user state if refresh fails
-            console.error("❌ Token refresh failed:", error);
             if (error.response?.status === 401) {
               setUser(null);
               localStorage.removeItem("access_token");
@@ -131,7 +128,6 @@ export function AuthProvider({ children }) {
         setUser(null);
       }
     } catch (error) {
-      console.error("Auth check failed:", error);
       // Only clear storage if it's a 401 error (unauthorized)
       // Other errors (network, etc.) shouldn't clear tokens
       if (error.response?.status === 401) {
@@ -158,21 +154,13 @@ export function AuthProvider({ children }) {
   // Login function
   const login = async (email, password) => {
     try {
-      console.log("Attempting login with:", {
-        email,
-        endpoint: API_ENDPOINTS.AUTH.LOGIN,
-      });
-
       // Use axiosInstance for login (no token needed, so interceptor won't interfere)
       const response = await axiosInstance.post(API_ENDPOINTS.AUTH.LOGIN, {
         email: email,
         password: password,
       });
 
-      console.log("Login response status:", response.status);
-
       const data = response.data;
-      console.log("Login successful, got data:", data);
 
       // Save tokens to localStorage
       localStorage.setItem("access_token", data.access_token);
@@ -183,7 +171,6 @@ export function AuthProvider({ children }) {
       // Check if user data is in the response
       if (data.user) {
         // User data is already in login response
-        console.log("Got user data from login response:", data.user);
         // Store user in localStorage for quick access
         localStorage.setItem("user", JSON.stringify(data.user));
         setUser(data.user);
@@ -198,7 +185,6 @@ export function AuthProvider({ children }) {
 
       if (userResponse.status === 200) {
         const userData = userResponse.data;
-        console.log("Got user data from /auth/me:", userData);
         localStorage.setItem("user", JSON.stringify(userData));
         setUser(userData);
 
@@ -208,11 +194,9 @@ export function AuthProvider({ children }) {
       }
 
       // If still no user data, just redirect anyway
-      console.log("No user data available, redirecting anyway");
       navigate("/dashboard");
       return { success: true };
     } catch (error) {
-      console.error("Login error:", error);
       let errorMessage = "Login failed. Please check your credentials.";
 
       // Handle error response
@@ -249,7 +233,6 @@ export function AuthProvider({ children }) {
       // Use axiosInstance to leverage auto-refresh if token is expired
       await axiosInstance.post(API_ENDPOINTS.AUTH.LOGOUT);
     } catch (error) {
-      console.error("Logout error:", error);
       // Continue with logout even if API call fails
     } finally {
       // Clear storage and state

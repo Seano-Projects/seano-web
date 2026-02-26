@@ -215,7 +215,6 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
             vehicles={vehicles}
             selectedVehicle={selectedVehicle}
             onVehicleChange={(vehicle) => {
-              console.log("Vehicle selected in dropdown:", vehicle);
               setSelectedVehicle(vehicle);
             }}
             placeholder={loading ? "Loading vehicles..." : "Select Vehicle"}

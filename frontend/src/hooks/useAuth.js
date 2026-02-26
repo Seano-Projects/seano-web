@@ -22,7 +22,6 @@ const useAuth = () => {
 
       return { success: true, data: res.data }
     } catch (err) {
-      console.error(err)
       let errorMessage = 'Something went wrong. Please try again.'
 
       if (err.response?.status === 401) {
@@ -69,7 +68,6 @@ const useAuth = () => {
         }
       }
     } catch (err) {
-      console.error('Registration error:', err)
       const errorMessage = 'Unable to connect to server. Please check your internet connection and try again.'
       setError(errorMessage)
       return { success: false, error: errorMessage }
@@ -106,7 +104,6 @@ const useAuth = () => {
         }
       }
     } catch (err) {
-      console.error(err)
       const errorMessage = 'Server error. Please try again later.'
       setError(errorMessage)
       return { success: false, error: errorMessage }
@@ -147,7 +144,6 @@ const useAuth = () => {
         }
       }
     } catch (err) {
-      console.error('Set credentials error:', err)
       const errorMessage = 'Unable to connect to server. Please check your internet connection.'
       setError(errorMessage)
       return { success: false, error: errorMessage }
@@ -168,7 +164,6 @@ const useAuth = () => {
       const user = localStorage.getItem('user')
       return user ? JSON.parse(user) : null
     } catch (err) {
-      console.error('Error parsing user data:', err)
       return null
     }
   }

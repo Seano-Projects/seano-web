@@ -1,8 +1,21 @@
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || 'https://api.seano.cloud'
+// Use relative path in production untuk hide API URL dari browser console
+// Development akan use vite proxy, production use nginx reverse proxy
+const isProduction = import.meta.env.MODE === 'production'
+const useProxy = import.meta.env.VITE_USE_PROXY === 'true'
 
-// WebSocket URL (same as API but with ws/wss protocol)
-export const WS_URL = API_BASE_URL.replace(/^http/, 'ws')
+export const API_BASE_URL =
+  useProxy || isProduction
+    ? '/api' // Relative path - proxied by nginx/vite
+    : import.meta.env.VITE_API_URL || 'https://api.seano.cloud'
+
+// WebSocket URL
+export const WS_URL =
+  useProxy || isProduction
+    ? (window.location.protocol === 'https:' ? 'wss:' : 'ws:') +
+      '//' +
+      window.location.host +
+      '/ws'
+    : API_BASE_URL.replace(/^http/, 'ws')
 
 const config = {
   apiBaseUrl: API_BASE_URL,

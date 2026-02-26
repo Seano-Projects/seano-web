@@ -99,7 +99,6 @@ const usePermissionData = () => {
       const data = await response.json()
       setPermissionData(Array.isArray(data) ? data : [])
     } catch (err) {
-      console.error('Fetch permissions error:', err)
       setError(err.message)
       setPermissionData([])
     } finally {
@@ -129,7 +128,6 @@ const usePermissionData = () => {
 
       return { success: true, message: 'Permission added successfully!' }
     } catch (err) {
-      console.error('Add permission error:', err)
       setError(err.message)
       return { success: false, message: err.message }
     } finally {
@@ -163,7 +161,6 @@ const usePermissionData = () => {
 
       return { success: true, message: 'Permission updated successfully!' }
     } catch (err) {
-      console.error('Update permission error:', err)
       setError(err.message)
       return { success: false, message: err.message }
     } finally {
@@ -191,7 +188,6 @@ const usePermissionData = () => {
 
       return { success: true, message: 'Permission deleted successfully!' }
     } catch (err) {
-      console.error('Delete permission error:', err)
       setError(err.message)
       return { success: false, message: err.message }
     } finally {

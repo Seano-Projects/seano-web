@@ -25,16 +25,12 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
     return () => clearTimeout(timeout);
   }, []);
 
-  console.log("BatteryMonitoring - selectedVehicle:", selectedVehicle);
-  console.log("BatteryMonitoring - batteryData:", batteryData);
-  console.log("BatteryMonitoring - selectedVehicle.id:", selectedVehicle?.id);
 
   // Get battery data for selected vehicle
   const vehicleBatteries = batteryData[selectedVehicle?.id] || {
     1: null,
     2: null,
   };
-  console.log("BatteryMonitoring - vehicleBatteries:", vehicleBatteries);
 
   // Ensure we always have exactly 2 batteries for display
   const displayBatteries = [

@@ -74,9 +74,7 @@ export const useLogData = () => {
 
       setBatteryData(batteryMap)
       localStorage.setItem('batteryData', JSON.stringify(batteryMap))
-      console.log('✅ Fetched latest battery data:', batteryMap)
     } catch (err) {
-      console.error('Failed to fetch battery data:', err)
       // Keep localStorage data if API fails
     }
   }, [])
@@ -90,7 +88,6 @@ export const useLogData = () => {
       })
       setStats(response.data)
     } catch (err) {
-      console.error('Failed to fetch log stats:', err)
       setError(err.message)
     }
   }, [])
@@ -104,7 +101,6 @@ export const useLogData = () => {
       })
       setChartData(response.data.chart_data || [])
     } catch (err) {
-      console.error('Failed to fetch chart data:', err)
       setError(err.message)
     }
   }, [])
@@ -121,10 +117,7 @@ export const useLogData = () => {
       )
       const data = response.data.data || response.data || []
       setVehicleLogs(data)
-      console.log('✅ Fetched vehicle logs:', data.length)
-    } catch (err) {
-      console.error('Failed to fetch vehicle logs:', err)
-    }
+    } catch (err) {}
   }, [])
 
   // Fetch sensor logs
@@ -139,10 +132,7 @@ export const useLogData = () => {
       )
       const data = response.data.data || response.data || []
       setSensorLogs(data)
-      console.log('✅ Fetched sensor logs:', data.length)
-    } catch (err) {
-      console.error('Failed to fetch sensor logs:', err)
-    }
+    } catch (err) {}
   }, [])
 
   // Fetch raw logs
@@ -153,10 +143,6 @@ export const useLogData = () => {
         headers: { Authorization: `Bearer ${token}` }
       })
 
-      console.log('📦 Raw logs API response:', response.data)
-      console.log('📦 Type of response.data:', typeof response.data)
-      console.log('📦 Is array?:', Array.isArray(response.data))
-
       // Handle different response formats
       let data = []
       if (Array.isArray(response.data)) {
@@ -164,13 +150,10 @@ export const useLogData = () => {
       } else if (response.data && response.data.data) {
         data = response.data.data
       } else {
-        console.warn('⚠️ Unexpected raw logs response format:', response.data)
       }
 
       setRawLogs(data)
-      console.log('✅ Set rawLogs state with', data.length, 'items')
     } catch (err) {
-      console.error('❌ Failed to fetch raw logs:', err)
       setRawLogs([]) // Set empty array on error
     }
   }, [])
@@ -269,15 +252,10 @@ export const useLogData = () => {
 
           // If token expires in less than 15 minutes, trigger a refresh via API call
           if (expiration - now < fifteenMinutes) {
-            console.log(
-              '⏰ Token expiring soon, triggering refresh via API call...'
-            )
             // Make a simple API call to trigger axios interceptor refresh
-            fetchStats().catch(console.error)
+            fetchStats().catch(() => {})
           }
-        } catch (e) {
-          console.error('Failed to decode token:', e)
-        }
+        } catch (e) {}
       }
     }, 5 * 60 * 1000) // Check every 5 minutes
 
@@ -288,7 +266,6 @@ export const useLogData = () => {
   useEffect(() => {
     const token = localStorage.getItem('access_token')
     if (!token) {
-      console.log('No token found, skipping WebSocket connection')
       return
     }
 
@@ -299,13 +276,10 @@ export const useLogData = () => {
 
     const connect = () => {
       const wsUrl = `${WS_URL}/ws/logs?token=${token}`
-      console.log('Attempting WebSocket connection to:', wsUrl)
 
       websocket = new WebSocket(wsUrl)
 
       websocket.onopen = () => {
-        console.log('✅ WebSocket connected successfully for logs')
-
         // Send ping every 30 seconds to keep connection alive
         pingInterval = setInterval(() => {
           if (websocket?.readyState === WebSocket.OPEN) {
@@ -315,16 +289,13 @@ export const useLogData = () => {
       }
 
       websocket.onmessage = event => {
-        console.log('📨 WebSocket message received:', event.data)
         try {
           const message = JSON.parse(event.data)
-          console.log('📦 Parsed message:', message)
 
           // Ignore pong messages
           if (message.type === 'pong') return
 
           if (message.type === 'vehicle_log') {
-            console.log('🚗 Received vehicle log:', message.data)
             setVehicleLogs(prev => [message.data, ...prev].slice(0, 200))
             setStats(prev => ({
               ...prev,
@@ -335,7 +306,6 @@ export const useLogData = () => {
               }
             }))
           } else if (message.type === 'sensor_log') {
-            console.log('📡 Received sensor log:', message.data)
             setSensorLogs(prev => [message.data, ...prev].slice(0, 200))
             setStats(prev => ({
               ...prev,
@@ -346,7 +316,6 @@ export const useLogData = () => {
               }
             }))
           } else if (message.type === 'raw_log') {
-            console.log('📝 Received raw log:', message.data)
             setRawLogs(prev => [message.data, ...prev].slice(0, 200))
             setStats(prev => ({
               ...prev,
@@ -357,7 +326,6 @@ export const useLogData = () => {
               }
             }))
           } else if (message.type === 'battery') {
-            console.log('🔋 Received battery data:', message)
             const {
               vehicle_id,
               battery_id,
@@ -370,13 +338,6 @@ export const useLogData = () => {
               cell_count,
               timestamp
             } = message
-
-            console.log('🔋 Received battery data:', {
-              vehicle_id,
-              battery_id,
-              percentage,
-              cell_count: cell_voltages?.length || cell_count
-            })
 
             setBatteryData(prev => {
               const vehicleBatteries = prev[vehicle_id] || { 1: null, 2: null }
@@ -400,35 +361,18 @@ export const useLogData = () => {
               // Save to localStorage
               try {
                 localStorage.setItem('batteryData', JSON.stringify(newData))
-                console.log('💾 Battery data saved to localStorage')
-              } catch (e) {
-                console.warn('Failed to save battery data to localStorage:', e)
-              }
+              } catch (e) {}
               return newData
             })
           }
         } catch (err) {
-          console.error(
-            '❌ Failed to parse WebSocket message:',
-            err,
-            'Raw data:',
-            event.data
-          )
+          // Failed to parse WebSocket message
         }
       }
 
-      websocket.onerror = error => {
-        console.error('❌ WebSocket error:', error)
-      }
+      websocket.onerror = error => {}
 
       websocket.onclose = event => {
-        console.log(
-          '🔌 WebSocket disconnected. Code:',
-          event.code,
-          'Reason:',
-          event.reason
-        )
-
         // Clear ping interval
         if (pingInterval) {
           clearInterval(pingInterval)
@@ -437,7 +381,6 @@ export const useLogData = () => {
 
         // Auto-reconnect after 3 seconds if not intentional close
         if (!isIntentionalClose) {
-          console.log('🔄 Reconnecting in 3 seconds...')
           reconnectTimeout = setTimeout(() => {
             connect()
           }, 3000)
@@ -454,7 +397,6 @@ export const useLogData = () => {
       if (pingInterval) clearInterval(pingInterval)
       if (reconnectTimeout) clearTimeout(reconnectTimeout)
       if (websocket?.readyState === WebSocket.OPEN) {
-        console.log('Closing WebSocket connection')
         websocket.close()
       }
     }
