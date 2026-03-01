@@ -79,6 +79,19 @@ async function refreshAccessToken () {
 // Request interceptor - add token and check if refresh needed
 axiosInstance.interceptors.request.use(
   async config => {
+    // Skip token handling for auth endpoints
+    const isAuthEndpoint =
+      config.url?.includes('/auth/login') ||
+      config.url?.includes('/auth/register') ||
+      config.url?.includes('/auth/refresh') ||
+      config.url?.includes('/register-email') ||
+      config.url?.includes('/verify-email') ||
+      config.url?.includes('/set-credentials')
+
+    if (isAuthEndpoint) {
+      return config
+    }
+
     const token = localStorage.getItem('access_token')
 
     if (token) {
@@ -109,8 +122,21 @@ axiosInstance.interceptors.response.use(
   async error => {
     const originalRequest = error.config
 
-    // If 401 and we haven't tried to refresh yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip refresh for auth endpoints
+    const isAuthEndpoint =
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/register') ||
+      originalRequest.url?.includes('/auth/refresh') ||
+      originalRequest.url?.includes('/register-email') ||
+      originalRequest.url?.includes('/verify-email') ||
+      originalRequest.url?.includes('/set-credentials')
+
+    // If 401 and we haven't tried to refresh yet (and not an auth endpoint)
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthEndpoint
+    ) {
       originalRequest._retry = true
 
       try {

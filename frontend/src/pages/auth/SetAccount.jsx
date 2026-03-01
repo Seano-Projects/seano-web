@@ -1,88 +1,80 @@
 import SeanoLogo from "../../assets/logo_seano.webp";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  FaMoon,
-  FaSun,
-  FaEye,
-  FaEyeSlash,
-  FaCheckCircle,
-  FaExclamationCircle,
-} from "react-icons/fa";
+import { FaMoon, FaSun, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useState } from "react";
 import useAuth from "../../hooks/useAuth";
-import { LoadingDots } from "../../components/ui";
+import { LoadingDots, toast, LanguageToggle } from "../../components/ui";
+import useTranslation from "../../hooks/useTranslation";
 
 export default function SetAccount({ darkMode, toggleDarkMode }) {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
   const navigate = useNavigate();
   const { setCredentials, loading } = useAuth();
+  const { t } = useTranslation();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [alert, setAlert] = useState({ show: false, type: "", message: "" });
+  const [errors, setErrors] = useState({
+    username: false,
+    password: false,
+    confirm: false,
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setAlert({ show: false, type: "", message: "" });
 
+    // Reset errors
+    setErrors({ username: false, password: false, confirm: false });
+
+    // Validation
     if (!username || !password || !confirm) {
-      setAlert({
-        show: true,
-        type: "error",
-        message: "Please fill in all fields.",
+      setErrors({
+        username: !username,
+        password: !password,
+        confirm: !confirm,
       });
+      toast.error(t("auth.setAccount.errors.fillAllFields"));
       return;
     }
 
     if (username.length < 3) {
-      setAlert({
-        show: true,
-        type: "error",
-        message: "Username must be at least 3 characters long.",
-      });
+      setErrors({ ...errors, username: true });
+      toast.error(t("auth.setAccount.errors.usernameMinLength"));
       return;
     }
 
     if (password.length < 6) {
-      setAlert({
-        show: true,
-        type: "error",
-        message: "Password must be at least 6 characters long.",
-      });
+      setErrors({ ...errors, password: true });
+      toast.error(t("auth.setAccount.errors.passwordMinLength"));
       return;
     }
 
     if (password !== confirm) {
-      setAlert({
-        show: true,
-        type: "error",
-        message: "Passwords do not match. Please re-enter your password.",
-      });
+      setErrors({ ...errors, password: true, confirm: true });
+      toast.error(t("auth.setAccount.errors.passwordMismatch"));
       return;
     }
 
     const result = await setCredentials(token, username, password);
 
     if (result.success) {
-      setAlert({
-        show: true,
-        type: "success",
-        message:
-          result.message ||
-          "Account created successfully! Redirecting to login...",
+      toast.success(t("auth.setAccount.success.message"), {
+        title: t("auth.setAccount.success.title"),
+        duration: 2500,
       });
       // Clear registration data from localStorage
       localStorage.removeItem("registrationEmail");
+      // Set flag to show success message on login page
+      localStorage.setItem("showRegistrationSuccess", "true");
       setTimeout(() => navigate("/auth/login"), 2000);
     } else {
-      setAlert({
-        show: true,
-        type: "error",
-        message: result.error || "Failed to create account. Please try again.",
+      toast.error(result.error || t("auth.setAccount.errors.failedToCreate"), {
+        title: t("auth.setAccount.errors.accountSetupFailed"),
+        duration: 5000,
       });
     }
   };
@@ -107,34 +99,39 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
             />
           </Link>
 
-          <button
-            onClick={toggleDarkMode}
-            aria-label={
-              darkMode ? "Switch to light mode" : "Switch to dark mode"
-            }
-            className="p-3 rounded-full text-lg transition cursor-pointer text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {darkMode ? (
-              <FaMoon aria-hidden="true" />
-            ) : (
-              <FaSun aria-hidden="true" />
-            )}
-          </button>
+          <div className="flex gap-2">
+            <LanguageToggle className="text-gray-900 dark:text-white" />
+            <button
+              onClick={toggleDarkMode}
+              aria-label={
+                darkMode ? "Switch to light mode" : "Switch to dark mode"
+              }
+              className="p-3 rounded-full text-lg transition cursor-pointer text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {darkMode ? (
+                <FaMoon aria-hidden="true" />
+              ) : (
+                <FaSun aria-hidden="true" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Form */}
         <main className="flex justify-center h-full flex-col items-center">
           <div className="w-full xl:w-3/5 max-w-lg text-center mb-8">
             <h1 className="text-5xl text-gray-900 dark:text-white font-semibold mb-4">
-              Set Up Your Account
+              {t("auth.setAccount.title")}
             </h1>
-            <p className="font-medium text-gray-800 dark:text-gray-200 text-xl">
-              Create your username and secure password to start monitoring your{" "}
-              <span className="text-blue-700 dark:text-blue-400 font-semibold">
-                USV
-              </span>
-              .
-            </p>
+            <p
+              className="font-medium text-gray-800 dark:text-gray-200 text-xl"
+              dangerouslySetInnerHTML={{
+                __html: t("auth.setAccount.subtitle").replace(
+                  "<span>",
+                  '<span class="text-blue-700 dark:text-blue-400 font-semibold">',
+                ),
+              }}
+            />
           </div>
 
           <form
@@ -143,35 +140,60 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
           >
             {/* Username */}
             <div className="flex flex-col gap-2">
-              <label htmlFor="username" className="text-black dark:text-white">
-                Username
+              <label
+                htmlFor="username"
+                className="text-black dark:text-white font-medium"
+              >
+                {t("auth.setAccount.username")}
               </label>
               <input
                 id="username"
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full border rounded-xl py-2 px-3 border-gray-700 text-black dark:text-white focus:ring-2 focus:ring-blue-500"
-                placeholder="Choose a unique username"
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setErrors({ ...errors, username: false });
+                }}
+                className={`w-full border rounded-xl py-3 px-4 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 transition-all ${
+                  errors.username
+                    ? "border-red-500 focus:ring-red-500"
+                    : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"
+                }`}
+                placeholder={t("auth.setAccount.usernamePlaceholder")}
                 minLength={3}
                 required
                 autoComplete="username"
               />
+              {errors.username && (
+                <p className="text-red-500 text-sm mt-1">
+                  {t("auth.setAccount.errors.usernameRequired")}
+                </p>
+              )}
             </div>
 
             {/* Password */}
             <div className="flex flex-col gap-2">
-              <label htmlFor="password" className="text-black dark:text-white">
-                Password
+              <label
+                htmlFor="password"
+                className="text-black dark:text-white font-medium"
+              >
+                {t("auth.setAccount.password")}
               </label>
               <div className="relative">
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border rounded-xl py-2 px-3 border-gray-700 text-black dark:text-white pr-14 focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter password"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setErrors({ ...errors, password: false });
+                  }}
+                  className={`w-full border rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 transition-all ${
+                    errors.password
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"
+                  }`}
+                  placeholder={t("auth.setAccount.passwordPlaceholder")}
                   required
                   autoComplete="new-password"
                   minLength={6}
@@ -179,7 +201,7 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
                 <button
                   type="button"
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-2 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                   onClick={() => setShowPassword((v) => !v)}
                 >
                   {showPassword ? (
@@ -189,24 +211,36 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
                   )}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-red-500 text-sm mt-1">
+                  {t("auth.setAccount.errors.passwordRequired")}
+                </p>
+              )}
             </div>
 
             {/* Confirm Password */}
             <div className="flex flex-col gap-2">
               <label
                 htmlFor="confirm-password"
-                className="text-black dark:text-white"
+                className="text-black dark:text-white font-medium"
               >
-                Confirm Password
+                {t("auth.setAccount.confirmPassword")}
               </label>
               <div className="relative">
                 <input
                   id="confirm-password"
                   type={showConfirm ? "text" : "password"}
                   value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full border rounded-xl py-2 px-3 border-gray-700 text-black dark:text-white pr-14 focus:ring-2 focus:ring-blue-500"
-                  placeholder="Confirm password"
+                  onChange={(e) => {
+                    setConfirm(e.target.value);
+                    setErrors({ ...errors, confirm: false });
+                  }}
+                  className={`w-full border rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 transition-all ${
+                    errors.confirm
+                      ? "border-red-500 focus:ring-red-500"
+                      : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"
+                  }`}
+                  placeholder={t("auth.setAccount.confirmPasswordPlaceholder")}
                   required
                   autoComplete="new-password"
                   minLength={6}
@@ -214,7 +248,7 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
                 <button
                   type="button"
                   aria-label={showConfirm ? "Hide password" : "Show password"}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-2 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                   onClick={() => setShowConfirm((v) => !v)}
                 >
                   {showConfirm ? (
@@ -224,6 +258,11 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
                   )}
                 </button>
               </div>
+              {errors.confirm && (
+                <p className="text-red-500 text-sm mt-1">
+                  {t("auth.setAccount.errors.confirmPasswordRequired")}
+                </p>
+              )}
             </div>
 
             {/* Submit */}
@@ -231,45 +270,20 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
               type="submit"
               disabled={loading}
               aria-label="Create account"
-              className="bg-blue-600 text-white py-3 rounded-xl mt-4 cursor-pointer hover:bg-blue-700 transition-all duration-300 disabled:opacity-50 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="bg-blue-600 text-white py-3.5 rounded-xl mt-6 cursor-pointer hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <LoadingDots size="sm" color="white" />
+                  <LoadingDots
+                    size="sm"
+                    color="white"
+                    text={t("auth.setAccount.creatingAccount")}
+                  />
                 </span>
               ) : (
-                "Create Account"
+                t("auth.setAccount.createAccount")
               )}
             </button>
-
-            {/* Alert Box */}
-            {alert.show && (
-              <div
-                role="alert"
-                aria-live="polite"
-                className={`mt-4 p-4 rounded-lg border-l-4 flex items-start gap-3 animate-fadeIn ${
-                  alert.type === "success"
-                    ? "bg-green-50 dark:bg-green-900/20 border-green-500 text-green-700 dark:text-green-300"
-                    : "bg-red-50 dark:bg-red-900/20 border-red-500 text-red-700 dark:text-red-300"
-                }`}
-              >
-                <div className="mt-0.5">
-                  {alert.type === "success" ? (
-                    <FaCheckCircle className="text-xl" aria-hidden="true" />
-                  ) : (
-                    <FaExclamationCircle
-                      className="text-xl"
-                      aria-hidden="true"
-                    />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm leading-relaxed">
-                    {alert.message}
-                  </p>
-                </div>
-              </div>
-            )}
           </form>
         </main>
       </div>

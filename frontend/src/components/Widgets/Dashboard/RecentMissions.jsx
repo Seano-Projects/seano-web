@@ -2,8 +2,10 @@ import { MdOutlineRadar } from "react-icons/md";
 import { Link } from "react-router-dom";
 import useMissionData from "../../../hooks/useMissionData";
 import { MissionCardSkeleton } from "../../Skeleton";
+import useTranslation from "../../../hooks/useTranslation";
 
 const RecentMissions = () => {
+  const { t } = useTranslation();
   const { getRecentMissions, loading, refreshData, lastUpdated } =
     useMissionData();
 
@@ -16,7 +18,7 @@ const RecentMissions = () => {
         <div className="flex items-center gap-2">
           <MdOutlineRadar size={30} className="text-orange-500" />
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Recent Missions
+            {t("dashboard.recentMissions.title")}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -24,7 +26,7 @@ const RecentMissions = () => {
             to="/missions"
             className="text-white hover:bg-white hover:text-blue-500 dark:hover:bg-black transition-colors duration-200 text-sm font-medium bg-blue-500 px-3 py-1 rounded-2xl"
           >
-            View All →
+            {t("dashboard.recentMissions.viewAll")}
           </Link>
         </div>
       </div>
@@ -45,16 +47,16 @@ const RecentMissions = () => {
               className="mx-auto mb-3 text-gray-400 dark:text-gray-600"
             />
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">
-              No recent missions found
+              {t("dashboard.recentMissions.noMissions")}
             </p>
             <p className="text-gray-400 dark:text-gray-500 text-xs">
-              Create a new mission to get started
+              {t("dashboard.recentMissions.createPrompt")}
             </p>
             <Link
               to="/missions"
               className="inline-block mt-3 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm transition-colors"
             >
-              Create Mission
+              {t("dashboard.recentMissions.createButton")}
             </Link>
           </div>
         ) : (
@@ -69,7 +71,7 @@ const RecentMissions = () => {
                     {mission.title}
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Vehicle: {mission.vehicle}
+                    {t("dashboard.recentMissions.vehicle")}: {mission.vehicle}
                   </p>
                 </div>
                 <span
@@ -91,7 +93,7 @@ const RecentMissions = () => {
 
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-gray-600 dark:text-gray-300">
-                  Progress
+                  {t("dashboard.recentMissions.progress")}
                 </span>
                 <span className="text-sm font-semibold text-gray-900 dark:text-white">
                   {mission.progress}%
@@ -118,9 +120,13 @@ const RecentMissions = () => {
               {/* Additional mission info */}
               {mission.waypoints > 0 && (
                 <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  {mission.waypoints} waypoints
+                  {mission.waypoints} {t("dashboard.recentMissions.waypoints")}
                   {mission.distance > 0 && (
-                    <span> • {(mission.distance / 1000).toFixed(1)} km</span>
+                    <span>
+                      {" "}
+                      • {(mission.distance / 1000).toFixed(1)}{" "}
+                      {t("dashboard.recentMissions.km")}
+                    </span>
                   )}
                 </div>
               )}
@@ -132,7 +138,8 @@ const RecentMissions = () => {
         {lastUpdated && !loading && missions.length > 0 && (
           <div className="text-end pt-2">
             <p className="text-xs text-gray-400 dark:text-gray-500">
-              Last updated: {lastUpdated.toLocaleTimeString()}
+              {t("dashboard.recentMissions.lastUpdated")}:{" "}
+              {lastUpdated.toLocaleTimeString()}
             </p>
           </div>
         )}

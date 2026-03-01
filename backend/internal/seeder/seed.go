@@ -13,7 +13,6 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 	roles := []model.Role{
 		{Name: "admin", Description: "Administrator with full access"},
 		{Name: "user", Description: "Regular user with limited access"},
-		{Name: "moderator", Description: "Moderator with elevated permissions"},
 	}
 
 	for _, role := range roles {
@@ -32,33 +31,25 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 	}
 
 	permissions := []model.Permission{
-		// Existing permissions
-		{Name: "users.view", Description: "View users"},
+		// CRUD permissions - standardized with .read for read operations
+		{Name: "users.read", Description: "View/read users"},
 		{Name: "users.create", Description: "Create new users"},
 		{Name: "users.update", Description: "Update user information"},
 		{Name: "users.delete", Description: "Delete users"},
-		{Name: "roles.view", Description: "View roles"},
+		{Name: "roles.read", Description: "View/read roles"},
 		{Name: "roles.manage", Description: "Create, update, and delete roles"},
-		{Name: "permissions.view", Description: "View permissions"},
+		{Name: "permissions.read", Description: "View/read permissions"},
 		{Name: "permissions.manage", Description: "Create, update, and delete permissions"},
-		{Name: "sensors.view", Description: "View all sensors"},
+		{Name: "sensors.read", Description: "View/read all sensors"},
 		{Name: "sensors.manage", Description: "Create, update, and delete sensors (admin only)"},
-		{Name: "sensor_types.view", Description: "View sensor types"},
+		{Name: "sensor_types.read", Description: "View/read sensor types"},
 		{Name: "sensor_types.manage", Description: "Create, update, and delete sensor types"},
-		{Name: "vehicles.view", Description: "View all vehicles"},
+		{Name: "vehicles.read", Description: "View/read all vehicles"},
 		{Name: "vehicles.create", Description: "Create new vehicles"},
 		{Name: "vehicles.update", Description: "Update any vehicle"},
 		{Name: "vehicles.delete", Description: "Delete any vehicle"},
 
-		// Add .read aliases for frontend compatibility
-		{Name: "users.read", Description: "Read users (alias for users.view)"},
-		{Name: "roles.read", Description: "Read roles (alias for roles.view)"},
-		{Name: "permissions.read", Description: "Read permissions (alias for permissions.view)"},
-		{Name: "sensors.read", Description: "Read sensors (alias for sensors.view)"},
-		{Name: "sensor_types.read", Description: "Read sensor types (alias for sensor_types.view)"},
-		{Name: "vehicles.read", Description: "Read vehicles (alias for vehicles.view)"},
-
-		// Add missing feature permissions
+		// Feature-specific permissions
 		{Name: "tracking.read", Description: "View tracking data and real-time vehicle monitoring"},
 		{Name: "missions.read", Description: "View missions and mission planning"},
 		{Name: "telemetry.read", Description: "View telemetry data from vehicles"},
@@ -96,31 +87,6 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 			}
 		} else {
 			log.Println("Admin role already has permissions")
-		}
-	}
-
-	var moderatorRole model.Role
-	if err := db.Where("name = ?", "moderator").Preload("Permissions").First(&moderatorRole).Error; err == nil {
-		if len(moderatorRole.Permissions) == 0 {
-			var moderatorPermissions []model.Permission
-			db.Where("name IN ?", []string{
-				"users.read", "users.create", "users.update",
-				"roles.read", "permissions.read",
-				"sensors.read",
-				"sensor_types.read",
-				"vehicles.read", "vehicles.create", "vehicles.update",
-				"tracking.read", "missions.read", "telemetry.read",
-				"logs.read", "alerts.read", "notifications.read",
-				"sensor_logs.read",
-			}).Find(&moderatorPermissions)
-
-			if err := db.Model(&moderatorRole).Association("Permissions").Append(&moderatorPermissions); err != nil {
-				log.Printf("Failed to assign permissions to moderator: %v", err)
-			} else {
-				log.Println("Permissions assigned to moderator role")
-			}
-		} else {
-			log.Println("Moderator role already has permissions")
 		}
 	}
 }

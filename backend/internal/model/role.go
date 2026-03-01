@@ -8,7 +8,7 @@ type Role struct {
 	Description string       `json:"description" gorm:"type:varchar(255)"`
 	CreatedAt   time.Time    `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time    `json:"updated_at" gorm:"autoUpdateTime"`
-	Permissions []Permission `json:"permissions,omitempty" gorm:"many2many:role_permissions;"`
+	Permissions []Permission `json:"permissions,omitempty" gorm:"many2many:role_permissions;constraint:OnDelete:CASCADE"`
 }
 
 type Permission struct {

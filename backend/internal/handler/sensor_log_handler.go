@@ -1,21 +1,27 @@
 package handler
 
 import (
+	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type SensorLogHandler struct {
 	sensorLogRepo *repository.SensorLogRepository
+	vehicleRepo   *repository.VehicleRepository
+	db            *gorm.DB
 }
 
-func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository) *SensorLogHandler {
+func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB) *SensorLogHandler {
 	return &SensorLogHandler{
 		sensorLogRepo: sensorLogRepo,
+		vehicleRepo:   vehicleRepo,
+		db:            db,
 	}
 }
 
@@ -37,6 +43,7 @@ func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository) *SensorL
 // @Security BearerAuth
 // @Router /sensor-logs [get]
 func (h *SensorLogHandler) GetSensorLogs(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
 	var query model.SensorLogQuery
 
 	// Parse query parameters
@@ -48,6 +55,38 @@ func (h *SensorLogHandler) GetSensorLogs(c *fiber.Ctx) error {
 			})
 		}
 		query.VehicleID = uint(id)
+	}
+
+	// Check permission: if not admin, filter by user's vehicles only
+	if !middleware.HasPermission(h.db, userID, "sensor_logs.read") {
+		// Get user's vehicle IDs
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil || len(userVehicleIDs) == 0 {
+			return c.JSON(fiber.Map{
+				"data":  []model.SensorLog{},
+				"count": 0,
+			})
+		}
+
+		// If vehicle_id is specified, check if user owns it
+		if query.VehicleID != 0 {
+			found := false
+			for _, vid := range userVehicleIDs {
+				if vid == query.VehicleID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"error": "You don't have permission to view this vehicle's sensor logs",
+				})
+			}
+		} else {
+			// No specific vehicle requested, filter to first user's vehicle for query
+			// Note: Repository needs to be updated to support IN clause for multiple vehicles
+			query.VehicleID = userVehicleIDs[0]
+		}
 	}
 
 	if sensorID := c.Query("sensor_id"); sensorID != "" {

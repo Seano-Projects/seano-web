@@ -7,9 +7,9 @@ import "time"
 type Alert struct {
 	ID           uint      `json:"id" gorm:"primaryKey"`
 	VehicleID    uint      `json:"vehicle_id" gorm:"not null;index"`
-	Vehicle      *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID"`
+	Vehicle      *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:CASCADE"`
 	SensorID     *uint     `json:"sensor_id,omitempty" gorm:"index"`
-	Sensor       *Sensor   `json:"sensor,omitempty" gorm:"foreignKey:SensorID"`
+	Sensor       *Sensor   `json:"sensor,omitempty" gorm:"foreignKey:SensorID;constraint:OnDelete:CASCADE"`
 	Severity     string    `json:"severity" gorm:"type:varchar(20);not null;index;default:'info'"` // critical, warning, info
 	AlertType    string    `json:"alert_type" gorm:"type:varchar(50);not null"`                    // System, Battery, Sensor, Communication, etc.
 	Message      string    `json:"message" gorm:"type:text;not null"`

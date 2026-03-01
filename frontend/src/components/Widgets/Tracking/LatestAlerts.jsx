@@ -8,6 +8,7 @@ import {
   FaTimesCircle,
   FaBell,
 } from "react-icons/fa";
+import useTranslation from "../../../hooks/useTranslation";
 
 /**
  * LatestAlerts - Panel Alert Terbaru
@@ -23,6 +24,7 @@ import {
  * @param {object} selectedVehicle - Objek kendaraan dari parent
  */
 const LatestAlerts = ({ selectedVehicle }) => {
+  const { t } = useTranslation();
   const [alerts, setAlerts] = useState([]);
   const { loading } = useLoadingTimeout(true, 2000);
 
@@ -126,7 +128,7 @@ const LatestAlerts = ({ selectedVehicle }) => {
         <div className="flex items-center gap-2">
           <FaBell className="text-orange-500" />
           <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-            Latest Alerts
+            {t("tracking.alerts.title")}
           </h3>
         </div>
         <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
@@ -142,10 +144,10 @@ const LatestAlerts = ({ selectedVehicle }) => {
           <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
             <FaCheckCircle className="text-3xl md:text-4xl mb-2 md:mb-3 text-green-500" />
             <div className="text-xs md:text-sm font-medium">
-              No alerts found
+              {t("tracking.alerts.noAlerts")}
             </div>
             <div className="text-[10px] md:text-xs">
-              Vehicle is operating normally
+              {t("tracking.alerts.operatingNormally")}
             </div>
           </div>
         )}

@@ -11,8 +11,10 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 import { useLogData } from "../../../hooks/useLogData";
+import useTranslation from "../../../hooks/useTranslation";
 
 const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
+  const { t } = useTranslation();
   const { batteryData, ws } = useLogData();
   const [showTimeout, setShowTimeout] = useState(false);
 
@@ -24,7 +26,6 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
 
     return () => clearTimeout(timeout);
   }, []);
-
 
   // Get battery data for selected vehicle
   const vehicleBatteries = batteryData[selectedVehicle?.id] || {
@@ -101,17 +102,22 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
     // Show good status if we have battery data (percentage exists)
     if (battery.percentage === null || battery.percentage === undefined) {
       return {
-        text: "N/A",
+        text: t("tracking.battery.na"),
         color: "text-gray-500",
         icon: FaExclamationTriangle,
       };
     }
     // If battery percentage is available, consider it healthy
-    return { text: "Good", color: "text-green-500", icon: FaCheckCircle };
+    return {
+      text: t("tracking.battery.healthGood"),
+      color: "text-green-500",
+      icon: FaCheckCircle,
+    };
   };
 
   const getStatusText = (status) => {
-    if (status === null || status === undefined) return "N/A";
+    if (status === null || status === undefined)
+      return t("tracking.battery.na");
 
     // Capitalize first letter
     return status.charAt(0).toUpperCase() + status.slice(1);
@@ -128,7 +134,7 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
     return (
       <div className="h-full p-6 flex items-center justify-center">
         <div className="animate-pulse text-gray-500 dark:text-gray-400">
-          Connecting to battery monitoring...
+          {t("tracking.battery.loading")}
         </div>
       </div>
     );
@@ -147,7 +153,7 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
         {/* Battery Label */}
         <div className="mb-1.5 md:mb-2">
           <span className="text-[10px] md:text-xs font-medium text-gray-600 dark:text-gray-400">
-            Battery {index + 1}
+            {t("tracking.battery.batteryLabel")} {index + 1}
           </span>
         </div>
 
@@ -173,7 +179,9 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
             {/* Percentage Text */}
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-xs md:text-sm font-bold text-white drop-shadow-lg">
-                {battery.percentage !== null ? `${battery.percentage}%` : "N/A"}
+                {battery.percentage !== null
+                  ? `${battery.percentage}%`
+                  : t("tracking.battery.na")}
               </span>
             </div>
           </div>
@@ -204,7 +212,7 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
         <div className="flex items-center gap-2">
           <FaBatteryFull className="text-base md:text-lg text-orange-500" />
           <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-            Battery Monitoring
+            {t("tracking.battery.title")}
           </h3>
         </div>
         <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
@@ -234,46 +242,47 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
                 className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 md:p-3"
               >
                 <div className="text-[10px] md:text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">
-                  Battery {index + 1}
+                  {t("tracking.battery.batteryLabel")} {index + 1}
                 </div>
                 <div className="space-y-1 md:space-y-1.5 text-[10px] md:text-xs">
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">
-                      Status:
+                      {t("tracking.battery.status")}:
                     </span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {getStatusText(battery.status) || "N/A"}
+                      {getStatusText(battery.status) ||
+                        t("tracking.battery.na")}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">
-                      Current:
+                      {t("tracking.battery.current")}:
                     </span>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {battery.current !== null && battery.current !== undefined
                         ? `${battery.current.toFixed(1)}A`
-                        : "N/A"}
+                        : t("tracking.battery.na")}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">
-                      Voltage:
+                      {t("tracking.battery.voltage")}:
                     </span>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {battery.voltage !== null && battery.voltage !== undefined
                         ? `${battery.voltage.toFixed(1)}V`
-                        : "N/A"}
+                        : t("tracking.battery.na")}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">
-                      Temp:
+                      {t("tracking.battery.temp")}:
                     </span>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {battery.temperature !== null &&
                       battery.temperature !== undefined
                         ? `${battery.temperature.toFixed(1)}°C`
-                        : "N/A"}
+                        : t("tracking.battery.na")}
                     </span>
                   </div>
                 </div>
@@ -284,12 +293,12 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
           {/* System Summary */}
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 md:p-3 border border-blue-200 dark:border-blue-800">
             <div className="text-xs md:text-sm font-semibold text-blue-700 dark:text-blue-300 mb-1.5 md:mb-2">
-              System Summary
+              {t("tracking.battery.systemSummary")}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-4 text-[10px] md:text-xs">
               <div className="flex justify-between">
                 <span className="text-blue-600 dark:text-blue-400">
-                  Total Capacity:
+                  {t("tracking.battery.totalCapacity")}:
                 </span>
                 <span className="font-medium text-blue-700 dark:text-blue-300">
                   {summary.totalCapacity.toFixed(1)}Ah
@@ -297,7 +306,7 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
               </div>
               <div className="flex justify-between">
                 <span className="text-blue-600 dark:text-blue-400">
-                  Average Percentage:
+                  {t("tracking.battery.averagePercentage")}:
                 </span>
                 <span className="font-medium text-blue-700 dark:text-blue-300">
                   {Math.round(summary.averagePercentage)}%
@@ -316,7 +325,7 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
                   }`}
                 ></div>
                 <span className="text-[10px] md:text-xs font-medium text-gray-700 dark:text-gray-300">
-                  Last Sync
+                  {t("tracking.battery.lastSync")}
                 </span>
               </div>
               <div className="text-[10px] md:text-xs font-medium text-gray-600 dark:text-gray-400 sm:ml-auto">
@@ -327,7 +336,7 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
                       second: "2-digit",
                       hour12: true,
                     })
-                  : "Waiting for data..."}
+                  : t("tracking.battery.waitingData")}
               </div>
             </div>
           </div>

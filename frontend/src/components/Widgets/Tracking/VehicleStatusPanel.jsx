@@ -10,8 +10,10 @@ import {
 import { MdGpsFixed, MdGpsNotFixed } from "react-icons/md";
 import useVehicleData from "../../../hooks/useVehicleData";
 import { useLogData } from "../../../hooks/useLogData";
+import useTranslation from "../../../hooks/useTranslation";
 
 const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
+  const { t } = useTranslation();
   const { vehicles, loading } = useVehicleData();
   const { vehicleLogs, ws } = useLogData(); // Get vehicle logs from WebSocket
   const [showTimeout, setShowTimeout] = useState(false);
@@ -111,7 +113,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
 
   const getSystemStatusText = (status) => {
     if (status === null || status === undefined) {
-      return { text: "N/A", color: "text-gray-600" };
+      return { text: t("tracking.vehicleStatus.na"), color: "text-gray-600" };
     }
 
     // Handle both string and number status values
@@ -120,46 +122,91 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
 
     // Match against status enum names
     if (statusStr.includes("UNKNOWN")) {
-      return { text: "Unknown", color: "text-gray-600" };
+      return {
+        text: t("tracking.vehicleStatus.statusUnknown"),
+        color: "text-gray-600",
+      };
     }
     if (statusStr.includes("BOOT")) {
-      return { text: "Boot", color: "text-yellow-600" };
+      return {
+        text: t("tracking.vehicleStatus.statusBoot"),
+        color: "text-yellow-600",
+      };
     }
     if (statusStr.includes("CALIBRATING")) {
-      return { text: "Calibrating", color: "text-blue-600" };
+      return {
+        text: t("tracking.vehicleStatus.statusCalibrating"),
+        color: "text-blue-600",
+      };
     }
     if (statusStr.includes("STANDBY")) {
-      return { text: "Standby", color: "text-yellow-600" };
+      return {
+        text: t("tracking.vehicleStatus.statusStandby"),
+        color: "text-yellow-600",
+      };
     }
     if (statusStr.includes("ACTIVE")) {
-      return { text: "Active", color: "text-green-600" };
+      return {
+        text: t("tracking.vehicleStatus.statusActive"),
+        color: "text-green-600",
+      };
     }
     if (statusStr.includes("CRITICAL")) {
-      return { text: "Critical", color: "text-red-600" };
+      return {
+        text: t("tracking.vehicleStatus.statusCritical"),
+        color: "text-red-600",
+      };
     }
     if (statusStr.includes("EMERGENCY")) {
-      return { text: "Emergency", color: "text-red-800" };
+      return {
+        text: t("tracking.vehicleStatus.statusEmergency"),
+        color: "text-red-800",
+      };
     }
 
     // Fallback for numeric values
     const statusNum = typeof status === "string" ? parseInt(status) : status;
     switch (statusNum) {
       case 0:
-        return { text: "Unknown", color: "text-gray-600" };
+        return {
+          text: t("tracking.vehicleStatus.statusUnknown"),
+          color: "text-gray-600",
+        };
       case 1:
-        return { text: "Boot", color: "text-yellow-600" };
+        return {
+          text: t("tracking.vehicleStatus.statusBoot"),
+          color: "text-yellow-600",
+        };
       case 2:
-        return { text: "Calibrating", color: "text-blue-600" };
+        return {
+          text: t("tracking.vehicleStatus.statusCalibrating"),
+          color: "text-blue-600",
+        };
       case 3:
-        return { text: "Standby", color: "text-yellow-600" };
+        return {
+          text: t("tracking.vehicleStatus.statusStandby"),
+          color: "text-yellow-600",
+        };
       case 4:
-        return { text: "Active", color: "text-green-600" };
+        return {
+          text: t("tracking.vehicleStatus.statusActive"),
+          color: "text-green-600",
+        };
       case 5:
-        return { text: "Critical", color: "text-red-600" };
+        return {
+          text: t("tracking.vehicleStatus.statusCritical"),
+          color: "text-red-600",
+        };
       case 6:
-        return { text: "Emergency", color: "text-red-800" };
+        return {
+          text: t("tracking.vehicleStatus.statusEmergency"),
+          color: "text-red-800",
+        };
       default:
-        return { text: "Unknown", color: "text-gray-600" };
+        return {
+          text: t("tracking.vehicleStatus.statusUnknown"),
+          color: "text-gray-600",
+        };
     }
   };
 
@@ -167,19 +214,24 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
 
   // Helper functions for formatting
   const formatCoordinate = (value) => {
-    if (value === null || value === undefined) return "N/A";
+    if (value === null || value === undefined)
+      return t("tracking.vehicleStatus.na");
     const num = typeof value === "string" ? parseFloat(value) : value;
-    return isNaN(num) ? "N/A" : `${num.toFixed(8)}`;
+    return isNaN(num) ? t("tracking.vehicleStatus.na") : `${num.toFixed(8)}`;
   };
 
   const formatValue = (value, unit = "") => {
-    if (value === null || value === undefined) return "N/A";
+    if (value === null || value === undefined)
+      return t("tracking.vehicleStatus.na");
     const num = typeof value === "string" ? parseFloat(value) : value;
-    return isNaN(num) ? "N/A" : `${num.toFixed(2)}${unit}`;
+    return isNaN(num)
+      ? t("tracking.vehicleStatus.na")
+      : `${num.toFixed(2)}${unit}`;
   };
 
   const formatTemperature = (value) => {
-    if (value === null || value === undefined) return "N/A";
+    if (value === null || value === undefined)
+      return t("tracking.vehicleStatus.na");
     if (typeof value === "string") {
       const num = parseFloat(value);
       if (!isNaN(num)) {
@@ -212,7 +264,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
     return (
       <div className="h-full p-6 flex items-center justify-center">
         <div className="animate-pulse text-gray-500 dark:text-gray-400">
-          Loading vehicle status...
+          {t("tracking.vehicleStatus.loading")}
         </div>
       </div>
     );
@@ -223,10 +275,10 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
       {/* Header */}
       <div className="mb-4 md:mb-6">
         <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white mb-1 md:mb-2">
-          Vehicle Status
+          {t("tracking.vehicleStatus.title")}
         </h3>
         <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 truncate">
-          {currentVehicle.name || `No Vehicle Selected`}
+          {currentVehicle.name || t("tracking.vehicleStatus.noVehicle")}
         </p>
       </div>
 
@@ -244,15 +296,15 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
               }
             />
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              Connection
+              {t("tracking.vehicleStatus.connection")}
             </span>
           </div>
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             {vehicleStates.connected === null
-              ? "N/A"
+              ? t("tracking.vehicleStatus.na")
               : vehicleStates.connected
-                ? "Online"
-                : "Offline"}
+                ? t("tracking.vehicleStatus.online")
+                : t("tracking.vehicleStatus.offline")}
           </p>
         </div>
 
@@ -266,15 +318,15 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
               }
             />
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              Armed
+              {t("tracking.vehicleStatus.armed")}
             </span>
           </div>
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             {vehicleStates.armed === null
-              ? "N/A"
+              ? t("tracking.vehicleStatus.na")
               : vehicleStates.armed
-                ? "Armed"
-                : "Disarmed"}
+                ? t("tracking.vehicleStatus.armed")
+                : t("tracking.vehicleStatus.disarmed")}
           </p>
         </div>
       </div>
@@ -283,14 +335,14 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
       <div className="mb-4 md:mb-6 flex-shrink-0">
         <div className="flex items-center justify-between mb-2 md:mb-3">
           <span className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
-            Flight Mode
+            {t("tracking.vehicleStatus.flightMode")}
           </span>
           <span
             className={`px-2.5 md:px-3 py-1 text-xs font-semibold rounded-full ${getModeColor(
               vehicleStates.mode,
             )}`}
           >
-            {vehicleStates.mode || "N/A"}
+            {vehicleStates.mode || t("tracking.vehicleStatus.na")}
           </span>
         </div>
 
@@ -322,23 +374,23 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
                     : "text-yellow-600 dark:text-yellow-400";
               })()}
             >
-              GPS{" "}
+              {t("tracking.vehicleStatus.gps")}{" "}
               {(() => {
                 const gpsNum =
                   typeof vehicleStates.gps_fix === "string"
                     ? parseInt(vehicleStates.gps_fix)
                     : vehicleStates.gps_fix;
                 return gpsNum === null
-                  ? "N/A"
+                  ? t("tracking.vehicleStatus.na")
                   : gpsNum === 0
-                    ? "No Fix"
+                    ? t("tracking.vehicleStatus.noFix")
                     : gpsNum === 1
-                      ? "Dead Reckoning"
+                      ? t("tracking.vehicleStatus.deadReckoning")
                       : gpsNum === 2
-                        ? "2D Fix"
+                        ? t("tracking.vehicleStatus.fix2d")
                         : gpsNum === 3
-                          ? "3D Fix"
-                          : `${gpsNum} Fix`;
+                          ? t("tracking.vehicleStatus.fix3d")
+                          : `${gpsNum} ${t("tracking.vehicleStatus.fix")}`;
               })()}
             </span>
           </div>
@@ -350,7 +402,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
         <div className="flex items-center gap-2 mb-1.5 md:mb-2">
           <FaExclamationTriangle className={systemStatus.color} size={16} />
           <span className="text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300">
-            System Status
+            {t("tracking.vehicleStatus.systemStatus")}
           </span>
         </div>
         <p className="text-base md:text-lg font-bold text-gray-900 dark:text-gray-100">
@@ -358,7 +410,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
         </p>
         {mergedData.system_status && (
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-            Status Code: OK
+            {t("tracking.vehicleStatus.statusCode")}
           </p>
         )}
       </div>
@@ -368,24 +420,30 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
         <div className="flex items-center gap-2 mb-2 md:mb-3">
           <FaArrowUp className="text-purple-600" />
           <span className="text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300">
-            Position
+            {t("tracking.vehicleStatus.position")}
           </span>
         </div>
         <div className="space-y-1.5 md:space-y-2 text-xs md:text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Latitude:</span>
+            <span className="text-gray-600 dark:text-gray-400">
+              {t("tracking.vehicleStatus.latitude")}:
+            </span>
             <span className="font-medium text-gray-900 dark:text-gray-100">
               {formatCoordinate(mergedData.latitude)}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Longitude:</span>
+            <span className="text-gray-600 dark:text-gray-400">
+              {t("tracking.vehicleStatus.longitude")}:
+            </span>
             <span className="font-medium text-gray-900 dark:text-gray-100">
               {formatCoordinate(mergedData.longitude)}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Altitude:</span>
+            <span className="text-gray-600 dark:text-gray-400">
+              {t("tracking.vehicleStatus.altitude")}:
+            </span>
             <span className="font-medium text-gray-900 dark:text-gray-100">
               {formatValue(mergedData.altitude, " m")}
             </span>
@@ -399,7 +457,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
           <div className="flex items-center gap-2 mb-1.5 md:mb-2">
             <FaWifi className={getRSSIColor(mergedData.rssi)} />
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              Signal
+              {t("tracking.vehicleStatus.signal")}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -420,7 +478,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
             >
               {mergedData.rssi !== null && mergedData.rssi !== undefined
                 ? `${mergedData.rssi} dBm`
-                : "N/A"}
+                : t("tracking.vehicleStatus.na")}
             </span>
           </div>
         </div>
@@ -429,7 +487,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
           <div className="flex items-center gap-2 mb-1.5 md:mb-2">
             <FaThermometerHalf className="text-orange-500" />
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-              Temp
+              {t("tracking.vehicleStatus.temp")}
             </span>
           </div>
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">

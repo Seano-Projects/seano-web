@@ -56,128 +56,128 @@ const sizeIcon = 18;
 export const dashboardLink = {
   href: "/dashboard",
   icon: FaChartBar,
-  text: "Dashboard",
+  text: "nav.dashboard",
   size: sizeIcon,
 };
 
 export const menuGroups = [
   {
-    title: "Data Operations",
+    title: "nav.dataOperations",
     requiredPermission: "tracking.read",
     userOnly: true,
     items: [
       {
         href: "/tracking",
         icon: MdOutlineRadar,
-        text: "Tracking",
+        text: "nav.tracking",
         size: sizeIcon,
         requiredPermission: "tracking.read",
       },
       {
         href: "/control",
         icon: IoGameController,
-        text: "Control",
+        text: "nav.control",
         size: sizeIcon,
         requiredPermission: "control.read",
       },
     ],
   },
   {
-    title: "Data Mission",
+    title: "nav.dataMission",
     userOnly: true,
     items: [
       {
         href: "/mission-planner",
         icon: TbGps,
-        text: "Mission Planner",
+        text: "nav.missionPlanner",
         size: sizeIcon,
         requiredPermission: "missions.read",
       },
       {
         href: "/missions",
         icon: RiRouteLine,
-        text: "Missions",
+        text: "nav.missions",
         size: sizeIcon,
         requiredPermission: "missions.read",
       },
     ],
   },
   {
-    title: "Data Monitoring",
+    title: "nav.dataMonitoring",
     userOnly: true,
     items: [
       {
         href: "/battery",
         icon: FaBatteryHalf,
-        text: "Battery",
+        text: "nav.battery",
         size: sizeIcon,
         requiredPermission: "battery.read",
       },
       {
         href: "/logs",
         icon: TbArrowsUpDown,
-        text: "Log",
+        text: "nav.log",
         size: sizeIcon,
         requiredPermission: "logs.read",
       },
       {
         href: "/alerts",
         icon: HiOutlineBellAlert,
-        text: "Alerts",
+        text: "nav.alerts",
         size: sizeIcon,
         requiredPermission: "alerts.read",
       },
       {
         href: "/notification",
         icon: TbNotification,
-        text: "Notification",
+        text: "nav.notification",
         size: sizeIcon,
         requiredPermission: "notifications.read",
       },
     ],
   },
   {
-    title: "Sensor Monitoring",
+    title: "nav.sensorMonitoring",
     userOnly: true,
     items: [
       {
         href: "/sensor-monitoring/ctd",
         icon: MdOutlineSensors,
-        text: "CTD",
+        text: "nav.ctd",
         size: sizeIcon,
         requiredPermission: "sensor-monitoring.read",
       },
     ],
   },
   {
-    title: "Data Management",
+    title: "nav.dataManagement",
     requiredPermission: "vehicles.read",
     items: [
       {
         href: "/vehicle",
         icon: TbSpeedboat,
-        text: "Vehicle",
+        text: "nav.vehicle",
         size: sizeIcon,
         requiredPermission: "vehicles.read",
       },
       {
         href: "/data",
         icon: GoDatabase,
-        text: "Data",
+        text: "nav.data",
         size: sizeIcon,
         requiredPermission: "sensor_logs.read",
       },
       {
         href: "/sensor",
         icon: TbPhotoSensor,
-        text: "Sensor",
+        text: "nav.sensor",
         size: sizeIcon,
         requiredPermission: "sensors.read",
       },
       {
         href: "/sensor-type",
         icon: TbCategory,
-        text: "Sensor Type",
+        text: "nav.sensorType",
         size: sizeIcon,
         requiredPermission: "sensor_types.read",
         adminOnly: true,
@@ -185,14 +185,14 @@ export const menuGroups = [
     ],
   },
   {
-    title: "User Management",
+    title: "nav.userManagement",
     requiredPermission: "users.read",
     adminOnly: true,
     items: [
       {
         href: "/user",
         icon: RiUser3Line,
-        text: "User",
+        text: "nav.user",
         size: sizeIcon,
         requiredPermission: "users.read",
         adminOnly: true,
@@ -200,7 +200,7 @@ export const menuGroups = [
       {
         href: "/role",
         icon: LuUserCog,
-        text: "Role",
+        text: "nav.role",
         size: sizeIcon,
         requiredPermission: "roles.read",
         adminOnly: true,
@@ -208,7 +208,7 @@ export const menuGroups = [
       {
         href: "/permission",
         icon: RiShieldUserLine,
-        text: "Permission",
+        text: "nav.permission",
         size: sizeIcon,
         requiredPermission: "permissions.read",
         adminOnly: true,
@@ -221,14 +221,14 @@ export const linksbottom = [
   {
     href: "/profile",
     icon: FaRegUser,
-    text: "Profile",
+    text: "nav.profile",
     size: sizeIcon,
     type: "link",
   },
   {
     action: "logout",
     icon: IoIosLogOut,
-    text: "Logout",
+    text: "nav.logout",
     size: sizeIcon,
     type: "button",
   },
@@ -599,6 +599,7 @@ export const getOverviewCardsData = (
   vehicles = [],
   missions = [],
   alerts = [],
+  t = (key) => key, // Default to returning key if t function not provided
 ) => {
   // Calculate vehicle stats
   const totalVehicles = vehicles.length;
@@ -617,7 +618,7 @@ export const getOverviewCardsData = (
 
   return [
     {
-      title: "Total Vehicles",
+      title: t("dashboard.cards.totalVehicles"),
       value: totalVehicles,
       icon: <FaShip size={26} className="text-blue-500" />,
       trendIcon:
@@ -628,11 +629,11 @@ export const getOverviewCardsData = (
         ),
       trendText:
         totalVehicles > 0
-          ? `${totalVehicles} vehicles registered`
-          : "No vehicles available",
+          ? `${totalVehicles} ${t("dashboard.cards.vehiclesRegistered")}`
+          : t("dashboard.cards.noVehiclesAvailable"),
     },
     {
-      title: "Vehicles On Mission",
+      title: t("dashboard.cards.vehiclesOnMission"),
       value: vehiclesOnMission,
       icon: <TbRouteSquare size={26} className="text-indigo-500" />,
       trendIcon:
@@ -643,11 +644,11 @@ export const getOverviewCardsData = (
         ),
       trendText:
         vehiclesOnMission > 0
-          ? `${vehiclesOnMission} vehicles active`
-          : "No active missions",
+          ? `${vehiclesOnMission} ${t("dashboard.cards.vehiclesActive")}`
+          : t("dashboard.cards.noActiveMissions"),
     },
     {
-      title: "Total Missions",
+      title: t("dashboard.cards.totalMissions"),
       value: totalMissions,
       icon: <FaRoute size={26} className="text-purple-500" />,
       trendIcon:
@@ -658,11 +659,11 @@ export const getOverviewCardsData = (
         ),
       trendText:
         totalMissions > 0
-          ? `${totalMissions} missions created`
-          : "No missions available",
+          ? `${totalMissions} ${t("dashboard.cards.missionsCreated")}`
+          : t("dashboard.cards.noMissionsAvailable"),
     },
     {
-      title: "Missions In Progress",
+      title: t("dashboard.cards.missionsInProgress"),
       value: missionsOnProgress,
       icon: <HiOutlineStatusOnline size={26} className="text-green-500" />,
       trendIcon:
@@ -673,11 +674,11 @@ export const getOverviewCardsData = (
         ),
       trendText:
         missionsOnProgress > 0
-          ? `${missionsOnProgress} missions running`
-          : "No active missions",
+          ? `${missionsOnProgress} ${t("dashboard.cards.missionsRunning")}`
+          : t("dashboard.cards.noActiveMissions"),
     },
     {
-      title: "Total Alerts",
+      title: t("dashboard.cards.totalAlerts"),
       value: totalAlerts,
       icon: <FaBell size={26} className="text-red-500" />,
       trendIcon:
@@ -687,7 +688,9 @@ export const getOverviewCardsData = (
           <FaArrowRight className="text-gray-400" />
         ),
       trendText:
-        totalAlerts > 0 ? `${totalAlerts} alerts pending` : "No alerts",
+        totalAlerts > 0
+          ? `${totalAlerts} ${t("dashboard.cards.alertsPending")}`
+          : t("dashboard.cards.noAlerts"),
     },
   ];
 };

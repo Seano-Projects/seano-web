@@ -86,7 +86,6 @@ const MissionMap = ({
 
   // Restore polygon/zone shapes when waypoints are loaded
   React.useEffect(() => {
-
     if (featureGroupRef && waypoints.length > 0) {
       // Clear existing zone layers first
       featureGroupRef.eachLayer((layer) => {
@@ -143,6 +142,27 @@ const MissionMap = ({
     }
   }, [waypoints, featureGroupRef]);
 
+  // Clear drawing layers when entering edit waypoints mode
+  React.useEffect(() => {
+    if (isEditingWaypoints && featureGroupRef && waypoints.length > 0) {
+      // Clear all drawn shapes from FeatureGroup (polyline, polygon, rectangle)
+      // but keep zone layers if needed
+      featureGroupRef.eachLayer((layer) => {
+        // Remove polyline and other drawing layers but keep zone markers
+        if (
+          layer instanceof L.Polyline ||
+          layer instanceof L.Polygon ||
+          layer instanceof L.Rectangle ||
+          layer instanceof L.Circle
+        ) {
+          if (!layer.options.isZoneLayer) {
+            featureGroupRef.removeLayer(layer);
+          }
+        }
+      });
+    }
+  }, [isEditingWaypoints, featureGroupRef, waypoints]);
+
   // Handle coordinate search
   const handleSearchCoordinates = (e) => {
     // Check if it's Enter key press or button click (mousedown)
@@ -184,7 +204,9 @@ const MissionMap = ({
         setShowSearchInput(false);
         setSearchQuery("");
       } else {
-        toast.error("An error occurred"); }}
+        toast.error("An error occurred");
+      }
+    }
   };
 
   // Home icon definition
@@ -227,6 +249,12 @@ const MissionMap = ({
           ...prev,
           waypoints: getActualWaypointCount([...waypoints, ...newWaypoints]),
         }));
+      }
+
+      // Remove the polyline from map since waypoints are now created
+      // The connection lines will be rendered by our custom Polyline component
+      if (featureGroupRef && layer) {
+        featureGroupRef.removeLayer(layer);
       }
     } else if (layerType === "polygon") {
       const latLngs = layer.getLatLngs()[0]; // Polygon returns nested array
@@ -489,6 +517,11 @@ const MissionMap = ({
 
   // Update waypoint position when dragged
   const handleWaypointDrag = (waypointId, newPosition) => {
+    // Clear drawing layers from FeatureGroup when dragging waypoint
+    if (featureGroupRef) {
+      featureGroupRef.clearLayers();
+    }
+
     setWaypoints((prev) => {
       const updatedWaypoints = prev.map((wp) =>
         wp.id === waypointId
@@ -651,12 +684,15 @@ const MissionMap = ({
         ]}
         maxBoundsViscosity={1.5}
         minZoom={18}
+        maxZoom={22}
       >
         <MapController center={mapCenter} zoom={mapZoom} />
         <TileLayer
           attribution="&copy; Esri"
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           noWrap={true}
+          maxZoom={22}
+          maxNativeZoom={19}
         />
 
         {activeMission && (

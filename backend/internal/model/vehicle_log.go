@@ -46,7 +46,7 @@ func (fs FlexibleString) MarshalJSON() ([]byte, error) {
 type VehicleLog struct {
 	ID                uint      `json:"id" gorm:"primaryKey"`
 	VehicleID         uint      `json:"vehicle_id" gorm:"not null;index"`
-	Vehicle           *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID"`
+	Vehicle           *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:CASCADE"`
 	BatteryVoltage    *float64  `json:"battery_voltage" gorm:"type:numeric"`
 	BatteryCurrent    *float64  `json:"battery_current" gorm:"type:numeric"`
 	BatteryPercentage *float64  `json:"battery_percentage" gorm:"type:numeric"`

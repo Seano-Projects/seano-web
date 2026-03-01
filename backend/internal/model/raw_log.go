@@ -6,7 +6,7 @@ import "time"
 type RawLog struct {
 	ID        uint      `json:"id" gorm:"primaryKey"`
 	VehicleID *uint     `json:"vehicle_id,omitempty" gorm:"index"` // Optional vehicle association
-	Vehicle   *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID"`
+	Vehicle   *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:SET NULL"`
 	Logs      string    `json:"logs" gorm:"type:text;not null"` // Raw log text (changed to text for longer logs)
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;index"`
 }

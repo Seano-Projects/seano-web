@@ -89,9 +89,9 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid user ID"})
 	}
 
-	// Allow if viewing own profile OR has users.view permission
+	// Allow if viewing own profile OR has users.read permission
 	if uint(targetID) != loggedInUserID {
-		if !middleware.HasPermission(h.DB, loggedInUserID, "users.view") {
+		if !middleware.HasPermission(h.DB, loggedInUserID, "users.read") {
 			return c.Status(403).JSON(fiber.Map{"error": "You don't have permission to view other users"})
 		}
 	}

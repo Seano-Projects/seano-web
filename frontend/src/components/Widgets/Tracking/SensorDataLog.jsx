@@ -3,6 +3,7 @@ import { LogSkeleton } from "../../Skeleton";
 import useLoadingTimeout from "../../../hooks/useLoadingTimeout";
 import { Dropdown } from "../index";
 import { useLogData } from "../../../hooks/useLogData";
+import useTranslation from "../../../hooks/useTranslation";
 
 /**
  * SensorDataLog - Log Data Sensor
@@ -22,6 +23,7 @@ import { useLogData } from "../../../hooks/useLogData";
  * @param {object} selectedVehicle - Objek kendaraan dari parent (halaman Tracking)
  */
 const SensorDataLog = ({ selectedVehicle }) => {
+  const { t } = useTranslation();
   const { sensorLogs, ws } = useLogData(); // Ambil dari useLogData
   const [hasNewData, setHasNewData] = useState(false);
   const [selectedSensor, setSelectedSensor] = useState("all");
@@ -134,7 +136,7 @@ const SensorDataLog = ({ selectedVehicle }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-              Sensor Data Log
+              {t("tracking.sensorLog.title")}
             </h3>
             {isConnected && (
               <div className="flex items-center gap-1">
@@ -144,25 +146,27 @@ const SensorDataLog = ({ selectedVehicle }) => {
                   }`}
                 ></div>
                 <span className="text-xs text-blue-600 dark:text-blue-400">
-                  Live
+                  {t("tracking.sensorLog.live")}
                 </span>
               </div>
             )}
           </div>
           <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate ml-2">
-            {selectedVehicle?.name || selectedVehicle?.code || "All Vehicles"}
+            {selectedVehicle?.name ||
+              selectedVehicle?.code ||
+              t("tracking.sensorLog.allVehicles")}
           </span>
         </div>
         <div className="w-full sm:w-auto sm:self-start">
           <Dropdown
             items={sensorTypes.map((type) => ({
               id: type,
-              name: type === "all" ? "All Sensors" : type,
-              label: type === "all" ? "All Sensors" : type,
+              name: type === "all" ? t("tracking.sensorLog.allSensors") : type,
+              label: type === "all" ? t("tracking.sensorLog.allSensors") : type,
             }))}
             selectedItem={selectedSensor}
             onItemChange={setSelectedSensor}
-            placeholder="Select sensor type"
+            placeholder={t("tracking.sensorLog.selectSensor")}
             className="text-xs"
           />
         </div>
@@ -231,10 +235,13 @@ const SensorDataLog = ({ selectedVehicle }) => {
         {filteredLogs.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400 py-12 md:py-20 font-openSans">
             <div className="text-3xl md:text-4xl mb-2">📡</div>
-            <p className="text-sm md:text-base">No sensor logs available</p>
+            <p className="text-sm md:text-base">
+              {t("tracking.sensorLog.noLogs")}
+            </p>
             {selectedSensor !== "all" && (
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                for {selectedSensor} sensors
+                {t("tracking.sensorLog.forSensors")} {selectedSensor}{" "}
+                {t("tracking.sensorLog.sensors")}
               </p>
             )}
           </div>
@@ -244,12 +251,16 @@ const SensorDataLog = ({ selectedVehicle }) => {
       <div className="mt-2 md:mt-3 pt-2 md:pt-3 border-t border-gray-200 dark:border-gray-700">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
           <span className="font-medium">
-            {filteredLogs.length} of {vehicleFilteredLogs.length}{" "}
-            {filteredLogs.length === 1 ? "entry" : "entries"}
+            {filteredLogs.length} {t("tracking.sensorLog.of")}{" "}
+            {vehicleFilteredLogs.length}{" "}
+            {filteredLogs.length === 1
+              ? t("tracking.sensorLog.entry")
+              : t("tracking.sensorLog.entries")}
             {selectedSensor !== "all" && ` (${selectedSensor})`}
           </span>
           <span className="hidden sm:inline">
-            Last updated: {formatTime(new Date().toISOString())}
+            {t("tracking.sensorLog.lastUpdated")}:{" "}
+            {formatTime(new Date().toISOString())}
           </span>
         </div>
       </div>

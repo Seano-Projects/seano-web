@@ -15,6 +15,11 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
 
   // Status options
   const statusOptions = [
+    {
+      id: "online",
+      name: "Online",
+      description: "Vehicle is online and ready",
+    },
     { id: "idle", name: "Idle", description: "Vehicle is not in use" },
     {
       id: "on_mission",
@@ -31,7 +36,6 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
 
   // Populate form when editing
   useEffect(() => {
-
     if (editData) {
       const newFormData = {
         name: editData.name || "",
@@ -58,7 +62,6 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
     e.preventDefault();
     setLoading(true);
 
-
     const vehicleData = {
       name: formData.name,
       code: formData.code,
@@ -66,7 +69,6 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       status: formData.status,
       user_id: user?.id || 1, // Use logged in user ID, default to 1
     };
-
 
     try {
       await onSubmit(vehicleData, editData?.id);

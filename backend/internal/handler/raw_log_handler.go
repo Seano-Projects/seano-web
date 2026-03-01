@@ -1,21 +1,27 @@
 package handler
 
 import (
+	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type RawLogHandler struct {
-	rawLogRepo *repository.RawLogRepository
+	rawLogRepo  *repository.RawLogRepository
+	vehicleRepo *repository.VehicleRepository
+	db          *gorm.DB
 }
 
-func NewRawLogHandler(rawLogRepo *repository.RawLogRepository) *RawLogHandler {
+func NewRawLogHandler(rawLogRepo *repository.RawLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB) *RawLogHandler {
 	return &RawLogHandler{
-		rawLogRepo: rawLogRepo,
+		rawLogRepo:  rawLogRepo,
+		vehicleRepo: vehicleRepo,
+		db:          db,
 	}
 }
 
@@ -36,9 +42,51 @@ func NewRawLogHandler(rawLogRepo *repository.RawLogRepository) *RawLogHandler {
 // @Security BearerAuth
 // @Router /raw-logs [get]
 func (h *RawLogHandler) GetRawLogs(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
 	var query model.RawLogQuery
 
 	// Parse query parameters
+	if vehicleID := c.Query("vehicle_id"); vehicleID != "" {
+		id, err := strconv.ParseUint(vehicleID, 10, 32)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid vehicle_id",
+			})
+		}
+		query.VehicleID = uint(id)
+	}
+
+	// Check permission: if not admin, filter by user's vehicles only
+	if !middleware.HasPermission(h.db, userID, "raw_logs.read") {
+		// Get user's vehicle IDs
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil || len(userVehicleIDs) == 0 {
+			return c.JSON(fiber.Map{
+				"data":  []model.RawLog{},
+				"count": 0,
+			})
+		}
+
+		// If vehicle_id is specified, check if user owns it
+		if query.VehicleID != 0 {
+			found := false
+			for _, vid := range userVehicleIDs {
+				if vid == query.VehicleID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"error": "You don't have permission to view this vehicle's logs",
+				})
+			}
+		} else {
+			// No specific vehicle requested, use first vehicle
+			query.VehicleID = userVehicleIDs[0]
+		}
+	}
+
 	query.Search = c.Query("search")
 
 	if startTime := c.Query("start_time"); startTime != "" {

@@ -1,8 +1,10 @@
 import React from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import useMissionData from "../../../hooks/useMissionData";
+import useTranslation from "../../../hooks/useTranslation";
 
 const MissionSuccessRate = () => {
+  const { t } = useTranslation();
   const { stats, loading } = useMissionData();
 
   // Calculate from real data
@@ -16,22 +18,34 @@ const MissionSuccessRate = () => {
   const successRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const data = [
-    { name: "Completed", value: completed, color: "#3B82F6" },
-    { name: "Ongoing", value: ongoing, color: "#F97316" },
-    { name: "Failed", value: failed, color: "#EF4444" },
+    {
+      name: t("dashboard.missionSuccessRate.completed"),
+      value: completed,
+      color: "#3B82F6",
+    },
+    {
+      name: t("dashboard.missionSuccessRate.ongoing"),
+      value: ongoing,
+      color: "#F97316",
+    },
+    {
+      name: t("dashboard.missionSuccessRate.failed"),
+      value: failed,
+      color: "#EF4444",
+    },
   ];
 
   const getStatusLabel = (rate) => {
-    if (rate >= 85) return "OPTIMAL";
-    if (rate >= 70) return "GOOD";
-    if (rate >= 50) return "FAIR";
-    return "POOR";
+    if (rate >= 85) return t("dashboard.missionSuccessRate.optimal");
+    if (rate >= 70) return t("dashboard.missionSuccessRate.good");
+    if (rate >= 50) return t("dashboard.missionSuccessRate.fair");
+    return t("dashboard.missionSuccessRate.poor");
   };
 
   return (
     <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
       <h3 className="text-xl font-semibold text-black dark:text-white mb-6">
-        Mission Success Rate
+        {t("dashboard.missionSuccessRate.title")}
       </h3>
 
       <div className="flex flex-col items-center justify-center">
@@ -90,7 +104,7 @@ const MissionSuccessRate = () => {
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded bg-gray-400" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Draft
+                  {t("dashboard.missionSuccessRate.draft")}
                 </span>
               </div>
               <span className="text-sm font-semibold text-black dark:text-white">

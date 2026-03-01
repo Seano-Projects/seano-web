@@ -9,25 +9,31 @@ import {
   FaGear,
 } from "react-icons/fa6";
 import { VehicleDropdown } from "../";
+import useTranslation from "../../../hooks/useTranslation";
 
 const VehicleQuickView = ({
   vehicles,
   selectedVehicleId,
   setSelectedVehicleId,
 }) => {
+  const { t } = useTranslation();
   // Find selected vehicle from vehicles array
   const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
 
   // Use actual data from selected vehicle if available
   const vehicleDetails = selectedVehicle
     ? {
-        status: selectedVehicle.status || "Unknown",
+        status:
+          selectedVehicle.status || t("dashboard.vehicleQuickView.unknown"),
         lastUpdate: selectedVehicle.updated_at || new Date().toISOString(),
         battery: selectedVehicle.battery_level || 0,
         speed: selectedVehicle.speed || "0 kts",
         heading: selectedVehicle.heading || "N/A",
-        gps: selectedVehicle.gps_status || "No GPS",
-        armed: selectedVehicle.armed_status || "Unknown",
+        gps:
+          selectedVehicle.gps_status || t("dashboard.vehicleQuickView.noGPS"),
+        armed:
+          selectedVehicle.armed_status ||
+          t("dashboard.vehicleQuickView.unknown"),
         mode: selectedVehicle.mode || "Manual",
         coordinates:
           selectedVehicle.latitude && selectedVehicle.longitude
@@ -37,12 +43,12 @@ const VehicleQuickView = ({
             : "N/A",
       }
     : {
-        status: "No Vehicle Selected",
+        status: t("dashboard.vehicleQuickView.noVehicleSelected"),
         lastUpdate: "N/A",
         battery: 0,
         speed: "0 kts",
         heading: "N/A",
-        gps: "No GPS",
+        gps: t("dashboard.vehicleQuickView.noGPS"),
         armed: "N/A",
         mode: "N/A",
         coordinates: "N/A",
@@ -51,37 +57,37 @@ const VehicleQuickView = ({
   const statusCards = [
     {
       icon: FaBatteryFull,
-      title: "Battery",
+      title: t("dashboard.vehicleQuickView.battery"),
       value: `${vehicleDetails.battery}%`,
       color: "green",
     },
     {
       icon: FaGaugeHigh,
-      title: "Speed",
+      title: t("dashboard.vehicleQuickView.speed"),
       value: vehicleDetails.speed,
       color: "blue",
     },
     {
       icon: FaCompass,
-      title: "Heading",
+      title: t("dashboard.vehicleQuickView.heading"),
       value: vehicleDetails.heading,
       color: "purple",
     },
     {
       icon: FaCrosshairs,
-      title: "GPS",
+      title: t("dashboard.vehicleQuickView.gps"),
       value: vehicleDetails.gps,
       color: "yellow",
     },
     {
       icon: FaGear,
-      title: "Armed",
+      title: t("dashboard.vehicleQuickView.armed"),
       value: vehicleDetails.armed,
       color: "orange",
     },
     {
       icon: FaGear,
-      title: "Mode",
+      title: t("dashboard.vehicleQuickView.mode"),
       value: vehicleDetails.mode,
       color: "cyan",
     },
@@ -92,7 +98,7 @@ const VehicleQuickView = ({
       <div className="flex items-center gap-2 mb-4">
         <FaShip size={30} className="text-blue-500" />
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-          Vessels Quick View
+          {t("dashboard.vehicleQuickView.title")}
         </h1>
       </div>
       <VehicleDropdown
@@ -102,11 +108,13 @@ const VehicleQuickView = ({
           // Handle both null (placeholder) and vehicle object
           setSelectedVehicleId(vehicle?.id || null);
         }}
-        placeholder="Select a vessel to view details"
+        placeholder={t("dashboard.vehicleQuickView.placeholder")}
         showPlaceholder={true}
       />
       <div className="mt-4 flex items-center justify-between">
-        <h1 className="text-gray-900 dark:text-white font-semibold">Status</h1>
+        <h1 className="text-gray-900 dark:text-white font-semibold">
+          {t("dashboard.vehicleQuickView.status")}
+        </h1>
         <div className="flex items-center gap-2 px-2 rounded-3xl">
           <div className="h-3 w-3 bg-green-500 rounded-full"></div>
           <h1 className="text-gray-900 dark:text-white">
@@ -116,7 +124,7 @@ const VehicleQuickView = ({
       </div>
       <div className="mt-4 flex items-center justify-between">
         <h1 className="text-gray-900 dark:text-white font-semibold">
-          Last Update
+          {t("dashboard.vehicleQuickView.lastUpdate")}
         </h1>
         <div className="flex items-center gap-2 px-2 rounded-3xl">
           <h1 className="text-gray-900 dark:text-white">
@@ -151,7 +159,7 @@ const VehicleQuickView = ({
         </div>
         <div className="flex flex-col">
           <h3 className="text-gray-600 dark:text-gray-300 text-sm font-medium">
-            Coordinates
+            {t("dashboard.vehicleQuickView.coordinates")}
           </h3>
           <h2 className="text-gray-900 dark:text-white text-lg font-bold">
             {vehicleDetails.coordinates}

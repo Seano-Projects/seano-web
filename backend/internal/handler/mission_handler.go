@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	"strconv"
@@ -63,13 +64,7 @@ func (h *MissionHandler) CreateMission(c *fiber.Ctx) error {
 		Waypoints:   waypoints,
 		StartTime:   req.StartTime,
 		EndTime:     req.EndTime,
-		CreatedBy:   userID,
-	}
-
-	if err := h.missionRepo.CreateMission(mission); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to create mission",
-		})
+	CreatedBy:   &userID,
 	}
 
 	// Reload with associations
@@ -89,15 +84,16 @@ func (h *MissionHandler) CreateMission(c *fiber.Ctx) error {
 // @Router /missions [get]
 func (h *MissionHandler) GetAllMissions(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(uint)
-	role := c.Locals("role").(string)
 
 	var missions []model.Mission
 	var err error
 
-	// Admin can see all missions, regular users only see their own
-	if role == "Admin" { // Admin role
+	// Check if user has missions management permission (admin)
+	if middleware.HasPermission(h.db, userID, "missions.read") {
+		// Admin can see all missions
 		missions, err = h.missionRepo.GetAllMissions()
 	} else {
+		// Regular users only see their own missions
 		missions, err = h.missionRepo.GetMissionsByUserID(userID)
 	}
 
@@ -140,7 +136,7 @@ func (h *MissionHandler) GetMissionByID(c *fiber.Ctx) error {
 	// Check ownership
 	userID := c.Locals("user_id").(uint)
 	role := c.Locals("role").(string)
-	if role != "Admin" && mission.CreatedBy != userID {
+	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to view this mission",
 		})
@@ -182,7 +178,7 @@ func (h *MissionHandler) UpdateMission(c *fiber.Ctx) error {
 	// Check ownership
 	userID := c.Locals("user_id").(uint)
 	role := c.Locals("role").(string)
-	if role != "Admin" && mission.CreatedBy != userID {
+	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to update this mission",
 		})
@@ -263,7 +259,7 @@ func (h *MissionHandler) DeleteMission(c *fiber.Ctx) error {
 	// Check ownership
 	userID := c.Locals("user_id").(uint)
 	role := c.Locals("role").(string)
-	if role != "Admin" && mission.CreatedBy != userID {
+	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to delete this mission",
 		})

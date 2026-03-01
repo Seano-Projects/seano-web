@@ -84,8 +84,8 @@ func (h *VehicleHandler) GetAllVehicles(c *fiber.Ctx) error {
 	var vehicles []model.Vehicle
 	var err error
 
-	// Check if user has vehicles.view permission (admin/moderator)
-	if middleware.HasPermission(h.db, userID, "vehicles.view") {
+	// Check if user has vehicles.read permission (admin/moderator)
+	if middleware.HasPermission(h.db, userID, "vehicles.read") {
 		vehicles, err = h.vehicleRepo.GetAllVehicles()
 	} else {
 		// Regular users only see their own vehicles
@@ -161,7 +161,7 @@ func (h *VehicleHandler) GetVehicleByID(c *fiber.Ctx) error {
 	}
 
 	// Check ownership or permission
-	if vehicle.UserID != userID && !middleware.HasPermission(h.db, userID, "vehicles.view") {
+	if vehicle.UserID != userID && !middleware.HasPermission(h.db, userID, "vehicles.read") {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to view this vehicle",
 		})
@@ -327,7 +327,7 @@ func (h *VehicleHandler) GetVehicleBatteryStatus(c *fiber.Ctx) error {
 	}
 
 	// Check ownership or permission
-	if vehicle.UserID != userID && !middleware.HasPermission(h.db, userID, "vehicles.view") {
+	if vehicle.UserID != userID && !middleware.HasPermission(h.db, userID, "vehicles.read") {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to view this vehicle",
 		})
@@ -395,7 +395,7 @@ func (h *VehicleHandler) GetBatteryLogs(c *fiber.Ctx) error {
 	}
 
 	// Check ownership or permission
-	if vehicle.UserID != userID && !middleware.HasPermission(h.db, userID, "vehicles.view") {
+	if vehicle.UserID != userID && !middleware.HasPermission(h.db, userID, "vehicles.read") {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to view this vehicle",
 		})

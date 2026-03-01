@@ -12,6 +12,7 @@ import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 import { toast } from "../components/ui";
 import { FaShip } from "react-icons/fa";
+import { determineVehicleStatus } from "../utils/vehicleStatus";
 
 const Vehicle = () => {
   useTitle("Vehicle");
@@ -162,8 +163,14 @@ const Vehicle = () => {
           // Update last seen timestamp
           last_seen: latestLog.created_at ?? vehicle.last_seen,
 
-          // Update status - set to online/idle if receiving data
-          status: "idle", // Vehicle is online if sending telemetry data
+          // Determine status based on last data time and WebSocket connection
+          // Uses best practices: multiple thresholds, grace periods, and proper status states
+          status: determineVehicleStatus({
+            lastDataTime: latestLog.created_at,
+            websocket: ws,
+
+            currentTime: Date.now(),
+          }),
         };
 
         return updatedVehicle;

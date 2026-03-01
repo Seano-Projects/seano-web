@@ -8,7 +8,7 @@ type User struct {
 	Email              string    `json:"email" gorm:"type:varchar(100);uniqueIndex;not null"`
 	Password           string    `json:"-" gorm:"type:varchar(255)"`
 	RoleID             *uint     `json:"-" gorm:"index"` // Hidden from JSON
-	Role               *Role     `json:"-" gorm:"foreignKey:RoleID"` // Hidden from JSON, use UserResponse instead
+	Role               *Role     `json:"-" gorm:"foreignKey:RoleID;constraint:OnDelete:RESTRICT"` // Hidden from JSON, use UserResponse instead
 	IsVerified         bool      `json:"is_verified" gorm:"default:false"`
 	VerificationToken  string    `json:"-" gorm:"type:varchar(255)"`
 	VerificationExpiry time.Time `json:"-"`

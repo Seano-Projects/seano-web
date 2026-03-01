@@ -1,4 +1,5 @@
 import Dropdown from "../Dropdown";
+import { getVehicleStatusColor } from "../../../utils/vehicleStatus";
 
 const VehicleDropdown = ({
   vehicles,
@@ -23,28 +24,12 @@ const VehicleDropdown = ({
       ? [placeholderItem, ...vehicles]
       : vehicles;
 
-  // Get status indicator color
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "online":
-      case "idle":
-      case "on_mission":
-        return "bg-green-500";
-      case "offline":
-        return "bg-red-500";
-      case "maintenance":
-        return "bg-orange-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
   // Custom render function for selected item
   const renderSelectedItem = (vehicle) => (
     <>
       {!vehicle.isPlaceholder && (
         <div
-          className={`w-3 h-3 rounded-full ${getStatusColor(vehicle.status)}`}
+          className={`w-3 h-3 rounded-full ${getVehicleStatusColor(vehicle.status)}`}
         />
       )}
       <span
@@ -60,7 +45,7 @@ const VehicleDropdown = ({
     <>
       {!vehicle.isPlaceholder && (
         <div
-          className={`w-3 h-3 rounded-full ${getStatusColor(vehicle.status)}`}
+          className={`w-3 h-3 rounded-full ${getVehicleStatusColor(vehicle.status)}`}
         />
       )}
       <div className="flex-1">

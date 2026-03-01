@@ -101,3 +101,10 @@ func (r *VehicleRepository) GetBatteryLogsByVehicleID(vehicleID uint, batteryID 
 	return batteries, err
 }
 
+// GetVehicleIDsByUserID returns list of vehicle IDs owned by a user
+func (r *VehicleRepository) GetVehicleIDsByUserID(userID uint) ([]uint, error) {
+	var vehicleIDs []uint
+	err := r.db.Model(&model.Vehicle{}).Where("user_id = ?", userID).Pluck("id", &vehicleIDs).Error
+	return vehicleIDs, err
+}
+

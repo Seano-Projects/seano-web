@@ -2,6 +2,7 @@ import { createContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_ENDPOINTS } from "../config";
 import axiosInstance from "../utils/axiosConfig";
+import { toast } from "../components/ui";
 
 // Create Context
 export const AuthContext = createContext(null);
@@ -176,7 +177,17 @@ export function AuthProvider({ children }) {
         setUser(data.user);
         // Dispatch custom event to trigger vehicle fetch
         window.dispatchEvent(new Event("userLoggedIn"));
-        navigate("/dashboard");
+
+        // Show success toast
+        toast.success("Welcome back! Redirecting to dashboard...", {
+          title: "Login Successful",
+          duration: 2000,
+        });
+
+        // Delay navigation to show toast
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 500);
         return { success: true };
       }
 
@@ -188,13 +199,27 @@ export function AuthProvider({ children }) {
         localStorage.setItem("user", JSON.stringify(userData));
         setUser(userData);
 
+        // Show success toast
+        toast.success("Welcome back! Redirecting to dashboard...", {
+          title: "Login Successful",
+          duration: 2000,
+        });
+
         // Redirect to dashboard
-        navigate("/dashboard");
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 500);
         return { success: true };
       }
 
       // If still no user data, just redirect anyway
-      navigate("/dashboard");
+      toast.success("Login successful!", {
+        title: "Welcome",
+        duration: 2000,
+      });
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 500);
       return { success: true };
     } catch (error) {
       let errorMessage = "Login failed. Please check your credentials.";

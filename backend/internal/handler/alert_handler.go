@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	wsocket "go-fiber-pgsql/internal/websocket"
@@ -9,17 +10,22 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type AlertHandler struct {
-	alertRepo *repository.AlertRepository
-	wsHub     *wsocket.Hub
+	alertRepo   *repository.AlertRepository
+	vehicleRepo *repository.VehicleRepository
+	wsHub       *wsocket.Hub
+	db          *gorm.DB
 }
 
-func NewAlertHandler(alertRepo *repository.AlertRepository, wsHub *wsocket.Hub) *AlertHandler {
+func NewAlertHandler(alertRepo *repository.AlertRepository, vehicleRepo *repository.VehicleRepository, wsHub *wsocket.Hub, db *gorm.DB) *AlertHandler {
 	return &AlertHandler{
-		alertRepo: alertRepo,
-		wsHub:     wsHub,
+		alertRepo:   alertRepo,
+		vehicleRepo: vehicleRepo,
+		wsHub:       wsHub,
+		db:          db,
 	}
 }
 
@@ -44,6 +50,7 @@ func NewAlertHandler(alertRepo *repository.AlertRepository, wsHub *wsocket.Hub) 
 // @Security BearerAuth
 // @Router /api/alerts [get]
 func (h *AlertHandler) GetAlerts(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
 	var query model.AlertQuery
 
 	// Parse query parameters
@@ -56,6 +63,38 @@ func (h *AlertHandler) GetAlerts(c *fiber.Ctx) error {
 		}
 		vid := uint(id)
 		query.VehicleID = &vid
+	}
+
+	// Check permission: if not admin, filter by user's vehicles only
+	if !middleware.HasPermission(h.db, userID, "alerts.read") {
+		// Get user's vehicle IDs
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil || len(userVehicleIDs) == 0 {
+			return c.JSON(fiber.Map{
+				"data":  []model.AlertResponse{},
+				"count": 0,
+			})
+		}
+
+		// If vehicle_id is specified, check if user owns it
+		if query.VehicleID != nil {
+			found := false
+			for _, vid := range userVehicleIDs {
+				if vid == *query.VehicleID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"error": "You don't have permission to view this vehicle's alerts",
+				})
+			}
+		} else {
+			// No specific vehicle requested, use first vehicle
+			vid := userVehicleIDs[0]
+			query.VehicleID = &vid
+		}
 	}
 
 	if sensorID := c.Query("sensor_id"); sensorID != "" {

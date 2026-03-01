@@ -51,9 +51,7 @@ const useVehicleData = () => {
           vehiclesArray = data.data
         } else if (data && data.vehicles && Array.isArray(data.vehicles)) {
           vehiclesArray = data.vehicles
-        } else {
         }
-
 
         // Process and validate API data
         const processedVehicles = vehiclesArray.map(vehicle => ({
@@ -75,7 +73,7 @@ const useVehicleData = () => {
             JSON.stringify(prevVehicles) !== JSON.stringify(processedVehicles)
           return hasChanged ? processedVehicles : prevVehicles
         })
-      } catch (error) {
+      } catch {
         // Set empty array on error instead of dummy data
         setVehicles([])
       } finally {
@@ -122,10 +120,16 @@ const useVehicleData = () => {
     ).length
 
     const onlineToday = vehiclesToday.filter(
-      v => v.status === 'idle' || v.status === 'on_mission'
+      v =>
+        v.status === 'online' ||
+        v.status === 'idle' ||
+        v.status === 'on_mission'
     ).length
     const onlineYesterday = vehiclesYesterday.filter(
-      v => v.status === 'idle' || v.status === 'on_mission'
+      v =>
+        v.status === 'online' ||
+        v.status === 'idle' ||
+        v.status === 'on_mission'
     ).length
 
     const offlineToday = vehiclesToday.filter(

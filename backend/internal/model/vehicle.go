@@ -13,7 +13,7 @@ type Vehicle struct {
 	Description    string     `json:"description" gorm:"type:text"`
 	Status         string     `json:"status" gorm:"type:varchar(20);default:'active'"` // active, inactive, maintenance
 	UserID         uint       `json:"user_id" gorm:"not null;index"`
-	User           *User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	User           *User      `json:"user,omitempty" gorm:"foreignKey:UserID;constraint:OnDelete:RESTRICT"`
 	
 	// Latest telemetry data (populated from vehicle_logs)
 	BatteryLevel   *float64   `json:"battery_level,omitempty" gorm:"-"`
@@ -30,7 +30,7 @@ type Vehicle struct {
 type VehicleBattery struct {
 	ID           uint           `json:"id" gorm:"primaryKey"`
 	VehicleID    uint           `json:"vehicle_id" gorm:"not null;index"`
-	Vehicle      *Vehicle       `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID"`
+	Vehicle      *Vehicle       `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:CASCADE"`
 	BatteryID    int            `json:"battery_id" gorm:"type:int;default:1;index"` // 1 or 2 for dual battery systems
 	Percentage   float64        `json:"percentage" gorm:"type:decimal(5,2)"` // 0.00 - 100.00
 	Voltage      float64        `json:"voltage" gorm:"type:decimal(5,2)"`    // Voltage in V

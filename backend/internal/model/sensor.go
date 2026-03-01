@@ -30,9 +30,9 @@ type Sensor struct {
 type VehicleSensor struct {
 	ID              uint      `json:"id" gorm:"primaryKey"`
 	VehicleID       uint      `json:"vehicle_id" gorm:"not null;index"`
-	Vehicle         *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID"`
+	Vehicle         *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:CASCADE"`
 	SensorID        uint      `json:"sensor_id" gorm:"not null;index"`
-	Sensor          *Sensor   `json:"sensor,omitempty" gorm:"foreignKey:SensorID"`
+	Sensor          *Sensor   `json:"sensor,omitempty" gorm:"foreignKey:SensorID;constraint:OnDelete:CASCADE"`
 	Status          string    `json:"status" gorm:"type:varchar(20);default:'active'"` // active, inactive, maintenance, error
 	LastReading     string    `json:"last_reading" gorm:"type:text"` // JSON string of last sensor reading
 	LastReadingTime *time.Time `json:"last_reading_time"`

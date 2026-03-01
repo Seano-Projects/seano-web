@@ -40,7 +40,7 @@ type Mission struct {
 	Description       string        `json:"description" gorm:"type:text"`
 	Status            string        `json:"status" gorm:"type:varchar(20);default:'Draft'"` // Draft, Ongoing, Completed, Failed, Cancelled
 	VehicleID         *uint         `json:"vehicle_id" gorm:"index"`
-	Vehicle           *Vehicle      `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID"`
+	Vehicle           *Vehicle      `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:SET NULL"`
 	Waypoints         WaypointArray `json:"waypoints" gorm:"type:jsonb"`
 	HomeLocation      *Waypoint     `json:"home_location,omitempty" gorm:"type:jsonb;serializer:json"`
 	StartTime         *time.Time    `json:"start_time"`
@@ -52,8 +52,8 @@ type Mission struct {
 	CurrentWaypoint   int           `json:"current_waypoint" gorm:"default:0"`                        // Current waypoint index
 	CompletedWaypoint int           `json:"completed_waypoint" gorm:"default:0"`                      // Number of completed waypoints
 	LastUpdateTime    *time.Time    `json:"last_update_time"`                                         // Last progress update
-	CreatedBy         uint          `json:"created_by" gorm:"not null;index"`
-	Creator           *User         `json:"creator,omitempty" gorm:"foreignKey:CreatedBy"`
+	CreatedBy         *uint         `json:"created_by,omitempty" gorm:"index"`
+	Creator           *User         `json:"creator,omitempty" gorm:"foreignKey:CreatedBy;constraint:OnDelete:SET NULL"`
 	CreatedAt         time.Time     `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt         time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
 }

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { AttitudeIndicator, HeadingIndicator } from "react-flight-indicators";
 import { useLogData } from "../../../hooks/useLogData";
+import useTranslation from "../../../hooks/useTranslation";
 
 const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
+  const { t } = useTranslation();
   const { vehicleLogs, ws } = useLogData(); // Get vehicle logs from WebSocket
   const [loading, setLoading] = useState(true);
   const [showTimeout, setShowTimeout] = useState(false);
@@ -63,7 +65,7 @@ const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
     return (
       <div className="h-full p-6 flex items-center justify-center">
         <div className="animate-pulse text-gray-500 dark:text-gray-400">
-          Loading telemetry data...
+          {t("tracking.telemetry.loading")}
         </div>
       </div>
     );

@@ -3,30 +3,34 @@ import { FaBell } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import useNotificationData from "../../../hooks/useNotificationData";
 import { MdRefresh } from "react-icons/md";
+import useTranslation from "../../../hooks/useTranslation";
 
 const LatestAlerts = () => {
+  const { t } = useTranslation();
   const { getLatestAlerts, loading, refreshData } = useNotificationData();
 
   const alerts = getLatestAlerts(4); // Get 4 latest alerts
 
   // Helper function to format timestamp
   const formatTimeAgo = (timestamp) => {
-    if (!timestamp) return "Unknown";
+    if (!timestamp) return t("dashboard.latestAlerts.unknown");
     try {
       const now = new Date();
       const alertTime = new Date(timestamp);
-      if (isNaN(alertTime.getTime())) return "Invalid date";
+      if (isNaN(alertTime.getTime()))
+        return t("dashboard.latestAlerts.invalidDate");
 
       const diffInMinutes = Math.floor((now - alertTime) / (1000 * 60));
 
-      if (diffInMinutes < 0) return "Just now";
-      if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+      if (diffInMinutes < 0) return t("dashboard.latestAlerts.justNow");
+      if (diffInMinutes < 60)
+        return `${diffInMinutes}${t("dashboard.latestAlerts.minutesAgo")}`;
       const hours = Math.floor(diffInMinutes / 60);
-      if (hours < 24) return `${hours}h ago`;
+      if (hours < 24) return `${hours}${t("dashboard.latestAlerts.hoursAgo")}`;
       const days = Math.floor(hours / 24);
-      return `${days}d ago`;
+      return `${days}${t("dashboard.latestAlerts.daysAgo")}`;
     } catch {
-      return "Unknown";
+      return t("dashboard.latestAlerts.unknown");
     }
   };
 
@@ -92,14 +96,14 @@ const LatestAlerts = () => {
         <div className="flex items-center gap-2">
           <FaBell size={30} className="text-red-500" />
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Latest Alerts
+            {t("dashboard.latestAlerts.title")}
           </h1>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={refreshData}
             className="text-gray-500 hover:text-blue-500 transition-colors duration-200 p-1 rounded"
-            title="Refresh alerts"
+            title={t("dashboard.latestAlerts.refreshAlerts")}
           >
             <MdRefresh size={14} />
           </button>
@@ -107,7 +111,7 @@ const LatestAlerts = () => {
             to="/alerts"
             className="text-blue-500 hover:text-blue-600 transition-colors duration-200 text-sm font-medium"
           >
-            View All →
+            {t("dashboard.latestAlerts.viewAll")}
           </Link>
         </div>
       </div>
@@ -137,7 +141,7 @@ const LatestAlerts = () => {
               className="mx-auto mb-3 text-gray-400 dark:text-gray-600"
             />
             <p className="text-gray-500 dark:text-gray-400 text-sm">
-              No recent alerts found
+              {t("dashboard.latestAlerts.noAlerts")}
             </p>
           </div>
         ) : (

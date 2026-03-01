@@ -6,9 +6,9 @@ import "time"
 type SensorLog struct {
 	ID        uint      `json:"id" gorm:"primaryKey"`
 	VehicleID uint      `json:"vehicle_id" gorm:"not null;index"`
-	Vehicle   *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID"`
+	Vehicle   *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:CASCADE"`
 	SensorID  uint      `json:"sensor_id" gorm:"not null;index"`
-	Sensor    *Sensor   `json:"sensor,omitempty" gorm:"foreignKey:SensorID"`
+	Sensor    *Sensor   `json:"sensor,omitempty" gorm:"foreignKey:SensorID;constraint:OnDelete:CASCADE"`
 	Data      string    `json:"data" gorm:"type:jsonb;not null"` // JSON data from sensor
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 }

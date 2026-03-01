@@ -37,7 +37,7 @@ export const toast = {
   success: (message, opts = {}) =>
     emit(
       baseToast({
-        title: opts.title ?? "Berhasil",
+        title: opts.title ?? "Success",
         description: opts.description ?? message,
         variant: "success",
         ...opts,
@@ -46,7 +46,7 @@ export const toast = {
   error: (message, opts = {}) =>
     emit(
       baseToast({
-        title: opts.title ?? "Terjadi Kesalahan",
+        title: opts.title ?? "Error",
         description: opts.description ?? message,
         variant: "error",
         ...opts,
@@ -55,7 +55,7 @@ export const toast = {
   info: (message, opts = {}) =>
     emit(
       baseToast({
-        title: opts.title ?? "Informasi",
+        title: opts.title ?? "Information",
         description: opts.description ?? message,
         variant: "info",
         ...opts,
@@ -64,7 +64,7 @@ export const toast = {
   warning: (message, opts = {}) =>
     emit(
       baseToast({
-        title: opts.title ?? "Peringatan",
+        title: opts.title ?? "Warning",
         description: opts.description ?? message,
         variant: "warning",
         ...opts,

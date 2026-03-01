@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { LogSkeleton } from "../../Skeleton";
 import useLoadingTimeout from "../../../hooks/useLoadingTimeout";
 import { useLogData } from "../../../hooks/useLogData";
+import useTranslation from "../../../hooks/useTranslation";
 
 /**
  * RawDataLog - Log Data Mentah
@@ -20,6 +21,7 @@ import { useLogData } from "../../../hooks/useLogData";
  * @param {object} selectedVehicle - Objek kendaraan dari parent (halaman Tracking)
  */
 const RawDataLog = ({ selectedVehicle }) => {
+  const { t } = useTranslation();
   const { rawLogs, ws } = useLogData(); // Ambil dari useLogData
   const [hasNewData, setHasNewData] = useState(false);
   const { loading } = useLoadingTimeout(true, 2000);
@@ -123,7 +125,7 @@ const RawDataLog = ({ selectedVehicle }) => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 md:mb-4">
         <div className="flex items-center gap-2">
           <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-            Raw Data Log
+            {t("tracking.rawLog.title")}
           </h3>
           {isConnected && (
             <div className="flex items-center gap-1">
@@ -133,13 +135,15 @@ const RawDataLog = ({ selectedVehicle }) => {
                 }`}
               ></div>
               <span className="text-xs text-green-600 dark:text-green-400">
-                Live
+                {t("tracking.rawLog.live")}
               </span>
             </div>
           )}
         </div>
         <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
-          {selectedVehicle?.name || selectedVehicle?.code || "All Vehicles"}
+          {selectedVehicle?.name ||
+            selectedVehicle?.code ||
+            t("tracking.rawLog.allVehicles")}
         </span>
       </div>
 
@@ -181,9 +185,11 @@ const RawDataLog = ({ selectedVehicle }) => {
         {filteredLogs.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 font-openSans dark:text-gray-400 py-12 md:py-20">
             <div className="text-3xl md:text-4xl mb-2">📋</div>
-            <p className="text-sm md:text-base">No logs available</p>
+            <p className="text-sm md:text-base">
+              {t("tracking.rawLog.noLogs")}
+            </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Waiting for data...
+              {t("tracking.rawLog.waitingData")}
             </p>
           </div>
         )}
@@ -193,10 +199,13 @@ const RawDataLog = ({ selectedVehicle }) => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
           <span className="font-medium">
             {filteredLogs.length}{" "}
-            {filteredLogs.length === 1 ? "entry" : "entries"}
+            {filteredLogs.length === 1
+              ? t("tracking.rawLog.entry")
+              : t("tracking.rawLog.entries")}
           </span>
           <span className="hidden sm:inline">
-            Last updated: {formatTime(new Date().toISOString())}
+            {t("tracking.rawLog.lastUpdated")}:{" "}
+            {formatTime(new Date().toISOString())}
           </span>
         </div>
       </div>

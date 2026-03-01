@@ -16,6 +16,7 @@ import { Title, LoadingDots } from "../components/ui";
 import { WidgetCardSkeleton } from "../components/Skeleton";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
 import { getOverviewCardsData } from "../constant";
+import useTranslation from "../hooks/useTranslation";
 
 // Lazy load komponen berat (Maps & Charts)
 const OverviewMap = lazy(
@@ -24,6 +25,7 @@ const OverviewMap = lazy(
 
 function Dashboard({ darkMode }) {
   useTitle("Dashboard");
+  const { t } = useTranslation();
 
   // Data hooks
   const {
@@ -46,15 +48,12 @@ function Dashboard({ darkMode }) {
   const shouldShowSkeleton = timeoutLoading && loading && vehicles.length === 0;
 
   // Get overview cards data
-  const overviewData = getOverviewCardsData(vehicles, missions, alerts);
+  const overviewData = getOverviewCardsData(vehicles, missions, alerts, t);
 
   return (
     <div className="p-4">
       {/* Header */}
-      <Title
-        title="Dashboard"
-        subtitle="Real-time monitoring and control of unmanned surface vehicles"
-      />
+      <Title title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
 
       {/* Widget Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pb-4">

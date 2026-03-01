@@ -1,21 +1,27 @@
 package handler
 
 import (
+	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type VehicleLogHandler struct {
 	vehicleLogRepo *repository.VehicleLogRepository
+	vehicleRepo    *repository.VehicleRepository
+	db             *gorm.DB
 }
 
-func NewVehicleLogHandler(vehicleLogRepo *repository.VehicleLogRepository) *VehicleLogHandler {
+func NewVehicleLogHandler(vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB) *VehicleLogHandler {
 	return &VehicleLogHandler{
 		vehicleLogRepo: vehicleLogRepo,
+		vehicleRepo:    vehicleRepo,
+		db:             db,
 	}
 }
 
@@ -36,6 +42,7 @@ func NewVehicleLogHandler(vehicleLogRepo *repository.VehicleLogRepository) *Vehi
 // @Security BearerAuth
 // @Router /vehicle-logs [get]
 func (h *VehicleLogHandler) GetVehicleLogs(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
 	var query model.VehicleLogQuery
 
 	// Parse query parameters
@@ -47,6 +54,37 @@ func (h *VehicleLogHandler) GetVehicleLogs(c *fiber.Ctx) error {
 			})
 		}
 		query.VehicleID = uint(id)
+	}
+
+	// Check permission: if not admin, filter by user's vehicles only
+	if !middleware.HasPermission(h.db, userID, "telemetry.read") {
+		// Get user's vehicle IDs
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil || len(userVehicleIDs) == 0 {
+			return c.JSON(fiber.Map{
+				"data":  []model.VehicleLog{},
+				"count": 0,
+			})
+		}
+
+		// If vehicle_id is specified, check if user owns it
+		if query.VehicleID != 0 {
+			found := false
+			for _, vid := range userVehicleIDs {
+				if vid == query.VehicleID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"error": "You don't have permission to view this vehicle's logs",
+				})
+			}
+		} else {
+			// No specific vehicle requested, use first vehicle
+			query.VehicleID = userVehicleIDs[0]
+		}
 	}
 
 	if startTime := c.Query("start_time"); startTime != "" {
