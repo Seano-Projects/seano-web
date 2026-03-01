@@ -36,6 +36,21 @@ services:
     networks:
       - seano_net
 
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: seano_mediamtx
+    restart: always
+    environment:
+      - MTX_WEBRTCADDITIONALHOSTS=72.61.141.126
+      - MTX_WEBRTCICE_UDP_MUX_ADDRESS=:8189
+    ports:
+      - "8554:8554" # RTSP
+      - "8889:8889" # WebRTC / WHEP (HTTP)
+      - "8189:8189/udp" # WebRTC ICE UDP
+      - "1935:1935" # RTMP
+    networks:
+      - seano_net
+
   frontend:
     build: ./frontend
     container_name: seano_frontend
