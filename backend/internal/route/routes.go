@@ -10,11 +10,12 @@ import (
 	"go-fiber-pgsql/internal/handler"
 	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/repository"
+	mqttservice "go-fiber-pgsql/internal/service/mqtt"
 	"go-fiber-pgsql/internal/util"
 	wsocket "go-fiber-pgsql/internal/websocket"
 )
 
-func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub) {
+func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *mqttservice.CommandPublisher) {
 	// Serve static files (index.html for WebSocket testing)
 	app.Static("/", "./public")
 
@@ -44,12 +45,13 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub) {
 	sensorHandler := handler.NewSensorHandler(sensorRepo, db)
 	vehicleHandler := handler.NewVehicleHandler(vehicleRepo, db)
 	vehicleSensorHandler := handler.NewVehicleSensorHandler(vehicleSensorRepo, vehicleRepo, sensorRepo, db)
-	sensorLogHandler := handler.NewSensorLogHandler(sensorLogRepo)
-	vehicleLogHandler := handler.NewVehicleLogHandler(vehicleLogRepo)
-	rawLogHandler := handler.NewRawLogHandler(rawLogRepo)
+	sensorLogHandler := handler.NewSensorLogHandler(sensorLogRepo, vehicleRepo, db)
+	vehicleLogHandler := handler.NewVehicleLogHandler(vehicleLogRepo, vehicleRepo, db)
+	rawLogHandler := handler.NewRawLogHandler(rawLogRepo, vehicleRepo, db)
 	logStatsHandler := handler.NewLogStatsHandler(vehicleLogRepo, sensorLogRepo, rawLogRepo)
 	missionHandler := handler.NewMissionHandler(missionRepo, db)
-	alertHandler := handler.NewAlertHandler(alertRepo, wsHub)
+	alertHandler := handler.NewAlertHandler(alertRepo, vehicleRepo, wsHub, db)
+	controlHandler := handler.NewControlHandler(cmdPublisher)
 	wsHandler := wsocket.NewWebSocketHandler(wsHub)
 
 	// Swagger route
@@ -71,7 +73,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub) {
 	// User management routes (protected)
 	users := app.Group("/users", middleware.AuthRequired())
 	users.Post("/", middleware.CheckPermission(db, "users.create"), userHandler.CreateUser)
-	users.Get("/", middleware.CheckPermission(db, "users.view"), userHandler.GetAllUsers)
+	users.Get("/", middleware.CheckPermission(db, "users.read"), userHandler.GetAllUsers)
 	users.Get("/:user_id", userHandler.GetUserByID)    // Ownership check in handler
 	users.Put("/:user_id", userHandler.UpdateUser)     // Ownership check in handler
 	users.Delete("/:user_id", middleware.CheckPermission(db, "users.delete"), userHandler.DeleteUser)
@@ -79,16 +81,16 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub) {
 	// Role management routes (protected, admin only)
 	roles := app.Group("/roles", middleware.AuthRequired())
 	roles.Post("/", middleware.CheckPermission(db, "roles.manage"), roleHandler.CreateRole)
-	roles.Get("/", middleware.CheckPermission(db, "roles.view"), roleHandler.GetAllRoles)
-	roles.Get("/:id", middleware.CheckPermission(db, "roles.view"), roleHandler.GetRoleByID)
+	roles.Get("/", middleware.CheckPermission(db, "roles.read"), roleHandler.GetAllRoles)
+	roles.Get("/:id", middleware.CheckPermission(db, "roles.read"), roleHandler.GetRoleByID)
 	roles.Put("/:id", middleware.CheckPermission(db, "roles.manage"), roleHandler.UpdateRole)
 	roles.Delete("/:id", middleware.CheckPermission(db, "roles.manage"), roleHandler.DeleteRole)
 
 	// Permission management routes (protected, admin only)
 	permissions := app.Group("/permissions", middleware.AuthRequired())
 	permissions.Post("/", middleware.CheckPermission(db, "permissions.manage"), permissionHandler.CreatePermission)
-	permissions.Get("/", middleware.CheckPermission(db, "permissions.view"), permissionHandler.GetAllPermissions)
-	permissions.Get("/:id", middleware.CheckPermission(db, "permissions.view"), permissionHandler.GetPermissionByID)
+	permissions.Get("/", middleware.CheckPermission(db, "permissions.read"), permissionHandler.GetAllPermissions)
+	permissions.Get("/:id", middleware.CheckPermission(db, "permissions.read"), permissionHandler.GetPermissionByID)
 	permissions.Put("/:id", middleware.CheckPermission(db, "permissions.manage"), permissionHandler.UpdatePermission)
 	permissions.Delete("/:id", middleware.CheckPermission(db, "permissions.manage"), permissionHandler.DeletePermission)
 	permissions.Post("/assign-to-role", middleware.CheckPermission(db, "permissions.manage"), permissionHandler.AssignPermissionToRole)
@@ -185,6 +187,10 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub) {
 	alerts.Patch("/:id/acknowledge", alertHandler.AcknowledgeAlert)
 	alerts.Delete("/:id", alertHandler.DeleteAlert)
 	alerts.Delete("/clear", alertHandler.ClearAllAlerts)
+
+	// Vehicle control commands via MQTT (protected)
+	control := app.Group("/api/control", middleware.AuthRequired())
+	control.Post("/:vehicle_code/command", controlHandler.SendCommand)
 
 	// WebSocket routes (no middleware, auth checked inside WebSocket handler via query param)
 	app.Get("/ws/stats", middleware.AuthRequired(), wsHandler.GetStats)

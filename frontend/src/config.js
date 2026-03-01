@@ -152,6 +152,11 @@ export const API_ENDPOINTS = {
     ONGOING: `${API_BASE_URL}/missions/ongoing`,
     UPDATE_PROGRESS: id => `${API_BASE_URL}/missions/${id}/progress`,
     UPLOAD_TO_VEHICLE: id => `${API_BASE_URL}/missions/${id}/upload-to-vehicle`
+  },
+
+  // Vehicle control commands (ARM/DISARM/MODE via MQTT)
+  CONTROL: {
+    COMMAND: vehicleCode => `${API_BASE_URL}/api/control/${vehicleCode}/command`
   }
 }
 

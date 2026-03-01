@@ -95,8 +95,9 @@ func main() {
 		TopicPrefix: getEnv("MQTT_TOPIC_PREFIX", "seano"),
 	}
 	
+	var cmdPublisher *mqttservice.CommandPublisher
+
 	if brokerURL != "" {
-		// MIDAS 3000 listener (legacy)
 		mqttListener, err := midas3000.NewMQTTListener(mqttConfig, midas3000Handler)
 		if err != nil {
 			log.Printf("Warning: Failed to create MQTT listener: %v", err)
@@ -139,7 +140,11 @@ func main() {
 				if err := batteryListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start battery listener: %v", err)
 				}
-				
+
+				// Command Publisher (for control commands arm/disarm/mode)
+				cmdPublisher = mqttservice.NewCommandPublisher(mqttClient)
+				log.Println("✓ Command Publisher ready")
+
 				log.Println("✓ All MQTT listeners started successfully")
 			}
 		}
@@ -156,7 +161,7 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	route.SetupRoutes(app, db, wsHub)
+	route.SetupRoutes(app, db, wsHub, cmdPublisher)
 	app.Listen(":3000")
 }
 
