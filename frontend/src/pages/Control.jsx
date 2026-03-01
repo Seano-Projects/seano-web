@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import useTitle from "../hooks/useTitle";
+import useTranslation from "../hooks/useTranslation";
+import useControlCommand from "../hooks/useControlCommand";
 import useVehicleData from "../hooks/useVehicleData";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -23,6 +25,8 @@ import {
   FaSearch,
   FaChevronDown,
   FaChevronUp,
+  FaVideo,
+  FaVideoSlash,
 } from "react-icons/fa";
 import { MdMyLocation } from "react-icons/md";
 import { TbAnchor, TbRoute } from "react-icons/tb";
@@ -48,6 +52,8 @@ const MapController = ({ center, zoom }) => {
 
 const Control = () => {
   useTitle("Control");
+  const { t } = useTranslation();
+  const { sendCommand, isLoading: commandLoading } = useControlCommand();
   const { vehicles } = useVehicleData();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [activeMode, setActiveMode] = useState("MANUAL");
@@ -118,7 +124,114 @@ const Control = () => {
     );
   }, [isMissionControlExpanded]);
 
-  // Handle coordinate search
+  // Camera state
+  const [isCameraExpanded, setIsCameraExpanded] = useState(() => {
+    const saved = localStorage.getItem("control_camera_expanded");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  const [streamName, setStreamName] = useState("");
+  const [cameraConnected, setCameraConnected] = useState(false);
+  const [cameraConnecting, setCameraConnecting] = useState(false);
+  const videoRef = useRef(null);
+  const pcRef = useRef(null);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "control_camera_expanded",
+      JSON.stringify(isCameraExpanded),
+    );
+  }, [isCameraExpanded]);
+
+  // Auto-fill stream name from selected vehicle
+  useEffect(() => {
+    if (selectedVehicle?.code) {
+      setStreamName(selectedVehicle.code.toLowerCase().replace(/\s+/g, "-"));
+    }
+  }, [selectedVehicle]);
+
+  const disconnectCamera = useCallback(() => {
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCameraConnected(false);
+    setCameraConnecting(false);
+  }, []);
+
+  const connectCamera = useCallback(
+    async (name) => {
+      if (!name) return;
+      disconnectCamera();
+      setCameraConnecting(true);
+      try {
+        const pc = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        });
+        pcRef.current = pc;
+
+        pc.ontrack = (event) => {
+          if (videoRef.current && event.streams[0]) {
+            videoRef.current.srcObject = event.streams[0];
+          }
+          setCameraConnected(true);
+          setCameraConnecting(false);
+        };
+
+        pc.oniceconnectionstatechange = () => {
+          if (
+            pc.iceConnectionState === "disconnected" ||
+            pc.iceConnectionState === "failed" ||
+            pc.iceConnectionState === "closed"
+          ) {
+            setCameraConnected(false);
+            setCameraConnecting(false);
+          }
+        };
+
+        pc.addTransceiver("video", { direction: "recvonly" });
+        pc.addTransceiver("audio", { direction: "recvonly" });
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        // Wait for ICE gathering to complete
+        const sdpOffer = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(
+            () => reject(new Error("ICE timeout")),
+            10000,
+          );
+          const check = () => {
+            if (pc.iceGatheringState === "complete") {
+              clearTimeout(timeout);
+              resolve(pc.localDescription.sdp);
+            }
+          };
+          pc.addEventListener("icegatheringstatechange", check);
+          check();
+        });
+
+        const res = await fetch(`/mediamtx/${name}/whep`, {
+          method: "POST",
+          headers: { "Content-Type": "application/sdp" },
+          body: sdpOffer,
+        });
+
+        if (!res.ok) {
+          throw new Error(`Stream not found (${res.status})`);
+        }
+
+        const sdpAnswer = await res.text();
+        await pc.setRemoteDescription({ type: "answer", sdp: sdpAnswer });
+      } catch (err) {
+        disconnectCamera();
+        toast.error(`Camera: ${err.message}`);
+      }
+    },
+    [disconnectCamera],
+  );
   const handleSearchCoordinates = (e) => {
     if (e.key === "Enter" || e.type === "click") {
       const query = searchQuery.trim();
@@ -159,11 +272,9 @@ const Control = () => {
       ) {
         setMapCenter([lat, lng]);
         setMapZoom(15);
-        toast.success("Location set successfully!");
+        toast.success(t("control.search.success"));
       } else {
-        toast.error(
-          "Invalid coordinates! Please enter valid latitude and longitude.",
-        );
+        toast.error(t("control.search.error"));
       }
     }
   };
@@ -204,37 +315,77 @@ const Control = () => {
   const barTrackCls = "bg-gray-200 dark:bg-gray-700";
 
   const modes = [
-    { id: "MANUAL", label: "Direct operator control", icon: FaCog },
-    { id: "AUTO", label: "Executing Waypoints", icon: FaArrowUp },
-    { id: "LOITER", label: "Station Keeping", icon: TbAnchor },
-    { id: "RTL", label: "Return to Launch", icon: FaHome },
+    { id: "MANUAL", icon: FaCog },
+    { id: "AUTO", icon: FaArrowUp },
+    { id: "LOITER", icon: TbAnchor },
+    { id: "RTL", icon: FaHome },
   ];
 
   // Handlers
-  const handleDisarmConfirm = () => {
-    setIsArmed(false);
-    setPowerOn(false);
-    setShowDisarmConfirm(false);
-    // Add your disarm logic here
+  const handleCommandError = (result) => {
+    if (result.error === "timeout") {
+      toast.error(t("control.missionControl.hardwareTimeout"));
+    } else if (result.error === "mqtt_unavailable") {
+      toast.error(t("control.missionControl.mqttUnavailable"));
+    } else if (result.error === "hardware_error") {
+      toast.error(
+        `${t("control.missionControl.hardwareError")}: ${result.message}`,
+      );
+    } else {
+      toast.error(
+        `${t("control.missionControl.commandFailed")}: ${result.message || ""}`.trim(),
+      );
+    }
   };
 
-  const handleArmConfirm = () => {
-    setIsArmed(true);
+  const handleDisarmConfirm = async () => {
+    setShowDisarmConfirm(false);
+    toast.info(t("control.missionControl.sendingCommand"));
+    const result = await sendCommand(selectedVehicle?.code, "disarm");
+    if (result.success) {
+      setIsArmed(false);
+      setPowerOn(false);
+      toast.success(t("control.missionControl.disarmSuccess"));
+    } else {
+      handleCommandError(result);
+    }
+  };
+
+  const handleArmConfirm = async () => {
     setShowArmConfirm(false);
-    // Add your arm logic here
+    toast.info(t("control.missionControl.sendingCommand"));
+    const result = await sendCommand(selectedVehicle?.code, "arm");
+    if (result.success) {
+      setIsArmed(true);
+      toast.success(t("control.missionControl.armSuccess"));
+    } else {
+      handleCommandError(result);
+    }
   };
 
   const handleModeChangeRequest = (modeId) => {
-    if (activeMode !== modeId) {
+    if (activeMode !== modeId && !commandLoading) {
       setPendingMode(modeId);
     }
   };
 
-  const handleModeChangeConfirm = () => {
-    if (pendingMode) {
-      setActiveMode(pendingMode);
-      setPendingMode(null);
-      // Add your mode change logic here
+  const handleModeChangeConfirm = async () => {
+    if (!pendingMode) return;
+    const modeToSet = pendingMode;
+    setPendingMode(null);
+    toast.info(t("control.missionControl.sendingCommand"));
+    const result = await sendCommand(
+      selectedVehicle?.code,
+      "set_mode",
+      modeToSet,
+    );
+    if (result.success) {
+      setActiveMode(modeToSet);
+      toast.success(
+        `${t("control.missionControl.modeChangedTo")} ${modeToSet} ${t("control.missionControl.successfully")}`.trim(),
+      );
+    } else {
+      handleCommandError(result);
     }
   };
 
@@ -311,7 +462,7 @@ const Control = () => {
               transition={{ duration: 0.3, ease: "easeInOut" }}
               onClick={() => setIsVesselTelemetryExpanded(true)}
               className={`absolute left-4 top-4 ${panelCls} rounded-full p-3 shadow-lg pointer-events-auto flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors`}
-              title="Vessel Telemetry"
+              title={t("control.vesselTelemetry.title")}
             >
               <FaCompass className="text-blue-500 dark:text-white text-xl" />
             </motion.button>
@@ -329,7 +480,7 @@ const Control = () => {
                 <h2
                   className={`text-xs font-bold ${muteCls} uppercase tracking-wider`}
                 >
-                  Vessel Telemetry
+                  {t("control.vesselTelemetry.title")}
                 </h2>
                 <button
                   onClick={() => setIsVesselTelemetryExpanded(false)}
@@ -346,7 +497,7 @@ const Control = () => {
                   vehicles={vehicles}
                   selectedVehicle={selectedVehicle}
                   onVehicleChange={(vehicle) => setSelectedVehicle(vehicle)}
-                  placeholder="Select a vessel to control"
+                  placeholder={t("control.vesselTelemetry.placeholder")}
                   showPlaceholder={true}
                 />
               </div>
@@ -363,11 +514,15 @@ const Control = () => {
               {/* Speed & HDOP */}
               <div className="grid grid-cols-2 gap-3">
                 <div className={`${panelCls} rounded-lg p-3`}>
-                  <p className={`text-xs ${muteCls} mb-1`}>SPEED</p>
+                  <p className={`text-xs ${muteCls} mb-1`}>
+                    {t("control.vesselTelemetry.speed")}
+                  </p>
                   <p className="text-xl font-bold text-blue-500">4.2 kn</p>
                 </div>
                 <div className={`${panelCls} rounded-lg p-3`}>
-                  <p className={`text-xs ${muteCls} mb-1`}>HDOP</p>
+                  <p className={`text-xs ${muteCls} mb-1`}>
+                    {t("control.vesselTelemetry.hdop")}
+                  </p>
                   <p className="text-xl font-bold text-green-500">0.92</p>
                 </div>
               </div>
@@ -377,7 +532,8 @@ const Control = () => {
                 <p
                   className={`text-xs ${muteCls} mb-1 flex items-center gap-1`}
                 >
-                  <MdMyLocation className="text-sm" /> GPS POSITION
+                  <MdMyLocation className="text-sm" />{" "}
+                  {t("control.vesselTelemetry.gpsPosition")}
                 </p>
                 <p className={`text-sm ${textCls}`}>45.4215° N, 75.6972° W</p>
               </div>
@@ -386,23 +542,86 @@ const Control = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className={`flex items-center gap-2 ${muteCls}`}>
-                    <FaSatelliteDish className="text-blue-500" /> Satellites
+                    <FaSatelliteDish className="text-blue-500" />{" "}
+                    {t("control.vesselTelemetry.satellites")}
                   </span>
                   <span className={textCls}>18 Fixed</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className={`flex items-center gap-2 ${muteCls}`}>
-                    <FaTachometerAlt className="text-blue-500" /> Latency
+                    <FaTachometerAlt className="text-blue-500" />{" "}
+                    {t("control.vesselTelemetry.latency")}
                   </span>
                   <span className={textCls}>42ms</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className={`flex items-center gap-2 ${muteCls}`}>
-                    <FaWind className="text-blue-500" /> Wind Spd
+                    <FaWind className="text-blue-500" />{" "}
+                    {t("control.vesselTelemetry.windSpd")}
                   </span>
                   <span className={textCls}>12.4 km/h</span>
                 </div>
               </div>
+
+              {/* Mission Progress */}
+              <div>
+                <p
+                  className={`text-xs ${muteCls} uppercase tracking-wider mb-2`}
+                >
+                  {t("control.missionControl.missionProgress")}
+                </p>
+                <div className="space-y-3">
+                  {/* Current Waypoint */}
+                  <div
+                    className={`rounded-lg p-3 bg-blue-500/20 border border-blue-500/50`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className={`text-sm font-medium ${textCls}`}>
+                        01 Entrance Buoy
+                      </p>
+                      <span className="text-blue-500 shrink-0">
+                        <TbRoute className="w-5 h-5" />
+                      </span>
+                    </div>
+                    <p className={`text-xs ${muteCls}`}>
+                      {t("control.missionControl.activeTarget")}
+                    </p>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-xs ${muteCls}`}>
+                        {t("control.missionControl.overallProgress")}
+                      </span>
+                      <span className={`text-xs font-medium text-blue-500`}>
+                        33%
+                      </span>
+                    </div>
+                    <div
+                      className={`w-full h-2 ${barTrackCls} rounded-full overflow-hidden`}
+                    >
+                      <div
+                        className="h-full bg-blue-500 transition-all duration-300"
+                        style={{ width: "33%" }}
+                      />
+                    </div>
+                    <p className={`text-xs ${muteCls} mt-1`}>
+                      1 {t("control.missionControl.waypointsOf")} 3{" "}
+                      {t("control.missionControl.waypointsLabel")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Clear Mission */}
+              <button
+                type="button"
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors"
+              >
+                <FaTrashAlt className="text-sm" />{" "}
+                {t("control.missionControl.clearMission")}
+              </button>
             </motion.section>
           )}
         </AnimatePresence>
@@ -427,7 +646,7 @@ const Control = () => {
               style={{
                 left: isVesselTelemetryExpanded ? "350px" : "80px",
               }}
-              title="Search Coordinates"
+              title={t("control.search.title")}
             >
               <FaSearch className="text-base" />
             </motion.button>
@@ -461,7 +680,7 @@ const Control = () => {
                 <FaSearch className="absolute left-3 text-gray-400 dark:text-gray-500 z-10" />
                 <input
                   type="text"
-                  placeholder="Search coordinates... (e.g., -6.2088, 106.8456)"
+                  placeholder={t("control.search.placeholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchCoordinates}
@@ -493,7 +712,7 @@ const Control = () => {
               transition={{ duration: 0.3, ease: "easeInOut" }}
               onClick={() => setIsThrustControlExpanded(true)}
               className={`absolute left-1/2 bottom-5 -translate-x-1/2 ${panelCls} rounded-full p-3 shadow-lg pointer-events-auto flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors`}
-              title="Thrust Control"
+              title={t("control.thrustControl.title")}
             >
               <FaPowerOff className="text-red-500 text-xl" />
             </motion.button>
@@ -511,7 +730,7 @@ const Control = () => {
                 <h2
                   className={`text-sm font-bold ${textCls} uppercase tracking-wider`}
                 >
-                  Thrust Control
+                  {t("control.thrustControl.title")}
                 </h2>
                 <button
                   onClick={() => setIsThrustControlExpanded(false)}
@@ -527,25 +746,30 @@ const Control = () => {
                   <FaArrowUp className={`${muteCls} text-lg`} />
                   <button
                     type="button"
-                    onClick={() => setPowerOn(!powerOn)}
+                    onClick={() =>
+                      selectedVehicle?.code && setPowerOn(!powerOn)
+                    }
+                    disabled={!selectedVehicle?.code}
                     className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-                      powerOn
-                        ? "bg-red-600 hover:bg-red-500"
-                        : "bg-red-700/70 dark:bg-red-900/50 hover:bg-red-600/80"
+                      !selectedVehicle?.code
+                        ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-50"
+                        : powerOn
+                          ? "bg-red-600 hover:bg-red-500"
+                          : "bg-red-700/70 dark:bg-red-900/50 hover:bg-red-600/80"
                     }`}
                   >
                     <FaPowerOff className="text-white text-xl" />
                   </button>
                   <button
                     type="button"
-                    disabled={!isArmed}
+                    disabled={!isArmed || !selectedVehicle?.code}
                     className={`flex items-center justify-center gap-2 w-full py-2 rounded-lg text-white text-sm font-medium transition-all ${
-                      isArmed
+                      isArmed && selectedVehicle?.code
                         ? "bg-blue-600 hover:bg-blue-500 cursor-pointer"
                         : "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-50"
                     }`}
                   >
-                    TEST MOTORS
+                    {t("control.thrustControl.testMotors")}
                   </button>
                 </div>
 
@@ -555,7 +779,7 @@ const Control = () => {
                     <div
                       className={`flex justify-between text-xs mb-2 ${muteCls}`}
                     >
-                      <span>LEFT MOTOR</span>
+                      <span>{t("control.thrustControl.leftMotor")}</span>
                       <span className="text-blue-500 font-medium">
                         {leftMotor}%
                       </span>
@@ -566,9 +790,9 @@ const Control = () => {
                       max="100"
                       value={leftMotor}
                       onChange={(e) => setLeftMotor(Number(e.target.value))}
-                      disabled={!isArmed}
+                      disabled={!isArmed || !selectedVehicle?.code}
                       className={`w-full h-2 rounded-lg appearance-none slider motor-slider-left ${
-                        isArmed
+                        isArmed && selectedVehicle?.code
                           ? "cursor-pointer"
                           : "cursor-not-allowed opacity-50"
                       }`}
@@ -578,7 +802,7 @@ const Control = () => {
                     <div
                       className={`flex justify-between text-xs mb-2 ${muteCls}`}
                     >
-                      <span>RIGHT MOTOR</span>
+                      <span>{t("control.thrustControl.rightMotor")}</span>
                       <span className="text-blue-500 font-medium">
                         {rightMotor}%
                       </span>
@@ -589,9 +813,9 @@ const Control = () => {
                       max="100"
                       value={rightMotor}
                       onChange={(e) => setRightMotor(Number(e.target.value))}
-                      disabled={!isArmed}
+                      disabled={!isArmed || !selectedVehicle?.code}
                       className={`w-full h-2 rounded-lg appearance-none slider motor-slider-right ${
-                        isArmed
+                        isArmed && selectedVehicle?.code
                           ? "cursor-pointer"
                           : "cursor-not-allowed opacity-50"
                       }`}
@@ -615,7 +839,7 @@ const Control = () => {
               transition={{ duration: 0.3, ease: "easeInOut" }}
               onClick={() => setIsMissionControlExpanded(true)}
               className={`absolute right-4 top-4 ${panelCls} rounded-full p-3 shadow-lg pointer-events-auto flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors`}
-              title="Mission Control"
+              title={t("control.missionControl.title")}
             >
               <FaCog className="text-blue-500 dark:text-white text-xl" />
             </motion.button>
@@ -633,7 +857,7 @@ const Control = () => {
                 <h2
                   className={`text-xs font-bold ${muteCls} uppercase tracking-wider`}
                 >
-                  Mission Control
+                  {t("control.missionControl.title")}
                 </h2>
                 <button
                   onClick={() => setIsMissionControlExpanded(false)}
@@ -646,7 +870,9 @@ const Control = () => {
 
               <div className="flex items-center justify-between">
                 <span className={`${textCls} font-medium`}>
-                  {isArmed ? "SYSTEM ARMED" : "SYSTEM DISARMED"}
+                  {isArmed
+                    ? t("control.missionControl.systemArmed")
+                    : t("control.missionControl.systemDisarmed")}
                 </span>
                 <span
                   className={`w-2.5 h-2.5 rounded-full ${
@@ -659,17 +885,47 @@ const Control = () => {
                 !showDisarmConfirm ? (
                   <button
                     type="button"
+                    disabled={commandLoading || !selectedVehicle?.code}
                     onClick={() => setShowDisarmConfirm(true)}
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium text-sm transition-colors"
+                    className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-colors ${
+                      !selectedVehicle?.code
+                        ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-50"
+                        : commandLoading
+                          ? "bg-red-400 cursor-not-allowed opacity-60"
+                          : "bg-red-600 hover:bg-red-500"
+                    }`}
                   >
-                    <FaLock className="text-sm" /> DISARM SYSTEM
+                    {commandLoading ? (
+                      <svg
+                        className="animate-spin w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v8z"
+                        />
+                      </svg>
+                    ) : (
+                      <FaLock className="text-sm" />
+                    )}
+                    {t("control.missionControl.disarmSystem")}
                   </button>
                 ) : (
                   <div className="space-y-2">
                     <SlideToConfirm
                       onConfirm={handleDisarmConfirm}
-                      text="Slide to disarm"
-                      confirmText="Disarmed!"
+                      text={t("control.missionControl.slideToDisarm")}
+                      confirmText={t("control.missionControl.disarmed")}
                       icon={FaLock}
                       variant="danger"
                     />
@@ -678,24 +934,54 @@ const Control = () => {
                       onClick={() => setShowDisarmConfirm(false)}
                       className={`text-xs ${muteCls} hover:text-gray-700 dark:hover:text-gray-200 transition-colors`}
                     >
-                      Cancel
+                      {t("control.missionControl.cancel")}
                     </button>
                   </div>
                 )
               ) : !showArmConfirm ? (
                 <button
                   type="button"
+                  disabled={commandLoading || !selectedVehicle?.code}
                   onClick={() => setShowArmConfirm(true)}
-                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white font-medium text-sm transition-colors"
+                  className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-colors ${
+                    !selectedVehicle?.code
+                      ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-50"
+                      : commandLoading
+                        ? "bg-green-400 cursor-not-allowed opacity-60"
+                        : "bg-green-600 hover:bg-green-500"
+                  }`}
                 >
-                  <FaLock className="text-sm" /> ARM SYSTEM
+                  {commandLoading ? (
+                    <svg
+                      className="animate-spin w-4 h-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8z"
+                      />
+                    </svg>
+                  ) : (
+                    <FaLock className="text-sm" />
+                  )}
+                  {t("control.missionControl.armSystem")}
                 </button>
               ) : (
                 <div className="space-y-2">
                   <SlideToConfirm
                     onConfirm={handleArmConfirm}
-                    text="Slide to arm"
-                    confirmText="Armed!"
+                    text={t("control.missionControl.slideToArm")}
+                    confirmText={t("control.missionControl.armed")}
                     icon={FaLock}
                     variant="success"
                   />
@@ -704,16 +990,18 @@ const Control = () => {
                     onClick={() => setShowArmConfirm(false)}
                     className={`text-xs ${muteCls} hover:text-gray-700 dark:hover:text-gray-200 transition-colors`}
                   >
-                    Cancel
+                    {t("control.missionControl.cancel")}
                   </button>
                 </div>
               )}
 
               {!showDisarmConfirm && !showArmConfirm && (
                 <p className={`text-xs ${muteCls}`}>
-                  {isArmed
-                    ? "Slide to confirm disarm action."
-                    : "Slide to confirm arm action."}
+                  {!selectedVehicle?.code
+                    ? t("control.missionControl.noVehicleSelected")
+                    : isArmed
+                      ? t("control.missionControl.confirmDisarm")
+                      : t("control.missionControl.confirmArm")}
                 </p>
               )}
 
@@ -725,8 +1013,8 @@ const Control = () => {
                       <div className="space-y-2">
                         <SlideToConfirm
                           onConfirm={handleModeChangeConfirm}
-                          text={`Slide to ${m.id}`}
-                          confirmText="Changed!"
+                          text={`${t("control.missionControl.slideTo")} ${m.id}`}
+                          confirmText={t("control.missionControl.changed")}
                           icon={m.icon}
                           variant="primary"
                         />
@@ -735,28 +1023,35 @@ const Control = () => {
                           onClick={() => setPendingMode(null)}
                           className={`text-xs ${muteCls} hover:text-gray-700 dark:hover:text-gray-200 transition-colors w-full text-center`}
                         >
-                          Cancel
+                          {t("control.missionControl.cancel")}
                         </button>
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => handleModeChangeRequest(m.id)}
-                        disabled={activeMode === m.id}
+                        disabled={
+                          activeMode === m.id ||
+                          commandLoading ||
+                          !selectedVehicle?.code
+                        }
                         className={`w-full rounded-lg p-3 text-left flex items-center gap-3 transition-colors border ${
                           activeMode === m.id
                             ? "border-blue-500 bg-blue-500/10 dark:bg-blue-500/20 " +
                               textCls
-                            : "border-gray-300 dark:border-gray-600 bg-transparent " +
-                              muteCls +
-                              " hover:border-gray-400 dark:hover:border-gray-500 cursor-pointer"
+                            : !selectedVehicle?.code || commandLoading
+                              ? "border-gray-200 dark:border-gray-700 bg-transparent opacity-50 cursor-not-allowed " +
+                                muteCls
+                              : "border-gray-300 dark:border-gray-600 bg-transparent " +
+                                muteCls +
+                                " hover:border-gray-400 dark:hover:border-gray-500 cursor-pointer"
                         } ${activeMode === m.id ? "cursor-default" : ""}`}
                       >
                         <m.icon className="text-lg shrink-0" />
                         <div className="min-w-0">
                           <p className="font-medium">{m.id}</p>
                           <p className={`text-xs ${muteCls} truncate`}>
-                            {m.label}
+                            {t(`control.modes.${m.id}`)}
                           </p>
                         </div>
                       </button>
@@ -765,60 +1060,115 @@ const Control = () => {
                 ))}
               </div>
 
-              {/* Mission Progress */}
-              <div>
-                <p
-                  className={`text-xs ${muteCls} uppercase tracking-wider mb-2`}
-                >
-                  Mission Progress
-                </p>
-                <div className="space-y-3">
-                  {/* Current Waypoint */}
-                  <div
-                    className={`rounded-lg p-3 bg-blue-500/20 border border-blue-500/50`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <p className={`text-sm font-medium ${textCls}`}>
-                        01 Entrance Buoy
-                      </p>
-                      <span className="text-blue-500 shrink-0">
-                        <TbRoute className="w-5 h-5" />
-                      </span>
-                    </div>
-                    <p className={`text-xs ${muteCls}`}>Active target</p>
-                  </div>
+              {/* Mission Progress & Clear Mission moved to Vessel Telemetry panel */}
+            </motion.section>
+          )}
+        </AnimatePresence>
 
-                  {/* Progress Bar */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`text-xs ${muteCls}`}>
-                        Overall Progress
-                      </span>
-                      <span className={`text-xs font-medium text-blue-500`}>
-                        33%
-                      </span>
-                    </div>
-                    <div
-                      className={`w-full h-2 ${barTrackCls} rounded-full overflow-hidden`}
-                    >
-                      <div
-                        className="h-full bg-blue-500 transition-all duration-300"
-                        style={{ width: "33%" }}
-                      />
-                    </div>
-                    <p className={`text-xs ${muteCls} mt-1`}>
-                      1 of 3 waypoints completed
-                    </p>
-                  </div>
-                </div>
+        {/* ——— BOTTOM-RIGHT: Camera Feed (WebRTC) ——— */}
+        <AnimatePresence mode="wait">
+          {!isCameraExpanded ? (
+            <motion.button
+              key="collapsed-camera"
+              layout
+              initial={{ width: 48, height: 48, opacity: 0 }}
+              animate={{ width: 48, height: 48, opacity: 1 }}
+              exit={{ width: 48, height: 48, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              onClick={() => setIsCameraExpanded(true)}
+              className={`absolute right-4 bottom-4 ${panelCls} rounded-full p-3 shadow-lg pointer-events-auto flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors`}
+              title={t("control.camera.title")}
+            >
+              <FaVideo className="text-blue-500 dark:text-white text-xl" />
+            </motion.button>
+          ) : (
+            <motion.section
+              key="expanded-camera"
+              layout
+              initial={{ width: 48, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 48, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className={`absolute right-4 bottom-4 ${panelCls} rounded-xl p-4 flex flex-col gap-3 shadow-lg pointer-events-auto`}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <h2
+                  className={`text-xs font-bold ${muteCls} uppercase tracking-wider`}
+                >
+                  {t("control.camera.title")}
+                </h2>
+                <button
+                  onClick={() => setIsCameraExpanded(false)}
+                  className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${muteCls}`}
+                  title="Collapse"
+                >
+                  <FaChevronDown className="text-sm" />
+                </button>
               </div>
 
-              <button
-                type="button"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors"
+              {/* Video area */}
+              <div
+                className="relative w-full bg-black rounded-lg overflow-hidden"
+                style={{ aspectRatio: "16/9" }}
               >
-                <FaTrashAlt className="text-sm" /> CLEAR MISSION
-              </button>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                {!cameraConnected && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                    <FaVideoSlash className={`text-3xl ${muteCls}`} />
+                    <p className={`text-xs ${muteCls}`}>
+                      {cameraConnecting
+                        ? t("control.camera.connecting")
+                        : t("control.camera.noStream")}
+                    </p>
+                  </div>
+                )}
+                {cameraConnected && (
+                  <span className="absolute top-2 left-2 flex items-center gap-1 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    LIVE
+                  </span>
+                )}
+              </div>
+
+              {/* Stream name + connect */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={streamName}
+                  onChange={(e) => setStreamName(e.target.value)}
+                  placeholder={t("control.camera.streamPlaceholder")}
+                  className={`flex-1 text-xs rounded-lg px-3 py-2 border bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 ${textCls} placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500`}
+                />
+                <button
+                  type="button"
+                  onClick={
+                    cameraConnected
+                      ? disconnectCamera
+                      : () => connectCamera(streamName)
+                  }
+                  disabled={!streamName || cameraConnecting}
+                  className={`text-xs px-3 py-2 rounded-lg font-medium text-white transition-colors whitespace-nowrap ${
+                    cameraConnected
+                      ? "bg-red-600 hover:bg-red-500"
+                      : !streamName || cameraConnecting
+                        ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-50"
+                        : "bg-blue-600 hover:bg-blue-500"
+                  }`}
+                >
+                  {cameraConnecting
+                    ? t("control.camera.connecting")
+                    : cameraConnected
+                      ? t("control.camera.disconnect")
+                      : t("control.camera.connect")}
+                </button>
+              </div>
             </motion.section>
           )}
         </AnimatePresence>

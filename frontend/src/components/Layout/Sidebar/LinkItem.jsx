@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { NavLink } from "react-router-dom";
 import { useAuthContext } from "../../../hooks/useAuthContext";
+import useTranslation from "../../../hooks/useTranslation";
 
 const GAP = 8;
 
@@ -16,6 +17,7 @@ const LinkItem = ({
   action,
 }) => {
   const { logout } = useAuthContext();
+  const { t } = useTranslation();
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipStyle, setTooltipStyle] = useState({});
   const triggerRef = useRef(null);
@@ -69,7 +71,7 @@ const LinkItem = ({
           visibility: tooltipStyle.left != null ? "visible" : "hidden",
         }}
       >
-        {text}
+        {t(text)}
       </div>,
       document.body,
     );
@@ -105,7 +107,7 @@ const LinkItem = ({
         >
           <Icon size={size} />
           <span className={`me-3 ${isSidebarOpen ? "flex-1" : "hidden"}`}>
-            {text}
+            {t(text)}
           </span>
         </div>
         {tooltipPortal}
@@ -130,7 +132,7 @@ const LinkItem = ({
       >
         <Icon size={size} />
         <span className={`me-3 ${isSidebarOpen ? "flex-1" : "hidden"}`}>
-          {text}
+          {t(text)}
         </span>
         {badge && (
           <span

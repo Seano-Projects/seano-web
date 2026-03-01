@@ -4,9 +4,12 @@ import { FiLogOut } from "react-icons/fi";
 import SeanoLogo from "../../../assets/logo_seano.webp";
 import { useState, useRef, useEffect } from "react";
 import { useAuthContext } from "../../../hooks/useAuthContext";
+import { LanguageToggle } from "../../ui";
+import useTranslation from "../../../hooks/useTranslation";
 
 const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
   const { user, logout } = useAuthContext();
+  const { t, language } = useTranslation();
   const [time, setTime] = useState(new Date());
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -107,7 +110,11 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
               </span>
             </div>
             <button
-              aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+              aria-label={
+                isSidebarOpen
+                  ? t("header.closeSidebar")
+                  : t("header.openSidebar")
+              }
               className="inline-flex items-center p-1.5 ml-10 text-sm text-gray-500 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600 cursor-pointer transition-colors"
               onClick={toggleSidebar}
             >
@@ -121,18 +128,24 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
           <div className="flex items-center gap-4 relative justify-between">
             {/* Tanggal & Waktu */}
             <div className="dark:text-white text-sm font-medium hidden md:flex md:items-center">
-              {time.toLocaleTimeString("id-ID")} •{" "}
-              {time.toLocaleDateString("id-ID", {
+              {time.toLocaleTimeString(language === "id" ? "id-ID" : "en-US")} •{" "}
+              {time.toLocaleDateString(language === "id" ? "id-ID" : "en-US", {
                 weekday: "long",
                 year: "numeric",
                 month: "long",
                 day: "numeric",
               })}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {/* Language Toggle */}
+              <LanguageToggle className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800" />
+
+              {/* Dark Mode Toggle */}
               <button
                 aria-label={
-                  darkMode ? "Switch to light mode" : "Switch to dark mode"
+                  darkMode
+                    ? t("header.switchToLightMode")
+                    : t("header.switchToDarkMode")
                 }
                 className="dark:bg-slate-50 dark:text-slate-700 rounded-full p-2 transition-all duration-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onClick={toggleDarkMode}
@@ -148,7 +161,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
               <div ref={notificationsRef} className="relative">
                 <button
                   onClick={handleNotificationsClick}
-                  aria-label="Notifications"
+                  aria-label={t("header.notifications")}
                   aria-expanded={isNotificationsOpen}
                   className="focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full p-1"
                 >
@@ -171,7 +184,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
                   >
                     <ul className="space-y-2">
                       <li className="text-center dark:text-white font-semibold px-2 py-1">
-                        No new notifications
+                        {t("header.noNotifications")}
                       </li>
                     </ul>
                   </div>
@@ -212,7 +225,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
                           className="flex items-center gap-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white font-medium rounded px-3 py-2 transition"
                         >
                           <FaRegUser />
-                          <span>Profile</span>
+                          <span>{t("header.profile")}</span>
                         </a>
                       </li>
                       <li className="border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">
@@ -221,7 +234,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
                           className="w-full flex items-center gap-3 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-medium rounded px-3 py-2 transition"
                         >
                           <FiLogOut />
-                          <span>Logout</span>
+                          <span>{t("header.logout")}</span>
                         </button>
                       </li>
                     </ul>

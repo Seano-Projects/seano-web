@@ -1,0 +1,377 @@
+{
+  "common": {
+    "welcome": "Selamat Datang",
+    "loading": "Memuat...",
+    "error": "Kesalahan",
+    "success": "Berhasil",
+    "warning": "Peringatan",
+    "information": "Informasi",
+    "confirm": "Konfirmasi",
+    "cancel": "Batal",
+    "save": "Simpan",
+    "delete": "Hapus",
+    "edit": "Ubah",
+    "close": "Tutup",
+    "search": "Cari",
+    "filter": "Filter",
+    "back": "Kembali",
+    "next": "Selanjutnya",
+    "previous": "Sebelumnya",
+    "submit": "Kirim",
+    "logout": "Keluar",
+    "profile": "Profil"
+  },
+  "auth": {
+    "login": {
+      "title": "Selamat Datang Kembali",
+      "subtitle": "Masuk untuk mengakses dashboard monitoring <span>USV</span> Anda.",
+      "email": "Email",
+      "password": "Kata Sandi",
+      "emailPlaceholder": "email.anda@contoh.com",
+      "passwordPlaceholder": "Masukkan kata sandi",
+      "signIn": "Masuk",
+      "signingIn": "Masuk...",
+      "noAccount": "Belum punya akun?",
+      "register": "Daftar di sini",
+      "errors": {
+        "emailRequired": "Masukkan email dan kata sandi",
+        "invalidEmail": "Masukkan alamat email yang valid",
+        "loginFailed": "Login Gagal",
+        "invalidCredentials": "Login gagal. Periksa kredensial Anda dan coba lagi."
+      },
+      "success": {
+        "title": "Login Berhasil",
+        "message": "Selamat datang kembali! Mengalihkan ke dashboard..."
+      },
+      "registrationSuccess": {
+        "title": "Registrasi Berhasil",
+        "message": "Akun Anda siap! Silakan masuk untuk melanjutkan."
+      }
+    },
+    "register": {
+      "title": "Buat Akun Anda!",
+      "subtitle": "Daftar dengan email untuk memantau <span>USV</span> Anda.",
+      "email": "Email",
+      "emailPlaceholder": "email.anda@contoh.com",
+      "continue": "Lanjutkan dengan Email",
+      "sending": "Mengirim...",
+      "hasAccount": "Sudah punya akun?",
+      "login": "Masuk",
+      "errors": {
+        "emailRequired": "Masukkan alamat email Anda",
+        "invalidEmail": "Masukkan alamat email yang valid",
+        "registrationFailed": "Registrasi Gagal",
+        "failedToRegister": "Gagal mendaftar. Silakan coba lagi."
+      },
+      "success": {
+        "title": "Registrasi Berhasil",
+        "message": "Email verifikasi terkirim! Periksa kotak masuk Anda."
+      }
+    },
+    "setAccount": {
+      "title": "Atur Akun Anda",
+      "subtitle": "Buat nama pengguna dan kata sandi untuk mulai memantau <span>USV</span> Anda.",
+      "username": "Nama Pengguna",
+      "usernamePlaceholder": "Pilih nama pengguna yang unik",
+      "password": "Kata Sandi",
+      "passwordPlaceholder": "Minimal 6 karakter",
+      "confirmPassword": "Konfirmasi Kata Sandi",
+      "confirmPasswordPlaceholder": "Masukkan ulang kata sandi",
+      "createAccount": "Buat Akun",
+      "creatingAccount": "Membuat akun...",
+      "errors": {
+        "fillAllFields": "Harap isi semua kolom",
+        "usernameMinLength": "Nama pengguna minimal 3 karakter",
+        "passwordMinLength": "Kata sandi minimal 6 karakter",
+        "passwordMismatch": "Kata sandi tidak cocok. Masukkan ulang kata sandi Anda",
+        "usernameRequired": "Nama pengguna minimal 3 karakter",
+        "passwordRequired": "Kata sandi minimal 6 karakter",
+        "confirmPasswordRequired": "Kata sandi harus cocok",
+        "accountSetupFailed": "Pengaturan Akun Gagal",
+        "failedToCreate": "Gagal membuat akun. Silakan coba lagi."
+      },
+      "success": {
+        "title": "Registrasi Selesai",
+        "message": "Akun Anda berhasil dibuat!"
+      }
+    }
+  },
+  "nav": {
+    "dashboard": "Dasbor",
+    "dataOperations": "Operasi Data",
+    "tracking": "Pelacakan",
+    "control": "Kontrol",
+    "dataMission": "Data Misi",
+    "missionPlanner": "Perencana Misi",
+    "missions": "Misi",
+    "dataMonitoring": "Pemantauan Data",
+    "battery": "Baterai",
+    "log": "Log",
+    "alerts": "Peringatan",
+    "notification": "Notifikasi",
+    "sensorMonitoring": "Pemantauan Sensor",
+    "ctd": "CTD",
+    "dataManagement": "Manajemen Data",
+    "vehicle": "Kendaraan",
+    "data": "Data",
+    "sensor": "Sensor",
+    "sensorType": "Tipe Sensor",
+    "userManagement": "Manajemen Pengguna",
+    "user": "Pengguna",
+    "role": "Peran",
+    "permission": "Izin",
+    "profile": "Profil",
+    "logout": "Keluar"
+  },
+  "header": {
+    "notifications": "Notifikasi",
+    "noNotifications": "Tidak ada notifikasi baru",
+    "profile": "Profil",
+    "logout": "Keluar",
+    "openSidebar": "Buka sidebar",
+    "closeSidebar": "Tutup sidebar",
+    "switchToLightMode": "Beralih ke mode terang",
+    "switchToDarkMode": "Beralih ke mode gelap"
+  },
+  "dashboard": {
+    "title": "Dasbor",
+    "subtitle": "Pemantauan dan kontrol real-time kendaraan permukaan tanpa awak",
+    "welcome": "Selamat datang kembali",
+    "overview": "Ringkasan",
+    "cards": {
+      "totalVehicles": "Total Kendaraan",
+      "vehiclesOnMission": "Kendaraan Dalam Misi",
+      "totalMissions": "Total Misi",
+      "missionsInProgress": "Misi Sedang Berjalan",
+      "totalAlerts": "Total Peringatan",
+      "vehiclesRegistered": "kendaraan terdaftar",
+      "vehiclesActive": "kendaraan aktif",
+      "missionsCreated": "misi dibuat",
+      "missionsRunning": "misi berjalan",
+      "alertsPending": "peringatan tertunda",
+      "noVehiclesAvailable": "Tidak ada kendaraan tersedia",
+      "noActiveMissions": "Tidak ada misi aktif",
+      "noMissionsAvailable": "Tidak ada misi tersedia",
+      "noAlerts": "Tidak ada peringatan"
+    },
+    "vehicleQuickView": {
+      "title": "Tampilan Cepat Kapal",
+      "selectVehicle": "Pilih Kendaraan",
+      "placeholder": "Pilih kapal untuk melihat detail",
+      "status": "Status",
+      "lastUpdate": "Pembaruan Terakhir",
+      "noVehicleSelected": "Tidak Ada Kendaraan Dipilih",
+      "battery": "Baterai",
+      "speed": "Kecepatan",
+      "heading": "Arah",
+      "gps": "GPS",
+      "armed": "Dipersenjatai",
+      "mode": "Mode",
+      "coordinates": "Koordinat",
+      "noGPS": "Tidak Ada GPS",
+      "unknown": "Tidak Diketahui"
+    },
+    "overviewMap": {
+      "title": "Peta Ringkasan"
+    },
+    "recentMissions": {
+      "title": "Misi Terbaru",
+      "viewAll": "Lihat Semua →",
+      "noMissions": "Tidak ada misi terbaru ditemukan",
+      "createPrompt": "Buat misi baru untuk memulai",
+      "createButton": "Buat Misi",
+      "vehicle": "Kendaraan",
+      "progress": "Progress",
+      "waypoints": "titik jalan",
+      "km": "km",
+      "lastUpdated": "Terakhir diperbarui"
+    },
+    "missionSuccessRate": {
+      "title": "Tingkat Keberhasilan Misi",
+      "completed": "Selesai",
+      "ongoing": "Berjalan",
+      "failed": "Gagal",
+      "draft": "Draft",
+      "optimal": "OPTIMAL",
+      "good": "BAGUS",
+      "fair": "CUKUP",
+      "poor": "BURUK"
+    },
+    "latestAlerts": {
+      "title": "Peringatan Terbaru",
+      "refreshAlerts": "Muat ulang peringatan",
+      "viewAll": "Lihat Semua →",
+      "noAlerts": "Tidak ada peringatan terbaru ditemukan",
+      "justNow": "Baru saja",
+      "minutesAgo": "m lalu",
+      "hoursAgo": "j lalu",
+      "daysAgo": "h lalu",
+      "unknown": "Tidak Diketahui",
+      "invalidDate": "Tanggal tidak valid"
+    }
+  },
+  "tracking": {
+    "vehicleStatus": {
+      "loading": "Memuat status kendaraan...",
+      "title": "Status Kendaraan",
+      "noVehicle": "Tidak Ada Kendaraan Dipilih",
+      "connection": "Koneksi",
+      "online": "Online",
+      "offline": "Offline",
+      "na": "T/A",
+      "armed": "Dipersenjatai",
+      "disarmed": "Tidak Dipersenjatai",
+      "flightMode": "Mode Penerbangan",
+      "gps": "GPS",
+      "noFix": "Tidak Ada Fix",
+      "deadReckoning": "Dead Reckoning",
+      "fix2d": "Fix 2D",
+      "fix3d": "Fix 3D",
+      "fix": "Fix",
+      "systemStatus": "Status Sistem",
+      "statusUnknown": "Tidak Diketahui",
+      "statusBoot": "Boot",
+      "statusCalibrating": "Kalibrasi",
+      "statusStandby": "Siaga",
+      "statusActive": "Aktif",
+      "statusCritical": "Kritis",
+      "statusEmergency": "Darurat",
+      "statusCode": "Kode Status: OK",
+      "position": "Posisi",
+      "latitude": "Lintang",
+      "longitude": "Bujur",
+      "altitude": "Ketinggian",
+      "signal": "Sinyal",
+      "temp": "Suhu"
+    },
+    "telemetry": {
+      "loading": "Memuat data telemetri..."
+    },
+    "battery": {
+      "loading": "Menghubungkan ke pemantauan baterai...",
+      "title": "Pemantauan Baterai",
+      "batteryLabel": "Baterai",
+      "na": "T/A",
+      "healthGood": "Baik",
+      "status": "Status",
+      "current": "Arus",
+      "voltage": "Tegangan",
+      "temp": "Suhu",
+      "systemSummary": "Ringkasan Sistem",
+      "totalCapacity": "Kapasitas Total",
+      "averagePercentage": "Persentase Rata-rata",
+      "lastSync": "Sinkronisasi Terakhir",
+      "waitingData": "Menunggu data..."
+    },
+    "rawLog": {
+      "title": "Log Data Mentah",
+      "live": "Live",
+      "allVehicles": "Semua Kendaraan",
+      "levelError": "ERROR",
+      "levelWarn": "WARN",
+      "levelInfo": "INFO",
+      "levelDebug": "DEBUG",
+      "noLogs": "Tidak ada log tersedia",
+      "waitingData": "Menunggu data...",
+      "entry": "entri",
+      "entries": "entri",
+      "lastUpdated": "Terakhir diperbarui"
+    },
+    "sensorLog": {
+      "title": "Log Data Sensor",
+      "live": "Live",
+      "allVehicles": "Semua Kendaraan",
+      "allSensors": "Semua Sensor",
+      "selectSensor": "Pilih tipe sensor",
+      "noLogs": "Tidak ada log sensor tersedia",
+      "forSensors": "untuk sensor",
+      "sensors": "sensor",
+      "entry": "entri",
+      "entries": "entri",
+      "of": "dari",
+      "lastUpdated": "Terakhir diperbarui"
+    },
+    "alerts": {
+      "title": "Peringatan Terbaru",
+      "noAlerts": "Tidak ada peringatan ditemukan",
+      "operatingNormally": "Kendaraan beroperasi normal"
+    }
+  },
+  "control": {
+    "vesselTelemetry": {
+      "title": "Telemetri Kapal",
+      "placeholder": "Pilih kapal untuk dikontrol",
+      "speed": "KECEPATAN",
+      "hdop": "HDOP",
+      "gpsPosition": "POSISI GPS",
+      "satellites": "Satelit",
+      "latency": "Latensi",
+      "windSpd": "Kec. Angin"
+    },
+    "search": {
+      "title": "Cari Koordinat",
+      "placeholder": "Cari koordinat... (mis., -6.2088, 106.8456)",
+      "success": "Lokasi berhasil diatur!",
+      "error": "Koordinat tidak valid! Masukkan lintang dan bujur yang valid."
+    },
+    "thrustControl": {
+      "title": "Kontrol Dorong",
+      "testMotors": "UJI MOTOR",
+      "leftMotor": "MOTOR KIRI",
+      "rightMotor": "MOTOR KANAN"
+    },
+    "missionControl": {
+      "title": "Kontrol Misi",
+      "systemArmed": "SISTEM AKTIF",
+      "systemDisarmed": "SISTEM NONAKTIF",
+      "disarmSystem": "NONAKTIFKAN SISTEM",
+      "armSystem": "AKTIFKAN SISTEM",
+      "slideToDisarm": "Geser untuk nonaktifkan",
+      "disarmed": "Dinonaktifkan!",
+      "slideToArm": "Geser untuk aktifkan",
+      "armed": "Diaktifkan!",
+      "slideTo": "Geser ke",
+      "changed": "Berubah!",
+      "confirmDisarm": "Geser untuk konfirmasi nonaktifkan.",
+      "confirmArm": "Geser untuk konfirmasi aktifkan.",
+      "cancel": "Batal",
+      "missionProgress": "Progres Misi",
+      "activeTarget": "Target aktif",
+      "overallProgress": "Progres Keseluruhan",
+      "waypointsOf": "dari",
+      "waypointsLabel": "waypoint selesai",
+      "clearMission": "HAPUS MISI",
+      "sendingCommand": "Mengirim perintah ke hardware...",
+      "waitingAck": "Menunggu respons hardware...",
+      "armSuccess": "Sistem berhasil diaktifkan",
+      "disarmSuccess": "Sistem berhasil dinonaktifkan",
+      "modeChangedTo": "Mode berhasil diubah ke",
+      "successfully": "",
+      "commandFailed": "Perintah gagal",
+      "hardwareTimeout": "Hardware tidak merespons tepat waktu",
+      "mqttUnavailable": "MQTT tidak terkonfigurasi — periksa koneksi broker",
+      "noVehicleSelected": "Pilih kendaraan terlebih dahulu",
+      "hardwareError": "Hardware melaporkan kesalahan"
+    },
+    "modes": {
+      "MANUAL": "Kontrol operator langsung",
+      "AUTO": "Jalankan Waypoint",
+      "LOITER": "Pertahankan Posisi",
+      "RTL": "Kembali ke Titik Awal"
+    },
+    "camera": {
+      "title": "Kamera",
+      "connect": "Hubungkan",
+      "disconnect": "Putuskan",
+      "connecting": "Menghubungkan...",
+      "noStream": "Stream tidak tersedia",
+      "streamPlaceholder": "mis. usv-seano"
+    }
+  },
+  "toast": {
+    "success": "Berhasil",
+    "error": "Kesalahan",
+    "warning": "Peringatan",
+    "info": "Informasi"
+  }
+}

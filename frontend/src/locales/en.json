@@ -1,0 +1,377 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "information": "Information",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "logout": "Logout",
+    "profile": "Profile"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Sign in to access your <span>USV</span> monitoring dashboard.",
+      "email": "Email",
+      "password": "Password",
+      "emailPlaceholder": "your.email@example.com",
+      "passwordPlaceholder": "Enter your password",
+      "signIn": "Sign In",
+      "signingIn": "Signing in...",
+      "noAccount": "Don't have an account?",
+      "register": "Register here",
+      "errors": {
+        "emailRequired": "Please enter both email and password",
+        "invalidEmail": "Please enter a valid email address",
+        "loginFailed": "Login Failed",
+        "invalidCredentials": "Login failed. Please check your credentials and try again."
+      },
+      "success": {
+        "title": "Login Successful",
+        "message": "Welcome back! Redirecting to dashboard..."
+      },
+      "registrationSuccess": {
+        "title": "Registration Successful",
+        "message": "Your account is ready! Please sign in to continue."
+      }
+    },
+    "register": {
+      "title": "Create Your Account!",
+      "subtitle": "Sign up with your email to monitor your <span>USV</span>.",
+      "email": "Email",
+      "emailPlaceholder": "your.email@example.com",
+      "continue": "Continue with Email",
+      "sending": "Sending...",
+      "hasAccount": "Already have an account?",
+      "login": "Login",
+      "errors": {
+        "emailRequired": "Please enter your email address",
+        "invalidEmail": "Please enter a valid email address",
+        "registrationFailed": "Registration Failed",
+        "failedToRegister": "Failed to register. Please try again."
+      },
+      "success": {
+        "title": "Registration Successful",
+        "message": "Verification email sent! Please check your inbox."
+      }
+    },
+    "setAccount": {
+      "title": "Set Up Your Account",
+      "subtitle": "Create your username and secure password to start monitoring your <span>USV</span>.",
+      "username": "Username",
+      "usernamePlaceholder": "Choose a unique username",
+      "password": "Password",
+      "passwordPlaceholder": "At least 6 characters",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter your password",
+      "createAccount": "Create Account",
+      "creatingAccount": "Creating account...",
+      "errors": {
+        "fillAllFields": "Please fill in all fields",
+        "usernameMinLength": "Username must be at least 3 characters long",
+        "passwordMinLength": "Password must be at least 6 characters long",
+        "passwordMismatch": "Passwords do not match. Please re-enter your password",
+        "usernameRequired": "Username must be at least 3 characters",
+        "passwordRequired": "Password must be at least 6 characters",
+        "confirmPasswordRequired": "Passwords must match",
+        "accountSetupFailed": "Account Setup Failed",
+        "failedToCreate": "Failed to create account. Please try again."
+      },
+      "success": {
+        "title": "Registration Complete",
+        "message": "Your account has been created successfully!"
+      }
+    }
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "dataOperations": "Data Operations",
+    "tracking": "Tracking",
+    "control": "Control",
+    "dataMission": "Data Mission",
+    "missionPlanner": "Mission Planner",
+    "missions": "Missions",
+    "dataMonitoring": "Data Monitoring",
+    "battery": "Battery",
+    "log": "Log",
+    "alerts": "Alerts",
+    "notification": "Notification",
+    "sensorMonitoring": "Sensor Monitoring",
+    "ctd": "CTD",
+    "dataManagement": "Data Management",
+    "vehicle": "Vehicle",
+    "data": "Data",
+    "sensor": "Sensor",
+    "sensorType": "Sensor Type",
+    "userManagement": "User Management",
+    "user": "User",
+    "role": "Role",
+    "permission": "Permission",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "header": {
+    "notifications": "Notifications",
+    "noNotifications": "No new notifications",
+    "profile": "Profile",
+    "logout": "Logout",
+    "openSidebar": "Open sidebar",
+    "closeSidebar": "Close sidebar",
+    "switchToLightMode": "Switch to light mode",
+    "switchToDarkMode": "Switch to dark mode"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Real-time monitoring and control of unmanned surface vehicles",
+    "welcome": "Welcome back",
+    "overview": "Overview",
+    "cards": {
+      "totalVehicles": "Total Vehicles",
+      "vehiclesOnMission": "Vehicles On Mission",
+      "totalMissions": "Total Missions",
+      "missionsInProgress": "Missions In Progress",
+      "totalAlerts": "Total Alerts",
+      "vehiclesRegistered": "vehicles registered",
+      "vehiclesActive": "vehicles active",
+      "missionsCreated": "missions created",
+      "missionsRunning": "missions running",
+      "alertsPending": "alerts pending",
+      "noVehiclesAvailable": "No vehicles available",
+      "noActiveMissions": "No active missions",
+      "noMissionsAvailable": "No missions available",
+      "noAlerts": "No alerts"
+    },
+    "vehicleQuickView": {
+      "title": "Vessels Quick View",
+      "selectVehicle": "Select Vehicle",
+      "placeholder": "Select a vessel to view details",
+      "status": "Status",
+      "lastUpdate": "Last Update",
+      "noVehicleSelected": "No Vehicle Selected",
+      "battery": "Battery",
+      "speed": "Speed",
+      "heading": "Heading",
+      "gps": "GPS",
+      "armed": "Armed",
+      "mode": "Mode",
+      "coordinates": "Coordinates",
+      "noGPS": "No GPS",
+      "unknown": "Unknown"
+    },
+    "overviewMap": {
+      "title": "Overview Map"
+    },
+    "recentMissions": {
+      "title": "Recent Missions",
+      "viewAll": "View All →",
+      "noMissions": "No recent missions found",
+      "createPrompt": "Create a new mission to get started",
+      "createButton": "Create Mission",
+      "vehicle": "Vehicle",
+      "progress": "Progress",
+      "waypoints": "waypoints",
+      "km": "km",
+      "lastUpdated": "Last updated"
+    },
+    "missionSuccessRate": {
+      "title": "Mission Success Rate",
+      "completed": "Completed",
+      "ongoing": "Ongoing",
+      "failed": "Failed",
+      "draft": "Draft",
+      "optimal": "OPTIMAL",
+      "good": "GOOD",
+      "fair": "FAIR",
+      "poor": "POOR"
+    },
+    "latestAlerts": {
+      "title": "Latest Alerts",
+      "refreshAlerts": "Refresh alerts",
+      "viewAll": "View All →",
+      "noAlerts": "No recent alerts found",
+      "justNow": "Just now",
+      "minutesAgo": "m ago",
+      "hoursAgo": "h ago",
+      "daysAgo": "d ago",
+      "unknown": "Unknown",
+      "invalidDate": "Invalid date"
+    }
+  },
+  "tracking": {
+    "vehicleStatus": {
+      "loading": "Loading vehicle status...",
+      "title": "Vehicle Status",
+      "noVehicle": "No Vehicle Selected",
+      "connection": "Connection",
+      "online": "Online",
+      "offline": "Offline",
+      "na": "N/A",
+      "armed": "Armed",
+      "disarmed": "Disarmed",
+      "flightMode": "Flight Mode",
+      "gps": "GPS",
+      "noFix": "No Fix",
+      "deadReckoning": "Dead Reckoning",
+      "fix2d": "2D Fix",
+      "fix3d": "3D Fix",
+      "fix": "Fix",
+      "systemStatus": "System Status",
+      "statusUnknown": "Unknown",
+      "statusBoot": "Boot",
+      "statusCalibrating": "Calibrating",
+      "statusStandby": "Standby",
+      "statusActive": "Active",
+      "statusCritical": "Critical",
+      "statusEmergency": "Emergency",
+      "statusCode": "Status Code: OK",
+      "position": "Position",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "altitude": "Altitude",
+      "signal": "Signal",
+      "temp": "Temp"
+    },
+    "telemetry": {
+      "loading": "Loading telemetry data..."
+    },
+    "battery": {
+      "loading": "Connecting to battery monitoring...",
+      "title": "Battery Monitoring",
+      "batteryLabel": "Battery",
+      "na": "N/A",
+      "healthGood": "Good",
+      "status": "Status",
+      "current": "Current",
+      "voltage": "Voltage",
+      "temp": "Temp",
+      "systemSummary": "System Summary",
+      "totalCapacity": "Total Capacity",
+      "averagePercentage": "Average Percentage",
+      "lastSync": "Last Sync",
+      "waitingData": "Waiting for data..."
+    },
+    "rawLog": {
+      "title": "Raw Data Log",
+      "live": "Live",
+      "allVehicles": "All Vehicles",
+      "levelError": "ERROR",
+      "levelWarn": "WARN",
+      "levelInfo": "INFO",
+      "levelDebug": "DEBUG",
+      "noLogs": "No logs available",
+      "waitingData": "Waiting for data...",
+      "entry": "entry",
+      "entries": "entries",
+      "lastUpdated": "Last updated"
+    },
+    "sensorLog": {
+      "title": "Sensor Data Log",
+      "live": "Live",
+      "allVehicles": "All Vehicles",
+      "allSensors": "All Sensors",
+      "selectSensor": "Select sensor type",
+      "noLogs": "No sensor logs available",
+      "forSensors": "for",
+      "sensors": "sensors",
+      "entry": "entry",
+      "entries": "entries",
+      "of": "of",
+      "lastUpdated": "Last updated"
+    },
+    "alerts": {
+      "title": "Latest Alerts",
+      "noAlerts": "No alerts found",
+      "operatingNormally": "Vehicle is operating normally"
+    }
+  },
+  "control": {
+    "vesselTelemetry": {
+      "title": "Vessel Telemetry",
+      "placeholder": "Select a vessel to control",
+      "speed": "SPEED",
+      "hdop": "HDOP",
+      "gpsPosition": "GPS POSITION",
+      "satellites": "Satellites",
+      "latency": "Latency",
+      "windSpd": "Wind Spd"
+    },
+    "search": {
+      "title": "Search Coordinates",
+      "placeholder": "Search coordinates... (e.g., -6.2088, 106.8456)",
+      "success": "Location set successfully!",
+      "error": "Invalid coordinates! Please enter valid latitude and longitude."
+    },
+    "thrustControl": {
+      "title": "Thrust Control",
+      "testMotors": "TEST MOTORS",
+      "leftMotor": "LEFT MOTOR",
+      "rightMotor": "RIGHT MOTOR"
+    },
+    "missionControl": {
+      "title": "Mission Control",
+      "systemArmed": "SYSTEM ARMED",
+      "systemDisarmed": "SYSTEM DISARMED",
+      "disarmSystem": "DISARM SYSTEM",
+      "armSystem": "ARM SYSTEM",
+      "slideToDisarm": "Slide to disarm",
+      "disarmed": "Disarmed!",
+      "slideToArm": "Slide to arm",
+      "armed": "Armed!",
+      "slideTo": "Slide to",
+      "changed": "Changed!",
+      "confirmDisarm": "Slide to confirm disarm action.",
+      "confirmArm": "Slide to confirm arm action.",
+      "cancel": "Cancel",
+      "missionProgress": "Mission Progress",
+      "activeTarget": "Active target",
+      "overallProgress": "Overall Progress",
+      "waypointsOf": "of",
+      "waypointsLabel": "waypoints completed",
+      "clearMission": "CLEAR MISSION",
+      "sendingCommand": "Sending command to hardware...",
+      "waitingAck": "Waiting for hardware response...",
+      "armSuccess": "System armed successfully",
+      "disarmSuccess": "System disarmed successfully",
+      "modeChangedTo": "Mode changed to",
+      "successfully": "successfully",
+      "commandFailed": "Command failed",
+      "hardwareTimeout": "Hardware did not respond in time",
+      "mqttUnavailable": "MQTT not configured — check broker connection",
+      "noVehicleSelected": "Please select a vehicle first",
+      "hardwareError": "Hardware reported an error"
+    },
+    "modes": {
+      "MANUAL": "Direct operator control",
+      "AUTO": "Executing Waypoints",
+      "LOITER": "Station Keeping",
+      "RTL": "Return to Launch"
+    },
+    "camera": {
+      "title": "Camera Feed",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "connecting": "Connecting...",
+      "noStream": "No stream available",
+      "streamPlaceholder": "e.g. usv-seano"
+    }
+  },
+  "toast": {
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Information"
+  }
+}

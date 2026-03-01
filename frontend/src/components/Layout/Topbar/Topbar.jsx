@@ -14,6 +14,10 @@ import {
   FaRoute,
 } from "react-icons/fa";
 import { FaLocationDot, FaLocationPin, FaMapLocation } from "react-icons/fa6";
+import {
+  determineVehicleStatus,
+  getVehicleStatusLabel,
+} from "../../../utils/vehicleStatus";
 
 const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const [batteryLevel, setBatteryLevel] = useState(1);
@@ -31,23 +35,18 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
     return filtered.length > 0 ? filtered[0] : null;
   }, [vehicleLogs, selectedVehicle]);
 
-  // Check if data is recent (less than 30 seconds old)
-  const isDataRecent = useMemo(() => {
-    if (!vehicleLog?.timestamp) return false;
-    const logTime = new Date(vehicleLog.timestamp).getTime();
-    const now = Date.now();
-    const diffSeconds = (now - logTime) / 1000;
-    return diffSeconds < 30; // Data is fresh if less than 30 seconds old
-  }, [vehicleLog]);
-
-  // Determine connection status
+  // Determine connection status using best practices
   const usvStatus = useMemo(() => {
     if (!selectedVehicle) return "offline";
-    if (!vehicleLog) return "offline";
-    if (!isDataRecent) return "offline";
-    if (ws && ws.readyState === WebSocket.OPEN) return "online";
-    return "offline";
-  }, [selectedVehicle, vehicleLog, isDataRecent, ws]);
+    if (!vehicleLog?.timestamp) return "offline";
+
+    // Use the new status determination utility with proper thresholds
+    return determineVehicleStatus({
+      lastDataTime: vehicleLog.timestamp,
+      websocket: ws,
+      currentTime: Date.now(),
+    });
+  }, [selectedVehicle, vehicleLog, ws]);
 
   // Get real RSSI from vehicle log
   const rssiLevel = useMemo(() => {
@@ -166,7 +165,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
 
   return (
     <div
-      className={`fixed z-30 top-13 right-0 bg-white
+      className={`fixed z-30 top-15 right-0 bg-white
                   h-30 sm:h-15 py-2 px-4 border-b border-gray-200
                   dark:bg-black dark:border-gray-700
                   flex flex-col sm:flex-row space-y-3 md:space-y-0 sm:items-center sm:justify-between
@@ -177,39 +176,47 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
           <span
             className={`relative flex items-center gap-2 px-2.5 py-1.5 text-sm font-semibold rounded-full ${
               usvStatus === "online"
-                ? "bg-green-100 text-green-600"
-                : usvStatus === "offline"
-                  ? "bg-gray-200 text-gray-600"
-                  : "bg-red-100 text-red-600"
+                ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+                : usvStatus === "idle"
+                  ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400"
+                  : usvStatus === "offline"
+                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                    : "bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
             }`}
           >
             {/* Bullet with pulse */}
             <span className="relative flex w-3 h-3">
               <span
-                className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${
+                className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  usvStatus === "online" ? "animate-ping" : ""
+                } ${
                   usvStatus === "online"
                     ? "bg-green-400"
-                    : usvStatus === "offline"
-                      ? "bg-gray-400"
-                      : "bg-red-400"
+                    : usvStatus === "idle"
+                      ? "bg-yellow-400"
+                      : usvStatus === "offline"
+                        ? "bg-red-400"
+                        : "bg-gray-400"
                 }`}
               ></span>
               <span
                 className={`relative inline-flex rounded-full w-3 h-3 ${
                   usvStatus === "online"
                     ? "bg-green-500"
-                    : usvStatus === "offline"
-                      ? "bg-gray-500"
-                      : "bg-red-500"
+                    : usvStatus === "idle"
+                      ? "bg-yellow-500"
+                      : usvStatus === "offline"
+                        ? "bg-red-500"
+                        : "bg-gray-500"
                 }`}
               ></span>
             </span>
 
-            {/* 🔹 Teks status */}
-            {usvStatus}
+            {/* Status text with proper label */}
+            {getVehicleStatusLabel(usvStatus)}
           </span>
         </div>
-        <div className="min-w-[200px]">
+        <div className="min-w-50">
           <VehicleDropdown
             key={selectedVehicle?.id || "no-vehicle"}
             vehicles={vehicles}

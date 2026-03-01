@@ -3,6 +3,7 @@ import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 import LinkItem from "./LinkItem";
 import { usePermission } from "../../../hooks/usePermission";
 import { AuthContext } from "../../../contexts/AuthContext";
+import useTranslation from "../../../hooks/useTranslation";
 
 const MenuGroup = ({
   title,
@@ -14,6 +15,7 @@ const MenuGroup = ({
 }) => {
   const { user } = useContext(AuthContext);
   const { hasPermission } = usePermission();
+  const { t } = useTranslation();
 
   // Load initial state from localStorage, default to false (collapsed)
   const [isExpanded, setIsExpanded] = useState(() => {
@@ -82,7 +84,7 @@ const MenuGroup = ({
           onClick={toggleExpanded}
         >
           <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-            {title}
+            {t(title)}
           </h3>
           <div className="text-gray-400 dark:text-gray-500">
             {isExpanded ? (
