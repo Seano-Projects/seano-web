@@ -30,33 +30,64 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 		}
 	}
 
+	// ─── Single source of truth for all permissions ───────────────────────────
+	// Naming convention: <resource>.<action>
+	// Actions: read | create | update | delete | manage (create+update+delete)
 	permissions := []model.Permission{
-		// CRUD permissions - standardized with .read for read operations
-		{Name: "users.read", Description: "View/read users"},
+		// Dashboard
+		{Name: "dashboard.access", Description: "Access the main dashboard"},
+
+		// User Management
+		{Name: "users.read", Description: "View users"},
 		{Name: "users.create", Description: "Create new users"},
 		{Name: "users.update", Description: "Update user information"},
 		{Name: "users.delete", Description: "Delete users"},
-		{Name: "roles.read", Description: "View/read roles"},
+
+		// Role Management
+		{Name: "roles.read", Description: "View roles"},
 		{Name: "roles.manage", Description: "Create, update, and delete roles"},
-		{Name: "permissions.read", Description: "View/read permissions"},
+
+		// Permission Management
+		{Name: "permissions.read", Description: "View permissions"},
 		{Name: "permissions.manage", Description: "Create, update, and delete permissions"},
-		{Name: "sensors.read", Description: "View/read all sensors"},
-		{Name: "sensors.manage", Description: "Create, update, and delete sensors (admin only)"},
-		{Name: "sensor_types.read", Description: "View/read sensor types"},
-		{Name: "sensor_types.manage", Description: "Create, update, and delete sensor types"},
-		{Name: "vehicles.read", Description: "View/read all vehicles"},
+
+		// Vehicle Management
+		{Name: "vehicles.read", Description: "View all vehicles"},
 		{Name: "vehicles.create", Description: "Create new vehicles"},
 		{Name: "vehicles.update", Description: "Update any vehicle"},
 		{Name: "vehicles.delete", Description: "Delete any vehicle"},
 
-		// Feature-specific permissions
-		{Name: "tracking.read", Description: "View tracking data and real-time vehicle monitoring"},
+		// Sensor Management
+		{Name: "sensors.read", Description: "View all sensors"},
+		{Name: "sensors.manage", Description: "Create, update, and delete sensors"},
+
+		// Sensor Type Management
+		{Name: "sensor_types.read", Description: "View sensor types"},
+		{Name: "sensor_types.manage", Description: "Create, update, and delete sensor types"},
+
+		// Data Operations (main menu features)
+		{Name: "tracking.read", Description: "View real-time vehicle tracking"},
+		{Name: "control.read", Description: "Access vehicle control panel"},
+		{Name: "cam.read", Description: "View live camera feed"},
+
+		// Mission Management
 		{Name: "missions.read", Description: "View missions and mission planning"},
-		{Name: "telemetry.read", Description: "View telemetry data from vehicles"},
+		{Name: "missions.create", Description: "Create new missions"},
+		{Name: "missions.update", Description: "Update missions"},
+		{Name: "missions.delete", Description: "Delete missions"},
+
+		// Data Monitoring
+		{Name: "battery.read", Description: "View battery monitoring data"},
 		{Name: "logs.read", Description: "View system and vehicle logs"},
-		{Name: "alerts.read", Description: "View alerts and notifications"},
+		{Name: "alerts.read", Description: "View alerts"},
 		{Name: "notifications.read", Description: "View user notifications"},
+		{Name: "sensor-monitoring.read", Description: "View sensor monitoring (CTD, etc.)"},
+		{Name: "telemetry.read", Description: "View telemetry data from vehicles"},
+
+		// Data Records
 		{Name: "sensor_logs.read", Description: "View sensor log data"},
+		{Name: "raw_logs.read", Description: "View raw log data"},
+		{Name: "raw_logs.delete", Description: "Delete raw log data"},
 	}
 
 	for _, permission := range permissions {
@@ -74,19 +105,56 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 		}
 	}
 
+	// ─── Admin: assign ALL permissions on fresh install only ───────────────────
+	// After fresh install, admin manages role permissions via web UI.
 	var adminRole model.Role
 	if err := db.Where("name = ?", "admin").Preload("Permissions").First(&adminRole).Error; err == nil {
-		var allPermissions []model.Permission
-		db.Find(&allPermissions)
-
 		if len(adminRole.Permissions) == 0 {
+			var allPermissions []model.Permission
+			db.Find(&allPermissions)
 			if err := db.Model(&adminRole).Association("Permissions").Append(&allPermissions); err != nil {
 				log.Printf("Failed to assign permissions to admin: %v", err)
 			} else {
-				log.Println("All permissions assigned to admin role")
+				log.Printf("Admin role assigned %d permissions (fresh install)", len(allPermissions))
 			}
 		} else {
-			log.Println("Admin role already has permissions")
+			log.Printf("Admin role already has %d permissions, skipping (manage via web UI)", len(adminRole.Permissions))
+		}
+	}
+
+	// ─── User role: assign default read-level permissions ────────────────────
+	// These are the permissions for regular users. Admin manages full access.
+	userPermissionNames := []string{
+		"dashboard.access",
+		"tracking.read",
+		"control.read",
+		"cam.read",
+		"missions.read",
+		"battery.read",
+		"logs.read",
+		"alerts.read",
+		"notifications.read",
+		"sensor-monitoring.read",
+		"telemetry.read",
+		"vehicles.read",
+		"sensors.read",
+		"sensor_types.read",
+		"sensor_logs.read",
+		"raw_logs.read",
+	}
+
+	var userRole model.Role
+	if err := db.Where("name = ?", "user").Preload("Permissions").First(&userRole).Error; err == nil {
+		if len(userRole.Permissions) == 0 {
+			var userPerms []model.Permission
+			db.Where("name IN ?", userPermissionNames).Find(&userPerms)
+			if err := db.Model(&userRole).Association("Permissions").Append(&userPerms); err != nil {
+				log.Printf("Failed to assign permissions to user role: %v", err)
+			} else {
+				log.Printf("User role assigned %d permissions (fresh install)", len(userPerms))
+			}
+		} else {
+			log.Printf("User role already has %d permissions, skipping (manage via web UI)", len(userRole.Permissions))
 		}
 	}
 }
