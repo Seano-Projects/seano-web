@@ -20,6 +20,7 @@ export { default as useSensorTypesData } from './useSensorTypesData'
 export { default as useSensorsData } from './useSensorsData'
 export { default as useUserData } from './useUserData'
 export { default as useVehicleData } from './useVehicleData'
+export { default as useVehicleConnectionStatus } from './useVehicleConnectionStatus'
 
 // Utility Hooks
 export { default as useLoadingTimeout } from './useLoadingTimeout'
