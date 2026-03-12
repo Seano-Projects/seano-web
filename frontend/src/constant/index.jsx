@@ -404,12 +404,13 @@ export const getDataManagementCards = (rawLogsStats = null) => {
     {
       title: "Storage Size",
       value:
-        stats.totalSize > 0
-          ? `${(stats.totalSize / 1024 / 1024).toFixed(1)} MB`
-          : "0 MB",
-      description:
-        "Ukuran total storage yang digunakan oleh raw_logs table. Data real dari database berdasarkan ukuran tabel.",
-      source: "raw_logs table size calculation",
+        (stats.combinedSize || stats.totalSize) > 0
+          ? `${((stats.combinedSize || stats.totalSize) / 1024 / 1024).toFixed(1)} MB`
+          : "0.0 MB",
+      description: stats.maxStorageSize
+        ? `${((stats.remainingSize || 0) / 1024 / 1024 / 1024).toFixed(2)} GB remaining of ${((stats.maxStorageSize || 0) / 1024 / 1024 / 1024).toFixed(0)} GB total capacity`
+        : "Total storage used by all log tables (raw_logs, vehicle_logs, sensor_logs, alerts)",
+      source: "Combined: raw_logs + vehicle_logs + sensor_logs + alerts",
       icon: (
         <svg
           className="w-6 h-6"
@@ -426,22 +427,22 @@ export const getDataManagementCards = (rawLogsStats = null) => {
         </svg>
       ),
       trendIcon: (
-        <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div
-            className="bg-purple-600 h-1.5 rounded-full transition-all duration-500"
+            className={`h-2 rounded-full transition-all duration-500 ${
+              (stats.storagePercentage || 0) > 80
+                ? "bg-red-600"
+                : (stats.storagePercentage || 0) > 60
+                  ? "bg-yellow-600"
+                  : "bg-green-600"
+            }`}
             style={{
-              width: `${Math.min(
-                (stats.totalSize / (100 * 1024 * 1024)) * 100,
-                100,
-              )}%`,
+              width: `${Math.min(stats.storagePercentage || 0, 100)}%`,
             }}
           ></div>
         </div>
       ),
-      trendText: `${Math.min(
-        (stats.totalSize / (100 * 1024 * 1024)) * 100,
-        100,
-      ).toFixed(1)}% of estimated capacity`,
+      trendText: `${(stats.storagePercentage || 0).toFixed(2)}% of capacity used`,
       iconBgColor: "bg-purple-100 dark:bg-purple-900/30",
     },
     {

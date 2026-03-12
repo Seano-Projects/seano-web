@@ -31,6 +31,9 @@ const Data = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
+  // State for selected data type
+  const [selectedDataType, setSelectedDataType] = useState("raw_logs");
+
   // Get vehicle data
   const { vehicles, loading } = useVehicleData();
 
@@ -106,6 +109,8 @@ const Data = () => {
             onRefreshData={handleRefreshData}
             isRefreshing={isRefreshing}
             lastRefresh={lastRefresh}
+            selectedDataType={selectedDataType}
+            onDataTypeChange={setSelectedDataType}
           />
 
           {/* Data Statistics Cards */}
@@ -133,6 +138,7 @@ const Data = () => {
             <DataTable
               hasActiveFilters={hasActiveFilters}
               handleResetFilters={handleResetFilters}
+              selectedDataType={selectedDataType}
             />
           </div>
         </div>
