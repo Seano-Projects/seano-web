@@ -423,3 +423,45 @@ func (h *VehicleHandler) GetBatteryLogs(c *fiber.Ctx) error {
 
 	return c.JSON(logs)
 }
+
+// GetVehicleConnectionStatuses godoc
+// @Summary Get connection statuses of all vehicles
+// @Description Get lightweight connection status data for all accessible vehicles (MQTT LWT)
+// @Tags Vehicles
+// @Produce json
+// @Success 200 {array} map[string]interface{}
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /vehicles/connection-statuses [get]
+func (h *VehicleHandler) GetVehicleConnectionStatuses(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
+
+	var vehicles []model.Vehicle
+	var err error
+
+	// Check if user has vehicles.read permission (admin/moderator)
+	if middleware.HasPermission(h.db, userID, "vehicles.read") {
+		vehicles, err = h.vehicleRepo.GetAllVehicles()
+	} else {
+		// Regular users only see their own vehicles
+		vehicles, err = h.vehicleRepo.GetVehiclesByUserID(userID)
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch vehicles",
+		})
+	}
+
+	// Return lightweight response with only code and connection_status
+	statuses := make([]map[string]interface{}, len(vehicles))
+	for i, vehicle := range vehicles {
+		statuses[i] = map[string]interface{}{
+			"vehicle_code":      vehicle.Code,
+			"connection_status": vehicle.ConnectionStatus,
+			"last_connected":    vehicle.LastConnected,
+		}
+	}
+
+	return c.JSON(statuses)
+}

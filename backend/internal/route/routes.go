@@ -121,6 +121,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	vehicles.Post("/", vehicleHandler.CreateVehicle)
 	vehicles.Get("/", vehicleHandler.GetAllVehicles)                    // Returns own vehicles for regular users
 	vehicles.Get("/batteries", vehicleHandler.GetAllVehicles)           // For batteries endpoint compatibility
+	vehicles.Get("/connection-statuses", vehicleHandler.GetVehicleConnectionStatuses) // Get MQTT LWT connection statuses
 	vehicles.Get("/:vehicle_id", vehicleHandler.GetVehicleByID)         // Ownership check in handler
 	vehicles.Put("/:vehicle_id", vehicleHandler.UpdateVehicle)          // Ownership check in handler
 	vehicles.Delete("/:vehicle_id", vehicleHandler.DeleteVehicle)       // Ownership check in handler
