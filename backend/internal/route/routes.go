@@ -142,12 +142,17 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	sensorLogs := app.Group("/sensor-logs", middleware.AuthRequired())
 	sensorLogs.Get("/", sensorLogHandler.GetSensorLogs) // Query by vehicle_id, sensor_id, time range
 	sensorLogs.Get("/:id", sensorLogHandler.GetSensorLogByID)
+	sensorLogs.Get("/export", sensorLogHandler.ExportSensorLogs) // Export to CSV
+	sensorLogs.Post("/import", sensorLogHandler.ImportSensorLogs) // Import from CSV
 	sensorLogs.Post("/", sensorLogHandler.CreateSensorLog)
 	sensorLogs.Delete("/:id", sensorLogHandler.DeleteSensorLog)
 
 	// Vehicle Logs routes (protected)
 	vehicleLogs := app.Group("/vehicle-logs", middleware.AuthRequired())
 	vehicleLogs.Get("/", vehicleLogHandler.GetVehicleLogs) // Query by vehicle_id, time range
+
+	vehicleLogs.Get("/export", vehicleLogHandler.ExportVehicleLogs) // Export to CSV
+	vehicleLogs.Post("/import", vehicleLogHandler.ImportVehicleLogs) // Import from CSV
 	vehicleLogs.Get("/:id", vehicleLogHandler.GetVehicleLogByID)
 	vehicleLogs.Get("/latest/:vehicle_id", vehicleLogHandler.GetLatestVehicleLog)
 	vehicleLogs.Post("/", vehicleLogHandler.CreateVehicleLog)
@@ -157,6 +162,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	rawLogs := app.Group("/raw-logs", middleware.AuthRequired())
 	rawLogs.Get("/", rawLogHandler.GetRawLogs) // Query by search, time range
 	rawLogs.Get("/stats", rawLogHandler.GetRawLogStats)
+	rawLogs.Get("/export", rawLogHandler.ExportRawLogs) // Export to CSV
+	rawLogs.Post("/import", rawLogHandler.ImportRawLogs) // Import from CSV
 	rawLogs.Get("/:id", rawLogHandler.GetRawLogByID)
 	rawLogs.Post("/", rawLogHandler.CreateRawLog)
 	rawLogs.Delete("/:id", rawLogHandler.DeleteRawLog)
@@ -183,6 +190,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	alerts.Get("/stats", alertHandler.GetAlertStats)
 	alerts.Get("/recent", alertHandler.GetRecentAlerts)
 	alerts.Get("/unacknowledged", alertHandler.GetUnacknowledgedAlerts)
+	alerts.Get("/export", alertHandler.ExportAlerts) // Export to CSV
+	alerts.Post("/import", alertHandler.ImportAlerts) // Import from CSV
 	alerts.Get("/:id", alertHandler.GetAlertByID)
 	alerts.Post("/", alertHandler.CreateAlert)
 	alerts.Put("/:id", alertHandler.UpdateAlert)

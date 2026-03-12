@@ -4,6 +4,7 @@ import (
 	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
+	"go-fiber-pgsql/internal/util"
 	"strconv"
 	"time"
 
@@ -247,5 +248,180 @@ func (h *SensorLogHandler) DeleteSensorLog(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "Sensor log deleted successfully",
+	})
+}
+
+// ExportSensorLogs godoc
+// @Summary Export sensor logs to CSV
+// @Description Export sensor logs to CSV file with optional filters
+// @Tags Sensor Logs
+// @Accept json
+// @Produce text/csv
+// @Param vehicle_id query int false "Vehicle ID"
+// @Param sensor_id query int false "Sensor ID"
+// @Param start_time query string false "Start Time (ISO 8601)"
+// @Param end_time query string false "End Time (ISO 8601)"
+// @Success 200 {file} file "CSV file"
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /sensor-logs/export [get]
+func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
+	var query model.SensorLogQuery
+
+	// Parse query parameters
+	if vehicleID := c.Query("vehicle_id"); vehicleID != "" {
+		id, err := strconv.ParseUint(vehicleID, 10, 32)
+		if err == nil {
+			query.VehicleID = uint(id)
+		}
+	}
+
+	if sensorID := c.Query("sensor_id"); sensorID != "" {
+		id, err := strconv.ParseUint(sensorID, 10, 32)
+		if err == nil {
+			query.SensorID = uint(id)
+		}
+	}
+
+	if startTime := c.Query("start_time"); startTime != "" {
+		t, err := time.Parse(time.RFC3339, startTime)
+		if err == nil {
+			query.StartTime = t
+		}
+	}
+
+	if endTime := c.Query("end_time"); endTime != "" {
+		t, err := time.Parse(time.RFC3339, endTime)
+		if err == nil {
+			query.EndTime = t
+		}
+	}
+
+	// No limit for export
+	query.Limit = 0
+
+	// Get all logs matching query
+	logs, err := h.sensorLogRepo.GetSensorLogs(query)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch logs for export",
+		})
+	}
+
+	// Build CSV content
+	csv := "ID,Vehicle ID,Sensor ID,Data,Created At\n"
+	for _, log := range logs {
+		csv += strconv.Itoa(int(log.ID)) + "," +
+			strconv.Itoa(int(log.VehicleID)) + "," +
+			strconv.Itoa(int(log.SensorID)) + "," +
+			"\"" + log.Data + "\"," +
+			log.CreatedAt.Format(time.RFC3339) + "\n"
+	}
+
+	// Set headers for file download
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=sensor_logs_"+time.Now().Format("20060102_150405")+".csv")
+
+	return c.SendString(csv)
+}
+
+// ImportSensorLogs godoc
+// @Summary Import sensor logs from CSV
+// @Description Import sensor logs from CSV file
+// @Tags Sensor Logs
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "CSV file"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /sensor-logs/import [post]
+func (h *SensorLogHandler) ImportSensorLogs(c *fiber.Ctx) error {
+	// Get uploaded file
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "No file uploaded",
+		})
+	}
+
+	// Check file extension
+	if file.Header.Get("Content-Type") != "text/csv" && !util.Contains(file.Filename, ".csv") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "File must be CSV format",
+		})
+	}
+
+	// Open and read CSV file
+	fileContent, err := file.Open()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to open file",
+		})
+	}
+	defer fileContent.Close()
+
+	// Parse CSV
+	csvBytes := make([]byte, file.Size)
+	_, err = fileContent.Read(csvBytes)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to read file",
+		})
+	}
+
+	csvContent := string(csvBytes)
+	lines := util.SplitLines(csvContent)
+	
+	if len(lines) < 2 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "CSV file is empty or invalid",
+		})
+	}
+
+	// Skip header line
+	successCount := 0
+	errorCount := 0
+	
+	for i := 1; i < len(lines); i++ {
+		if lines[i] == "" {
+			continue
+		}
+		
+		fields := util.ParseCSVLine(lines[i])
+		if len(fields) < 4 {
+			errorCount++
+			continue
+		}
+
+		// Parse IDs
+		vehicleID, err1 := strconv.ParseUint(fields[1], 10, 32)
+		sensorID, err2 := strconv.ParseUint(fields[2], 10, 32)
+		
+		if err1 != nil || err2 != nil {
+			errorCount++
+			continue
+		}
+
+		// Create sensor log
+		log := &model.SensorLog{
+			VehicleID: uint(vehicleID),
+			SensorID:  uint(sensorID),
+			Data:      fields[3],
+		}
+
+		if err := h.sensorLogRepo.CreateSensorLog(log); err != nil {
+			errorCount++
+		} else {
+			successCount++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Import completed",
+		"success_count": successCount,
+		"error_count": errorCount,
+		"total_processed": successCount + errorCount,
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
+	"go-fiber-pgsql/internal/util"
 	"strconv"
 	"time"
 
@@ -300,6 +301,259 @@ func (h *VehicleLogHandler) DeleteVehicleLog(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "Vehicle log deleted successfully",
+	})
+}
+
+// ExportVehicleLogs godoc
+// @Summary Export vehicle logs to CSV
+// @Description Export vehicle logs to CSV file with optional filters
+// @Tags Vehicle Logs
+// @Accept json
+// @Produce text/csv
+// @Param vehicle_id query int false "Vehicle ID"
+// @Param start_time query string false "Start Time (ISO 8601)"
+// @Param end_time query string false "End Time (ISO 8601)"
+// @Success 200 {file} file "CSV file"
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /vehicle-logs/export [get]
+func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
+	var query model.VehicleLogQuery
+
+	// Parse query parameters
+	if vehicleID := c.Query("vehicle_id"); vehicleID != "" {
+		id, err := strconv.ParseUint(vehicleID, 10, 32)
+		if err == nil {
+			query.VehicleID = uint(id)
+		}
+	}
+
+	if startTime := c.Query("start_time"); startTime != "" {
+		t, err := time.Parse(time.RFC3339, startTime)
+		if err == nil {
+			query.StartTime = t
+		}
+	}
+
+	if endTime := c.Query("end_time"); endTime != "" {
+		t, err := time.Parse(time.RFC3339, endTime)
+		if err == nil {
+			query.EndTime = t
+		}
+	}
+
+	// No limit for export
+	query.Limit = 0
+
+	// Get all logs matching query
+	logs, err := h.vehicleLogRepo.GetVehicleLogs(query)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch logs for export",
+		})
+	}
+
+	// Build CSV content
+	csv := "ID,Vehicle ID,Vehicle Code,Latitude,Longitude,Speed,Heading,Battery Voltage,Mode,Created At\n"
+	for _, log := range logs {
+		vehicleCode := ""
+		if log.Vehicle != nil {
+			vehicleCode = log.Vehicle.Code
+		}
+		vehicleIDStr := strconv.Itoa(int(log.VehicleID))
+		
+		latStr := ""
+		if log.Latitude != nil {
+			latStr = strconv.FormatFloat(*log.Latitude, 'f', 6, 64)
+		}
+		
+		lonStr := ""
+		if log.Longitude != nil {
+			lonStr = strconv.FormatFloat(*log.Longitude, 'f', 6, 64)
+		}
+		
+		speedStr := ""
+		if log.Speed != nil {
+			speedStr = strconv.FormatFloat(*log.Speed, 'f', 2, 64)
+		}
+		
+		headingStr := ""
+		if log.Heading != nil {
+			headingStr = strconv.FormatFloat(*log.Heading, 'f', 2, 64)
+		}
+		
+		batteryStr := ""
+		if log.BatteryVoltage != nil {
+			batteryStr = strconv.FormatFloat(*log.BatteryVoltage, 'f', 2, 64)
+		}
+		
+		modeStr := ""
+		if log.Mode != nil {
+			modeStr = *log.Mode
+		}
+		
+		csv += strconv.Itoa(int(log.ID)) + "," +
+			vehicleIDStr + "," +
+			vehicleCode + "," +
+			latStr + "," +
+			lonStr + "," +
+			speedStr + "," +
+			headingStr + "," +
+			batteryStr + "," +
+			modeStr + "," +
+			log.CreatedAt.Format(time.RFC3339) + "\n"
+	}
+
+	// Set headers for file download
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=vehicle_logs_"+time.Now().Format("20060102_150405")+".csv")
+
+	return c.SendString(csv)
+}
+
+// ImportVehicleLogs godoc
+// @Summary Import vehicle logs from CSV
+// @Description Import vehicle logs from CSV file
+// @Tags Vehicle Logs
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "CSV file"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /vehicle-logs/import [post]
+func (h *VehicleLogHandler) ImportVehicleLogs(c *fiber.Ctx) error {
+	// Get uploaded file
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "No file uploaded",
+		})
+	}
+
+	// Check file extension
+	if file.Header.Get("Content-Type") != "text/csv" && !util.Contains(file.Filename, ".csv") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "File must be CSV format",
+		})
+	}
+
+	// Open and read CSV file
+	fileContent, err := file.Open()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to open file",
+		})
+	}
+	defer fileContent.Close()
+
+	// Parse CSV
+	csvBytes := make([]byte, file.Size)
+	_, err = fileContent.Read(csvBytes)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to read file",
+		})
+	}
+
+	csvContent := string(csvBytes)
+	lines := util.SplitLines(csvContent)
+	
+	if len(lines) < 2 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "CSV file is empty or invalid",
+		})
+	}
+
+	// Skip header line
+	successCount := 0
+	errorCount := 0
+	
+	for i := 1; i < len(lines); i++ {
+		if lines[i] == "" {
+			continue
+		}
+		
+		fields := util.ParseCSVLine(lines[i])
+		if len(fields) < 9 {
+			errorCount++
+			continue
+		}
+
+		// Parse vehicle ID
+		vehicleID, err := strconv.ParseUint(fields[1], 10, 32)
+		if err != nil {
+			errorCount++
+			continue
+		}
+
+		// Parse numeric fields (all optional)
+		var latitude, longitude, speed, heading, batteryVoltage *float64
+		var mode *string
+		
+		if fields[3] != "" {
+			lat, err := strconv.ParseFloat(fields[3], 64)
+			if err == nil {
+				latitude = &lat
+			}
+		}
+		
+		if fields[4] != "" {
+			lon, err := strconv.ParseFloat(fields[4], 64)
+			if err == nil {
+				longitude = &lon
+			}
+		}
+		
+		if fields[5] != "" {
+			spd, err := strconv.ParseFloat(fields[5], 64)
+			if err == nil {
+				speed = &spd
+			}
+		}
+		
+		if fields[6] != "" {
+			hdg, err := strconv.ParseFloat(fields[6], 64)
+			if err == nil {
+				heading = &hdg
+			}
+		}
+		
+		if fields[7] != "" {
+			bat, err := strconv.ParseFloat(fields[7], 64)
+			if err == nil {
+				batteryVoltage = &bat
+			}
+		}
+		
+		if fields[8] != "" {
+			mode = &fields[8]
+		}
+
+		// Create vehicle log
+		log := &model.VehicleLog{
+			VehicleID:      uint(vehicleID),
+			Latitude:       latitude,
+			Longitude:      longitude,
+			Speed:          speed,
+			Heading:        heading,
+			BatteryVoltage: batteryVoltage,
+			Mode:           mode,
+		}
+
+		if err := h.vehicleLogRepo.CreateVehicleLog(log); err != nil {
+			errorCount++
+		} else {
+			successCount++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Import completed",
+		"success_count": successCount,
+		"error_count": errorCount,
+		"total_processed": successCount + errorCount,
 	})
 }
 

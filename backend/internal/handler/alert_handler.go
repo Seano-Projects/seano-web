@@ -5,6 +5,7 @@ import (
 	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
+	"go-fiber-pgsql/internal/util"
 	wsocket "go-fiber-pgsql/internal/websocket"
 	"strconv"
 	"time"
@@ -534,4 +535,210 @@ func (h *AlertHandler) broadcastAlertUpdate(alert *model.Alert) {
 
 	data, _ := json.Marshal(message)
 	h.wsHub.Broadcast(data)
+}
+
+// ExportAlerts godoc
+// @Summary Export alerts to CSV
+// @Description Export alerts to CSV file with optional filters
+// @Tags Alerts
+// @Accept json
+// @Produce text/csv
+// @Param vehicle_id query int false "Vehicle ID"
+// @Param alert_type query string false "Alert Type (anti-theft, failsafe, other)"
+// @Param severity query string false "Severity (critical, warning, info)"
+// @Success 200 {file} file "CSV file"
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /alerts/export [get]
+func (h *AlertHandler) ExportAlerts(c *fiber.Ctx) error {
+	var query model.AlertQuery
+
+	// Parse query parameters
+	if vehicleID := c.Query("vehicle_id"); vehicleID != "" {
+		id, err := strconv.ParseUint(vehicleID, 10, 32)
+		if err == nil {
+			convertedID := uint(id)
+			query.VehicleID = &convertedID
+		}
+	}
+
+	query.AlertType = c.Query("alert_type")
+	query.Severity = c.Query("severity")
+
+	// No limit for export
+	query.Limit = 0
+
+	// Get all alerts matching query
+	alerts, err := h.alertRepo.GetAlerts(query)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch alerts for export",
+		})
+	}
+
+	// Build CSV content
+	csv := "ID,Vehicle ID,Vehicle Name,Severity,Alert Type,Message,Latitude,Longitude,Acknowledged,Created At\n"
+	for _, alert := range alerts {
+		vehicleIDStr := strconv.Itoa(int(alert.VehicleID))
+		
+		vehicleName := alert.VehicleName
+
+		latStr := ""
+		if alert.Latitude != nil {
+			latStr = strconv.FormatFloat(*alert.Latitude, 'f', -1, 64)
+		}
+		
+		lonStr := ""
+		if alert.Longitude != nil {
+			lonStr = strconv.FormatFloat(*alert.Longitude, 'f', -1, 64)
+		}
+
+		acknowledgedStr := "false"
+		if alert.Acknowledged {
+			acknowledgedStr = "true"
+		}
+
+		csv += strconv.Itoa(int(alert.ID)) + "," +
+			vehicleIDStr + "," +
+			"\"" + vehicleName + "\"," +
+			alert.Severity + "," +
+			alert.AlertType + "," +
+			"\"" + alert.Message + "\"," +
+			latStr + "," +
+			lonStr + "," +
+			acknowledgedStr + "," +
+			alert.CreatedAt.Format(time.RFC3339) + "\n"
+	}
+
+	// Set headers for file download
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=alerts_"+time.Now().Format("20060102_150405")+".csv")
+
+	return c.SendString(csv)
+}
+
+// ImportAlerts godoc
+// @Summary Import alerts from CSV
+// @Description Import alerts from CSV file
+// @Tags Alerts
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "CSV file"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /alerts/import [post]
+func (h *AlertHandler) ImportAlerts(c *fiber.Ctx) error {
+	// Get uploaded file
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "No file uploaded",
+		})
+	}
+
+	// Check file extension
+	if file.Header.Get("Content-Type") != "text/csv" && !util.Contains(file.Filename, ".csv") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "File must be CSV format",
+		})
+	}
+
+	// Open and read CSV file
+	fileContent, err := file.Open()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to open file",
+		})
+	}
+	defer fileContent.Close()
+
+	// Parse CSV
+	csvBytes := make([]byte, file.Size)
+	_, err = fileContent.Read(csvBytes)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to read file",
+		})
+	}
+
+	csvContent := string(csvBytes)
+	lines := util.SplitLines(csvContent)
+	
+	if len(lines) < 2 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "CSV file is empty or invalid",
+		})
+	}
+
+	// Skip header line
+	successCount := 0
+	errorCount := 0
+	
+	for i := 1; i < len(lines); i++ {
+		if lines[i] == "" {
+			continue
+		}
+		
+		fields := util.ParseCSVLine(lines[i])
+		if len(fields) < 9 {
+			errorCount++
+			continue
+		}
+
+		// Parse vehicle ID
+		vehicleID, err := strconv.ParseUint(fields[1], 10, 32)
+		if err != nil {
+			errorCount++
+			continue
+		}
+
+		// Parse latitude (optional)
+		var latitude *float64
+		if fields[6] != "" {
+			lat, err := strconv.ParseFloat(fields[6], 64)
+			if err == nil {
+				latitude = &lat
+			}
+		}
+
+		// Parse longitude (optional)
+		var longitude *float64
+		if fields[7] != "" {
+			lon, err := strconv.ParseFloat(fields[7], 64)
+			if err == nil {
+				longitude = &lon
+			}
+		}
+
+		// Parse acknowledged
+		acknowledged := fields[8] == "true"
+
+		// Create alert
+		alert := &model.Alert{
+			VehicleID:    uint(vehicleID),
+			Severity:     fields[3],
+			AlertType:    fields[4],
+			Message:      fields[5],
+			Latitude:     latitude,
+			Longitude:    longitude,
+			Acknowledged: acknowledged,
+		}
+
+		if err := h.alertRepo.CreateAlert(alert); err != nil {
+			errorCount++
+		} else {
+			successCount++
+			// Broadcast new alert via WebSocket
+			h.broadcastAlert(alert)
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Import completed",
+		"success_count": successCount,
+		"error_count": errorCount,
+		"total_processed": successCount + errorCount,
+	})
 }

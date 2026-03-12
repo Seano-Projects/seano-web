@@ -4,6 +4,7 @@ import (
 	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
+	"go-fiber-pgsql/internal/util"
 	"strconv"
 	"time"
 
@@ -256,6 +257,186 @@ func (h *RawLogHandler) DeleteRawLog(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "Raw log deleted successfully",
+	})
+}
+
+// ExportRawLogs godoc
+// @Summary Export raw logs to CSV
+// @Description Export raw logs to CSV file with optional filters
+// @Tags Raw Logs
+// @Accept json
+// @Produce text/csv
+// @Param search query string false "Search in logs"
+// @Param vehicle_id query int false "Vehicle ID"
+// @Param start_time query string false "Start Time (ISO 8601)"
+// @Param end_time query string false "End Time (ISO 8601)"
+// @Success 200 {file} file "CSV file"
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /raw-logs/export [get]
+func (h *RawLogHandler) ExportRawLogs(c *fiber.Ctx) error {
+	var query model.RawLogQuery
+
+	// Parse query parameters
+	if vehicleID := c.Query("vehicle_id"); vehicleID != "" {
+		id, err := strconv.ParseUint(vehicleID, 10, 32)
+		if err == nil {
+			query.VehicleID = uint(id)
+		}
+	}
+
+	query.Search = c.Query("search")
+
+	if startTime := c.Query("start_time"); startTime != "" {
+		t, err := time.Parse(time.RFC3339, startTime)
+		if err == nil {
+			query.StartTime = t
+		}
+	}
+
+	if endTime := c.Query("end_time"); endTime != "" {
+		t, err := time.Parse(time.RFC3339, endTime)
+		if err == nil {
+			query.EndTime = t
+		}
+	}
+
+	// No limit for export
+	query.Limit = 0
+
+	// Get all logs matching query
+	logs, err := h.rawLogRepo.GetRawLogs(query)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch logs for export",
+		})
+	}
+
+	// Build CSV content
+	csv := "ID,Vehicle ID,Vehicle Code,Logs,Created At\n"
+	for _, log := range logs {
+		vehicleCode := ""
+		vehicleIDStr := ""
+		if log.Vehicle != nil {
+			vehicleCode = log.Vehicle.Code
+		}
+		if log.VehicleID != nil {
+			vehicleIDStr = strconv.Itoa(int(*log.VehicleID))
+		}
+		// Escape quotes and commas in logs field
+		logsContent := "\"" + log.Logs + "\""
+		csv += strconv.Itoa(int(log.ID)) + "," +
+			vehicleIDStr + "," +
+			vehicleCode + "," +
+			logsContent + "," +
+			log.CreatedAt.Format(time.RFC3339) + "\n"
+	}
+
+	// Set headers for file download
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=raw_logs_"+time.Now().Format("20060102_150405")+".csv")
+
+	return c.SendString(csv)
+}
+
+// ImportRawLogs godoc
+// @Summary Import raw logs from CSV
+// @Description Import raw logs from CSV file
+// @Tags Raw Logs
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "CSV file"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /raw-logs/import [post]
+func (h *RawLogHandler) ImportRawLogs(c *fiber.Ctx) error {
+	// Get uploaded file
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "No file uploaded",
+		})
+	}
+
+	// Check file extension
+	if file.Header.Get("Content-Type") != "text/csv" && !util.Contains(file.Filename, ".csv") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "File must be CSV format",
+		})
+	}
+
+	// Open and read CSV file
+	fileContent, err := file.Open()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to open file",
+		})
+	}
+	defer fileContent.Close()
+
+	// Parse CSV
+	csvBytes := make([]byte, file.Size)
+	_, err = fileContent.Read(csvBytes)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to read file",
+		})
+	}
+
+	csvContent := string(csvBytes)
+	lines := util.SplitLines(csvContent)
+	
+	if len(lines) < 2 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "CSV file is empty or invalid",
+		})
+	}
+
+	// Skip header line
+	successCount := 0
+	errorCount := 0
+	
+	for i := 1; i < len(lines); i++ {
+		if lines[i] == "" {
+			continue
+		}
+		
+		fields := util.ParseCSVLine(lines[i])
+		if len(fields) < 4 {
+			errorCount++
+			continue
+		}
+
+		// Parse vehicle ID (optional)
+		var vehicleID *uint
+		if fields[1] != "" {
+			parsedID, err := strconv.ParseUint(fields[1], 10, 32)
+			if err == nil {
+				convertedID := uint(parsedID)
+				vehicleID = &convertedID
+			}
+		}
+
+		// Create raw log (fields[3] is logs content)
+		log := &model.RawLog{
+			VehicleID: vehicleID,
+			Logs:      fields[3],
+		}
+
+		if err := h.rawLogRepo.CreateRawLog(log); err != nil {
+			errorCount++
+		} else {
+			successCount++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Import completed",
+		"success_count": successCount,
+		"error_count": errorCount,
+		"total_processed": successCount + errorCount,
 	})
 }
 
