@@ -18,7 +18,7 @@ const Mission = () => {
   const { vehicles } = useVehicleData();
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 space-y-4">
       {/* Header - filter dipindah ke panel di Mission Logs */}
       <div>
         <Title title="Missions" subtitle="Mission monitoring and analytics" />
@@ -34,7 +34,7 @@ const Mission = () => {
       <EnergyConsumptionTrends />
 
       {/* Bottom Section - Mission Logs */}
-      <div className="">
+      <div>
         <MissionLogs
           vehicles={vehicles || []}
           selectedVessel={selectedVessel}
@@ -47,7 +47,7 @@ const Mission = () => {
       </div>
 
       {/* Mission Table - Detail View */}
-      <div className="">
+      <div>
         <MissionTable />
       </div>
     </div>

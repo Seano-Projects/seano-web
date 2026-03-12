@@ -64,7 +64,14 @@ func (h *MissionHandler) CreateMission(c *fiber.Ctx) error {
 		Waypoints:   waypoints,
 		StartTime:   req.StartTime,
 		EndTime:     req.EndTime,
-	CreatedBy:   &userID,
+		CreatedBy:   &userID,
+	}
+
+	// Save mission to database
+	if err := h.missionRepo.CreateMission(mission); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create mission",
+		})
 	}
 
 	// Reload with associations

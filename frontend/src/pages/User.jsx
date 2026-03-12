@@ -14,11 +14,13 @@ import useRoleData from "../hooks/useRoleData";
 import usePermissionData from "../hooks/usePermissionData";
 import { getUserWidgetData } from "../constant";
 import { Title, toast } from "../components/ui";
+import useNotify from "../hooks/useNotify";
 import { WidgetCardSkeleton } from "../components/Skeleton";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
 
 const User = () => {
   useTitle("User");
+  const notify = useNotify();
   const { userData, loading, stats, actions } = useUserData();
   const { roleData } = useRoleData();
   const { permissionData } = usePermissionData();
@@ -40,10 +42,16 @@ const User = () => {
   const handleAddUser = async (formData) => {
     const result = await actions.addUser(formData);
     if (result.success) {
-      toast.success("User created successfully!");
+      await notify.success("User created successfully!", {
+        title: "User Created",
+        action: notify.ACTIONS.USER_CREATED,
+      });
       setShowAddModal(false);
     } else {
-      toast.error(result.error || "Failed to create user");
+      await notify.error(result.error || "Failed to create user", {
+        title: "User Creation Failed",
+        action: notify.ACTIONS.USER_CREATED,
+      });
     }
     return result;
   };
@@ -56,16 +64,25 @@ const User = () => {
   const handleUpdateUser = async (formData) => {
     if (!selectedUser) return { success: false };
 
-    const result = await actions.updateUser(selectedUser.id, {
-      username: formData.username,
-    });
+    const payload = { username: formData.username };
+    if (formData.role_id) {
+      payload.role_id = formData.role_id; // already a number from Dropdown
+    }
+
+    const result = await actions.updateUser(selectedUser.id, payload);
 
     if (result.success) {
-      toast.success("User updated successfully!");
+      await notify.success("User updated successfully!", {
+        title: "User Updated",
+        action: notify.ACTIONS.USER_UPDATED,
+      });
       setShowEditModal(false);
       setSelectedUser(null);
     } else {
-      toast.error(result.error || "Failed to update user");
+      await notify.error(result.error || "Failed to update user", {
+        title: "User Update Failed",
+        action: notify.ACTIONS.USER_UPDATED,
+      });
     }
     return result;
   };
@@ -80,11 +97,17 @@ const User = () => {
 
     const result = await actions.deleteUser(selectedUser.id);
     if (result.success) {
-      toast.success("User deleted successfully!");
+      await notify.success("User deleted successfully!", {
+        title: "User Deleted",
+        action: notify.ACTIONS.USER_DELETED,
+      });
       setShowDeleteModal(false);
       setSelectedUser(null);
     } else {
-      toast.error(result.error || "Failed to delete user");
+      await notify.error(result.error || "Failed to delete user", {
+        title: "User Deletion Failed",
+        action: notify.ACTIONS.USER_DELETED,
+      });
     }
   };
 
@@ -105,19 +128,28 @@ const User = () => {
       for (const id of selectedUser.ids) {
         await actions.deleteUser(id);
       }
-      toast.success(`${selectedUser.ids.length} user(s) deleted successfully!`);
+      await notify.success(
+        `${selectedUser.ids.length} user(s) deleted successfully!`,
+        {
+          title: "Bulk User Deletion",
+          action: notify.ACTIONS.USER_DELETED,
+        },
+      );
       setShowDeleteModal(false);
       setSelectedUser(null);
       actions.refreshData();
     } catch (error) {
-      toast.error("Failed to delete some users");
+      await notify.error("Failed to delete some users", {
+        title: "Bulk Deletion Failed",
+        action: notify.ACTIONS.USER_DELETED,
+      });
     }
   };
 
   return (
-    <div>
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between mb-4">
         <Title title="User Management" subtitle="Manage your user" />
         <button
           onClick={() => setShowAddModal(true)}
@@ -129,7 +161,7 @@ const User = () => {
       </div>
 
       {/* Widget Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 px-4 pb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pb-4">
         {shouldShowSkeleton
           ? Array.from({ length: 5 }).map((_, idx) => (
               <WidgetCardSkeleton key={idx} />
@@ -169,6 +201,7 @@ const User = () => {
           }}
           onSubmit={handleUpdateUser}
           user={selectedUser}
+          roleData={roleData}
         />
       )}
 

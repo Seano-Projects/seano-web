@@ -1,4 +1,11 @@
-import { FaMoon, FaSun, FaRegUser, FaRegBell, FaBell } from "react-icons/fa";
+import {
+  FaMoon,
+  FaSun,
+  FaRegUser,
+  FaRegBell,
+  FaBell,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 import { HiOutlineMenuAlt2, HiX } from "react-icons/hi";
 import { FiLogOut } from "react-icons/fi";
 import SeanoLogo from "../../../assets/logo_seano.webp";
@@ -6,6 +13,9 @@ import { useState, useRef, useEffect } from "react";
 import { useAuthContext } from "../../../hooks/useAuthContext";
 import { LanguageToggle } from "../../ui";
 import useTranslation from "../../../hooks/useTranslation";
+import NotificationDropdown from "./NotificationDropdown";
+import AlertDropdown from "./AlertDropdown";
+import { API_BASE_URL } from "../../../config";
 
 const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
   const { user, logout } = useAuthContext();
@@ -13,9 +23,13 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
   const [time, setTime] = useState(new Date());
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [alertCount, setAlertCount] = useState(0);
 
   const userMenuRef = useRef(null);
   const notificationsRef = useRef(null);
+  const alertsRef = useRef(null);
 
   // Get initials for avatar (same logic as Profile page)
   const getInitials = (username, email) => {
@@ -36,17 +50,85 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
   const handleUserClick = () => {
     setIsUserMenuOpen((prev) => !prev);
     setIsNotificationsOpen(false);
+    setIsAlertsOpen(false);
   };
 
   const handleNotificationsClick = () => {
     setIsNotificationsOpen((prev) => !prev);
     setIsUserMenuOpen(false);
+    setIsAlertsOpen(false);
+  };
+
+  const handleAlertsClick = () => {
+    setIsAlertsOpen((prev) => !prev);
+    setIsUserMenuOpen(false);
+    setIsNotificationsOpen(false);
   };
 
   const handleLogout = () => {
     setIsUserMenuOpen(false);
     logout();
   };
+
+  // Fetch unread notification count
+  const fetchUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/notifications/stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.unread || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+    }
+  };
+
+  // Fetch unacknowledged alert count
+  const fetchAlertCount = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const response = await fetch(
+        `${API_BASE_URL}/alerts/stats?acknowledged=false`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const total =
+          (data.critical || 0) + (data.warning || 0) + (data.info || 0);
+        setAlertCount(total);
+      }
+    } catch (error) {
+      console.error("Error fetching alert count:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    fetchAlertCount();
+    // Refresh count every 30 seconds
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+      fetchAlertCount();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -65,17 +147,22 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
       ) {
         setIsNotificationsOpen(false);
       }
+      if (alertsRef.current && !alertsRef.current.contains(event.target)) {
+        setIsAlertsOpen(false);
+      }
     };
 
     const handleScroll = () => {
       setIsUserMenuOpen(false);
       setIsNotificationsOpen(false);
+      setIsAlertsOpen(false);
     };
 
     const handleEsc = (event) => {
       if (event.key === "Escape") {
         setIsUserMenuOpen(false);
         setIsNotificationsOpen(false);
+        setIsAlertsOpen(false);
       }
     };
 
@@ -157,38 +244,65 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
                 )}
               </button>
 
+              {/* Alerts */}
+              <div ref={alertsRef} className="relative">
+                <button
+                  onClick={handleAlertsClick}
+                  aria-label="Alerts"
+                  aria-expanded={isAlertsOpen}
+                  className="relative focus:outline-none rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <FaExclamationTriangle
+                    className={`text-xl dark:text-white cursor-pointer duration-300 ${
+                      isAlertsOpen || alertCount > 0
+                        ? "text-red-600 dark:text-red-500"
+                        : "text-gray-600"
+                    }`}
+                    aria-hidden="true"
+                  />
+                  {alertCount > 0 && (
+                    <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                      {alertCount > 99 ? "99" : alertCount}
+                    </span>
+                  )}
+                </button>
+                <AlertDropdown
+                  isOpen={isAlertsOpen}
+                  onClose={() => setIsAlertsOpen(false)}
+                  onUpdate={fetchAlertCount}
+                />
+              </div>
+
               {/* Notifications */}
               <div ref={notificationsRef} className="relative">
                 <button
                   onClick={handleNotificationsClick}
                   aria-label={t("header.notifications")}
                   aria-expanded={isNotificationsOpen}
-                  className="focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full p-1"
+                  className="relative focus:outline-none rounded-full p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 >
                   {isNotificationsOpen ? (
                     <FaBell
-                      className="mt-1 text-xl dark:text-white cursor-pointer duration-300"
+                      className="text-xl dark:text-white cursor-pointer duration-300"
                       aria-hidden="true"
                     />
                   ) : (
                     <FaRegBell
-                      className="mt-1 text-xl dark:text-white cursor-pointer duration-300"
+                      className="text-xl dark:text-white cursor-pointer duration-300"
                       aria-hidden="true"
                     />
                   )}
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                      {unreadCount > 99 ? "99" : unreadCount}
+                    </span>
+                  )}
                 </button>
-                {isNotificationsOpen && (
-                  <div
-                    className="absolute right-0 top-12 mt-2 w-72 bg-white dark:bg-black rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 transition-all duration-300"
-                    style={{ zIndex: 10002 }}
-                  >
-                    <ul className="space-y-2">
-                      <li className="text-center dark:text-white font-semibold px-2 py-1">
-                        {t("header.noNotifications")}
-                      </li>
-                    </ul>
-                  </div>
-                )}
+                <NotificationDropdown
+                  isOpen={isNotificationsOpen}
+                  onClose={() => setIsNotificationsOpen(false)}
+                  onUpdate={fetchUnreadCount}
+                />
               </div>
 
               {/* User Menu */}
@@ -199,7 +313,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
                   className="rounded-full transition-all duration-300 cursor-pointer overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onClick={handleUserClick}
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-fourth to-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                  <div className="w-8 h-8 rounded-full bg-linear-to-br from-fourth to-blue-600 flex items-center justify-center text-white text-xs font-bold">
                     {getInitials(user?.username, user?.email)}
                   </div>
                 </button>

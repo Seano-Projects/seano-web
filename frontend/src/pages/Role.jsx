@@ -12,9 +12,11 @@ import useRoleData from "../hooks/useRoleData";
 import usePermissionData from "../hooks/usePermissionData";
 import { API_ENDPOINTS } from "../config";
 import { Title, toast } from "../components/ui";
+import useNotify from "../hooks/useNotify";
 
 const Role = () => {
   useTitle("Role");
+  const notify = useNotify();
   const { roleData, loading, actions } = useRoleData();
   const { permissionData } = usePermissionData();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -68,12 +70,18 @@ const Role = () => {
     }
 
     if (result.success) {
-      toast.success("Role created successfully!");
+      await notify.success("Role created successfully!", {
+        title: "Role Created",
+        action: notify.ACTIONS.ROLE_CREATED,
+      });
       setShowAddModal(false);
       // Refresh role data to get updated permissions
       actions.refreshData();
     } else {
-      toast.error(result.message || "Failed to create role");
+      await notify.error(result.message || "Failed to create role", {
+        title: "Role Creation Failed",
+        action: notify.ACTIONS.ROLE_CREATED,
+      });
     }
     return result;
   };
@@ -152,17 +160,22 @@ const Role = () => {
             },
           );
         }
-      } catch (error) {
-      }
+      } catch (error) {}
     }
 
     if (result.success) {
-      toast.success("Role updated successfully!");
+      await notify.success("Role updated successfully!", {
+        title: "Role Updated",
+        action: notify.ACTIONS.ROLE_UPDATED,
+      });
       setShowEditModal(false);
       setSelectedRole(null);
       actions.refreshData();
     } else {
-      toast.error(result.message || "Failed to update role");
+      await notify.error(result.message || "Failed to update role", {
+        title: "Role Update Failed",
+        action: notify.ACTIONS.ROLE_UPDATED,
+      });
     }
     return result;
   };
@@ -179,11 +192,17 @@ const Role = () => {
 
     const result = await actions.deleteRole(selectedRole.id);
     if (result.success) {
-      toast.success("Role deleted successfully!");
+      await notify.success("Role deleted successfully!", {
+        title: "Role Deleted",
+        action: notify.ACTIONS.ROLE_DELETED,
+      });
       setShowDeleteModal(false);
       setSelectedRole(null);
     } else {
-      toast.error(result.message || "Failed to delete role");
+      await notify.error(result.message || "Failed to delete role", {
+        title: "Role Deletion Failed",
+        action: notify.ACTIONS.ROLE_DELETED,
+      });
     }
   };
 
@@ -219,20 +238,29 @@ const Role = () => {
       for (const id of selectedRole.ids) {
         await actions.deleteRole(id);
       }
-      toast.success(`${selectedRole.ids.length} role(s) deleted successfully!`);
+      await notify.success(
+        `${selectedRole.ids.length} role(s) deleted successfully!`,
+        {
+          title: "Bulk Role Deletion",
+          action: notify.ACTIONS.ROLE_DELETED,
+        },
+      );
       setShowDeleteModal(false);
       setSelectedRole(null);
       actions.refreshData();
     } catch (error) {
-      toast.error("Failed to delete some roles");
+      await notify.error("Failed to delete some roles", {
+        title: "Bulk Deletion Failed",
+        action: notify.ACTIONS.ROLE_DELETED,
+      });
     }
   };
 
   return (
-    <div>
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
-        <Title title="Role Management" subtitle="Manage your roles" />
+      <div className="flex items-center justify-between mb-4">
+        <Title title="Role Management" subtitle="Manage your role" />
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer"

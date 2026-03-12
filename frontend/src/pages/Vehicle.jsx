@@ -11,11 +11,13 @@ import { useLogData } from "../hooks/useLogData";
 import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 import { toast } from "../components/ui";
+import useNotify from "../hooks/useNotify";
 import { FaShip } from "react-icons/fa";
 import { determineVehicleStatus } from "../utils/vehicleStatus";
 
 const Vehicle = () => {
   useTitle("Vehicle");
+  const notify = useNotify();
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
@@ -65,7 +67,10 @@ const Vehicle = () => {
           (v) => v.status === "on_mission",
         ).length;
         const online = processedVehicles.filter(
-          (v) => v.status === "idle" || v.status === "on_mission",
+          (v) =>
+            v.status === "idle" ||
+            v.status === "on_mission" ||
+            v.status === "online",
         ).length;
         const offline = processedVehicles.filter(
           (v) => v.status === "offline",
@@ -178,6 +183,71 @@ const Vehicle = () => {
     );
   }, [vehicleLogs]);
 
+  // Periodic status check - update vehicle status even when no new data arrives
+  // This ensures vehicles transition from idle -> offline after timeout
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVehicles((prevVehicles) => {
+        const updatedVehicles = prevVehicles.map((vehicle) => {
+          // Recalculate status based on last_seen time
+          const newStatus = determineVehicleStatus({
+            lastDataTime: vehicle.last_seen,
+            websocket: ws,
+            currentTime: Date.now(),
+          });
+
+          // Only update if status changed
+          if (newStatus !== vehicle.status) {
+            return { ...vehicle, status: newStatus };
+          }
+          return vehicle;
+        });
+
+        // Check if any status changed
+        const hasChanges = updatedVehicles.some(
+          (v, idx) => v.status !== prevVehicles[idx].status,
+        );
+
+        // If statuses changed, recalculate stats
+        if (hasChanges) {
+          const totalVehicles = updatedVehicles.length;
+          const onMission = updatedVehicles.filter(
+            (v) => v.status === "on_mission",
+          ).length;
+          const online = updatedVehicles.filter(
+            (v) =>
+              v.status === "idle" ||
+              v.status === "on_mission" ||
+              v.status === "online",
+          ).length;
+          const offline = updatedVehicles.filter(
+            (v) => v.status === "offline",
+          ).length;
+          const maintenance = updatedVehicles.filter(
+            (v) => v.status === "maintenance",
+          ).length;
+
+          setStats({
+            totalToday: totalVehicles,
+            totalYesterday: 0,
+            onMissionToday: onMission,
+            onMissionYesterday: 0,
+            onlineToday: online,
+            onlineYesterday: 0,
+            offlineToday: offline,
+            offlineYesterday: 0,
+            maintenanceToday: maintenance,
+            maintenanceYesterday: 0,
+          });
+        }
+
+        return updatedVehicles;
+      });
+    }, 2000); // Check every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [ws]);
+
   // Force refresh vehicle data
   const refreshVehicles = () => {
     setRefreshTrigger((prev) => prev + 1);
@@ -191,14 +261,37 @@ const Vehicle = () => {
           API_ENDPOINTS.VEHICLES.UPDATE(vehicleId),
           vehicleData,
         );
-        toast.success("Vehicle updated successfully!");
+        await notify.success("Vehicle updated successfully!", {
+          title: "Vehicle Updated",
+          action: notify.ACTIONS.VEHICLE_UPDATED,
+          vehicleId: vehicleId,
+        });
       } else {
         // Create new vehicle
+        console.log("🎯 STEP 1: About to POST vehicle");
+
         const response = await axios.post(
           API_ENDPOINTS.VEHICLES.CREATE,
           vehicleData,
         );
-        toast.success("Vehicle created successfully!");
+
+        console.log("🎯 STEP 2: POST completed, response:", response);
+        console.log("🎯 STEP 3: Response data:", response.data);
+        console.log("🎯 STEP 4: Vehicle ID:", response.data?.id);
+
+        // Extract vehicle ID from response (backend returns vehicle directly)
+        const newVehicleId = response.data?.id;
+
+        console.log("🎯 STEP 5: Extracted vehicle ID:", newVehicleId);
+        console.log("🎯 STEP 6: Calling notify.success...");
+
+        await notify.success("Vehicle created successfully!", {
+          title: "Vehicle Created",
+          action: notify.ACTIONS.VEHICLE_CREATED,
+          vehicleId: newVehicleId,
+        });
+
+        console.log("🎯 STEP 7: notify.success completed!");
       }
 
       // Close modal first
@@ -229,7 +322,12 @@ const Vehicle = () => {
         errorMessage = error.message;
       }
 
-      toast.error(errorMessage);
+      await notify.error(errorMessage, {
+        title: vehicleId ? "Vehicle Update Failed" : "Vehicle Creation Failed",
+        action: vehicleId
+          ? notify.ACTIONS.VEHICLE_UPDATED
+          : notify.ACTIONS.VEHICLE_CREATED,
+      });
     }
   };
 
@@ -258,7 +356,14 @@ const Vehicle = () => {
     setIsDeleting(true);
     try {
       await axios.delete(API_ENDPOINTS.VEHICLES.DELETE(vehicleToDelete.id));
-      toast.success(`Vehicle "${vehicleToDelete.name}" deleted successfully!`);
+      await notify.success(
+        `Vehicle "${vehicleToDelete.name}" deleted successfully!`,
+        {
+          title: "Vehicle Deleted",
+          action: notify.ACTIONS.VEHICLE_DELETED,
+          // Don't send vehicleId - vehicle already deleted from DB
+        },
+      );
 
       // Close modal and reset state
       setShowDeleteModal(false);
@@ -274,7 +379,11 @@ const Vehicle = () => {
         errorMessage = error.response.data.detail;
       }
 
-      toast.error(errorMessage);
+      await notify.error(errorMessage, {
+        title: "Vehicle Deletion Failed",
+        action: notify.ACTIONS.VEHICLE_DELETED,
+        // Don't send vehicleId for failed deletion
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -302,14 +411,21 @@ const Vehicle = () => {
         ),
       );
 
-      toast.success(
+      await notify.success(
         `${vehicleToDelete.ids.length} vehicle(s) deleted successfully!`,
+        {
+          title: "Bulk Vehicle Deletion",
+          action: notify.ACTIONS.VEHICLE_DELETED,
+        },
       );
       setShowDeleteModal(false);
       setVehicleToDelete(null);
       refreshVehicles();
     } catch (error) {
-      toast.error("Failed to delete some vehicles");
+      await notify.error("Failed to delete some vehicles", {
+        title: "Bulk Deletion Failed",
+        action: notify.ACTIONS.VEHICLE_DELETED,
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -321,9 +437,9 @@ const Vehicle = () => {
   };
 
   return (
-    <div>
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between mb-4">
         <Title
           title="Vehicle Management"
           subtitle="Manage and monitor all USV vehicles"
@@ -337,7 +453,7 @@ const Vehicle = () => {
         </button>
       </div>
       {/* Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 px-4 pb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pb-4">
         {shouldShowSkeleton
           ? // Skeleton Loading with timeout
             Array.from({ length: 5 }).map((_, idx) => (

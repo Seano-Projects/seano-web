@@ -31,6 +31,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	rawLogRepo := repository.NewRawLogRepository(db)
 	missionRepo := repository.NewMissionRepository(db)
 	alertRepo := repository.NewAlertRepository(db)
+	notificationRepo := repository.NewNotificationRepository(db)
 
 	// Initialize handlers
 	userHandler := &handler.UserHandler{DB: db}
@@ -51,6 +52,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	logStatsHandler := handler.NewLogStatsHandler(vehicleLogRepo, sensorLogRepo, rawLogRepo)
 	missionHandler := handler.NewMissionHandler(missionRepo, db)
 	alertHandler := handler.NewAlertHandler(alertRepo, vehicleRepo, wsHub, db)
+	notificationHandler := handler.NewNotificationHandler(notificationRepo, db)
 	controlHandler := handler.NewControlHandler(cmdPublisher)
 	wsHandler := wsocket.NewWebSocketHandler(wsHub)
 
@@ -176,7 +178,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	missions.Delete("/:mission_id", missionHandler.DeleteMission)     // Ownership check in handler
 
 	// Alert management routes (protected)
-	alerts := app.Group("/api/alerts", middleware.AuthRequired())
+	alerts := app.Group("/alerts", middleware.AuthRequired())
 	alerts.Get("/", alertHandler.GetAlerts)
 	alerts.Get("/stats", alertHandler.GetAlertStats)
 	alerts.Get("/recent", alertHandler.GetRecentAlerts)
@@ -188,8 +190,21 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	alerts.Delete("/:id", alertHandler.DeleteAlert)
 	alerts.Delete("/clear", alertHandler.ClearAllAlerts)
 
+	// Notification management routes (protected)
+	notifications := app.Group("/notifications", middleware.AuthRequired())
+	notifications.Get("/", notificationHandler.GetNotifications)
+	notifications.Get("/stats", notificationHandler.GetStats)
+	notifications.Get("/:id", notificationHandler.GetNotificationByID)
+	notifications.Post("/", notificationHandler.CreateNotification)
+	notifications.Patch("/:id", notificationHandler.UpdateNotification)
+	notifications.Put("/:id/read", notificationHandler.MarkAsRead)
+	notifications.Put("/bulk-read", notificationHandler.BulkMarkAsRead)
+	notifications.Put("/read-all", notificationHandler.MarkAllAsRead)
+	notifications.Delete("/:id", notificationHandler.DeleteNotification)
+	notifications.Delete("/clear-read", notificationHandler.DeleteAllRead)
+
 	// Vehicle control commands via MQTT (protected)
-	control := app.Group("/api/control", middleware.AuthRequired())
+	control := app.Group("/control", middleware.AuthRequired())
 	control.Post("/:vehicle_code/command", controlHandler.SendCommand)
 
 	// WebSocket routes (no middleware, auth checked inside WebSocket handler via query param)

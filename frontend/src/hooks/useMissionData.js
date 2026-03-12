@@ -2,8 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { API_ENDPOINTS } from '../config'
 import axios from '../utils/axiosConfig'
 import config from '../config'
+import useNotify from './useNotify'
+import { NOTIFICATION_ACTIONS } from '../utils/notificationService'
 
 const useMissionData = () => {
+  const notify = useNotify()
   const [missionData, setMissionData] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -98,8 +101,7 @@ const useMissionData = () => {
         API_ENDPOINTS.MISSIONS.STATS || '/missions/stats'
       )
       setStats(response.data)
-    } catch (err) {
-    }
+    } catch (err) {}
   }
 
   // Format time elapsed
@@ -143,8 +145,7 @@ const useMissionData = () => {
 
       wsRef.current = new WebSocket(wsUrl)
 
-      wsRef.current.onopen = () => {
-      }
+      wsRef.current.onopen = () => {}
 
       wsRef.current.onmessage = event => {
         try {
@@ -174,12 +175,10 @@ const useMissionData = () => {
               fetchMissionStats()
             }
           }
-        } catch (err) {
-        }
+        } catch (err) {}
       }
 
-      wsRef.current.onerror = error => {
-      }
+      wsRef.current.onerror = error => {}
 
       wsRef.current.onclose = () => {
         setTimeout(connectWebSocket, 3000)
@@ -205,39 +204,98 @@ const useMissionData = () => {
   // Function untuk create mission
   const createMission = async missionData => {
     try {
+      console.log('Creating mission with data:', missionData)
       const response = await axios.post(
         API_ENDPOINTS.MISSIONS.CREATE,
         missionData
       )
+      console.log('Mission created successfully:', response.data)
       await fetchMissionData() // Refresh data
       return response.data
     } catch (error) {
-      throw error
+      console.error('Error creating mission:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
+
+      // Re-throw with better error info
+      if (error.response) {
+        const errorMessage =
+          error.response.data?.detail ||
+          error.response.data?.message ||
+          error.response.data?.error ||
+          `Server error: ${error.response.status}`
+        throw new Error(errorMessage)
+      } else if (error.request) {
+        throw new Error(
+          'No response from server. Please check your connection.'
+        )
+      } else {
+        throw new Error(error.message || 'Failed to create mission')
+      }
     }
   }
 
   // Function untuk update mission
   const updateMission = async (id, missionData) => {
+    console.log('✏️ MISSION UPDATE: Starting for mission ID:', id)
     try {
-
       const response = await axios.put(
         API_ENDPOINTS.MISSIONS.UPDATE(id),
         missionData
       )
+      console.log('✅ MISSION UPDATE: API call successful')
 
       await fetchMissionData() // Refresh data
+
+      // Show success notification
+      await notify.success('Mission has been updated successfully', {
+        title: 'Mission Updated',
+        action: NOTIFICATION_ACTIONS.MISSION_UPDATED,
+        persist: true
+      })
+      console.log('✅ MISSION UPDATE: Notification created')
+
       return response.data
     } catch (error) {
+      console.error('❌ MISSION UPDATE: Failed', error)
+
+      // Show error notification
+      await notify.error('Failed to update mission. Please try again.', {
+        title: 'Update Mission Failed',
+        action: NOTIFICATION_ACTIONS.MISSION_UPDATED,
+        persist: true
+      })
+
       throw error
     }
   }
 
   // Function untuk delete mission
   const deleteMission = async id => {
+    console.log('🗑️ MISSION DELETE: Starting for mission ID:', id)
     try {
       await axios.delete(API_ENDPOINTS.MISSIONS.DELETE(id))
+      console.log('✅ MISSION DELETE: API call successful')
+
       await fetchMissionData() // Refresh data
+
+      // Show success notification
+      await notify.success('Mission has been deleted successfully', {
+        title: 'Mission Deleted',
+        action: NOTIFICATION_ACTIONS.MISSION_DELETED,
+        persist: true
+      })
+      console.log('✅ MISSION DELETE: Notification created')
     } catch (error) {
+      console.error('❌ MISSION DELETE: Failed', error)
+
+      // Show error notification
+      await notify.error('Failed to delete mission. Please try again.', {
+        title: 'Delete Mission Failed',
+        action: NOTIFICATION_ACTIONS.MISSION_DELETED,
+        persist: true
+      })
+
       throw error
     }
   }
@@ -279,7 +337,11 @@ const useMissionData = () => {
     const vehicleStats = {}
 
     missionData.forEach(mission => {
-      const vehicle = mission.vehicle || 'Unknown Vehicle'
+      // Handle vehicle as object or string
+      const vehicle =
+        typeof mission.vehicle === 'string'
+          ? mission.vehicle
+          : mission.vehicle?.name || mission.vehicle?.code || 'Unknown Vehicle'
 
       if (!vehicleStats[vehicle]) {
         vehicleStats[vehicle] = {

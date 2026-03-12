@@ -64,7 +64,7 @@ func (h *UserHandler) GetAllUsers(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to retrieve users. Please try again"})
 	}
 
-	return c.JSON(users)
+	return c.JSON(users) // already []UserResponse with role_id
 }
 
 // GetUserByID godoc
@@ -104,7 +104,7 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to retrieve user data. Please try again"})
 	}
 
-	return c.JSON(user)
+	return c.JSON(model.ToUserDetailResponse(user))
 }
 
 // UpdateUser godoc

@@ -12,18 +12,21 @@ import { getSensorTypeWidgetData } from "../constant";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
 import { TbCategory } from "react-icons/tb";
 import { toast } from "../components/ui";
+import useNotify from "../hooks/useNotify";
 import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 import DeleteConfirmModal from "../components/Widgets/DeleteConfirmModal";
 
 const SensorType = () => {
   useTitle("Sensor Type");
+  const notify = useNotify();
   const [showAddSensorTypeModal, setShowAddSensorTypeModal] = useState(false);
   const [showEditSensorTypeModal, setShowEditSensorTypeModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editData, setEditData] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const { sensorTypes, loading, stats, fetchSensorTypes } = useSensorTypesData();
+  const { sensorTypes, loading, stats, fetchSensorTypes } =
+    useSensorTypesData();
   const { loading: timeoutLoading } = useLoadingTimeout(loading, 5000);
   const shouldShowSkeleton =
     timeoutLoading && loading && sensorTypes.length === 0;
@@ -32,11 +35,20 @@ const SensorType = () => {
   const handleCreateSensorType = async (sensorTypeData) => {
     try {
       await axios.post(API_ENDPOINTS.SENSOR_TYPES.CREATE, sensorTypeData);
-      toast.success("Sensor type created successfully!");
+      await notify.success("Sensor type created successfully!", {
+        title: "Sensor Type Created",
+        action: "sensor_type_created",
+      });
       setShowAddSensorTypeModal(false);
       fetchSensorTypes();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to create sensor type");
+      await notify.error(
+        error.response?.data?.detail || "Failed to create sensor type",
+        {
+          title: "Sensor Type Creation Failed",
+          action: "sensor_type_created",
+        },
+      );
     }
   };
 
@@ -55,12 +67,21 @@ const SensorType = () => {
         API_ENDPOINTS.SENSOR_TYPES.UPDATE(editData.id),
         sensorTypeData,
       );
-      toast.success("Sensor type updated successfully!");
+      await notify.success("Sensor type updated successfully!", {
+        title: "Sensor Type Updated",
+        action: "sensor_type_updated",
+      });
       setShowEditSensorTypeModal(false);
       setEditData(null);
       fetchSensorTypes();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to update sensor type");
+      await notify.error(
+        error.response?.data?.detail || "Failed to update sensor type",
+        {
+          title: "Sensor Type Update Failed",
+          action: "sensor_type_updated",
+        },
+      );
     }
   };
 
@@ -71,20 +92,29 @@ const SensorType = () => {
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
-    
+
     try {
       await axios.delete(API_ENDPOINTS.SENSOR_TYPES.DELETE(deleteTarget.id));
-      toast.success("Sensor type deleted successfully!");
+      await notify.success("Sensor type deleted successfully!", {
+        title: "Sensor Type Deleted",
+        action: "sensor_type_deleted",
+      });
       setShowDeleteModal(false);
       setDeleteTarget(null);
       fetchSensorTypes();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to delete sensor type");
+      await notify.error(
+        error.response?.data?.detail || "Failed to delete sensor type",
+        {
+          title: "Sensor Type Deletion Failed",
+          action: "sensor_type_deleted",
+        },
+      );
     }
   };
 
   const handleViewSensorType = (sensorType) => {
-    toast.info(`Viewing sensor type: ${sensorType.name}`);
+    // Viewing - no toast needed, UI shows sensor type details
   };
 
   const handleBulkDeleteSensorTypes = (ids) => {
@@ -94,24 +124,35 @@ const SensorType = () => {
 
   const handleConfirmBulkDelete = async () => {
     if (!deleteTarget || !deleteTarget.ids) return;
-    
+
     try {
       await Promise.all(
-        deleteTarget.ids.map((id) => axios.delete(API_ENDPOINTS.SENSOR_TYPES.DELETE(id))),
+        deleteTarget.ids.map((id) =>
+          axios.delete(API_ENDPOINTS.SENSOR_TYPES.DELETE(id)),
+        ),
       );
-      toast.success(`${deleteTarget.ids.length} sensor type(s) deleted successfully!`);
+      await notify.success(
+        `${deleteTarget.ids.length} sensor type(s) deleted successfully!`,
+        {
+          title: "Bulk Sensor Type Deletion",
+          action: "sensor_type_deleted",
+        },
+      );
       setShowDeleteModal(false);
       setDeleteTarget(null);
       fetchSensorTypes();
     } catch (error) {
-      toast.error("Failed to delete some sensor types");
+      await notify.error("Failed to delete some sensor types", {
+        title: "Bulk Deletion Failed",
+        action: "sensor_type_deleted",
+      });
     }
   };
 
   return (
-    <div>
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between mb-4">
         <Title
           title="Sensor Type Management"
           subtitle="Manage and configure sensor type categories"
@@ -125,7 +166,7 @@ const SensorType = () => {
         </button>
       </div>
       {/* Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 px-4 pb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pb-4">
         {shouldShowSkeleton
           ? // Skeleton Loading with timeout
             Array.from({ length: 5 }).map((_, idx) => (
@@ -168,9 +209,15 @@ const SensorType = () => {
           setShowDeleteModal(false);
           setDeleteTarget(null);
         }}
-        onConfirm={deleteTarget?.isBulk ? handleConfirmBulkDelete : handleConfirmDelete}
+        onConfirm={
+          deleteTarget?.isBulk ? handleConfirmBulkDelete : handleConfirmDelete
+        }
         title="Delete Sensor Type"
-        itemName={deleteTarget?.isBulk ? `${deleteTarget.ids.length} sensor type(s)` : deleteTarget?.name}
+        itemName={
+          deleteTarget?.isBulk
+            ? `${deleteTarget.ids.length} sensor type(s)`
+            : deleteTarget?.name
+        }
         itemType="sensor type"
       />
     </div>

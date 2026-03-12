@@ -9,12 +9,14 @@ import { getSensorWidgetData } from "../constant";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
 import { TbPhotoSensor } from "react-icons/tb";
 import { toast } from "../components/ui";
+import useNotify from "../hooks/useNotify";
 import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 import DeleteConfirmModal from "../components/Widgets/DeleteConfirmModal";
 
 const Sensor = () => {
   useTitle("Sensor");
+  const notify = useNotify();
   const { hasPermission } = usePermission();
   const [showAddSensorModal, setShowAddSensorModal] = useState(false);
   const [showEditSensorModal, setShowEditSensorModal] = useState(false);
@@ -29,11 +31,20 @@ const Sensor = () => {
   const handleCreateSensor = async (sensorData) => {
     try {
       await axios.post(API_ENDPOINTS.SENSORS.CREATE, sensorData);
-      toast.success("Sensor created successfully!");
+      await notify.success("Sensor created successfully!", {
+        title: "Sensor Created",
+        action: notify.ACTIONS.SENSOR_CREATED,
+      });
       setShowAddSensorModal(false);
       fetchSensors();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to create sensor");
+      await notify.error(
+        error.response?.data?.detail || "Failed to create sensor",
+        {
+          title: "Sensor Creation Failed",
+          action: notify.ACTIONS.SENSOR_CREATED,
+        },
+      );
     }
   };
 
@@ -53,12 +64,21 @@ const Sensor = () => {
   const handleUpdateSensor = async (sensorData) => {
     try {
       await axios.put(API_ENDPOINTS.SENSORS.UPDATE(editData.id), sensorData);
-      toast.success("Sensor updated successfully!");
+      await notify.success("Sensor updated successfully!", {
+        title: "Sensor Updated",
+        action: notify.ACTIONS.SENSOR_UPDATED,
+      });
       fetchSensors();
       setShowEditSensorModal(false);
       setEditData(null);
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to update sensor");
+      await notify.error(
+        error.response?.data?.detail || "Failed to update sensor",
+        {
+          title: "Sensor Update Failed",
+          action: notify.ACTIONS.SENSOR_UPDATED,
+        },
+      );
     }
   };
 
@@ -72,12 +92,21 @@ const Sensor = () => {
 
     try {
       await axios.delete(API_ENDPOINTS.SENSORS.DELETE(deleteTarget.id));
-      toast.success("Sensor deleted successfully!");
+      await notify.success("Sensor deleted successfully!", {
+        title: "Sensor Deleted",
+        action: notify.ACTIONS.SENSOR_DELETED,
+      });
       setShowDeleteModal(false);
       setDeleteTarget(null);
       fetchSensors();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to delete sensor");
+      await notify.error(
+        error.response?.data?.detail || "Failed to delete sensor",
+        {
+          title: "Sensor Deletion Failed",
+          action: notify.ACTIONS.SENSOR_DELETED,
+        },
+      );
     }
   };
 
@@ -95,26 +124,33 @@ const Sensor = () => {
           axios.delete(API_ENDPOINTS.SENSORS.DELETE(id)),
         ),
       );
-      toast.success(
+      await notify.success(
         `${deleteTarget.ids.length} sensor(s) deleted successfully!`,
+        {
+          title: "Bulk Sensor Deletion",
+          action: notify.ACTIONS.SENSOR_DELETED,
+        },
       );
       setShowDeleteModal(false);
       setDeleteTarget(null);
       fetchSensors();
     } catch (error) {
-      toast.error("Failed to delete some sensors");
+      await notify.error("Failed to delete some sensors", {
+        title: "Bulk Deletion Failed",
+        action: notify.ACTIONS.SENSOR_DELETED,
+      });
     }
   };
 
   const handleViewSensor = (sensor) => {
+    // Viewing - no toast needed, UI shows sensor details
     // TODO: Implement view sensor details
-    toast.success(`Viewing sensor: ${sensor.name}`);
   };
 
   return (
-    <div>
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between mb-4">
         <Title
           title="Sensor Management"
           subtitle="Manage and monitor all sensor devices"
@@ -130,7 +166,7 @@ const Sensor = () => {
         )}
       </div>
       {/* Widgets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 px-4 pb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pb-4">
         {shouldShowSkeleton
           ? // Skeleton Loading with timeout
             Array.from({ length: 5 }).map((_, idx) => (

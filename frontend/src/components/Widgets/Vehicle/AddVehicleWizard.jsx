@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { toast, LoadingDots } from "../../ui";
+import { LoadingDots } from "../../ui";
 import { ChevronRight, ChevronLeft, Check } from "lucide-react";
 import axiosInstance from "../../../utils/axiosConfig";
 import { API_ENDPOINTS } from "../../../config";
 import { WizardModal } from "../../ui";
+import useNotify from "../../../hooks/useNotify";
 
 const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
+  const notify = useNotify();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [availableSensors, setAvailableSensors] = useState([]);
@@ -34,7 +36,10 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
       const response = await axiosInstance.get(API_ENDPOINTS.SENSORS.LIST);
       setAvailableSensors(response.data);
     } catch (error) {
-      toast.error("Failed to load sensors");
+      await notify.error("Failed to load sensors", {
+        title: "Sensor Load Failed",
+        action: notify.ACTIONS.VEHICLE_CREATED,
+      });
     }
   };
 
@@ -54,7 +59,10 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
 
   const handleNext = () => {
     if (!formData.name.trim() || !formData.code.trim()) {
-      toast.error("Name and Code are required");
+      notify.error("Name and Code are required", {
+        title: "Validation Error",
+        persist: false, // Don't save validation errors to DB
+      });
       return;
     }
     setStep(2);
@@ -67,6 +75,8 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
+      console.log("🎯 WIZARD: Creating vehicle with data:", formData);
+
       const vehicleResponse = await axiosInstance.post(
         API_ENDPOINTS.VEHICLES.CREATE,
         {
@@ -76,7 +86,12 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
         },
       );
 
+      console.log(
+        "🎯 WIZARD: Vehicle created, response:",
+        vehicleResponse.data,
+      );
       const newVehicleId = vehicleResponse.data.id;
+      console.log("🎯 WIZARD: Extracted vehicle ID:", newVehicleId);
 
       if (formData.selectedSensors.length > 0) {
         const assignPromises = formData.selectedSensors.map((sensorId) =>
@@ -90,12 +105,27 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
         await Promise.all(assignPromises);
       }
 
-      toast.success("Vehicle created successfully!");
+      console.log(
+        "🎯 WIZARD: Calling notify.success with vehicleId:",
+        newVehicleId,
+      );
+
+      await notify.success("Vehicle created successfully!", {
+        title: "Vehicle Created",
+        action: notify.ACTIONS.VEHICLE_CREATED,
+        vehicleId: newVehicleId,
+      });
+
+      console.log("🎯 WIZARD: Notification sent successfully");
+
       onSuccess();
       onClose();
     } catch (error) {
       const msg = error.response?.data?.detail || "Failed to create vehicle";
-      toast.error(msg);
+      await notify.error(msg, {
+        title: "Vehicle Creation Failed",
+        action: notify.ACTIONS.VEHICLE_CREATED,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -256,7 +286,7 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
                       <span className="font-medium text-gray-900 dark:text-white truncate">
                         {sensor.name}
                       </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-mono">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300">
                         {sensor.code}
                       </span>
                     </div>

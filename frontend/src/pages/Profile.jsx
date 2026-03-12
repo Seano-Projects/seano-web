@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import useTitle from "../hooks/useTitle";
-import { Title, toast } from "../components/ui";
+import { Title } from "../components/ui";
 import { API_ENDPOINTS } from "../config";
 import { Modal } from "../components/ui";
 import { LoadingScreen } from "../components/ui";
+import useNotify from "../hooks/useNotify";
 import {
   FaCamera,
   FaUser,
@@ -14,6 +15,7 @@ import {
 
 const Profile = () => {
   useTitle("Profile");
+  const notify = useNotify();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -106,12 +108,16 @@ const Profile = () => {
     try {
       // TODO: Implement photo upload endpoint
       // For now, just show success message
-      setTimeout(() => {
+      setTimeout(async () => {
         setUploading(false);
         setIsPhotoModalOpen(false);
         setPhotoPreview(null);
         // Show success message
-        toast.success("Operation successful"); }, 1000);
+        await notify.success("Profile photo updated successfully!", {
+          title: "Photo Updated",
+          action: notify.ACTIONS.USER_UPDATED,
+        });
+      }, 1000);
     } catch (err) {
       setError(err.message || "Failed to upload photo");
       setUploading(false);
@@ -143,6 +149,13 @@ const Profile = () => {
       setIsEditModalOpen(false);
       // Refresh user data to ensure consistency
       await fetchUserData();
+
+      // Show success notification
+      await notify.success("Profile updated successfully!", {
+        title: "Profile Updated",
+        action: notify.ACTIONS.USER_UPDATED,
+      });
+
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -172,6 +185,13 @@ const Profile = () => {
       }
 
       setIsPasswordModalOpen(false);
+
+      // Show success notification
+      await notify.success("Password changed successfully!", {
+        title: "Password Updated",
+        action: notify.ACTIONS.USER_UPDATED,
+      });
+
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
