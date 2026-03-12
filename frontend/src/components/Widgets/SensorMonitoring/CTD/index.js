@@ -1,1 +1,5 @@
 export { default as CTDTable } from './CTDTable'
+export { default as DepthProfile } from './DepthProfile'
+export { default as TSDiagram } from './TSDiagram'
+export { default as TimeSeriesChart } from './TimeSeriesChart'
+export { default as SoundSpeedProfile } from './SoundSpeedProfile'

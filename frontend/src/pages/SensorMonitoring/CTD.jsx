@@ -5,8 +5,14 @@ import {
   VehicleDropdown,
   DatePickerField,
   TimePickerField,
-  CTDTable,
 } from "../../components/Widgets";
+import {
+  CTDTable,
+  DepthProfile,
+  TSDiagram,
+  TimeSeriesChart,
+  SoundSpeedProfile,
+} from "../../components/Widgets/SensorMonitoring/CTD";
 import { useVehicleData, useCTDData } from "../../hooks";
 
 const CTD = () => {
@@ -152,6 +158,21 @@ const CTD = () => {
               Clear
             </button>
           )}
+        </div>
+      </div>
+
+      {/* CTD Visualizations */}
+      <div className="space-y-4 mb-4">
+        {/* Row 1: Time Series and Depth Profile */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TimeSeriesChart ctdData={filteredData} />
+          <DepthProfile ctdData={filteredData} />
+        </div>
+
+        {/* Row 2: T-S Diagram and Sound Speed Profile */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TSDiagram ctdData={filteredData} />
+          <SoundSpeedProfile ctdData={filteredData} />
         </div>
       </div>
 
