@@ -28,6 +28,8 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    environment:
+      MAX_STORAGE_SIZE_GB: 100
     env_file:
       - ./backend/.env
     depends_on:
