@@ -1,5 +1,6 @@
 import Dropdown from "../Dropdown";
 import { getVehicleStatusColor } from "../../../utils/vehicleStatus";
+import { useVehicleConnectionStatus } from "../../../hooks";
 
 const VehicleDropdown = ({
   vehicles,
@@ -9,6 +10,9 @@ const VehicleDropdown = ({
   className = "",
   showPlaceholder = true,
 }) => {
+  // MQTT LWT realtime status
+  const { getVehicleStatus } = useVehicleConnectionStatus();
+
   // Add placeholder item as first option
   const placeholderItem = {
     id: null,
@@ -18,11 +22,28 @@ const VehicleDropdown = ({
     isPlaceholder: true,
   };
 
+  // Enrich vehicles with realtime MQTT LWT status
+  const vehiclesWithRealtimeStatus = vehicles.map((vehicle) => ({
+    ...vehicle,
+    // Override status with MQTT LWT realtime status
+    status: vehicle.code ? getVehicleStatus(vehicle.code) : vehicle.status,
+  }));
+
   // Only show placeholder in the list if no vehicle is selected
   const vehiclesWithPlaceholder =
     showPlaceholder && !selectedVehicle
-      ? [placeholderItem, ...vehicles]
-      : vehicles;
+      ? [placeholderItem, ...vehiclesWithRealtimeStatus]
+      : vehiclesWithRealtimeStatus;
+
+  // Enrich selected vehicle with realtime status
+  const selectedVehicleWithStatus = selectedVehicle
+    ? {
+        ...selectedVehicle,
+        status: selectedVehicle.code
+          ? getVehicleStatus(selectedVehicle.code)
+          : selectedVehicle.status,
+      }
+    : null;
 
   // Custom render function for selected item
   const renderSelectedItem = (vehicle) => (
@@ -77,7 +98,7 @@ const VehicleDropdown = ({
   return (
     <Dropdown
       items={vehiclesWithPlaceholder}
-      selectedItem={selectedVehicle || placeholderItem}
+      selectedItem={selectedVehicleWithStatus || placeholderItem}
       onItemChange={(vehicle) => {
         // If placeholder is selected, pass null to parent
         onVehicleChange(vehicle.isPlaceholder ? null : vehicle);

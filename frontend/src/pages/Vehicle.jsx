@@ -8,12 +8,12 @@ import { ConfirmModal } from "../components/ui";
 import { getWidgetData } from "../constant";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
 import { useLogData } from "../hooks/useLogData";
+import { useVehicleConnectionStatus } from "../hooks";
 import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 import { toast } from "../components/ui";
 import useNotify from "../hooks/useNotify";
 import { FaShip } from "react-icons/fa";
-import { determineVehicleStatus } from "../utils/vehicleStatus";
 
 const Vehicle = () => {
   useTitle("Vehicle");
@@ -34,6 +34,9 @@ const Vehicle = () => {
 
   // Real-time data from WebSocket
   const { vehicleLogs, ws } = useLogData();
+
+  // MQTT LWT realtime connection status
+  const { getVehicleStatus, isVehicleOnline } = useVehicleConnectionStatus();
 
   // Fetch vehicles from API
   useEffect(() => {
@@ -168,14 +171,9 @@ const Vehicle = () => {
           // Update last seen timestamp
           last_seen: latestLog.created_at ?? vehicle.last_seen,
 
-          // Determine status based on last data time and WebSocket connection
-          // Uses best practices: multiple thresholds, grace periods, and proper status states
-          status: determineVehicleStatus({
-            lastDataTime: latestLog.created_at,
-            websocket: ws,
-
-            currentTime: Date.now(),
-          }),
+          // Determine status: MQTT LWT only (realtime from broker)
+          // Pure MQTT Last Will and Testament - no time-based fallback
+          status: getVehicleStatus(vehicle.code) || "offline",
         };
 
         return updatedVehicle;
@@ -183,18 +181,14 @@ const Vehicle = () => {
     );
   }, [vehicleLogs]);
 
-  // Periodic status check - update vehicle status even when no new data arrives
-  // This ensures vehicles transition from idle -> offline after timeout
+  // Periodic status check - update vehicle status from MQTT LWT
+  // Pure MQTT Last Will and Testament status updates
   useEffect(() => {
     const interval = setInterval(() => {
       setVehicles((prevVehicles) => {
         const updatedVehicles = prevVehicles.map((vehicle) => {
-          // Recalculate status based on last_seen time
-          const newStatus = determineVehicleStatus({
-            lastDataTime: vehicle.last_seen,
-            websocket: ws,
-            currentTime: Date.now(),
-          });
+          // Recalculate status: MQTT LWT only (no time-based detection)
+          const newStatus = getVehicleStatus(vehicle.code) || "offline";
 
           // Only update if status changed
           if (newStatus !== vehicle.status) {

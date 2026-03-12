@@ -190,11 +190,10 @@ const SensorDataLog = ({ selectedVehicle }) => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
           <span className="font-medium">
             {filteredLogs.length} {t("tracking.sensorLog.of")}{" "}
-            {vehicleFilteredLogs.length}{" "}
+            {sensorLogs.length}{" "}
             {filteredLogs.length === 1
               ? t("tracking.sensorLog.entry")
               : t("tracking.sensorLog.entries")}
-            {selectedSensor !== "all" && ` (${selectedSensor})`}
           </span>
           <span className="hidden sm:inline">
             {t("tracking.sensorLog.lastUpdated")}:{" "}

@@ -11,6 +11,7 @@ import { useState } from "react";
 import { DataTable } from "../../ui";
 import DataCard from "../DataCard";
 import { VehicleTableSkeleton } from "../../Skeleton";
+import { useVehicleConnectionStatus } from "../../../hooks";
 
 const VehicleTable = ({
   vehicleData,
@@ -21,12 +22,18 @@ const VehicleTable = ({
   wsConnected = false,
 }) => {
   const [selectedIds, setSelectedIds] = useState([]);
+  const { getVehicleStatus } = useVehicleConnectionStatus();
 
-  // Transform vehicle data
+  // Transform vehicle data with MQTT LWT realtime status
   const transformedData = vehicleData.map((veh) => {
-    // Map status to display format
+    // Get MQTT LWT realtime status
+    const mqttStatus = veh.code ? getVehicleStatus(veh.code) : "unknown";
+
+    // Map status to display format - prioritize MQTT LWT
     let displayStatus = "Offline";
-    if (veh.status === "on_mission") displayStatus = "Deployed";
+    if (mqttStatus === "online") displayStatus = "Online";
+    else if (mqttStatus === "offline") displayStatus = "Offline";
+    else if (veh.status === "on_mission") displayStatus = "Deployed";
     else if (veh.status === "idle") displayStatus = "Online";
     else if (veh.status === "maintenance") displayStatus = "Maintenance";
     else if (veh.status === "offline") displayStatus = "Offline";

@@ -10,7 +10,7 @@ import {
 } from "react-icons/fa6";
 import { VehicleDropdown } from "../";
 import useTranslation from "../../../hooks/useTranslation";
-import { useLogData } from "../../../hooks";
+import { useLogData, useVehicleConnectionStatus } from "../../../hooks";
 
 const VehicleQuickView = ({
   vehicles,
@@ -19,6 +19,7 @@ const VehicleQuickView = ({
 }) => {
   const { t } = useTranslation();
   const { vehicleLogs, websocket } = useLogData();
+  const { getVehicleStatus, isVehicleOnline } = useVehicleConnectionStatus();
 
   // Find selected vehicle from vehicles array
   const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
@@ -54,29 +55,26 @@ const VehicleQuickView = ({
     }
   };
 
-  // Determine connection status
+  // Determine connection status from MQTT LWT (realtime from broker)
   const connectionStatus = useMemo(() => {
-    if (!selectedVehicleId || !latestLog) {
+    if (!selectedVehicle || !selectedVehicle.code) {
       return {
         color: "gray",
         text: t("dashboard.vehicleQuickView.noVehicleSelected"),
       };
     }
 
-    const lastUpdateTime = new Date(
-      latestLog.timestamp || latestLog.created_at,
-    ).getTime();
-    const now = Date.now();
-    const diffSeconds = (now - lastUpdateTime) / 1000;
+    const mqttStatus = getVehicleStatus(selectedVehicle.code);
 
-    if (diffSeconds < 5) {
+    if (mqttStatus === "online") {
       return { color: "green", text: "Online" };
-    } else if (diffSeconds < 30) {
-      return { color: "yellow", text: "Idle" };
-    } else {
+    } else if (mqttStatus === "offline") {
       return { color: "red", text: "Offline" };
+    } else {
+      // unknown - belum ada status dari MQTT
+      return { color: "gray", text: "Unknown" };
     }
-  }, [selectedVehicleId, latestLog, t]);
+  }, [selectedVehicle, getVehicleStatus, t]);
 
   // Use real-time data from WebSocket if available, fallback to vehicle data
   const vehicleDetails = useMemo(() => {

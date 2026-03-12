@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import useVehicleData from "../../../hooks/useVehicleData";
 import useMissionData from "../../../hooks/useMissionData";
-import { useLogData } from "../../../hooks/useLogData";
+import { useLogData, useVehicleConnectionStatus } from "../../../hooks";
 import { VehicleDropdown } from "../../Widgets";
 import {
   FaBatteryEmpty,
@@ -14,10 +14,7 @@ import {
   FaRoute,
 } from "react-icons/fa";
 import { FaLocationDot, FaLocationPin, FaMapLocation } from "react-icons/fa6";
-import {
-  determineVehicleStatus,
-  getVehicleStatusLabel,
-} from "../../../utils/vehicleStatus";
+import { getVehicleStatusLabel } from "../../../utils/vehicleStatus";
 
 const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const [batteryLevel, setBatteryLevel] = useState(1);
@@ -25,6 +22,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const { vehicles, loading } = useVehicleData();
   const { getActiveMissions } = useMissionData();
   const { vehicleLogs, ws } = useLogData();
+  const { getVehicleStatus } = useVehicleConnectionStatus(); // MQTT LWT status
 
   // Get latest vehicle log for selected vehicle
   const vehicleLog = useMemo(() => {
@@ -35,18 +33,12 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
     return filtered.length > 0 ? filtered[0] : null;
   }, [vehicleLogs, selectedVehicle]);
 
-  // Determine connection status using best practices
+  // Determine connection status using MQTT LWT (realtime from broker)
+  // Pure MQTT Last Will and Testament - no time-based detection
   const usvStatus = useMemo(() => {
-    if (!selectedVehicle) return "offline";
-    if (!vehicleLog?.timestamp) return "offline";
-
-    // Use the new status determination utility with proper thresholds
-    return determineVehicleStatus({
-      lastDataTime: vehicleLog.timestamp,
-      websocket: ws,
-      currentTime: Date.now(),
-    });
-  }, [selectedVehicle, vehicleLog, ws]);
+    if (!selectedVehicle || !selectedVehicle.code) return "offline";
+    return getVehicleStatus(selectedVehicle.code) || "offline";
+  }, [selectedVehicle, getVehicleStatus]);
 
   // Get real RSSI from vehicle log
   const rssiLevel = useMemo(() => {

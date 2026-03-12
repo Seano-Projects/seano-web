@@ -14,7 +14,11 @@ import {
 } from "react-icons/fa";
 import Dropdown from "../Dropdown";
 import { ConfirmModal, toast, LoadingDots } from "../../ui";
-import { useMissionUpload, useVehicleData } from "../../../hooks";
+import {
+  useMissionUpload,
+  useVehicleData,
+  useVehicleConnectionStatus,
+} from "../../../hooks";
 import useNotify from "../../../hooks/useNotify";
 import MissionUploadModal from "./MissionUploadModal";
 
@@ -61,6 +65,7 @@ const MissionSidebar = ({
   } = useMissionUpload();
 
   const { vehicles } = useVehicleData();
+  const { getVehicleStatus } = useVehicleConnectionStatus();
   const notify = useNotify();
 
   // Get selected vehicle info for display in the upload modal
@@ -518,7 +523,10 @@ const MissionSidebar = ({
             Select Vehicle
           </label>
           <Dropdown
-            items={vehicles}
+            items={vehicles.map((v) => ({
+              ...v,
+              mqttStatus: v.code ? getVehicleStatus(v.code) : "unknown",
+            }))}
             selectedItem={
               selectedVehicleId
                 ? vehicles.find((v) => v.id === parseInt(selectedVehicleId))
@@ -531,12 +539,32 @@ const MissionSidebar = ({
             placeholder="Choose a vehicle"
             getItemKey={(item) => item.id}
             renderSelectedItem={(vehicle) => (
-              <span className="font-medium text-gray-900 dark:text-white">
-                {vehicle.name} ({vehicle.code})
-              </span>
+              <>
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    vehicle.mqttStatus === "online"
+                      ? "bg-green-500"
+                      : vehicle.mqttStatus === "offline"
+                        ? "bg-red-500"
+                        : "bg-gray-500"
+                  }`}
+                />
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {vehicle.name} ({vehicle.code})
+                </span>
+              </>
             )}
             renderItem={(vehicle, isSelected) => (
               <>
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    vehicle.mqttStatus === "online"
+                      ? "bg-green-500"
+                      : vehicle.mqttStatus === "offline"
+                        ? "bg-red-500"
+                        : "bg-gray-500"
+                  }`}
+                />
                 <div className="flex-1">
                   <div className="text-gray-900 dark:text-white font-medium">
                     {vehicle.name}

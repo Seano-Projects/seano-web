@@ -163,6 +163,7 @@ const Camera = () => {
               const vehicleItems = vehicles.map((v) => ({
                 id: v.id,
                 name: v.name ?? v.code,
+                vehicleCode: v.code,
                 code:
                   "live/" +
                   (v.code ?? v.name ?? "").toLowerCase().replace(/\s+/g, "-"),
@@ -180,6 +181,35 @@ const Camera = () => {
                   placeholder={t("control.camera.selectVehicle")}
                   getItemKey={(item) => item.id}
                   className="w-52"
+                  renderSelectedItem={(vehicle) => (
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {vehicle.name}
+                    </span>
+                  )}
+                  renderItem={(vehicle, isSelected) => (
+                    <>
+                      <div className="flex-1">
+                        <div className="text-gray-900 dark:text-white font-medium">
+                          {vehicle.name}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div className="text-blue-600 dark:text-white">
+                          <svg
+                            className="w-4 h-4"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                      )}
+                    </>
+                  )}
                 />
               );
             })()}

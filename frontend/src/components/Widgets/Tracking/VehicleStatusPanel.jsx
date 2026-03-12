@@ -9,13 +9,14 @@ import {
 } from "react-icons/fa";
 import { MdGpsFixed, MdGpsNotFixed } from "react-icons/md";
 import useVehicleData from "../../../hooks/useVehicleData";
-import { useLogData } from "../../../hooks/useLogData";
+import { useLogData, useVehicleConnectionStatus } from "../../../hooks";
 import useTranslation from "../../../hooks/useTranslation";
 
 const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
   const { t } = useTranslation();
   const { vehicles, loading } = useVehicleData();
-  const { vehicleLogs, ws } = useLogData(); // Get vehicle logs from WebSocket
+  const { vehicleLogs } = useLogData(); // Get vehicle logs from WebSocket
+  const { getVehicleStatus, isVehicleOnline } = useVehicleConnectionStatus(); // MQTT LWT status
   const [showTimeout, setShowTimeout] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -31,33 +32,20 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
     return filtered.length > 0 ? filtered[0] : null;
   }, [vehicleLogs, selectedVehicle]);
 
-  // Check if data is recent (less than 30 seconds old)
-  const isDataRecent = (timestamp) => {
-    if (!timestamp) return false;
-    const now = new Date();
-    const logTime = new Date(timestamp);
-    const diffMs = now - logTime;
-    return diffMs < 30000; // 30 seconds
-  };
-
-  // Check WebSocket connection status
+  // Check MQTT LWT connection status only (no time-based detection)
   useEffect(() => {
-    const wsConnected = ws && ws.readyState === WebSocket.OPEN;
-    const hasRecentData =
-      vehicleLog && isDataRecent(vehicleLog.timestamp || vehicleLog.created_at);
-    setIsConnected(wsConnected && hasRecentData);
-  }, [ws, vehicleLog]);
-
-  // Monitor connection status with 15-second timeout
-  useEffect(() => {
-    if (!vehicleLog) return;
-
-    const timeout = setTimeout(() => {
+    if (!selectedVehicle || !selectedVehicle.code) {
       setIsConnected(false);
-    }, 15000);
+      return;
+    }
 
-    return () => clearTimeout(timeout);
-  }, [vehicleLog]);
+    // Get MQTT LWT status (realtime from broker)
+    // Pure MQTT Last Will and Testament - trust broker status only
+    const mqttStatus = getVehicleStatus(selectedVehicle.code);
+    const isMqttOnline = mqttStatus === "online";
+
+    setIsConnected(isMqttOnline);
+  }, [selectedVehicle, getVehicleStatus]);
 
   // Set timeout to show default values after 5 seconds
   useEffect(() => {
