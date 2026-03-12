@@ -2,6 +2,7 @@ package repository
 
 import (
 	"go-fiber-pgsql/internal/model"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -106,5 +107,20 @@ func (r *VehicleRepository) GetVehicleIDsByUserID(userID uint) ([]uint, error) {
 	var vehicleIDs []uint
 	err := r.db.Model(&model.Vehicle{}).Where("user_id = ?", userID).Pluck("id", &vehicleIDs).Error
 	return vehicleIDs, err
+}
+
+// UpdateConnectionStatus updates vehicle connection status (online/offline) via MQTT LWT
+func (r *VehicleRepository) UpdateConnectionStatus(vehicleCode string, status string) error {
+	now := time.Now()
+	updates := map[string]interface{}{
+		"connection_status": status,
+	}
+	
+	// Only update last_connected when going online
+	if status == "online" {
+		updates["last_connected"] = now
+	}
+	
+	return r.db.Model(&model.Vehicle{}).Where("code = ?", vehicleCode).Updates(updates).Error
 }
 

@@ -12,6 +12,8 @@ type Vehicle struct {
 	Name           string     `json:"name" gorm:"type:varchar(100);not null"`
 	Description    string     `json:"description" gorm:"type:text"`
 	Status         string     `json:"status" gorm:"type:varchar(20);default:'active'"` // active, inactive, maintenance
+	ConnectionStatus string   `json:"connection_status" gorm:"type:varchar(20);default:'offline'"` // online, offline (MQTT LWT)
+	LastConnected  *time.Time `json:"last_connected,omitempty" gorm:"index"` // Last seen timestamp
 	UserID         uint       `json:"user_id" gorm:"not null;index"`
 	User           *User      `json:"user,omitempty" gorm:"foreignKey:UserID;constraint:OnDelete:RESTRICT"`
 	

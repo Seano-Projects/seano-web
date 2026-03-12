@@ -141,6 +141,12 @@ func main() {
 					log.Printf("Warning: Failed to start battery listener: %v", err)
 				}
 
+				// Status Listener (MQTT LWT for online/offline)
+				statusListener := mqttservice.NewStatusListener(mqttClient, vehicleRepo, wsHub)
+				if err := statusListener.Start(); err != nil {
+					log.Printf("Warning: Failed to start status listener: %v", err)
+				}
+
 				// Command Publisher (for control commands arm/disarm/mode)
 				cmdPublisher = mqttservice.NewCommandPublisher(mqttClient)
 				log.Println("✓ Command Publisher ready")
