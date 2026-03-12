@@ -43,7 +43,7 @@ const Dropdown = ({
       : items.find((item) =>
           getItemKey
             ? getItemKey(item) === selectedItemKey
-            : item.id === selectedItemKey
+            : item.id === selectedItemKey,
         );
 
   const handleItemSelect = (item) => {
@@ -57,7 +57,7 @@ const Dropdown = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors duration-200 flex items-center justify-between"
+        className="w-full bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors duration-200 flex items-center justify-between"
       >
         <div className="flex items-center gap-3">
           {selectedItemData ? (
@@ -85,7 +85,7 @@ const Dropdown = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto scrollbar-hide">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto scrollbar-hide">
           {items.length === 0 ? (
             <div className="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm">
               No items available
@@ -100,7 +100,7 @@ const Dropdown = ({
                   type="button"
                   key={itemKey}
                   onClick={() => handleItemSelect(item)}
-                  className={`w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors duration-200 flex items-center gap-3 ${
+                  className={`w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors duration-200 flex items-center gap-3 ${
                     isSelected
                       ? "bg-blue-100 dark:bg-blue-600 hover:bg-blue-200 dark:hover:bg-blue-500"
                       : ""
