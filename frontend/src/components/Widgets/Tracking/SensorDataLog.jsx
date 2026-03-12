@@ -138,18 +138,6 @@ const SensorDataLog = ({ selectedVehicle }) => {
             <h3 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
               {t("tracking.sensorLog.title")}
             </h3>
-            {isConnected && (
-              <div className="flex items-center gap-1">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    hasNewData ? "bg-blue-500 animate-pulse" : "bg-blue-500"
-                  }`}
-                ></div>
-                <span className="text-xs text-blue-600 dark:text-blue-400">
-                  {t("tracking.sensorLog.live")}
-                </span>
-              </div>
-            )}
           </div>
           <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate ml-2">
             {selectedVehicle?.name ||
@@ -178,7 +166,7 @@ const SensorDataLog = ({ selectedVehicle }) => {
         </div>
       )} */}
 
-      <div className="flex-1 overflow-y-auto space-y-1.5 md:space-y-2 font-mono custom-scrollbar">
+      <div className="flex-1 overflow-y-auto space-y-1.5 md:space-y-2 custom-scrollbar">
         {filteredLogs.map((log, index) => {
           const sensorTypeName = getSensorTypeName(log);
           let dataToShow = log.data;
@@ -234,7 +222,6 @@ const SensorDataLog = ({ selectedVehicle }) => {
 
         {filteredLogs.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400 py-12 md:py-20 font-openSans">
-            <div className="text-3xl md:text-4xl mb-2">📡</div>
             <p className="text-sm md:text-base">
               {t("tracking.sensorLog.noLogs")}
             </p>

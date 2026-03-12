@@ -36,15 +36,8 @@ const SensorTypeTable = ({
   });
 
   function getSensorTypeIcon(name) {
-    const lowerName = (name || "").toLowerCase();
-    if (lowerName.includes("hidrografi")) return "🌊";
-    if (lowerName.includes("oseanografi")) return "🌀";
-    if (lowerName.includes("pressure")) return "📊";
-    if (lowerName.includes("ph")) return "🧪";
-    if (lowerName.includes("turbidity")) return "💧";
-    if (lowerName.includes("temperature")) return "🌡️";
-    if (lowerName.includes("humidity")) return "💨";
-    return "📋";
+    // Icons removed - return empty string
+    return "";
   }
 
   // Handle select all checkbox

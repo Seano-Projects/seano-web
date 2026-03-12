@@ -44,29 +44,8 @@ const SensorTable = ({
   });
 
   function getSensorTypeIcon(type) {
-    const typeLower = String(type).toLowerCase();
-    const icons = {
-      hidrografi: "🌊",
-      hydrography: "🌊",
-      oseanografi: "🌀",
-      oceanography: "🌀",
-      ctd: "🌡️",
-      adcp: "🌊",
-      pressure: "📊",
-      ph: "🧪",
-      turbidity: "💧",
-      default: "📡",
-    };
-
-    // Try exact match first
-    if (icons[typeLower]) return icons[typeLower];
-
-    // Try partial match
-    for (const key in icons) {
-      if (typeLower.includes(key)) return icons[key];
-    }
-
-    return icons.default;
+    // Icons removed - return empty string
+    return "";
   }
 
   // Handle select all checkbox

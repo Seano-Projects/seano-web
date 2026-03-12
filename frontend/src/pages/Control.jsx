@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import useTitle from "../hooks/useTitle";
 import useTranslation from "../hooks/useTranslation";
 import useControlCommand from "../hooks/useControlCommand";
 import useVehicleData from "../hooks/useVehicleData";
-import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import { useLogData } from "../hooks/useLogData";
+import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import { HeadingIndicator } from "react-flight-indicators";
 import { motion, AnimatePresence } from "framer-motion";
 import { VehicleDropdown } from "../components/Widgets/Vehicle";
@@ -30,6 +32,7 @@ import {
 } from "react-icons/fa";
 import { MdMyLocation } from "react-icons/md";
 import { TbAnchor, TbRoute } from "react-icons/tb";
+import usvPointIcon from "../assets/usv-point.webp";
 
 const MAP_CENTER = [45.4215, -75.6972];
 const MAP_ZOOM = 14;
@@ -50,11 +53,59 @@ const MapController = ({ center, zoom }) => {
   return null;
 };
 
+// Component to handle auto-centering when vehicle is selected
+const AutoCenterController = ({
+  selectedVehicle,
+  vehiclePosition,
+  isEnabled,
+}) => {
+  const map = useMap();
+  const lastFocusedVehicleRef = useRef(null);
+  const isProgrammaticMoveRef = useRef(false);
+
+  useEffect(() => {
+    if (!selectedVehicle || !vehiclePosition || !isEnabled) {
+      lastFocusedVehicleRef.current = null;
+      return;
+    }
+
+    const selectedVehicleId = String(selectedVehicle?.id || selectedVehicle);
+    const lastFocusedId = String(lastFocusedVehicleRef.current);
+
+    // Only auto-center if this is a new vehicle selection
+    if (selectedVehicleId === lastFocusedId) {
+      return;
+    }
+
+    // Update last focused vehicle
+    lastFocusedVehicleRef.current = selectedVehicleId;
+    isProgrammaticMoveRef.current = true;
+
+    try {
+      // Use flyTo for smooth animated transition
+      map.flyTo(vehiclePosition, 15, {
+        animate: true,
+        duration: 1.2,
+      });
+
+      // Reset programmatic flag after animation
+      setTimeout(() => {
+        isProgrammaticMoveRef.current = false;
+      }, 1300);
+    } catch (error) {
+      isProgrammaticMoveRef.current = false;
+    }
+  }, [selectedVehicle, vehiclePosition, isEnabled, map]);
+
+  return null;
+};
+
 const Control = () => {
   useTitle("Control");
   const { t } = useTranslation();
   const { sendCommand, isLoading: commandLoading } = useControlCommand();
   const { vehicles } = useVehicleData();
+  const { vehicleLogs } = useLogData();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [activeMode, setActiveMode] = useState("MANUAL");
   const [leftMotor, setLeftMotor] = useState(72);
@@ -72,6 +123,84 @@ const Control = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [mapCenter, setMapCenter] = useState(MAP_CENTER);
   const [mapZoom, setMapZoom] = useState(MAP_ZOOM);
+
+  // Get latest vehicle log for selected vehicle
+  const selectedVehicleLog = useMemo(() => {
+    if (!selectedVehicle) return null;
+
+    const vehicleId = selectedVehicle.id || selectedVehicle;
+    const vehicleIdStr = String(vehicleId);
+
+    // Find the latest log for this vehicle
+    const logs = vehicleLogs.filter((log) => {
+      const logVehicleId = String(log.vehicle?.id || log.vehicle_id);
+      return logVehicleId === vehicleIdStr;
+    });
+
+    if (logs.length === 0) return null;
+
+    // Sort by created_at and return the latest
+    return logs.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )[0];
+  }, [selectedVehicle, vehicleLogs]);
+
+  // Get vehicle position for map display
+  const vehiclePosition = useMemo(() => {
+    if (!selectedVehicle) return null;
+
+    // Priority: vehicle log > vehicle data
+    const lat = selectedVehicleLog?.latitude ?? selectedVehicle?.latitude;
+    const lng = selectedVehicleLog?.longitude ?? selectedVehicle?.longitude;
+
+    // Strict validation: must be valid numbers and within valid range
+    if (
+      lat != null &&
+      lng != null &&
+      !isNaN(lat) &&
+      !isNaN(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+    ) {
+      return [Number(lat), Number(lng)];
+    }
+
+    return null;
+  }, [selectedVehicle, selectedVehicleLog]);
+
+  // Create vehicle icon using usv-point.webp
+  const vehicleIcon = useMemo(() => {
+    if (!selectedVehicle || !vehiclePosition) return null;
+
+    const heading = selectedVehicleLog?.heading || selectedVehicleLog?.yaw || 0;
+    const size = 48;
+
+    return L.divIcon({
+      html: `
+        <div style="
+          width: ${size}px;
+          height: ${size}px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform: rotate(${heading}deg);
+          filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+        ">
+          <img 
+            src="${usvPointIcon}" 
+            alt="USV" 
+            style="width: 100%; height: 100%; object-fit: contain;"
+          />
+        </div>
+      `,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      className: "boat-marker-icon",
+    });
+  }, [selectedVehicle, selectedVehicleLog, vehiclePosition]);
 
   // Collapse/Expand states for menus with localStorage
   const [isVesselTelemetryExpanded, setIsVesselTelemetryExpanded] = useState(
@@ -237,23 +366,15 @@ const Control = () => {
       const query = searchQuery.trim();
       if (!query) return;
 
-      // Parse different coordinate formats
-      // Format 1: lat, lng or lat,lng
-      // Format 2: lat lng
-      // Format 3: decimal degrees
-
       let lat, lng;
 
-      // Try comma-separated format first
       if (query.includes(",")) {
         const parts = query.split(",").map((s) => s.trim());
         if (parts.length === 2) {
           lat = parseFloat(parts[0]);
           lng = parseFloat(parts[1]);
         }
-      }
-      // Try space-separated format
-      else {
+      } else {
         const parts = query.split(/\s+/);
         if (parts.length === 2) {
           lat = parseFloat(parts[0]);
@@ -261,7 +382,6 @@ const Control = () => {
         }
       }
 
-      // Validate coordinates
       if (
         !isNaN(lat) &&
         !isNaN(lng) &&
@@ -440,11 +560,25 @@ const Control = () => {
           zoomControl={false}
         >
           <MapController center={mapCenter} zoom={mapZoom} />
+          <AutoCenterController
+            selectedVehicle={selectedVehicle}
+            vehiclePosition={vehiclePosition}
+            isEnabled={true}
+          />
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             noWrap
           />
+
+          {/* Vehicle Marker */}
+          {vehiclePosition && vehicleIcon && selectedVehicle && (
+            <Marker
+              key={`vehicle-${selectedVehicle.id}`}
+              position={vehiclePosition}
+              icon={vehicleIcon}
+            />
+          )}
         </MapContainer>
       </div>
 
@@ -461,7 +595,7 @@ const Control = () => {
               exit={{ width: 48, height: 48, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
               onClick={() => setIsVesselTelemetryExpanded(true)}
-              className={`absolute left-4 top-4 ${panelCls} rounded-full p-3 shadow-lg pointer-events-auto flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors`}
+              className={`absolute left-4 top-7 ${panelCls} rounded-full p-3 shadow-lg pointer-events-auto flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors`}
               title={t("control.vesselTelemetry.title")}
             >
               <FaCompass className="text-blue-500 dark:text-white text-xl" />
@@ -474,7 +608,7 @@ const Control = () => {
               animate={{ width: 320, opacity: 1 }}
               exit={{ width: 48, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className={`absolute left-4 top-4 ${panelCls} rounded-xl p-4 flex flex-col gap-4 max-h-[calc(100vh-120px)] overflow-auto custom-scrollbar shadow-lg pointer-events-auto`}
+              className={`absolute left-4 top-7 ${panelCls} rounded-xl p-4 flex flex-col gap-4 max-h-[calc(100vh-120px)] overflow-auto custom-scrollbar shadow-lg pointer-events-auto`}
             >
               <div className="flex items-center justify-between">
                 <h2
@@ -642,7 +776,7 @@ const Control = () => {
               exit={{ width: 48, height: 48, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
               onClick={() => setIsSearchExpanded(true)}
-              className="absolute top-4 bg-white dark:bg-black hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 p-3 rounded-full shadow-lg transition-all border border-gray-200 dark:border-gray-600 flex items-center justify-center pointer-events-auto"
+              className="absolute top-7 bg-white dark:bg-black hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 p-3 rounded-full shadow-lg transition-all border border-gray-200 dark:border-gray-600 flex items-center justify-center pointer-events-auto"
               style={{
                 left: isVesselTelemetryExpanded ? "350px" : "80px",
               }}
@@ -662,7 +796,7 @@ const Control = () => {
               }}
               exit={{ width: 48, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className={`absolute top-4 ${panelCls} rounded-xl p-2 shadow-lg pointer-events-auto`}
+              className={`absolute top-7 ${panelCls} rounded-xl p-2 shadow-lg pointer-events-auto`}
               style={{
                 left: isVesselTelemetryExpanded ? "350px" : "80px",
               }}
@@ -838,7 +972,7 @@ const Control = () => {
               exit={{ width: 48, height: 48, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
               onClick={() => setIsMissionControlExpanded(true)}
-              className={`absolute right-4 top-4 ${panelCls} rounded-full p-3 shadow-lg pointer-events-auto flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors`}
+              className={`absolute right-4 top-7 ${panelCls} rounded-full p-3 shadow-lg pointer-events-auto flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors`}
               title={t("control.missionControl.title")}
             >
               <FaCog className="text-blue-500 dark:text-white text-xl" />
@@ -851,7 +985,7 @@ const Control = () => {
               animate={{ width: 320, opacity: 1 }}
               exit={{ width: 48, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className={`absolute right-4 top-4 ${panelCls} rounded-xl p-4 flex flex-col gap-4 max-h-[calc(100vh-120px)] overflow-auto custom-scrollbar shadow-lg pointer-events-auto`}
+              className={`absolute right-4 top-7 ${panelCls} rounded-xl p-4 flex flex-col gap-4 max-h-[calc(100vh-120px)] overflow-auto custom-scrollbar shadow-lg pointer-events-auto`}
             >
               <div className="flex items-center justify-between">
                 <h2
@@ -1128,12 +1262,6 @@ const Control = () => {
                         : t("control.camera.noStream")}
                     </p>
                   </div>
-                )}
-                {cameraConnected && (
-                  <span className="absolute top-2 left-2 flex items-center gap-1 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    LIVE
-                  </span>
                 )}
               </div>
 
