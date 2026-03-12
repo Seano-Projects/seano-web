@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import useTitle from "../hooks/useTitle";
 import useVehicleData from "../hooks/useVehicleData";
 import useRawLogData from "../hooks/useRawLogData";
@@ -95,10 +95,6 @@ const Data = () => {
 
   // Get data management cards with real raw logs data
   const dataWidgetCards = getDataManagementCards(rawLogsStats);
-
-  // Show error message if raw logs data failed to load
-  if (rawLogsError && !rawLogsLoading) {
-  }
 
   // Safe render to prevent crashes
   try {

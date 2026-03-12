@@ -127,9 +127,9 @@ const Permission = () => {
   };
 
   return (
-    <div>
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between mb-4">
         <Title
           title="Permission Management"
           subtitle="Manage your permissions"

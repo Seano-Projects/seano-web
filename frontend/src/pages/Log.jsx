@@ -11,12 +11,22 @@ import {
 import { WidgetCardSkeleton } from "../components/Skeleton";
 import { DataTable } from "../components/ui";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
-import { FiActivity, FiCpu, FiFileText } from "react-icons/fi";
+import {
+  FiActivity,
+  FiCpu,
+  FiFileText,
+  FiShield,
+  FiAlertTriangle,
+} from "react-icons/fi";
 
 const Log = () => {
   const { stats, vehicleLogs, sensorLogs, rawLogs, loading } = useLogData();
   const { vehicles, loading: vehicleLoading } = useVehicleData();
   const [activeTab, setActiveTab] = useState("vehicle");
+
+  // Dummy data for Anti Theft and Failsafe logs (backend not ready yet)
+  const antiTheftLogs = [];
+  const failsafeLogs = [];
 
   // Filter states
   const [selectedVehicle, setSelectedVehicle] = useState("");
@@ -69,6 +79,8 @@ const Log = () => {
   const filteredVehicleLogs = filterLogs(vehicleLogs);
   const filteredSensorLogs = filterLogs(sensorLogs);
   const filteredRawLogs = filterLogs(rawLogs);
+  const filteredAntiTheftLogs = filterLogs(antiTheftLogs);
+  const filteredFailsafeLogs = filterLogs(failsafeLogs);
 
   const widgets = [
     {
@@ -116,6 +128,26 @@ const Log = () => {
         ),
       trendText: `${Math.abs(stats.raw_logs.percentage_change).toFixed(1)}% vs yesterday`,
       iconBgColor: "bg-purple-100 dark:bg-purple-900/30",
+    },
+    {
+      title: "Anti Theft Logs",
+      value: antiTheftLogs.length,
+      icon: (
+        <FiShield className="text-orange-600 dark:text-orange-400" size={24} />
+      ),
+      trendIcon: null,
+      trendText: "Coming soon",
+      iconBgColor: "bg-orange-100 dark:bg-orange-900/30",
+    },
+    {
+      title: "Failsafe Logs",
+      value: failsafeLogs.length,
+      icon: (
+        <FiAlertTriangle className="text-red-600 dark:text-red-400" size={24} />
+      ),
+      trendIcon: null,
+      trendText: "Coming soon",
+      iconBgColor: "bg-red-100 dark:bg-red-900/30",
     },
   ];
 
@@ -320,7 +352,7 @@ const Log = () => {
       accessorKey: "data",
       sortable: false,
       cell: (row) => (
-        <div className="text-xs text-gray-700 dark:text-gray-400 font-mono max-w-md overflow-x-auto">
+        <div className="text-xs text-gray-700 dark:text-gray-400 max-w-md overflow-x-auto">
           {row.data}
         </div>
       ),
@@ -434,7 +466,7 @@ const Log = () => {
       </div>
 
       {/* Widget Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pb-4">
         {shouldShowSkeleton
           ? Array.from({ length: 3 }).map((_, idx) => (
               <WidgetCardSkeleton key={idx} />
@@ -446,19 +478,25 @@ const Log = () => {
       <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl my-4">
         <div className="border-b border-gray-200 dark:border-slate-600">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
-            {["vehicle", "sensor", "raw"].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === tab
-                    ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-                }`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)} Logs
-              </button>
-            ))}
+            {["vehicle", "sensor", "raw", "antitheft", "failsafe"].map(
+              (tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === tab
+                      ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+                  }`}
+                >
+                  {tab === "antitheft"
+                    ? "Anti Theft Logs"
+                    : tab === "failsafe"
+                      ? "Failsafe Logs"
+                      : tab.charAt(0).toUpperCase() + tab.slice(1) + " Logs"}
+                </button>
+              ),
+            )}
           </nav>
         </div>
 
@@ -512,8 +550,90 @@ const Log = () => {
                         {log.vehicle?.code || "N/A"}
                       </span>
                     </div>
-                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap font-mono break-words">
+                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap break-words">
                       {log.logs}
+                    </pre>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Anti Theft Logs */}
+        {activeTab === "antitheft" && (
+          <div className="p-6">
+            <div className="space-y-3">
+              {filteredAntiTheftLogs.length === 0 ? (
+                <div className="text-center py-12">
+                  <FiShield
+                    className="mx-auto text-orange-500 dark:text-orange-400 mb-4"
+                    size={48}
+                  />
+                  <p className="text-gray-500 dark:text-gray-400 font-medium mb-2">
+                    No anti theft logs yet
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    Backend integration coming soon...
+                  </p>
+                </div>
+              ) : (
+                filteredAntiTheftLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="bg-orange-50 dark:bg-orange-900/10 rounded-lg p-4 border border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {formatTimestamp(log.created_at)}
+                      </span>
+                      <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+                        {log.vehicle?.code || "N/A"}
+                      </span>
+                    </div>
+                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap break-words">
+                      {log.message || log.logs}
+                    </pre>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Failsafe Logs */}
+        {activeTab === "failsafe" && (
+          <div className="p-6">
+            <div className="space-y-3">
+              {filteredFailsafeLogs.length === 0 ? (
+                <div className="text-center py-12">
+                  <FiAlertTriangle
+                    className="mx-auto text-red-500 dark:text-red-400 mb-4"
+                    size={48}
+                  />
+                  <p className="text-gray-500 dark:text-gray-400 font-medium mb-2">
+                    No failsafe logs yet
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    Backend integration coming soon...
+                  </p>
+                </div>
+              ) : (
+                filteredFailsafeLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="bg-red-50 dark:bg-red-900/10 rounded-lg p-4 border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {formatTimestamp(log.created_at)}
+                      </span>
+                      <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                        {log.vehicle?.code || "N/A"}
+                      </span>
+                    </div>
+                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap break-words">
+                      {log.message || log.logs}
                     </pre>
                   </div>
                 ))

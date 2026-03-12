@@ -42,6 +42,20 @@ const MissionSuccessRate = () => {
     return t("dashboard.missionSuccessRate.poor");
   };
 
+  // Show loading or placeholder if stats not available yet
+  if (loading || !stats) {
+    return (
+      <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+        <h3 className="text-xl font-semibold text-black dark:text-white mb-6">
+          {t("dashboard.missionSuccessRate.title")}
+        </h3>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-400">{t("common.loading")}...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
       <h3 className="text-xl font-semibold text-black dark:text-white mb-6">
@@ -50,7 +64,7 @@ const MissionSuccessRate = () => {
 
       <div className="flex flex-col items-center justify-center">
         {/* Donut Chart - diameter diperbesar, ring dipertipis */}
-        <div className="relative w-80 h-80 mb-6">
+        <div className="relative w-80 h-80 mb-6" style={{ minHeight: "320px" }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie

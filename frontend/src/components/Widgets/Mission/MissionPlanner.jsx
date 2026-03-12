@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import useTitle from "../../../hooks/useTitle";
 import useMissionData from "../../../hooks/useMissionData";
-import { toast, LoadingDots } from "../../ui";
+import useNotify from "../../../hooks/useNotify";
+import { LoadingDots } from "../../ui";
 import {
   calculateTotalDistance,
   calculateEstimatedTime,
@@ -19,6 +20,7 @@ const MissionMap = lazy(() => import("./MissionMap"));
 const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
   useTitle("Missions");
   const { createMission, updateMission, missionData } = useMissionData();
+  const notify = useNotify();
   const [searchParams] = useSearchParams();
 
   // Main mission state
@@ -27,6 +29,13 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
   const [activeMission, setActiveMission] = useState(null);
   const [showNewMissionModal, setShowNewMissionModal] = useState(false);
   const [showLoadMissionModal, setShowLoadMissionModal] = useState(false);
+
+  // Selected vehicle for this mission
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+
+  // Loading states
+  const [isCreatingMission, setIsCreatingMission] = useState(false);
+  const [isSavingMission, setIsSavingMission] = useState(false);
 
   // Waypoints state
   const [waypoints, setWaypoints] = useState([]);
@@ -121,12 +130,13 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
   };
 
   const handleCreateMission = async (missionData) => {
+    setIsCreatingMission(true);
     try {
       const newMission = await createMission({
         name: missionData.name,
         description: missionData.description,
         status: "Draft",
-        vehicle_id: null, // Will be assigned later
+        vehicle_id: selectedVehicleId ? parseInt(selectedVehicleId) : null,
         waypoints: [],
         created_by: localStorage.getItem("user_id") || null,
       });
@@ -137,23 +147,49 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
         status: newMission.status,
         waypoints: 0,
         description: newMission.description,
+        vehicle_id: selectedVehicleId ? parseInt(selectedVehicleId) : null,
       });
 
       setShowNewMissionModal(false);
       resetMissionState();
-      toast.success("Mission created successfully!");
+
+      // Show success notification with persistence
+      await notify.success("Mission created successfully!", {
+        title: "Mission Created",
+        action: notify.ACTIONS.MISSION_CREATED,
+        vehicleId: selectedVehicleId ? parseInt(selectedVehicleId) : null,
+      });
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to create mission");
+      console.error("Failed to create mission:", error);
+      const errorMessage =
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to create mission";
+
+      // Show error notification with persistence
+      await notify.error(errorMessage, {
+        title: "Mission Creation Failed",
+        action: notify.ACTIONS.MISSION_CREATED,
+        vehicleId: selectedVehicleId ? parseInt(selectedVehicleId) : null,
+      });
+    } finally {
+      setIsCreatingMission(false);
     }
   };
 
-  const handleSelectMission = (mission) => {
-
+  const handleSelectMission = async (mission) => {
     // Clear previous mission data first
     setGeneratedPaths([]);
     setWaypoints([]);
     setHomeLocation(null);
     setHasGeneratedWaypoints(false);
+
+    // Set vehicle if mission has one
+    if (mission.vehicle_id) {
+      setSelectedVehicleId(mission.vehicle_id.toString());
+    }
 
     // Convert waypoints from database format to application format
     const loadedWaypoints = Array.isArray(mission.waypoints)
@@ -196,19 +232,28 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
     });
     setShowLoadMissionModal(false);
 
-    toast.success(
+    // Show success notification with persistence
+    await notify.success(
       `Loaded ${loadedWaypoints.length} waypoints from "${mission.name}"`,
+      {
+        title: "Mission Loaded",
+        action: "mission_loaded",
+        vehicleId: selectedVehicleId ? parseInt(selectedVehicleId) : null,
+      },
     );
   };
 
   const handleSaveMission = async () => {
     if (!activeMission || !activeMission.id) {
-      toast.error("No active mission to save");
+      await notify.error("No active mission to save", {
+        title: "Save Failed",
+        persist: true,
+      });
       return;
     }
 
+    setIsSavingMission(true);
     try {
-
       // Convert waypoints to save format, preserving zone/polygon data
       const waypointData = waypoints
         .filter((wp) => {
@@ -252,7 +297,6 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
           return baseData;
         });
 
-
       const updateData = {
         waypoints: waypointData,
         status: activeMission.status || "Draft",
@@ -268,9 +312,24 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
 
       await updateMission(activeMission.id, updateData);
 
-      toast.success("Mission saved successfully!");
+      // Show success notification with persistence
+      await notify.success("Mission saved successfully!", {
+        title: "Mission Saved",
+        action: notify.ACTIONS.MISSION_SAVED,
+        vehicleId: selectedVehicleId ? parseInt(selectedVehicleId) : null,
+      });
     } catch (error) {
-      toast.error(error.response?.data?.error || "Failed to save mission");
+      // Show error notification with persistence
+      await notify.error(
+        error.response?.data?.error || "Failed to save mission",
+        {
+          title: "Mission Save Failed",
+          action: notify.ACTIONS.MISSION_SAVED,
+          vehicleId: selectedVehicleId ? parseInt(selectedVehicleId) : null,
+        },
+      );
+    } finally {
+      setIsSavingMission(false);
     }
   };
 
@@ -309,6 +368,12 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
     setFeatureGroupRef,
     missionParams,
     setMissionParams,
+    selectedVehicleId,
+    setSelectedVehicleId,
+
+    // Loading states
+    isCreatingMission,
+    isSavingMission,
 
     // Mission statistics
     missionStats,

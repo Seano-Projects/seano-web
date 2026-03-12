@@ -199,7 +199,7 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
                   <div className="mt-0.5">{getLogLevelIcon(log.level)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono text-gray-500 dark:text-gray-400">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         {log.timestamp}
                       </span>
                       <span
@@ -250,19 +250,19 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
                       key={entry.id}
                       className="border-b border-gray-100 dark:border-gray-800"
                     >
-                      <td className="py-2 font-mono text-gray-600 dark:text-gray-400">
+                      <td className="py-2 text-gray-600 dark:text-gray-400">
                         {entry.timestamp}
                       </td>
-                      <td className="py-2 font-mono text-gray-900 dark:text-white">
+                      <td className="py-2 text-gray-900 dark:text-white">
                         {entry.battery_voltage}V
                       </td>
-                      <td className="py-2 font-mono text-gray-900 dark:text-white">
+                      <td className="py-2 text-gray-900 dark:text-white">
                         {entry.battery_current}A
                       </td>
-                      <td className="py-2 font-mono text-gray-900 dark:text-white">
+                      <td className="py-2 text-gray-900 dark:text-white">
                         {entry.speed} m/s
                       </td>
-                      <td className="py-2 font-mono text-gray-900 dark:text-white">
+                      <td className="py-2 text-gray-900 dark:text-white">
                         {entry.heading}°
                       </td>
                       <td className="py-2">

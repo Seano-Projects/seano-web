@@ -71,7 +71,10 @@ const RecentMissions = () => {
                     {mission.title}
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    {t("dashboard.recentMissions.vehicle")}: {mission.vehicle}
+                    {t("dashboard.recentMissions.vehicle")}:{" "}
+                    {typeof mission.vehicle === "string"
+                      ? mission.vehicle
+                      : mission.vehicle?.name || mission.vehicle?.code || "N/A"}
                   </p>
                 </div>
                 <span

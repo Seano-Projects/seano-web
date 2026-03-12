@@ -49,7 +49,7 @@ import {
 import { HiOutlineStatusOffline, HiOutlineStatusOnline } from "react-icons/hi";
 import { RiRouteLine, RiShieldUserLine, RiUser3Line } from "react-icons/ri";
 import { LuUserCog } from "react-icons/lu";
-import { IoGameController } from "react-icons/io5";
+import { IoCamera, IoGameController } from "react-icons/io5";
 
 const sizeIcon = 18;
 
@@ -63,7 +63,6 @@ export const dashboardLink = {
 export const menuGroups = [
   {
     title: "nav.dataOperations",
-    requiredPermission: "tracking.read",
     userOnly: true,
     items: [
       {
@@ -79,6 +78,13 @@ export const menuGroups = [
         text: "nav.control",
         size: sizeIcon,
         requiredPermission: "control.read",
+      },
+      {
+        href: "/cam",
+        icon: IoCamera,
+        text: "nav.cam",
+        size: sizeIcon,
+        requiredPermission: "cam.read",
       },
     ],
   },

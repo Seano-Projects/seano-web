@@ -9,6 +9,7 @@ const MissionModals = ({
   setShowLoadMissionModal,
   handleCreateMission,
   handleSelectMission,
+  isCreatingMission,
 }) => {
   const { missionData, loading, fetchMissionData } = useMissionData();
 
@@ -70,15 +71,21 @@ const MissionModals = ({
                 <button
                   type="button"
                   onClick={() => setShowNewMissionModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-slate-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                  disabled={isCreatingMission}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-slate-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                  disabled={isCreatingMission}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Create Mission
+                  {isCreatingMission ? (
+                    <LoadingDots size="sm" color="white" />
+                  ) : (
+                    "Create Mission"
+                  )}
                 </button>
               </div>
             </form>

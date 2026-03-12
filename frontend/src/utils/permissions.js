@@ -32,61 +32,65 @@ export const isAdmin = permissions => {
 }
 
 /**
- * Permission constants for common operations
+ * Permission constants — single source of truth on frontend.
+ * These MUST match the names seeded in backend/internal/seeder/seed.go.
+ * Convention: <resource>.<action>  |  actions: read | create | update | delete | manage | access
  */
 export const PERMISSIONS = {
+  // Dashboard
+  DASHBOARD_ACCESS: 'dashboard.access',
+
+  // User Management
+  USERS_READ: 'users.read',
+  USERS_CREATE: 'users.create',
+  USERS_UPDATE: 'users.update',
+  USERS_DELETE: 'users.delete',
+
+  // Role Management (.manage = create + update + delete)
+  ROLES_READ: 'roles.read',
+  ROLES_MANAGE: 'roles.manage',
+
+  // Permission Management
+  PERMISSIONS_READ: 'permissions.read',
+  PERMISSIONS_MANAGE: 'permissions.manage',
+
+  // Vehicle Management
+  VEHICLES_READ: 'vehicles.read',
+  VEHICLES_CREATE: 'vehicles.create',
+  VEHICLES_UPDATE: 'vehicles.update',
+  VEHICLES_DELETE: 'vehicles.delete',
+
+  // Sensor Management
+  SENSORS_READ: 'sensors.read',
+  SENSORS_MANAGE: 'sensors.manage',
+
+  // Sensor Type Management
+  SENSOR_TYPES_READ: 'sensor_types.read',
+  SENSOR_TYPES_MANAGE: 'sensor_types.manage',
+
   // Data Operations
   TRACKING_READ: 'tracking.read',
-  TRACKING_EXPORT: 'tracking.export',
-  MISSIONS_CREATE: 'missions.create',
+  CONTROL_READ: 'control.read',
+  CAM_READ: 'cam.read',
+  TELEMETRY_READ: 'telemetry.read',
+
+  // Mission Management
   MISSIONS_READ: 'missions.read',
+  MISSIONS_CREATE: 'missions.create',
   MISSIONS_UPDATE: 'missions.update',
   MISSIONS_DELETE: 'missions.delete',
 
   // Data Monitoring
+  BATTERY_READ: 'battery.read',
   LOGS_READ: 'logs.read',
-  LOGS_DELETE: 'logs.delete',
   ALERTS_READ: 'alerts.read',
-  ALERTS_ACKNOWLEDGE: 'alerts.acknowledge',
   NOTIFICATIONS_READ: 'notifications.read',
-  NOTIFICATIONS_DELETE: 'notifications.delete',
+  SENSOR_MONITORING_READ: 'sensor-monitoring.read',
 
-  // Data Management
-  VEHICLES_CREATE: 'vehicles.create',
-  VEHICLES_READ: 'vehicles.read',
-  VEHICLES_UPDATE: 'vehicles.update',
-  VEHICLES_DELETE: 'vehicles.delete',
-  SENSORS_CREATE: 'sensors.create',
-  SENSORS_READ: 'sensors.read',
-  SENSORS_UPDATE: 'sensors.update',
-  SENSORS_DELETE: 'sensors.delete',
+  // Data Records
   SENSOR_LOGS_READ: 'sensor_logs.read',
-  SENSOR_LOGS_EXPORT: 'sensor_logs.export',
-
-  // User Management
-  USERS_CREATE: 'users.create',
-  USERS_READ: 'users.read',
-  USERS_UPDATE: 'users.update',
-  USERS_DELETE: 'users.delete',
-  ROLES_CREATE: 'roles.create',
-  ROLES_READ: 'roles.read',
-  ROLES_UPDATE: 'roles.update',
-  ROLES_DELETE: 'roles.delete',
-  PERMISSIONS_CREATE: 'permissions.create',
-  PERMISSIONS_READ: 'permissions.read',
-  PERMISSIONS_UPDATE: 'permissions.update',
-  PERMISSIONS_DELETE: 'permissions.delete',
-
-  // System Management
-  SENSOR_TYPES_CREATE: 'sensor_types.create',
-  SENSOR_TYPES_READ: 'sensor_types.read',
-  SENSOR_TYPES_UPDATE: 'sensor_types.update',
-  SENSOR_TYPES_DELETE: 'sensor_types.delete',
   RAW_LOGS_READ: 'raw_logs.read',
-  RAW_LOGS_DELETE: 'raw_logs.delete',
-
-  // Dashboard
-  DASHBOARD_ACCESS: 'dashboard.access'
+  RAW_LOGS_DELETE: 'raw_logs.delete'
 }
 
 export default {

@@ -59,7 +59,7 @@ export const useVehicleStatus = ({ vehicleLog, websocket }) => {
       if (debouncedStatus !== status) {
         setStatus(debouncedStatus)
       }
-    }, 5000) // Check every 5 seconds
+    }, 2000) // Check every 2 seconds (more responsive)
 
     return () => clearInterval(interval)
   }, [lastDataTime, websocket, vehicleLog, status])

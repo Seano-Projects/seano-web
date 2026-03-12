@@ -35,7 +35,7 @@ const SensorDataChart = ({ className = "", selectedVehicle }) => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         if (response.ok) {
@@ -81,8 +81,7 @@ const SensorDataChart = ({ className = "", selectedVehicle }) => {
             });
           }
         }
-      } catch (err) {
-      }
+      } catch (err) {}
     };
 
     fetchSensorData();
@@ -137,7 +136,7 @@ const SensorDataChart = ({ className = "", selectedVehicle }) => {
       </div>
 
       {/* Line Chart */}
-      <div className="flex-1">
+      <div className="flex-1" style={{ minHeight: "300px" }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}

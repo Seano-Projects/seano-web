@@ -36,7 +36,7 @@ const VehicleLogChart = ({ className = "", selectedVehicle }) => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         if (response.ok) {
@@ -72,8 +72,7 @@ const VehicleLogChart = ({ className = "", selectedVehicle }) => {
 
           setChartData(processed);
         }
-      } catch (err) {
-      }
+      } catch (err) {}
     };
 
     fetchVehicleLogData();
@@ -158,7 +157,7 @@ const VehicleLogChart = ({ className = "", selectedVehicle }) => {
       </div>
 
       {/* Multi-Line Chart */}
-      <div className="flex-1">
+      <div className="flex-1" style={{ minHeight: "300px" }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}

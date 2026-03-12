@@ -118,6 +118,7 @@
     "sensorType": "Tipe Sensor",
     "userManagement": "Manajemen Pengguna",
     "user": "Pengguna",
+    "cam": "Kontrol Kamera",
     "role": "Peran",
     "permission": "Izin",
     "profile": "Profil",
@@ -360,12 +361,16 @@
       "RTL": "Kembali ke Titik Awal"
     },
     "camera": {
-      "title": "Kamera",
+      "title": "Kontrol Kamera",
+      "subtitle": "Kamera langsung dari kapal Anda",
       "connect": "Hubungkan",
       "disconnect": "Putuskan",
-      "connecting": "Menghubungkan...",
-      "noStream": "Stream tidak tersedia",
-      "streamPlaceholder": "mis. usv-seano"
+      "connecting": "Menghubungkan…",
+      "noStream": "Tidak ada stream terhubung",
+      "streamPlaceholder": "Nama stream (mis. usv-seano)",
+      "selectVehicle": "Pilih kendaraan",
+      "fullscreen": "Layar penuh",
+      "exitFullscreen": "Keluar layar penuh"
     }
   },
   "toast": {

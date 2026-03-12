@@ -166,7 +166,7 @@ const DataTable = ({ hasActiveFilters, handleResetFilters }) => {
       header: "Topic",
       accessorKey: "topic",
       cell: (row) => (
-        <span className="text-sm text-gray-700 dark:text-gray-300 font-mono">
+        <span className="text-sm text-gray-700 dark:text-gray-300">
           {row.topic || "N/A"}
         </span>
       ),

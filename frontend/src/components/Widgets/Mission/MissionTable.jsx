@@ -124,7 +124,9 @@ const MissionTable = () => {
       accessorKey: "vehicle",
       cell: (row) => (
         <span className="text-sm text-gray-700 dark:text-gray-300">
-          {row.vehicle}
+          {typeof row.vehicle === "string"
+            ? row.vehicle
+            : row.vehicle?.name || row.vehicle?.code || "N/A"}
         </span>
       ),
     },

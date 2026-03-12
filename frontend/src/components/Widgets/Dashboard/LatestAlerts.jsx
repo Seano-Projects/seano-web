@@ -124,7 +124,7 @@ const LatestAlerts = () => {
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="animate-pulse">
                 <div className="flex items-start gap-4 p-4 bg-transparent border-gray-200 dark:border-slate-600 border rounded-xl">
-                  <div className="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded-full flex-shrink-0 mt-1"></div>
+                  <div className="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded-full shrink-0 mt-1"></div>
                   <div className="flex-1">
                     <div className="h-4 bg-gray-300 dark:bg-slate-600 rounded w-3/4 mb-2"></div>
                     <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded w-full mb-2"></div>
@@ -153,7 +153,7 @@ const LatestAlerts = () => {
                 className={`flex items-start gap-4 p-4 ${classes.container} border rounded-xl`}
               >
                 <div
-                  className={`${classes.icon} p-2 rounded-full flex-shrink-0 mt-1`}
+                  className={`${classes.icon} p-2 rounded-full shrink-0 mt-1`}
                 >
                   <FaBell size={16} />
                 </div>
@@ -177,7 +177,9 @@ const LatestAlerts = () => {
                     </span>
                     {alert.vehicle && (
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {alert.vehicle}
+                        {typeof alert.vehicle === "string"
+                          ? alert.vehicle
+                          : alert.vehicle?.name || alert.vehicle?.code || "N/A"}
                       </span>
                     )}
                   </div>

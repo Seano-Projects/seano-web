@@ -45,10 +45,17 @@ func CreateUser(db *gorm.DB, req model.CreateUserRequest) (*model.User, error) {
 	return user, nil
 }
 
-func GetAllUsers(db *gorm.DB) ([]model.User, error) {
+func GetAllUsers(db *gorm.DB) ([]model.UserResponse, error) {
 	var users []model.User
-	result := db.Find(&users)
-	return users, result.Error
+	result := db.Preload("Role").Find(&users)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	responses := make([]model.UserResponse, len(users))
+	for i, u := range users {
+		responses[i] = model.ToUserResponse(&u)
+	}
+	return responses, nil
 }
 
 func GetUserByID(db *gorm.DB, id string) (*model.User, error) {

@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Modal } from "../../ui";
+import Dropdown from "../Dropdown";
 
-const EditUserModal = ({ isOpen, onClose, onSubmit, user }) => {
+const EditUserModal = ({ isOpen, onClose, onSubmit, user, roleData = [] }) => {
   const [formData, setFormData] = useState({
     username: "",
     email: "",
+    role_id: null,
   });
 
   useEffect(() => {
@@ -13,6 +15,7 @@ const EditUserModal = ({ isOpen, onClose, onSubmit, user }) => {
       setFormData({
         username: userData.username || "",
         email: userData.email || "",
+        role_id: userData.role_id ? Number(userData.role_id) : null,
       });
     }
   }, [isOpen, user]);
@@ -23,9 +26,11 @@ const EditUserModal = ({ isOpen, onClose, onSubmit, user }) => {
   };
 
   const handleClose = () => {
-    setFormData({ username: "", email: "" });
+    setFormData({ username: "", email: "", role_id: null });
     onClose();
   };
+
+  const selectedRole = roleData.find((r) => r.id === formData.role_id) || null;
 
   if (!user) return null;
 
@@ -72,6 +77,24 @@ const EditUserModal = ({ isOpen, onClose, onSubmit, user }) => {
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 cursor-not-allowed"
             />
           </div>
+
+          {/* Role */}
+          {roleData.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                Role
+              </label>
+              <Dropdown
+                items={roleData}
+                selectedItem={selectedRole}
+                onItemChange={(role) =>
+                  setFormData({ ...formData, role_id: role.id })
+                }
+                placeholder="Select role"
+                getItemKey={(item) => item.id}
+              />
+            </div>
+          )}
         </div>
 
         {/* Form Actions */}

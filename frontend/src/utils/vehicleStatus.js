@@ -20,19 +20,19 @@ export const VEHICLE_STATUS = {
 // Timeout thresholds (in milliseconds)
 export const STATUS_THRESHOLDS = {
   // Data is considered fresh if received within this time
-  ONLINE_THRESHOLD: 15 * 1000, // 15 seconds
+  ONLINE_THRESHOLD: 10 * 1000, // 10 seconds
 
   // After this time without data, vehicle is considered idle
-  IDLE_THRESHOLD: 60 * 1000, // 60 seconds (1 minute)
+  IDLE_THRESHOLD: 30 * 1000, // 30 seconds
 
   // After this time, vehicle is considered offline
-  OFFLINE_THRESHOLD: 180 * 1000, // 180 seconds (3 minutes)
+  OFFLINE_THRESHOLD: 45 * 1000, // 45 seconds (reduced from 3 minutes)
 
   // Grace period to prevent flapping between states
-  GRACE_PERIOD: 5 * 1000, // 5 seconds
+  GRACE_PERIOD: 3 * 1000, // 3 seconds (reduced for faster response)
 
   // Heartbeat interval (expected ping frequency)
-  HEARTBEAT_INTERVAL: 30 * 1000 // 30 seconds
+  HEARTBEAT_INTERVAL: 15 * 1000 // 15 seconds
 }
 
 /**
@@ -49,9 +49,11 @@ export const determineVehicleStatus = ({
   websocket = null,
   currentTime = Date.now()
 }) => {
-  // If no data time provided, cannot determine status
+  // If no data time provided, check WebSocket status
   if (!lastDataTime) {
-    return VEHICLE_STATUS.UNKNOWN
+    // If WebSocket is connected, assume idle (waiting for first data)
+    const wsConnected = websocket && websocket.readyState === WebSocket.OPEN
+    return wsConnected ? VEHICLE_STATUS.IDLE : VEHICLE_STATUS.OFFLINE
   }
 
   // Convert timestamps to milliseconds
@@ -60,14 +62,20 @@ export const determineVehicleStatus = ({
 
   // Check if timestamps are valid
   if (isNaN(lastDataMs) || isNaN(currentMs)) {
-    return VEHICLE_STATUS.UNKNOWN
+    const wsConnected = websocket && websocket.readyState === WebSocket.OPEN
+    return wsConnected ? VEHICLE_STATUS.IDLE : VEHICLE_STATUS.OFFLINE
   }
 
   // Calculate time since last data
   const timeSinceLastData = currentMs - lastDataMs
 
-  // Check WebSocket connection status
+  // Check WebSocket connection status - CRITICAL CHECK
   const wsConnected = websocket && websocket.readyState === WebSocket.OPEN
+
+  // If WebSocket is disconnected and data is older than ONLINE_THRESHOLD, mark as offline immediately
+  if (!wsConnected && timeSinceLastData > STATUS_THRESHOLDS.ONLINE_THRESHOLD) {
+    return VEHICLE_STATUS.OFFLINE
+  }
 
   // Status determination logic with multiple thresholds
   if (timeSinceLastData < STATUS_THRESHOLDS.ONLINE_THRESHOLD) {
@@ -78,8 +86,8 @@ export const determineVehicleStatus = ({
     // Check WebSocket connection to determine if idle or offline
     return wsConnected ? VEHICLE_STATUS.IDLE : VEHICLE_STATUS.OFFLINE
   } else if (timeSinceLastData < STATUS_THRESHOLDS.OFFLINE_THRESHOLD) {
-    // Extended period without data - likely offline but keep as idle if WS connected
-    // This provides grace period for temporary connectivity issues
+    // Extended period without data
+    // Only stay idle if WebSocket is connected
     return wsConnected ? VEHICLE_STATUS.IDLE : VEHICLE_STATUS.OFFLINE
   } else {
     // Data is very stale - vehicle is offline

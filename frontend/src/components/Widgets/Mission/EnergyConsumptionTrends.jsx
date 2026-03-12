@@ -101,7 +101,7 @@ const EnergyConsumptionTrends = () => {
         </div>
       </div>
 
-      <div className="h-[400px]">
+      <div className="h-[400px]" style={{ minHeight: "400px" }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}

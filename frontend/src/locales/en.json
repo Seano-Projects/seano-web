@@ -118,6 +118,7 @@
     "sensorType": "Sensor Type",
     "userManagement": "User Management",
     "user": "User",
+    "cam": "Camera Control",
     "role": "Role",
     "permission": "Permission",
     "profile": "Profile",
@@ -360,12 +361,16 @@
       "RTL": "Return to Launch"
     },
     "camera": {
-      "title": "Camera Feed",
+      "title": "Camera Control",
+      "subtitle": "Live camera from your vessel",
       "connect": "Connect",
       "disconnect": "Disconnect",
-      "connecting": "Connecting...",
-      "noStream": "No stream available",
-      "streamPlaceholder": "e.g. usv-seano"
+      "connecting": "Connecting…",
+      "noStream": "No stream connected",
+      "streamPlaceholder": "Stream name (e.g. usv-seano)",
+      "selectVehicle": "Select vehicle",
+      "fullscreen": "Fullscreen",
+      "exitFullscreen": "Exit fullscreen"
     }
   },
   "toast": {

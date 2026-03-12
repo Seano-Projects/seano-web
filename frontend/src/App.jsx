@@ -41,6 +41,7 @@ import Vehicle from "./pages/Vehicle";
 import Alerts from "./pages/Alerts";
 import Profile from "./pages/Profile";
 import Control from "./pages/Control";
+import Camera from "./pages/Camera";
 import Battery from "./pages/Battery";
 import Sensor from "./pages/Sensor";
 import SensorType from "./pages/SensorType";
@@ -142,6 +143,7 @@ function App() {
     "/mission-planner",
     "/sensor-monitoring/ctd",
     "/control",
+    "/cam",
     "/battery",
     "/data",
     "/profile",
@@ -336,6 +338,14 @@ function App() {
                       darkMode={darkMode}
                       isSidebarOpen={isSidebarOpen}
                     />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cam"
+                element={
+                  <ProtectedRoute>
+                    <Camera darkMode={darkMode} isSidebarOpen={isSidebarOpen} />
                   </ProtectedRoute>
                 }
               />

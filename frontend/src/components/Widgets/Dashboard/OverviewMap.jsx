@@ -16,7 +16,7 @@ const OverviewMap = ({ darkMode, vehicles, selectedVehicleId }) => {
       </div>
 
       {/* Map Container */}
-      <div className="relative h-[360px] md:h-[450px] overflow-hidden rounded-xl">
+      <div className="relative h-90 md:h-112.5 overflow-hidden rounded-xl">
         <ViewMap
           vehicles={vehicles}
           selectedVehicle={selectedVehicleId}

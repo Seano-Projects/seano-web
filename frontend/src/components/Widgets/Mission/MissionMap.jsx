@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -24,6 +24,9 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { FaX } from "react-icons/fa6";
 import { toast } from "../../ui";
+import { useVehicleData } from "../../../hooks";
+import { useLogData } from "../../../hooks/useLogData";
+import usvPointIcon from "../../../assets/usv-point.webp";
 
 // Fix default markers
 delete L.Icon.Default.prototype._getIconUrl;
@@ -52,6 +55,68 @@ const MapController = ({ center, zoom }) => {
   return null;
 };
 
+// Component to handle auto-centering when vehicle is selected with smooth animation
+const AutoCenterController = ({
+  selectedVehicle,
+  selectedVehicleLog,
+  isEnabled,
+}) => {
+  const map = useMap();
+  const lastFocusedVehicleRef = useRef(null);
+  const isProgrammaticMoveRef = useRef(false);
+
+  useEffect(() => {
+    if (!selectedVehicle || !isEnabled) {
+      lastFocusedVehicleRef.current = null;
+      return;
+    }
+
+    // Check if vehicle has valid position - prefer log data, fallback to vehicle data
+    const lat = selectedVehicleLog?.latitude ?? selectedVehicle.latitude;
+    const lng = selectedVehicleLog?.longitude ?? selectedVehicle.longitude;
+
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+      return;
+    }
+
+    const selectedVehicleId = String(selectedVehicle?.id || selectedVehicle);
+    const lastFocusedId = String(lastFocusedVehicleRef.current);
+
+    // Only auto-center if this is a new vehicle selection
+    if (selectedVehicleId === lastFocusedId) {
+      return;
+    }
+
+    // Update last focused vehicle
+    lastFocusedVehicleRef.current = selectedVehicleId;
+    isProgrammaticMoveRef.current = true;
+
+    try {
+      // Use flyTo for smooth animated transition
+      map.flyTo([lat, lng], 15, {
+        animate: true,
+        duration: 1.2,
+      });
+
+      // Reset programmatic flag after animation
+      setTimeout(() => {
+        isProgrammaticMoveRef.current = false;
+      }, 1300);
+    } catch (error) {
+      console.error("Error centering map:", error);
+      isProgrammaticMoveRef.current = false;
+    }
+  }, [
+    selectedVehicle,
+    isEnabled,
+    map,
+    selectedVehicleLog?.latitude,
+    selectedVehicleLog?.longitude,
+  ]);
+
+  return null;
+};
+
 const MissionMap = ({
   darkMode,
   activeMission,
@@ -74,6 +139,7 @@ const MissionMap = ({
   missionParams,
   setActiveMission,
   getActualWaypointCount,
+  selectedVehicleId,
 }) => {
   // Search coordinates state
   const [searchQuery, setSearchQuery] = useState("");
@@ -83,6 +149,40 @@ const MissionMap = ({
 
   // Guide state
   const [showGuide, setShowGuide] = useState(false);
+
+  // Get vehicle data
+  const { vehicles } = useVehicleData();
+
+  // Get real-time vehicle logs for accurate heading
+  const { vehicleLogs } = useLogData();
+
+  // Get selected vehicle object from vehicles list
+  const selectedVehicle = selectedVehicleId
+    ? vehicles.find((v) => v.id === parseInt(selectedVehicleId))
+    : null;
+
+  // Get the latest vehicle log for selected vehicle
+  const selectedVehicleLog = React.useMemo(() => {
+    if (!selectedVehicleId || !vehicleLogs || vehicleLogs.length === 0) {
+      return null;
+    }
+
+    // Find the most recent log for the selected vehicle
+    const vehicleId = parseInt(selectedVehicleId);
+    const logsForVehicle = vehicleLogs.filter(
+      (log) => log.vehicle_id === vehicleId,
+    );
+
+    if (logsForVehicle.length === 0) return null;
+
+    // Return the most recent log (sorted by created_at)
+    return logsForVehicle.reduce((latest, log) => {
+      if (!latest) return log;
+      return new Date(log.created_at) > new Date(latest.created_at)
+        ? log
+        : latest;
+    }, null);
+  }, [selectedVehicleId, vehicleLogs]);
 
   // Restore polygon/zone shapes when waypoints are loaded
   React.useEffect(() => {
@@ -209,9 +309,9 @@ const MissionMap = ({
     }
   };
 
-  // Home icon definition
+  // Home icon definition - draggable marker
   const homeIcon = L.divIcon({
-    html: `<div style="background-color: #018190; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.15); font-size: 14px;">
+    html: `<div style="background-color: #018190; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.15); font-size: 14px; cursor: move;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
         <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
       </svg>
@@ -220,6 +320,37 @@ const MissionMap = ({
     iconAnchor: [16, 16],
     className: "custom-home-marker",
   });
+
+  // Vehicle icon definition - using usv-point.webp (reactive to heading changes from real-time log data)
+  const vehicleIcon = React.useMemo(() => {
+    if (!selectedVehicle) return null;
+
+    // Use heading from real-time vehicle log, not from static vehicle data
+    const heading = selectedVehicleLog?.heading || selectedVehicleLog?.yaw || 0;
+
+    return L.divIcon({
+      html: `
+        <div style="
+          width: 48px;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform: rotate(${heading}deg);
+          filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+        ">
+          <img 
+            src="${usvPointIcon}" 
+            alt="USV" 
+            style="width: 100%; height: 100%; object-fit: contain;"
+          />
+        </div>
+      `,
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
+      className: "custom-vehicle-marker",
+    });
+  }, [selectedVehicle, selectedVehicleLog]);
 
   // Drawing event handlers
   const onDrawCreated = (e) => {
@@ -687,6 +818,11 @@ const MissionMap = ({
         maxZoom={22}
       >
         <MapController center={mapCenter} zoom={mapZoom} />
+        <AutoCenterController
+          selectedVehicle={selectedVehicle}
+          selectedVehicleLog={selectedVehicleLog}
+          isEnabled={true}
+        />
         <TileLayer
           attribution="&copy; Esri"
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -1086,20 +1222,29 @@ const MissionMap = ({
           >
             <div className="leaflet-control leaflet-bar">
               <button
-                onClick={() => setIsSettingHome(!isSettingHome)}
+                onClick={() =>
+                  selectedVehicleId && setIsSettingHome(!isSettingHome)
+                }
+                disabled={!selectedVehicleId}
                 className={`${
-                  isSettingHome
-                    ? "bg-blue-500 hover:bg-blue-600 text-white"
-                    : "bg-white dark:bg-black hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                  !selectedVehicleId
+                    ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-600 cursor-not-allowed"
+                    : isSettingHome
+                      ? "bg-blue-500 hover:bg-blue-600 text-white"
+                      : "bg-white dark:bg-black hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                 } p-3 rounded-full shadow-lg transition-all border ${
-                  isSettingHome
-                    ? "border-blue-500"
-                    : "border-gray-200 dark:border-gray-600"
+                  !selectedVehicleId
+                    ? "border-gray-300 dark:border-gray-700"
+                    : isSettingHome
+                      ? "border-blue-500"
+                      : "border-gray-200 dark:border-gray-600"
                 }`}
                 title={
-                  isSettingHome
-                    ? "Click on map to set home"
-                    : "Set Home Location"
+                  !selectedVehicleId
+                    ? "Select a vehicle first"
+                    : isSettingHome
+                      ? "Click on map to set home"
+                      : "Set Home Location"
                 }
               >
                 <FaHome className="text-base" />
@@ -1111,16 +1256,87 @@ const MissionMap = ({
         {/* Map click handler for setting home location */}
         <MapClickHandler />
 
-        {/* Home location marker with custom home icon */}
+        {/* Selected Vehicle Marker */}
+        {selectedVehicle &&
+          (() => {
+            // Use real-time log data if available, fallback to vehicle data
+            const lat =
+              selectedVehicleLog?.latitude ?? selectedVehicle.latitude;
+            const lng =
+              selectedVehicleLog?.longitude ?? selectedVehicle.longitude;
+
+            if (!lat || !lng) return null;
+
+            return (
+              <Marker position={[lat, lng]} icon={vehicleIcon}>
+                <Popup>
+                  <div className="font-semibold text-blue-600">
+                    {selectedVehicle.name}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {selectedVehicle.code}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Status:{" "}
+                    <span
+                      className={`font-medium ${
+                        selectedVehicle.status === "online"
+                          ? "text-green-600"
+                          : "text-gray-600"
+                      }`}
+                    >
+                      {selectedVehicle.status}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Battery: {selectedVehicle.battery_level}%
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Heading:{" "}
+                    {(
+                      selectedVehicleLog?.heading ||
+                      selectedVehicleLog?.yaw ||
+                      0
+                    ).toFixed(1)}
+                    °
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {lat.toFixed(6)}, {lng.toFixed(6)}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })()}
+
+        {/* Home location marker with custom home icon - draggable */}
         {homeLocation && (
           <Marker
             position={[homeLocation.lat, homeLocation.lng]}
             icon={homeIcon}
+            draggable={true}
+            autoPan={true}
+            eventHandlers={{
+              dragend: (e) => {
+                const marker = e.target;
+                const newPos = marker.getLatLng();
+                setHomeLocation({
+                  lat: newPos.lat,
+                  lng: newPos.lng,
+                });
+                toast.success(
+                  `Home location updated to ${newPos.lat.toFixed(6)}, ${newPos.lng.toFixed(6)}`,
+                );
+              },
+            }}
           >
             <Popup>
               <strong>Home Location</strong>
               <br />
-              {homeLocation.lat.toFixed(4)}, {homeLocation.lng.toFixed(4)}
+              {homeLocation.lat.toFixed(6)}, {homeLocation.lng.toFixed(6)}
+              <br />
+              <span className="text-xs text-gray-600 dark:text-gray-400 italic mt-1 block">
+                💡 Drag marker to adjust position
+              </span>
             </Popup>
           </Marker>
         )}

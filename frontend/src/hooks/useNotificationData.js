@@ -16,7 +16,7 @@ const useNotificationData = () => {
       const token = localStorage.getItem('access_token')
 
       // API endpoint untuk notifications/alerts
-      const response = await fetch(`${API_BASE_URL}/api/notifications`, {
+      const response = await fetch(`${API_BASE_URL}/notifications`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -27,6 +27,13 @@ const useNotificationData = () => {
       })
 
       if (!response.ok) {
+        // Silently fail for 404 (endpoint may not exist yet)
+        if (response.status === 404) {
+          setNotifications([])
+          setLastUpdated(new Date())
+          setLoading(false)
+          return
+        }
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 

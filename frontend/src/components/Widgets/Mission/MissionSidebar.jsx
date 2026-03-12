@@ -13,8 +13,9 @@ import {
   FaCog,
 } from "react-icons/fa";
 import Dropdown from "../Dropdown";
-import { ConfirmModal, toast } from "../../ui";
+import { ConfirmModal, toast, LoadingDots } from "../../ui";
 import { useMissionUpload, useVehicleData } from "../../../hooks";
+import useNotify from "../../../hooks/useNotify";
 import MissionUploadModal from "./MissionUploadModal";
 
 const MissionSidebar = ({
@@ -42,10 +43,13 @@ const MissionSidebar = ({
   handleSaveMission,
   getActualWaypointCount,
   isPointInPolygon,
+  selectedVehicleId,
+  setSelectedVehicleId,
+  isSavingMission,
 }) => {
   const [showClearModal, setShowClearModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  const [uploadVehicleId, setUploadVehicleId] = useState(null);
 
   // Upload hooks
   const {
@@ -57,10 +61,11 @@ const MissionSidebar = ({
   } = useMissionUpload();
 
   const { vehicles } = useVehicleData();
+  const notify = useNotify();
 
-  // Get selected vehicle info
-  const selectedVehicle = selectedVehicleId
-    ? vehicles.find((v) => v.id === parseInt(selectedVehicleId))
+  // Get selected vehicle info for display in the upload modal
+  const uploadVehicle = uploadVehicleId
+    ? vehicles.find((v) => v.id === parseInt(uploadVehicleId))
     : null;
 
   const handleDeleteWaypoint = (waypointId) => {
@@ -76,6 +81,14 @@ const MissionSidebar = ({
 
     if (waypointToDelete && waypointToDelete.type === "path") {
       regeneratePathsFromWaypoints(updatedWaypoints);
+
+      // Check if all path waypoints are deleted, reset hasGeneratedWaypoints
+      const remainingPathWaypoints = updatedWaypoints.filter(
+        (wp) => wp.type === "path",
+      );
+      if (remainingPathWaypoints.length === 0) {
+        setHasGeneratedWaypoints(false);
+      }
     }
 
     if (activeMission) {
@@ -118,24 +131,38 @@ const MissionSidebar = ({
   };
 
   // Handle upload to vehicle button click
-  const handleUploadToVehicle = () => {
+  const handleUploadToVehicle = async () => {
     if (!activeMission) {
-      toast.error("No active mission to upload");
+      await notify.error("No active mission to upload", {
+        title: "Upload Failed",
+        action: notify.ACTIONS.MISSION_UPLOADED,
+        persist: false,
+      });
       return;
     }
 
     if (!activeMission.id) {
-      toast.warning("Please save the mission before uploading to vehicle");
+      await notify.warning(
+        "Please save the mission before uploading to vehicle",
+        {
+          title: "Mission Not Saved",
+          persist: false,
+        },
+      );
       return;
     }
 
-    // Pre-select vehicle if mission already has one
-    if (activeMission.vehicle_id) {
-      setSelectedVehicleId(activeMission.vehicle_id.toString());
-      checkVehicleReadiness(activeMission.vehicle_id);
-    } else {
-      setSelectedVehicleId(null);
+    if (!selectedVehicleId) {
+      await notify.warning("Please select a vehicle first", {
+        title: "No Vehicle Selected",
+        persist: false,
+      });
+      return;
     }
+
+    // Use the selected vehicle from the sidebar
+    setUploadVehicleId(selectedVehicleId);
+    checkVehicleReadiness(parseInt(selectedVehicleId));
 
     // Open modal
     setShowUploadModal(true);
@@ -143,7 +170,7 @@ const MissionSidebar = ({
 
   // Handle vehicle selection in modal
   const handleVehicleSelect = async (vehicleId) => {
-    setSelectedVehicleId(vehicleId);
+    setUploadVehicleId(vehicleId);
     if (vehicleId) {
       await checkVehicleReadiness(parseInt(vehicleId));
     }
@@ -151,12 +178,16 @@ const MissionSidebar = ({
 
   // Confirm upload in modal
   const handleConfirmUpload = async () => {
-    if (!activeMission || !activeMission.id || !selectedVehicleId) {
-      toast.error("Invalid mission or vehicle");
+    if (!activeMission || !activeMission.id || !uploadVehicleId) {
+      await notify.error("Invalid mission or vehicle", {
+        title: "Upload Failed",
+        action: notify.ACTIONS.MISSION_UPLOADED,
+        persist: false,
+      });
       return;
     }
 
-    const vehicleId = parseInt(selectedVehicleId);
+    const vehicleId = parseInt(uploadVehicleId);
 
     // Prepare mission data for upload
     const missionData = {
@@ -183,13 +214,21 @@ const MissionSidebar = ({
     );
 
     if (result.success) {
-      toast.success("Mission uploaded successfully to vehicle!");
+      await notify.success("Mission uploaded successfully to vehicle!", {
+        title: "Mission Uploaded",
+        action: notify.ACTIONS.MISSION_UPLOADED,
+        vehicleId: vehicleId,
+      });
       setTimeout(() => {
         setShowUploadModal(false);
         resetUploadState();
       }, 2000);
     } else {
-      toast.error(result.error || "Failed to upload mission");
+      await notify.error(result.error || "Failed to upload mission", {
+        title: "Upload Failed",
+        action: notify.ACTIONS.MISSION_UPLOADED,
+        vehicleId: vehicleId,
+      });
     }
   };
 
@@ -197,7 +236,7 @@ const MissionSidebar = ({
   const handleCloseUploadModal = () => {
     if (!uploadState.isUploading) {
       setShowUploadModal(false);
-      setSelectedVehicleId(null);
+      setUploadVehicleId(null);
       resetUploadState();
     }
   };
@@ -243,24 +282,32 @@ const MissionSidebar = ({
         const zoneHeight = north - south;
         const zoneWidth = east - west;
 
-        // const spacing = Math.min(0.0006, Math.max(0.0001, zoneHeight / 8));
-        const spacing = Math.min(0.001, Math.max(0.0002, zoneHeight / 6));
-        const waypointSpacing = Math.min(
-          0.0008,
-          Math.max(0.0001, zoneWidth / 10),
-        );
+        // Calculate area to determine density
+        const area = zoneHeight * zoneWidth;
 
-        let lineCount = 0;
+        // Adaptive spacing based on area size
+        // Smaller area = tighter spacing, larger area = wider spacing
+        let spacing;
+        if (area < 0.00001) {
+          // Very small area (< ~100m x 100m)
+          spacing = Math.max(0.00008, zoneHeight / 10);
+        } else if (area < 0.0001) {
+          // Small area (< ~300m x 300m)
+          spacing = Math.max(0.00015, zoneHeight / 8);
+        } else {
+          // Large area
+          spacing = Math.min(0.0005, Math.max(0.0002, zoneHeight / 6));
+        }
 
         for (
           let currentLat = south;
           currentLat <= north;
           currentLat += spacing
         ) {
-          const isEvenLine = lineCount % 2 === 0;
           const scanPoints = [];
 
-          const scanResolution = 0.0002;
+          // Higher resolution scan for better coverage
+          const scanResolution = spacing / 10;
           for (let lng = west; lng <= east; lng += scanResolution) {
             const point = { lat: currentLat, lng: lng };
             let isInside = false;
@@ -277,6 +324,7 @@ const MissionSidebar = ({
           }
 
           if (scanPoints.length > 0) {
+            // Find continuous segments
             const segments = [];
             let currentSegment = [scanPoints[0]];
 
@@ -285,7 +333,7 @@ const MissionSidebar = ({
               const currentPoint = scanPoints[i];
               const gap = Math.abs(currentPoint.lng - prevPoint.lng);
 
-              if (gap <= scanResolution * 1.5) {
+              if (gap <= scanResolution * 2) {
                 currentSegment.push(currentPoint);
               } else {
                 segments.push(currentSegment);
@@ -294,16 +342,32 @@ const MissionSidebar = ({
             }
             segments.push(currentSegment);
 
+            // Process each segment
             segments.forEach((segment) => {
               if (segment.length > 0) {
                 const startPoint = segment[0];
                 const endPoint = segment[segment.length - 1];
+                const segmentWidth = Math.abs(endPoint.lng - startPoint.lng);
 
-                // Only add start and end points (edges), no intermediate points
                 const pointsToAdd = [startPoint];
 
-                // Only add end point if it's distinct enough from start point
-                if (Math.abs(endPoint.lng - startPoint.lng) > 0.00001) {
+                // Add intermediate waypoints for better coverage
+                if (segmentWidth > spacing * 2) {
+                  // Calculate number of intermediate points needed
+                  const numIntermediatePoints = Math.floor(
+                    segmentWidth / spacing,
+                  );
+
+                  for (let i = 1; i <= numIntermediatePoints; i++) {
+                    const ratio = i / (numIntermediatePoints + 1);
+                    const intermediateLng =
+                      startPoint.lng + (endPoint.lng - startPoint.lng) * ratio;
+                    pointsToAdd.push({ lat: currentLat, lng: intermediateLng });
+                  }
+                }
+
+                // Add end point if distinct enough
+                if (Math.abs(endPoint.lng - startPoint.lng) > spacing * 0.3) {
                   pointsToAdd.push(endPoint);
                 }
 
@@ -327,25 +391,21 @@ const MissionSidebar = ({
               }
             });
           }
-
-          lineCount++;
         }
       }
     });
 
     if (newPathWaypoints.length > 0) {
       const filteredWaypoints = [];
-      const minDistance = 0.00005; // Reduced min distance since we only have edge points
+      // Smaller min distance to keep more waypoints
+      const minDistance = 0.00003;
 
       let sortedWaypoints = [];
 
-      // Always sort South to North (Bottom to Top)
+      // Group by latitude
       const latGroups = {};
-      // Use a slightly larger epsilon for grouping to handle floating point errors
-      const latSpacing = 0.0006;
 
       newPathWaypoints.forEach((wp) => {
-        // Group by latitude roughly to handle small variations
         const latKey = Math.round(wp.lat / 0.00001) * 0.00001;
         if (!latGroups[latKey]) {
           latGroups[latKey] = [];
@@ -353,7 +413,7 @@ const MissionSidebar = ({
         latGroups[latKey].push(wp);
       });
 
-      // Sort latitudes from South (low) to North (high)
+      // Sort latitudes from South to North
       const latKeys = Object.keys(latGroups)
         .map((k) => parseFloat(k))
         .sort((a, b) => a - b);
@@ -363,9 +423,7 @@ const MissionSidebar = ({
         const lineWaypoints = latGroups[latKey];
         const isEvenLine = lineIndex % 2 === 0;
 
-        // Zigzag pattern:
-        // Even lines: West -> East (Left -> Right)
-        // Odd lines: East -> West (Right -> Left)
+        // Zigzag pattern for efficient coverage
         if (isEvenLine) {
           lineWaypoints.sort((a, b) => a.lng - b.lng);
         } else {
@@ -375,6 +433,7 @@ const MissionSidebar = ({
         sortedWaypoints.push(...lineWaypoints);
       });
 
+      // Filter out too-close waypoints
       sortedWaypoints.forEach((waypoint, index) => {
         if (index === 0) {
           filteredWaypoints.push(waypoint);
@@ -435,6 +494,9 @@ const MissionSidebar = ({
       }
 
       setHasGeneratedWaypoints(true);
+      toast.success(
+        `Generated ${filteredWaypoints.length} waypoints for coverage`,
+      );
     }
   };
 
@@ -449,17 +511,81 @@ const MissionSidebar = ({
         <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-3">
           Mission Planner
         </h2>
+
+        {/* Vehicle Selection - Added at the top */}
+        <div className="mb-4">
+          <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+            Select Vehicle
+          </label>
+          <Dropdown
+            items={vehicles}
+            selectedItem={
+              selectedVehicleId
+                ? vehicles.find((v) => v.id === parseInt(selectedVehicleId))
+                : null
+            }
+            onItemChange={(vehicle) => {
+              setSelectedVehicleId(vehicle.id.toString());
+              // Vehicle selected - no toast needed, UI shows selection
+            }}
+            placeholder="Choose a vehicle"
+            getItemKey={(item) => item.id}
+            renderSelectedItem={(vehicle) => (
+              <span className="font-medium text-gray-900 dark:text-white">
+                {vehicle.name} ({vehicle.code})
+              </span>
+            )}
+            renderItem={(vehicle, isSelected) => (
+              <>
+                <div className="flex-1">
+                  <div className="text-gray-900 dark:text-white font-medium">
+                    {vehicle.name}
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-300 text-sm">
+                    {vehicle.code}
+                  </div>
+                </div>
+                {isSelected && (
+                  <div className="text-blue-600 dark:text-white">
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </>
+            )}
+          />
+        </div>
+
         <div className="flex gap-2">
           <button
             onClick={handleNewMission}
-            className="flex-1 px-3 py-2 bg-blue-600 hover:bg-white hover:text-blue-600 text-white text-sm rounded-xl transition-all flex items-center justify-center gap-2 font-semibold cursor-pointer border border-slate-300"
+            disabled={!selectedVehicleId}
+            className={`flex-1 px-3 py-2 text-white text-sm rounded-xl transition-all flex items-center justify-center gap-2 font-semibold border border-slate-300 ${
+              selectedVehicleId
+                ? "bg-blue-600 hover:bg-white hover:text-blue-600 cursor-pointer"
+                : "bg-gray-400 dark:bg-gray-700 text-gray-600 dark:text-gray-500 cursor-not-allowed"
+            }`}
           >
             <FaPlus size={12} />
             New Mission
           </button>
           <button
             onClick={handleLoadMission}
-            className="px-3 py-2 bg-white hover:bg-gray-50 dark:bg-black dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-xl transition-all border border-gray-200 dark:border-slate-600"
+            disabled={!selectedVehicleId}
+            className={`px-3 py-2 text-sm rounded-xl transition-all border ${
+              selectedVehicleId
+                ? "bg-white hover:bg-gray-50 dark:bg-black dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-600"
+                : "bg-gray-400 dark:bg-gray-700 text-gray-600 dark:text-gray-500 border-gray-400 dark:border-gray-700 cursor-not-allowed"
+            }`}
           >
             Load
           </button>
@@ -600,7 +726,7 @@ const MissionSidebar = ({
                 <FaTrash size={10} />
               </button>
             </div>
-            <div className="text-sm font-mono text-green-800 dark:text-green-200">
+            <div className="text-sm text-green-800 dark:text-green-200">
               {homeLocation.lat.toFixed(6)}, {homeLocation.lng.toFixed(6)}
             </div>
           </div>
@@ -704,7 +830,7 @@ const MissionSidebar = ({
                       </button>
                     </div>
                   </div>
-                  <div className="text-xs font-mono text-gray-600 dark:text-gray-300">
+                  <div className="text-xs text-gray-600 dark:text-gray-300">
                     {waypoint.lat.toFixed(6)}, {waypoint.lng.toFixed(6)}
                   </div>
                   <div className="flex justify-between items-center mt-2 text-xs text-gray-500 dark:text-gray-400">
@@ -800,16 +926,22 @@ const MissionSidebar = ({
           )}
 
         <button
-          disabled={!activeMission}
+          disabled={!activeMission || isSavingMission}
           onClick={handleSaveMission}
           className={`w-full px-3 py-2 text-sm rounded-xl transition-colors flex items-center justify-center gap-2 ${
-            activeMission
+            activeMission && !isSavingMission
               ? "bg-green-600 hover:bg-green-700 text-white"
               : "bg-gray-400 dark:bg-gray-700 text-gray-600 dark:text-gray-500 cursor-not-allowed"
           }`}
         >
-          <FaSave size={12} />
-          Save Mission
+          {isSavingMission ? (
+            <LoadingDots size="sm" color="white" />
+          ) : (
+            <>
+              <FaSave size={12} />
+              Save Mission
+            </>
+          )}
         </button>
         <button
           onClick={handleUploadToVehicle}
@@ -862,9 +994,9 @@ const MissionSidebar = ({
         }}
         vehicleState={vehicleState}
         uploadState={uploadState}
-        vehicleInfo={selectedVehicle}
+        vehicleInfo={uploadVehicle}
         vehicles={vehicles}
-        selectedVehicleId={selectedVehicleId}
+        selectedVehicleId={uploadVehicleId}
         onVehicleSelect={handleVehicleSelect}
       />
     </aside>

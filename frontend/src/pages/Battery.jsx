@@ -53,9 +53,9 @@ const Battery = () => {
   const batteryB = vehicleBatteries[2] || null;
 
   return (
-    <div className="min-h-screen text-white p-6 space-y-6">
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <Title
           title="Battery Monitoring"
           subtitle="System Batteries Monitoring"
@@ -77,9 +77,9 @@ const Battery = () => {
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="grid grid-cols-1 gap-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <BatteryDisplay unit="A" battery={batteryA} index={0} />
             <BatteryDisplay unit="B" battery={batteryB} index={1} />
           </div>

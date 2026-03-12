@@ -239,7 +239,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
             className={currentMission ? "text-blue-500" : "text-gray-400"}
           />
           <span
-            className={`font-mono font-medium ${
+            className={`font-medium ${
               currentMission
                 ? "text-blue-700 dark:text-blue-300"
                 : "text-gray-500 dark:text-gray-400"
