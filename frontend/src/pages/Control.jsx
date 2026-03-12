@@ -108,11 +108,11 @@ const Control = () => {
   const { vehicleLogs } = useLogData();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [activeMode, setActiveMode] = useState("MANUAL");
-  const [leftMotor, setLeftMotor] = useState(72);
-  const [rightMotor, setRightMotor] = useState(68);
+  const [leftMotor, setLeftMotor] = useState(0);
+  const [rightMotor, setRightMotor] = useState(0);
   const [powerOn, setPowerOn] = useState(false);
-  const [isArmed, setIsArmed] = useState(true);
-  const heading = 184; // Mock heading value
+  const [isArmed, setIsArmed] = useState(false);
+  const motorDebounceRef = useRef(null);
 
   // Confirmation states
   const [showDisarmConfirm, setShowDisarmConfirm] = useState(false);
@@ -146,13 +146,58 @@ const Control = () => {
     )[0];
   }, [selectedVehicle, vehicleLogs]);
 
+  // Extract telemetry data from real-time WebSocket log
+  const telemetryData = useMemo(() => {
+    if (!selectedVehicleLog) {
+      return {
+        heading: 0,
+        speed: 0,
+        hdop: 0,
+        latitude: null,
+        longitude: null,
+        satellites: 0,
+        gps_fix: false,
+        latency: 0,
+        wind_speed: 0,
+        armed: false,
+        mode: "MANUAL",
+      };
+    }
+
+    return {
+      heading: selectedVehicleLog.heading || selectedVehicleLog.yaw || 0,
+      speed: selectedVehicleLog.speed || 0,
+      hdop: selectedVehicleLog.hdop || 0,
+      latitude: selectedVehicleLog.latitude,
+      longitude: selectedVehicleLog.longitude,
+      satellites:
+        selectedVehicleLog.satellites_visible ||
+        selectedVehicleLog.satellites ||
+        0,
+      gps_fix: selectedVehicleLog.gps_fix || false,
+      latency: selectedVehicleLog.latency || 0,
+      wind_speed: selectedVehicleLog.wind_speed || 0,
+      armed: selectedVehicleLog.armed || false,
+      mode:
+        selectedVehicleLog.mode || selectedVehicleLog.flight_mode || "MANUAL",
+    };
+  }, [selectedVehicleLog]);
+
+  // Sync armed state and mode from real-time data
+  useEffect(() => {
+    if (selectedVehicleLog) {
+      setIsArmed(telemetryData.armed);
+      setActiveMode(telemetryData.mode);
+    }
+  }, [selectedVehicleLog, telemetryData.armed, telemetryData.mode]);
+
   // Get vehicle position for map display
   const vehiclePosition = useMemo(() => {
     if (!selectedVehicle) return null;
 
     // Priority: vehicle log > vehicle data
-    const lat = selectedVehicleLog?.latitude ?? selectedVehicle?.latitude;
-    const lng = selectedVehicleLog?.longitude ?? selectedVehicle?.longitude;
+    const lat = telemetryData.latitude ?? selectedVehicle?.latitude;
+    const lng = telemetryData.longitude ?? selectedVehicle?.longitude;
 
     // Strict validation: must be valid numbers and within valid range
     if (
@@ -169,13 +214,13 @@ const Control = () => {
     }
 
     return null;
-  }, [selectedVehicle, selectedVehicleLog]);
+  }, [selectedVehicle, telemetryData]);
 
   // Create vehicle icon using usv-point.webp
   const vehicleIcon = useMemo(() => {
     if (!selectedVehicle || !vehiclePosition) return null;
 
-    const heading = selectedVehicleLog?.heading || selectedVehicleLog?.yaw || 0;
+    const heading = telemetryData.heading;
     const size = 48;
 
     return L.divIcon({
@@ -458,6 +503,87 @@ const Control = () => {
     }
   };
 
+  // Motor control with debounce
+  const sendMotorCommand = useCallback(
+    async (left, right) => {
+      if (!selectedVehicle?.code) return;
+
+      try {
+        const result = await sendCommand(selectedVehicle.code, "set_thrust", {
+          left_motor: left,
+          right_motor: right,
+        });
+
+        if (!result.success) {
+          handleCommandError(result);
+        }
+      } catch (err) {
+        toast.error(`Motor control error: ${err.message}`);
+      }
+    },
+    [selectedVehicle, sendCommand],
+  );
+
+  // Debounced motor control (send command 500ms after user stops sliding)
+  const handleMotorChange = useCallback(
+    (motor, value) => {
+      // Update local state immediately for smooth UI
+      if (motor === "left") {
+        setLeftMotor(value);
+      } else {
+        setRightMotor(value);
+      }
+
+      // Clear previous debounce
+      if (motorDebounceRef.current) {
+        clearTimeout(motorDebounceRef.current);
+      }
+
+      // Debounce: send command after 500ms of no changes
+      motorDebounceRef.current = setTimeout(() => {
+        const left = motor === "left" ? value : leftMotor;
+        const right = motor === "right" ? value : rightMotor;
+        sendMotorCommand(left, right);
+      }, 500);
+    },
+    [leftMotor, rightMotor, sendMotorCommand],
+  );
+
+  // Test motors (send command immediately, no debounce)
+  const handleTestMotors = useCallback(async () => {
+    if (!selectedVehicle?.code || !isArmed) return;
+
+    try {
+      // Test sequence: ramp up to 30%, hold 2s, ramp down
+      const testSequence = [
+        { left: 30, right: 30, duration: 2000 },
+        { left: 0, right: 0, duration: 0 },
+      ];
+
+      for (const step of testSequence) {
+        setLeftMotor(step.left);
+        setRightMotor(step.right);
+        await sendMotorCommand(step.left, step.right);
+        if (step.duration > 0) {
+          await new Promise((resolve) => setTimeout(resolve, step.duration));
+        }
+      }
+
+      toast.success("Motor test completed");
+    } catch (err) {
+      toast.error(`Motor test failed: ${err.message}`);
+    }
+  }, [selectedVehicle, isArmed, sendMotorCommand]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (motorDebounceRef.current) {
+        clearTimeout(motorDebounceRef.current);
+      }
+    };
+  }, []);
+
   const handleDisarmConfirm = async () => {
     setShowDisarmConfirm(false);
     toast.info(t("control.missionControl.sendingCommand"));
@@ -640,7 +766,7 @@ const Control = () => {
               <div className="flex flex-col items-center">
                 <HeadingIndicator
                   size={300}
-                  heading={heading}
+                  heading={telemetryData.heading}
                   showBox={false}
                 />
               </div>
@@ -651,13 +777,19 @@ const Control = () => {
                   <p className={`text-xs ${muteCls} mb-1`}>
                     {t("control.vesselTelemetry.speed")}
                   </p>
-                  <p className="text-xl font-bold text-blue-500">4.2 kn</p>
+                  <p className="text-xl font-bold text-blue-500">
+                    {selectedVehicle
+                      ? `${telemetryData.speed.toFixed(1)} kn`
+                      : "N/A"}
+                  </p>
                 </div>
                 <div className={`${panelCls} rounded-lg p-3`}>
                   <p className={`text-xs ${muteCls} mb-1`}>
                     {t("control.vesselTelemetry.hdop")}
                   </p>
-                  <p className="text-xl font-bold text-green-500">0.92</p>
+                  <p className="text-xl font-bold text-green-500">
+                    {selectedVehicle ? telemetryData.hdop.toFixed(2) : "N/A"}
+                  </p>
                 </div>
               </div>
 
@@ -669,7 +801,13 @@ const Control = () => {
                   <MdMyLocation className="text-sm" />{" "}
                   {t("control.vesselTelemetry.gpsPosition")}
                 </p>
-                <p className={`text-sm ${textCls}`}>45.4215° N, 75.6972° W</p>
+                <p className={`text-sm ${textCls}`}>
+                  {selectedVehicle &&
+                  telemetryData.latitude &&
+                  telemetryData.longitude
+                    ? `${telemetryData.latitude.toFixed(4)}° ${telemetryData.latitude >= 0 ? "N" : "S"}, ${Math.abs(telemetryData.longitude).toFixed(4)}° ${telemetryData.longitude >= 0 ? "E" : "W"}`
+                    : "N/A"}
+                </p>
               </div>
 
               {/* Sensor readings */}
@@ -679,21 +817,31 @@ const Control = () => {
                     <FaSatelliteDish className="text-blue-500" />{" "}
                     {t("control.vesselTelemetry.satellites")}
                   </span>
-                  <span className={textCls}>18 Fixed</span>
+                  <span className={textCls}>
+                    {selectedVehicle
+                      ? `${telemetryData.satellites} ${telemetryData.gps_fix ? "Fixed" : "Searching"}`
+                      : "N/A"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className={`flex items-center gap-2 ${muteCls}`}>
                     <FaTachometerAlt className="text-blue-500" />{" "}
                     {t("control.vesselTelemetry.latency")}
                   </span>
-                  <span className={textCls}>42ms</span>
+                  <span className={textCls}>
+                    {selectedVehicle ? `${telemetryData.latency}ms` : "N/A"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className={`flex items-center gap-2 ${muteCls}`}>
                     <FaWind className="text-blue-500" />{" "}
                     {t("control.vesselTelemetry.windSpd")}
                   </span>
-                  <span className={textCls}>12.4 km/h</span>
+                  <span className={textCls}>
+                    {selectedVehicle
+                      ? `${telemetryData.wind_speed.toFixed(1)} km/h`
+                      : "N/A"}
+                  </span>
                 </div>
               </div>
 
@@ -896,6 +1044,7 @@ const Control = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={handleTestMotors}
                     disabled={!isArmed || !selectedVehicle?.code}
                     className={`flex items-center justify-center gap-2 w-full py-2 rounded-lg text-white text-sm font-medium transition-all ${
                       isArmed && selectedVehicle?.code
@@ -923,7 +1072,9 @@ const Control = () => {
                       min="0"
                       max="100"
                       value={leftMotor}
-                      onChange={(e) => setLeftMotor(Number(e.target.value))}
+                      onChange={(e) =>
+                        handleMotorChange("left", Number(e.target.value))
+                      }
                       disabled={!isArmed || !selectedVehicle?.code}
                       className={`w-full h-2 rounded-lg appearance-none slider motor-slider-left ${
                         isArmed && selectedVehicle?.code
@@ -946,7 +1097,9 @@ const Control = () => {
                       min="0"
                       max="100"
                       value={rightMotor}
-                      onChange={(e) => setRightMotor(Number(e.target.value))}
+                      onChange={(e) =>
+                        handleMotorChange("right", Number(e.target.value))
+                      }
                       disabled={!isArmed || !selectedVehicle?.code}
                       className={`w-full h-2 rounded-lg appearance-none slider motor-slider-right ${
                         isArmed && selectedVehicle?.code

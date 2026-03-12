@@ -805,7 +805,7 @@ const MissionMap = ({
       `}</style>
       <MapContainer
         center={[-6.86, 108.103]}
-        zoom={18}
+        zoom={13}
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={true}
         worldCopyJump={false}
@@ -814,8 +814,8 @@ const MissionMap = ({
           [85, 180],
         ]}
         maxBoundsViscosity={1.5}
-        minZoom={18}
-        maxZoom={22}
+        minZoom={2}
+        maxZoom={19}
       >
         <MapController center={mapCenter} zoom={mapZoom} />
         <AutoCenterController
@@ -827,7 +827,8 @@ const MissionMap = ({
           attribution="&copy; Esri"
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           noWrap={true}
-          maxZoom={22}
+          minZoom={2}
+          maxZoom={19}
           maxNativeZoom={19}
         />
 
@@ -1104,7 +1105,7 @@ const MissionMap = ({
               })}
             >
               <Popup>
-                <div className="text-center min-w-[180px]">
+                <div className="text-center min-w-45">
                   <strong>WP{index + 1}</strong>
                   <br />
                   <small>Waypoint {index + 1}</small>

@@ -258,7 +258,7 @@ const Profile = () => {
             {/* Photo Section */}
             <div className="flex flex-col items-center">
               <div className="relative">
-                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-fourth to-blue-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
+                <div className="w-32 h-32 rounded-full bg-linear-to-br from-fourth to-blue-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
                   {photoPreview ? (
                     <img
                       src={photoPreview}
@@ -687,7 +687,7 @@ const UploadPhotoModal = ({
       <div className="space-y-4">
         {/* Preview */}
         <div className="flex justify-center">
-          <div className="w-32 h-32 rounded-full bg-gradient-to-br from-fourth to-blue-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden">
+          <div className="w-32 h-32 rounded-full bg-linear-to-br from-fourth to-blue-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden">
             {photoPreview ? (
               <img
                 src={photoPreview}

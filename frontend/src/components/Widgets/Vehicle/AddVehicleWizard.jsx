@@ -212,7 +212,7 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
               required
               placeholder="e.g. USV Patrol Alpha"
               autoComplete="off"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-black text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent [&:-webkit-autofill]:!bg-white [&:-webkit-autofill]:dark:!bg-slate-900"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-black text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent [&:-webkit-autofill]:bg-white! [&:-webkit-autofill]:dark:bg-slate-900!"
             />
           </div>
 

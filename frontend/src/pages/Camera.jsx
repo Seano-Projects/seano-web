@@ -145,7 +145,7 @@ const Camera = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] p-4 gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between flex-shrink-0">
+      <div className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <FaVideo className="text-blue-500" />
@@ -240,9 +240,9 @@ const Camera = () => {
       </div>
 
       {/* Controls Bar */}
-      <div className="flex items-center gap-3 flex-shrink-0">
+      <div className="flex items-center gap-3 shrink-0">
         <FaPlug
-          className={`text-lg flex-shrink-0 ${cameraConnected ? "text-green-500" : "text-gray-400"}`}
+          className={`text-lg shrink-0 ${cameraConnected ? "text-green-500" : "text-gray-400"}`}
         />
         <input
           type="text"

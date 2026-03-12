@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useLogData } from "../hooks/useLogData";
+import { useAlertData } from "../hooks/useAlertData";
 import useVehicleData from "../hooks/useVehicleData";
 import { Title } from "../components/ui";
 import { WidgetCard } from "../components/Widgets";
@@ -21,12 +22,26 @@ import {
 
 const Log = () => {
   const { stats, vehicleLogs, sensorLogs, rawLogs, loading } = useLogData();
+  const { alerts } = useAlertData();
   const { vehicles, loading: vehicleLoading } = useVehicleData();
   const [activeTab, setActiveTab] = useState("vehicle");
 
-  // Dummy data for Anti Theft and Failsafe logs (backend not ready yet)
-  const antiTheftLogs = [];
-  const failsafeLogs = [];
+  // Get Anti Theft and Failsafe logs from alerts
+  const antiTheftLogs = useMemo(() => {
+    return alerts.filter(
+      (alert) =>
+        alert.alert_type?.toLowerCase() === "anti-theft" ||
+        alert.type?.toLowerCase() === "anti-theft",
+    );
+  }, [alerts]);
+
+  const failsafeLogs = useMemo(() => {
+    return alerts.filter(
+      (alert) =>
+        alert.alert_type?.toLowerCase() === "failsafe" ||
+        alert.type?.toLowerCase() === "failsafe",
+    );
+  }, [alerts]);
 
   // Filter states
   const [selectedVehicle, setSelectedVehicle] = useState("");
@@ -135,8 +150,14 @@ const Log = () => {
       icon: (
         <FiShield className="text-orange-600 dark:text-orange-400" size={24} />
       ),
-      trendIcon: null,
-      trendText: "Coming soon",
+      trendIcon:
+        antiTheftLogs.length > 0 ? (
+          <span className="text-orange-600 dark:text-orange-400">⚠</span>
+        ) : null,
+      trendText:
+        antiTheftLogs.length > 0
+          ? `${antiTheftLogs.filter((a) => !a.acknowledged).length} unacknowledged`
+          : "No alerts",
       iconBgColor: "bg-orange-100 dark:bg-orange-900/30",
     },
     {
@@ -145,8 +166,14 @@ const Log = () => {
       icon: (
         <FiAlertTriangle className="text-red-600 dark:text-red-400" size={24} />
       ),
-      trendIcon: null,
-      trendText: "Coming soon",
+      trendIcon:
+        failsafeLogs.length > 0 ? (
+          <span className="text-red-600 dark:text-red-400">⚠</span>
+        ) : null,
+      trendText:
+        failsafeLogs.length > 0
+          ? `${failsafeLogs.filter((a) => !a.acknowledged).length} unacknowledged`
+          : "No alerts",
       iconBgColor: "bg-red-100 dark:bg-red-900/30",
     },
   ];
@@ -550,7 +577,7 @@ const Log = () => {
                         {log.vehicle?.code || "N/A"}
                       </span>
                     </div>
-                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap break-words">
+                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap wrap-break-word">
                       {log.logs}
                     </pre>
                   </div>
@@ -571,29 +598,59 @@ const Log = () => {
                     size={48}
                   />
                   <p className="text-gray-500 dark:text-gray-400 font-medium mb-2">
-                    No anti theft logs yet
+                    No anti theft alerts found
                   </p>
                   <p className="text-sm text-gray-400 dark:text-gray-500">
-                    Backend integration coming soon...
+                    Vehicle is operating normally
                   </p>
                 </div>
               ) : (
                 filteredAntiTheftLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="bg-orange-50 dark:bg-orange-900/10 rounded-lg p-4 border border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 transition-colors"
+                    className={`bg-orange-50 dark:bg-orange-900/10 rounded-lg p-4 border border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 transition-colors ${
+                      log.acknowledged ? "opacity-60" : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                        {formatTimestamp(log.created_at)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          {formatTimestamp(log.timestamp || log.created_at)}
+                        </span>
+                        {log.acknowledged && (
+                          <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
+                            ✓ Acknowledged
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
-                        {log.vehicle?.code || "N/A"}
+                        {log.vehicle_name || "N/A"}
                       </span>
                     </div>
-                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap break-words">
-                      {log.message || log.logs}
-                    </pre>
+                    <div className="flex items-start gap-2 mb-2">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-semibold uppercase ${
+                          log.severity === "critical"
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : log.severity === "warning"
+                              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                        }`}
+                      >
+                        {log.severity || "info"}
+                      </span>
+                      <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+                        ANTI-THEFT ALERT
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-900 dark:text-gray-300">
+                      {log.message}
+                    </p>
+                    {log.location && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Location: {log.location}
+                      </p>
+                    )}
                   </div>
                 ))
               )}
@@ -612,29 +669,59 @@ const Log = () => {
                     size={48}
                   />
                   <p className="text-gray-500 dark:text-gray-400 font-medium mb-2">
-                    No failsafe logs yet
+                    No failsafe alerts found
                   </p>
                   <p className="text-sm text-gray-400 dark:text-gray-500">
-                    Backend integration coming soon...
+                    Vehicle is operating normally
                   </p>
                 </div>
               ) : (
                 filteredFailsafeLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="bg-red-50 dark:bg-red-900/10 rounded-lg p-4 border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 transition-colors"
+                    className={`bg-red-50 dark:bg-red-900/10 rounded-lg p-4 border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 transition-colors ${
+                      log.acknowledged ? "opacity-60" : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                        {formatTimestamp(log.created_at)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                          {formatTimestamp(log.timestamp || log.created_at)}
+                        </span>
+                        {log.acknowledged && (
+                          <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
+                            ✓ Acknowledged
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs font-medium text-red-600 dark:text-red-400">
-                        {log.vehicle?.code || "N/A"}
+                        {log.vehicle_name || "N/A"}
                       </span>
                     </div>
-                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap break-words">
-                      {log.message || log.logs}
-                    </pre>
+                    <div className="flex items-start gap-2 mb-2">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-semibold uppercase ${
+                          log.severity === "critical"
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : log.severity === "warning"
+                              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                        }`}
+                      >
+                        {log.severity || "info"}
+                      </span>
+                      <span className="text-xs font-semibold text-red-700 dark:text-red-300">
+                        FAILSAFE ALERT
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-900 dark:text-gray-300">
+                      {log.message}
+                    </p>
+                    {log.location && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Location: {log.location}
+                      </p>
+                    )}
                   </div>
                 ))
               )}

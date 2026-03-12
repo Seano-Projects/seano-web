@@ -27,14 +27,18 @@ const Mission = () => {
       {/* Mission Stats Widget */}
       <MissionStats />
 
-      {/* Mission Success Rate - Donut Chart */}
-      <MissionSuccessRate />
+      {/* Row 1: Mission Success Rate + Energy Consumption Trends (2 columns) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Mission Success Rate - Donut Chart */}
+        <MissionSuccessRate />
 
-      {/* Energy Consumption Trends */}
-      <EnergyConsumptionTrends />
+        {/* Energy Consumption Trends */}
+        <EnergyConsumptionTrends />
+      </div>
 
-      {/* Bottom Section - Mission Logs */}
-      <div>
+      {/* Row 2: Mission Logs + Mission Details (2 columns) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Mission Logs */}
         <MissionLogs
           vehicles={vehicles || []}
           selectedVessel={selectedVessel}
@@ -44,10 +48,8 @@ const Mission = () => {
           onStartDateChange={setStartDate}
           onEndDateChange={setEndDate}
         />
-      </div>
 
-      {/* Mission Table - Detail View */}
-      <div>
+        {/* Mission Table - Detail View */}
         <MissionTable />
       </div>
     </div>

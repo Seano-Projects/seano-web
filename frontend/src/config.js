@@ -85,7 +85,9 @@ export const API_ENDPOINTS = {
     BY_VEHICLE: vehicleId =>
       `${API_BASE_URL}/sensor-logs/?vehicle_id=${vehicleId}`,
     CREATE: `${API_BASE_URL}/sensor-logs/`,
-    DELETE: id => `${API_BASE_URL}/sensor-logs/${id}`
+    DELETE: id => `${API_BASE_URL}/sensor-logs/${id}`,
+    EXPORT: `${API_BASE_URL}/sensor-logs/export`,
+    IMPORT: `${API_BASE_URL}/sensor-logs/import`
   },
 
   // Vehicle endpoints
@@ -113,7 +115,9 @@ export const API_ENDPOINTS = {
     BY_ID: id => `${API_BASE_URL}/raw-logs/${id}`,
     CREATE: `${API_BASE_URL}/raw-logs/`,
     DELETE: id => `${API_BASE_URL}/raw-logs/${id}`,
-    STATS: `${API_BASE_URL}/raw-logs/stats`
+    STATS: `${API_BASE_URL}/raw-logs/stats`,
+    EXPORT: `${API_BASE_URL}/raw-logs/export`,
+    IMPORT: `${API_BASE_URL}/raw-logs/import`
   },
 
   // Vehicle Logs endpoints
@@ -122,7 +126,9 @@ export const API_ENDPOINTS = {
     BY_ID: id => `${API_BASE_URL}/vehicle-logs/${id}`,
     CREATE: `${API_BASE_URL}/vehicle-logs/`,
     DELETE: id => `${API_BASE_URL}/vehicle-logs/${id}`,
-    LATEST: vehicleId => `${API_BASE_URL}/vehicle-logs/latest/${vehicleId}`
+    LATEST: vehicleId => `${API_BASE_URL}/vehicle-logs/latest/${vehicleId}`,
+    EXPORT: `${API_BASE_URL}/vehicle-logs/export`,
+    IMPORT: `${API_BASE_URL}/vehicle-logs/import`
   },
 
   // Gyroscope endpoints (custom)
@@ -152,6 +158,25 @@ export const API_ENDPOINTS = {
     ONGOING: `${API_BASE_URL}/missions/ongoing`,
     UPDATE_PROGRESS: id => `${API_BASE_URL}/missions/${id}/progress`,
     UPLOAD_TO_VEHICLE: id => `${API_BASE_URL}/missions/${id}/upload-to-vehicle`
+  },
+
+  // Alerts endpoints
+  ALERTS: {
+    LIST: `${API_BASE_URL}/alerts`,
+    BY_ID: id => `${API_BASE_URL}/alerts/${id}`,
+    CREATE: `${API_BASE_URL}/alerts`,
+    UPDATE: id => `${API_BASE_URL}/alerts/${id}`,
+    DELETE: id => `${API_BASE_URL}/alerts/${id}`,
+    STATS: `${API_BASE_URL}/alerts/stats`,
+    RECENT: `${API_BASE_URL}/alerts/recent`,
+    EXPORT: `${API_BASE_URL}/alerts/export`,
+    IMPORT: `${API_BASE_URL}/alerts/import`
+  },
+
+  // CTD Logs endpoints (Coming soon)
+  CTD_LOGS: {
+    EXPORT: null,
+    IMPORT: null
   },
 
   // Vehicle control commands (ARM/DISARM/MODE via MQTT)

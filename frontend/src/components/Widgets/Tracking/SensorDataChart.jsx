@@ -101,7 +101,7 @@ const SensorDataChart = ({ className = "", selectedVehicle }) => {
 
       {/* Current Values Cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="text-center p-5 bg-blue-50 dark:bg-blue-900/20 rounded-lg min-h-[100px] flex flex-col justify-center">
+        <div className="text-center p-5 bg-blue-50 dark:bg-blue-900/20 rounded-lg min-h-25 flex flex-col justify-center">
           <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
             Water Temp
           </p>
@@ -109,7 +109,7 @@ const SensorDataChart = ({ className = "", selectedVehicle }) => {
             {currentValues.waterTemp}°C
           </p>
         </div>
-        <div className="text-center p-5 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg min-h-[100px] flex flex-col justify-center">
+        <div className="text-center p-5 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg min-h-25 flex flex-col justify-center">
           <p className="text-sm text-indigo-600 dark:text-indigo-400 mb-2">
             Depth
           </p>
@@ -117,7 +117,7 @@ const SensorDataChart = ({ className = "", selectedVehicle }) => {
             {currentValues.waterDepth}m
           </p>
         </div>
-        <div className="text-center p-5 bg-green-50 dark:bg-green-900/20 rounded-lg min-h-[100px] flex flex-col justify-center">
+        <div className="text-center p-5 bg-green-50 dark:bg-green-900/20 rounded-lg min-h-25 flex flex-col justify-center">
           <p className="text-sm text-green-600 dark:text-green-400 mb-2">
             Wind Speed
           </p>
@@ -125,7 +125,7 @@ const SensorDataChart = ({ className = "", selectedVehicle }) => {
             {currentValues.windSpeed} m/s
           </p>
         </div>
-        <div className="text-center p-5 bg-purple-50 dark:bg-purple-900/20 rounded-lg min-h-[100px] flex flex-col justify-center">
+        <div className="text-center p-5 bg-purple-50 dark:bg-purple-900/20 rounded-lg min-h-25 flex flex-col justify-center">
           <p className="text-sm text-purple-600 dark:text-purple-400 mb-2">
             Visibility
           </p>

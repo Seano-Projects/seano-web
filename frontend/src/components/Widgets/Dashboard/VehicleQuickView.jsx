@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   FaShip,
   FaBatteryFull,
@@ -10,6 +10,7 @@ import {
 } from "react-icons/fa6";
 import { VehicleDropdown } from "../";
 import useTranslation from "../../../hooks/useTranslation";
+import { useLogData } from "../../../hooks";
 
 const VehicleQuickView = ({
   vehicles,
@@ -17,32 +18,70 @@ const VehicleQuickView = ({
   setSelectedVehicleId,
 }) => {
   const { t } = useTranslation();
+  const { vehicleLogs, websocket } = useLogData();
+
   // Find selected vehicle from vehicles array
   const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
 
-  // Use actual data from selected vehicle if available
-  const vehicleDetails = selectedVehicle
-    ? {
-        status:
-          selectedVehicle.status || t("dashboard.vehicleQuickView.unknown"),
-        lastUpdate: selectedVehicle.updated_at || new Date().toISOString(),
-        battery: selectedVehicle.battery_level || 0,
-        speed: selectedVehicle.speed || "0 kts",
-        heading: selectedVehicle.heading || "N/A",
-        gps:
-          selectedVehicle.gps_status || t("dashboard.vehicleQuickView.noGPS"),
-        armed:
-          selectedVehicle.armed_status ||
-          t("dashboard.vehicleQuickView.unknown"),
-        mode: selectedVehicle.mode || "Manual",
-        coordinates:
-          selectedVehicle.latitude && selectedVehicle.longitude
-            ? `${selectedVehicle.latitude.toFixed(
-                4,
-              )}, ${selectedVehicle.longitude.toFixed(4)}`
-            : "N/A",
-      }
-    : {
+  // Get latest log for selected vehicle (real-time from WebSocket)
+  const latestLog = useMemo(() => {
+    if (!selectedVehicleId || !vehicleLogs.length) return null;
+
+    // Filter logs for selected vehicle and get the most recent one
+    const vehicleSpecificLogs = vehicleLogs.filter(
+      (log) => log.vehicle_id === selectedVehicleId,
+    );
+
+    return vehicleSpecificLogs.length > 0 ? vehicleSpecificLogs[0] : null;
+  }, [selectedVehicleId, vehicleLogs]);
+
+  // Format time ago
+  const formatTimeAgo = (timestamp) => {
+    if (!timestamp) return "N/A";
+    try {
+      const diff = Date.now() - new Date(timestamp).getTime();
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+
+      if (seconds < 10) return "Just now";
+      if (seconds < 60) return `${seconds}s ago`;
+      if (minutes < 60) return `${minutes}m ago`;
+      if (hours < 24) return `${hours}h ago`;
+      return new Date(timestamp).toLocaleString();
+    } catch {
+      return "N/A";
+    }
+  };
+
+  // Determine connection status
+  const connectionStatus = useMemo(() => {
+    if (!selectedVehicleId || !latestLog) {
+      return {
+        color: "gray",
+        text: t("dashboard.vehicleQuickView.noVehicleSelected"),
+      };
+    }
+
+    const lastUpdateTime = new Date(
+      latestLog.timestamp || latestLog.created_at,
+    ).getTime();
+    const now = Date.now();
+    const diffSeconds = (now - lastUpdateTime) / 1000;
+
+    if (diffSeconds < 5) {
+      return { color: "green", text: "Online" };
+    } else if (diffSeconds < 30) {
+      return { color: "yellow", text: "Idle" };
+    } else {
+      return { color: "red", text: "Offline" };
+    }
+  }, [selectedVehicleId, latestLog, t]);
+
+  // Use real-time data from WebSocket if available, fallback to vehicle data
+  const vehicleDetails = useMemo(() => {
+    if (!selectedVehicle) {
+      return {
         status: t("dashboard.vehicleQuickView.noVehicleSelected"),
         lastUpdate: "N/A",
         battery: 0,
@@ -53,6 +92,45 @@ const VehicleQuickView = ({
         mode: "N/A",
         coordinates: "N/A",
       };
+    }
+
+    // If we have real-time log data from WebSocket, use it
+    if (latestLog) {
+      return {
+        status: connectionStatus.text,
+        lastUpdate: formatTimeAgo(latestLog.timestamp || latestLog.created_at),
+        battery: latestLog.battery_percentage || latestLog.battery_level || 0,
+        speed: latestLog.speed ? `${latestLog.speed.toFixed(1)} kts` : "0 kts",
+        heading: latestLog.heading ? `${latestLog.heading.toFixed(0)}°` : "N/A",
+        gps: latestLog.gps_fix
+          ? "GPS Fix"
+          : t("dashboard.vehicleQuickView.noGPS"),
+        armed: latestLog.armed ? "Armed" : "Disarmed",
+        mode: latestLog.mode || latestLog.flight_mode || "Manual",
+        coordinates:
+          latestLog.latitude && latestLog.longitude
+            ? `${latestLog.latitude.toFixed(4)}, ${latestLog.longitude.toFixed(4)}`
+            : "N/A",
+      };
+    }
+
+    // Fallback to vehicle summary data (might be outdated)
+    return {
+      status: selectedVehicle.status || t("dashboard.vehicleQuickView.unknown"),
+      lastUpdate: formatTimeAgo(selectedVehicle.updated_at),
+      battery: selectedVehicle.battery_level || 0,
+      speed: selectedVehicle.speed || "0 kts",
+      heading: selectedVehicle.heading || "N/A",
+      gps: selectedVehicle.gps_status || t("dashboard.vehicleQuickView.noGPS"),
+      armed:
+        selectedVehicle.armed_status || t("dashboard.vehicleQuickView.unknown"),
+      mode: selectedVehicle.mode || "Manual",
+      coordinates:
+        selectedVehicle.latitude && selectedVehicle.longitude
+          ? `${selectedVehicle.latitude.toFixed(4)}, ${selectedVehicle.longitude.toFixed(4)}`
+          : "N/A",
+    };
+  }, [selectedVehicle, latestLog, connectionStatus, t]);
 
   const statusCards = [
     {
@@ -116,7 +194,17 @@ const VehicleQuickView = ({
           {t("dashboard.vehicleQuickView.status")}
         </h1>
         <div className="flex items-center gap-2 px-2 rounded-3xl">
-          <div className="h-3 w-3 bg-green-500 rounded-full"></div>
+          <div
+            className={`h-3 w-3 rounded-full ${
+              connectionStatus.color === "green"
+                ? "bg-green-500 animate-pulse"
+                : connectionStatus.color === "yellow"
+                  ? "bg-yellow-500"
+                  : connectionStatus.color === "red"
+                    ? "bg-red-500"
+                    : "bg-gray-500"
+            }`}
+          ></div>
           <h1 className="text-gray-900 dark:text-white">
             {vehicleDetails.status}
           </h1>

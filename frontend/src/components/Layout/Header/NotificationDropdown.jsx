@@ -274,7 +274,7 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
                 }
               >
                 <div className="flex gap-3">
-                  <div className="flex-shrink-0 mt-0.5">
+                  <div className="shrink-0 mt-0.5">
                     {getTypeIcon(notification.type)}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -289,7 +289,7 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
                         {notification.title}
                       </p>
                       {!notification.read && (
-                        <span className="flex-shrink-0 w-2 h-2 bg-blue-600 rounded-full mt-1.5"></span>
+                        <span className="shrink-0 w-2 h-2 bg-blue-600 rounded-full mt-1.5"></span>
                       )}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">

@@ -152,18 +152,18 @@ const RawDataLog = ({ selectedVehicle }) => {
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-1">
-                <span className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                <span className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 shrink-0">
                   {formatTime(log.created_at)}
                 </span>
                 <span
-                  className={`px-1.5 md:px-2 py-0.5 rounded text-[9px] md:text-xs font-semibold flex-shrink-0 ${getLogLevelStyle(
+                  className={`px-1.5 md:px-2 py-0.5 rounded text-[9px] md:text-xs font-semibold shrink-0 ${getLogLevelStyle(
                     level,
                   )}`}
                 >
                   {level}
                 </span>
               </div>
-              <div className="text-gray-700 dark:text-gray-300 break-words text-[10px] md:text-xs leading-relaxed">
+              <div className="text-gray-700 dark:text-gray-300 wrap-break-words text-[10px] md:text-xs leading-relaxed">
                 {log.logs}
               </div>
             </div>

@@ -41,20 +41,20 @@ const RecentMissions = () => {
             <MissionCardSkeleton />
           </>
         ) : missions.length === 0 ? (
-          <div className="text-center py-8">
+          <div className="flex flex-col items-center justify-center py-12">
             <MdOutlineRadar
-              size={48}
-              className="mx-auto mb-3 text-gray-400 dark:text-gray-600"
+              size={64}
+              className="mb-4 text-gray-400 dark:text-gray-600"
             />
-            <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">
               {t("dashboard.recentMissions.noMissions")}
             </p>
-            <p className="text-gray-400 dark:text-gray-500 text-xs">
+            <p className="text-gray-400 dark:text-gray-500 text-xs mb-4">
               {t("dashboard.recentMissions.createPrompt")}
             </p>
             <Link
               to="/missions"
-              className="inline-block mt-3 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
             >
               {t("dashboard.recentMissions.createButton")}
             </Link>

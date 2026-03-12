@@ -474,6 +474,6 @@ For support, email support@seano-id.com or join our Slack channel.
 
 **[⬆ Back to Top](#seano-id---maritime-monitoring-system)**
 
-Made with ☕ & 💻 by the SEANO Team
+Made with ☕ & 💻 by Musthofali24
 
 </div>
