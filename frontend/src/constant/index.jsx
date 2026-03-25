@@ -153,6 +153,27 @@ export const menuGroups = [
         size: sizeIcon,
         requiredPermission: "sensor-monitoring.read",
       },
+      {
+        href: "/sensor-monitoring/adcp",
+        icon: MdOutlineSensors,
+        text: "nav.adcp",
+        size: sizeIcon,
+        requiredPermission: "sensor-monitoring.read",
+      },
+      {
+        href: "/sensor-monitoring/sbes",
+        icon: MdOutlineSensors,
+        text: "nav.sbes",
+        size: sizeIcon,
+        requiredPermission: "sensor-monitoring.read",
+      },
+      {
+        href: "/sensor-monitoring/mbes",
+        icon: MdOutlineSensors,
+        text: "nav.mbes",
+        size: sizeIcon,
+        requiredPermission: "sensor-monitoring.read",
+      },
     ],
   },
   {

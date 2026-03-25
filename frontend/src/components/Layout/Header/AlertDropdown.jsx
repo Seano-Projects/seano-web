@@ -10,8 +10,11 @@ import {
 } from "react-icons/fa";
 import { API_BASE_URL } from "../../../config";
 import config from "../../../config";
+import { LoadingDots } from "../../ui";
+import useTranslation from "../../../hooks/useTranslation";
 
 const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
+  const { t, language } = useTranslation();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
@@ -29,6 +32,8 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
 
   // Setup WebSocket for real-time alerts
   useEffect(() => {
+    if (!isOpen) return;
+
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
@@ -42,13 +47,24 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log("🚨 New alert received:", data);
+        const messageType = data.message_type || data.type;
 
-        if (data.type === "alert" || data.alert) {
-          const newAlert = data.alert || data;
+        if (messageType === "alert") {
+          const newAlert = data;
           // Add new alert to the list
           setAlerts((prev) => [newAlert, ...prev.slice(0, 9)]);
           fetchStats(); // Update stats
+          if (onUpdate) onUpdate();
+          console.log("🚨 New alert received:", newAlert);
+        } else if (messageType === "alert_update") {
+          setAlerts((prev) =>
+            prev.map((alert) =>
+              alert.id === data.id
+                ? { ...alert, ...(data.updates || {}) }
+                : alert,
+            ),
+          );
+          fetchStats();
           if (onUpdate) onUpdate();
         }
       } catch (error) {
@@ -69,7 +85,7 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
         ws.close();
       }
     };
-  }, [onUpdate]);
+  }, [isOpen, onUpdate]);
 
   const fetchAlerts = async () => {
     try {
@@ -234,11 +250,14 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    if (diffMins < 1) return t("dashboard.latestAlerts.justNow");
+    if (diffMins < 60)
+      return `${diffMins}${t("dashboard.latestAlerts.minutesAgo")}`;
+    if (diffHours < 24)
+      return `${diffHours}${t("dashboard.latestAlerts.hoursAgo")}`;
+    if (diffDays < 7)
+      return `${diffDays}${t("dashboard.latestAlerts.daysAgo")}`;
+    return date.toLocaleDateString(language === "id" ? "id-ID" : "en-US");
   };
 
   const getLogRoute = (alertType) => {
@@ -265,7 +284,7 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
           <div className="flex items-center gap-2">
             <FaExclamationTriangle className="text-red-600 text-base" />
             <h3 className="text-gray-900 dark:text-white font-semibold text-base">
-              Alerts
+              {t("pages.alerts.title")}
             </h3>
           </div>
           {alerts.length > 0 && (
@@ -273,7 +292,7 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
               onClick={acknowledgeAllAlerts}
               className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
             >
-              Acknowledge All
+              {t("pages.alerts.dropdown.acknowledgeAll")}
             </button>
           )}
         </div>
@@ -281,15 +300,15 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
         <div className="flex gap-4 text-xs text-gray-600 dark:text-gray-400">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 bg-red-600 rounded-full"></span>
-            Critical: {stats.critical}
+            {t("pages.alerts.widgets.critical")}: {stats.critical}
           </span>
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-            Warning: {stats.warning}
+            {t("pages.alerts.widgets.warnings")}: {stats.warning}
           </span>
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-            Info: {stats.info}
+            {t("pages.alerts.widgets.info")}: {stats.info}
           </span>
         </div>
       </div>
@@ -298,14 +317,17 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
       <div className="overflow-y-auto" style={{ maxHeight: "400px" }}>
         {loading ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-sm">Loading alerts...</p>
+            <LoadingDots size="md" />
           </div>
         ) : alerts.length === 0 ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">
             <FaCheckCircle className="text-4xl mx-auto mb-2 text-green-500" />
-            <p className="font-medium">No active alerts</p>
-            <p className="text-xs mt-1">You're all caught up!</p>
+            <p className="font-medium">
+              {t("pages.alerts.dropdown.noActiveAlerts")}
+            </p>
+            <p className="text-xs mt-1">
+              {t("pages.alerts.dropdown.caughtUp")}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -330,7 +352,8 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
                           {alert.severity?.toUpperCase()}
                         </span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {alert.vehicle_name || `Vehicle #${alert.vehicle_id}`}
+                          {alert.vehicle_name ||
+                            `${t("pages.alerts.vehicle")} #${alert.vehicle_id}`}
                         </span>
                       </div>
                       <p className="text-sm text-gray-900 dark:text-white font-medium mb-1">
@@ -349,13 +372,13 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
                             onClick={onClose}
                             className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                           >
-                            View Logs
+                            {t("pages.logs.title")}
                           </Link>
                           <button
                             onClick={() => acknowledgeAlert(alert.id)}
                             className="text-xs text-green-600 dark:text-green-400 hover:underline"
                           >
-                            Acknowledge
+                            {t("pages.alerts.acknowledge")}
                           </button>
                         </div>
                       </div>
@@ -376,7 +399,7 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
             onClick={onClose}
             className="block text-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
           >
-            View All Alerts →
+            {t("pages.alerts.dropdown.viewAllAlerts")} {"->"}
           </Link>
         </div>
       )}

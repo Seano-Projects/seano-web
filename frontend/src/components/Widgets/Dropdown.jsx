@@ -10,6 +10,7 @@ const Dropdown = ({
   renderSelectedItem,
   getItemKey,
   className = "",
+  closeOnSelect = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -48,7 +49,9 @@ const Dropdown = ({
 
   const handleItemSelect = (item) => {
     onItemChange(item);
-    setIsOpen(false);
+    if (closeOnSelect) {
+      setIsOpen(false);
+    }
   };
 
   return (

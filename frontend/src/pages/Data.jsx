@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import useTitle from "../hooks/useTitle";
 import useVehicleData from "../hooks/useVehicleData";
 import useRawLogData from "../hooks/useRawLogData";
@@ -11,9 +11,11 @@ import {
   DataFilters,
 } from "../components/Widgets/Data";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import useTranslation from "../hooks/useTranslation";
 
 const Data = () => {
-  useTitle("Data");
+  const { t } = useTranslation();
+  useTitle(t("nav.data"));
 
   // State for filters
   const [filters, setFilters] = useState({
@@ -33,9 +35,33 @@ const Data = () => {
 
   // State for selected data type
   const [selectedDataType, setSelectedDataType] = useState("raw_logs");
+  const hasInitializedVehicleFilter = useRef(false);
 
   // Get vehicle data
   const { vehicles, loading } = useVehicleData();
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (!vehicles || vehicles.length === 0) {
+      setFilters((prev) => (prev.vehicle ? { ...prev, vehicle: "" } : prev));
+      hasInitializedVehicleFilter.current = false;
+      return;
+    }
+
+    if (!hasInitializedVehicleFilter.current && !filters.vehicle) {
+      setFilters((prev) => ({ ...prev, vehicle: vehicles[0] }));
+      hasInitializedVehicleFilter.current = true;
+      return;
+    }
+
+    if (
+      filters.vehicle?.id &&
+      !vehicles.some((vehicle) => vehicle.id === filters.vehicle.id)
+    ) {
+      setFilters((prev) => ({ ...prev, vehicle: vehicles[0] }));
+    }
+  }, [loading, vehicles, filters.vehicle]);
 
   // Get raw logs data
   const {
@@ -149,16 +175,16 @@ const Data = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-600 mb-4">
-            Error Loading Page
+            {t("pages.data.errorLoadingPage")}
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
-            {error.message || "An unexpected error occurred"}
+            {error.message || t("pages.data.unexpectedError")}
           </p>
           <button
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Reload Page
+            {t("pages.data.reloadPage")}
           </button>
         </div>
       </div>

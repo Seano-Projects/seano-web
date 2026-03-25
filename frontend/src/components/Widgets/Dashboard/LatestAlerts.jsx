@@ -85,16 +85,19 @@ const LatestAlerts = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={refreshData}
-            className="text-gray-500 hover:text-blue-500 transition-colors duration-200 p-1 rounded"
+            className="rounded-full border border-slate-200 p-2 text-slate-500 transition-all duration-200 hover:border-blue-300 hover:text-blue-500 dark:border-slate-700 dark:text-slate-300 dark:hover:border-blue-500"
             title={t("dashboard.latestAlerts.refreshAlerts")}
           >
             <MdRefresh size={14} />
           </button>
           <Link
             to="/alerts"
-            className="text-blue-500 hover:text-blue-600 transition-colors duration-200 text-sm font-medium"
+            className="group inline-flex items-center gap-2 rounded-full bg-linear-to-r from-blue-600 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/35"
           >
             {t("dashboard.latestAlerts.viewAll")}
+            <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+              {"->"}
+            </span>
           </Link>
         </div>
       </div>

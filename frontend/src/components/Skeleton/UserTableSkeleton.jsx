@@ -17,7 +17,7 @@ const UserTableSkeleton = ({ rows = 5, columns = [] }) => {
                   className={`px-6 py-4 text-sm text-gray-900 dark:text-gray-100 ${column.cellClassName || ""}`}
                   style={{ verticalAlign: "middle" }}
                 >
-                  <div className="w-4 h-4 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                  <div className="w-4 h-4 bg-gray-300 dark:bg-gray-800 rounded"></div>
                 </td>
               );
             }
@@ -31,8 +31,8 @@ const UserTableSkeleton = ({ rows = 5, columns = [] }) => {
                   style={{ verticalAlign: "middle" }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex-shrink-0"></div>
-                    <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32"></div>
+                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-800 rounded-full flex-shrink-0"></div>
+                    <div className="h-4 bg-gray-300 dark:bg-gray-800 rounded w-32"></div>
                   </div>
                 </td>
               );
@@ -46,7 +46,7 @@ const UserTableSkeleton = ({ rows = 5, columns = [] }) => {
                   className={`px-6 py-4 text-sm text-gray-900 dark:text-gray-100 ${column.cellClassName || ""}`}
                   style={{ verticalAlign: "middle" }}
                 >
-                  <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded-full w-20 inline-block"></div>
+                  <div className="h-6 bg-gray-300 dark:bg-gray-800 rounded-full w-20 inline-block"></div>
                 </td>
               );
             }
@@ -60,9 +60,9 @@ const UserTableSkeleton = ({ rows = 5, columns = [] }) => {
                   style={{ verticalAlign: "middle" }}
                 >
                   <div className="flex items-center justify-center gap-3 w-full h-full">
-                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
-                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
-                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-800 rounded"></div>
+                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-800 rounded"></div>
+                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-800 rounded"></div>
                   </div>
                 </td>
               );
@@ -75,7 +75,7 @@ const UserTableSkeleton = ({ rows = 5, columns = [] }) => {
                 className={`px-6 py-4 text-sm text-gray-900 dark:text-gray-100 ${column.cellClassName || ""}`}
                 style={{ verticalAlign: "middle" }}
               >
-                <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32"></div>
+                <div className="h-4 bg-gray-300 dark:bg-gray-800 rounded w-32"></div>
               </td>
             );
           })}

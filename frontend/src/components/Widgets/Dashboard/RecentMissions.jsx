@@ -24,9 +24,12 @@ const RecentMissions = () => {
         <div className="flex items-center gap-2">
           <Link
             to="/missions"
-            className="text-white hover:bg-white hover:text-blue-500 dark:hover:bg-black transition-colors duration-200 text-sm font-medium bg-blue-500 px-3 py-1 rounded-2xl"
+            className="group inline-flex items-center gap-2 rounded-full bg-linear-to-r from-blue-600 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/35"
           >
             {t("dashboard.recentMissions.viewAll")}
+            <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+              {"->"}
+            </span>
           </Link>
         </div>
       </div>

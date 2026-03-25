@@ -24,7 +24,7 @@ import useTranslation from "../../../hooks/useTranslation";
  * @param {object} selectedVehicle - Objek kendaraan dari parent
  */
 const LatestAlerts = ({ selectedVehicle }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [alerts, setAlerts] = useState([]);
   const { loading } = useLoadingTimeout(true, 2000);
 
@@ -36,12 +36,15 @@ const LatestAlerts = ({ selectedVehicle }) => {
 
   const formatTime = (timestamp) => {
     if (!timestamp) return "--:--:--";
-    return new Date(timestamp).toLocaleTimeString("en-US", {
-      hour12: false,
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+    return new Date(timestamp).toLocaleTimeString(
+      language === "id" ? "id-ID" : "en-US",
+      {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      },
+    );
   };
 
   const getAlertIcon = (severity) => {
@@ -134,7 +137,7 @@ const LatestAlerts = ({ selectedVehicle }) => {
         <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
           {selectedVehicle?.registration_code ||
             selectedVehicle?.name ||
-            "USV 001"}
+            t("tracking.alerts.defaultVehicleCode")}
         </span>
       </div>
 
@@ -156,9 +159,11 @@ const LatestAlerts = ({ selectedVehicle }) => {
       {/* Footer */}
       <div className="mt-2 md:mt-3 pt-2 md:pt-3 border-t border-gray-200 dark:border-gray-700">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
-          <span className="font-medium">0 alerts</span>
+          <span className="font-medium">
+            0 {t("tracking.alerts.footerCount")}
+          </span>
           <span className="hidden sm:inline">
-            Last updated: {formatTime(new Date())}
+            {t("tracking.alerts.lastUpdated")}: {formatTime(new Date())}
           </span>
         </div>
       </div>

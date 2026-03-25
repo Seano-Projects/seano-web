@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import useTitle from "../../hooks/useTitle";
 import { Title } from "../../components/ui";
 import {
@@ -14,19 +14,45 @@ import {
   SoundSpeedProfile,
 } from "../../components/Widgets/SensorMonitoring/CTD";
 import { useVehicleData, useCTDData } from "../../hooks";
+import useTranslation from "../../hooks/useTranslation";
 
 const CTD = () => {
-  useTitle("CTD Monitoring");
+  const { t } = useTranslation();
+  useTitle(t("pages.ctd.title"));
 
   const { vehicles, loading: vehicleLoading } = useVehicleData();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const hasInitializedVehicleSelection = useRef(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
 
-  // Get CTD data from WebSocket
-  const { ctdData, isConnected } = useCTDData(selectedVehicle?.code);
+  useEffect(() => {
+    if (vehicleLoading) return;
+
+    if (!vehicles || vehicles.length === 0) {
+      setSelectedVehicle(null);
+      hasInitializedVehicleSelection.current = false;
+      return;
+    }
+
+    if (!hasInitializedVehicleSelection.current) {
+      setSelectedVehicle(vehicles[0]);
+      hasInitializedVehicleSelection.current = true;
+      return;
+    }
+
+    if (
+      selectedVehicle &&
+      !vehicles.some((vehicle) => vehicle.id === selectedVehicle.id)
+    ) {
+      setSelectedVehicle(vehicles[0]);
+    }
+  }, [vehicleLoading, vehicles, selectedVehicle]);
+
+  // Get CTD data from WebSocket + historical REST API
+  const { ctdData, isConnected } = useCTDData(selectedVehicle);
 
   // Filter data by date/time
   const filteredData = ctdData.filter((data) => {
@@ -58,7 +84,10 @@ const CTD = () => {
     <div className="p-4">
       {/* Header with Title and Filters */}
       <div className="flex items-center justify-between mb-4">
-        <Title title="CTD Monitoring" subtitle="Real-time CTD Sensor Data" />
+        <Title
+          title={t("pages.ctd.title")}
+          subtitle={t("pages.ctd.subtitle")}
+        />
 
         {/* Filters Section */}
         <div className="flex items-center gap-3">
@@ -73,7 +102,7 @@ const CTD = () => {
                   setEndDate("");
                 }
               }}
-              placeholder="Start Date"
+              placeholder={t("pages.ctd.startDate")}
               maxDate={endDate || new Date().toISOString().split("T")[0]}
               className="w-40"
             />
@@ -87,13 +116,15 @@ const CTD = () => {
             />
 
             {/* Separator */}
-            <span className="text-gray-500 dark:text-gray-400 text-sm">to</span>
+            <span className="text-gray-500 dark:text-gray-400 text-sm">
+              {t("pages.ctd.to")}
+            </span>
 
             {/* End Date */}
             <DatePickerField
               value={endDate}
               onChange={setEndDate}
-              placeholder="End Date"
+              placeholder={t("pages.ctd.endDate")}
               minDate={startDate || undefined}
               className="w-40"
             />
@@ -115,10 +146,10 @@ const CTD = () => {
               onVehicleChange={setSelectedVehicle}
               placeholder={
                 vehicleLoading
-                  ? "Loading vehicles..."
+                  ? t("pages.ctd.loadingVehicles")
                   : !vehicles || vehicles.length === 0
-                    ? "No vehicles available"
-                    : "All Vehicles"
+                    ? t("pages.ctd.noVehicles")
+                    : t("pages.ctd.allVehicles")
               }
               className="text-sm"
               disabled={vehicleLoading}
@@ -140,7 +171,7 @@ const CTD = () => {
                 setEndTime("");
               }}
               className="px-3 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 text-sm rounded-xl transition-all flex items-center gap-2 font-medium"
-              title="Clear all filters"
+              title={t("pages.ctd.clearAllFilters")}
             >
               <svg
                 className="w-4 h-4"
@@ -155,7 +186,7 @@ const CTD = () => {
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-              Clear
+              {t("pages.ctd.clear")}
             </button>
           )}
         </div>

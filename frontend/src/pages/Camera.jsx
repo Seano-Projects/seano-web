@@ -18,7 +18,7 @@ import WizardModal from "../components/ui/WizardModal";
 
 const Camera = () => {
   const { t } = useTranslation();
-  useTitle("Camera Control");
+  useTitle(t("control.camera.title"));
 
   const { vehicles } = useVehicleData();
   const [streamName, setStreamName] = useState("");
@@ -31,13 +31,27 @@ const Camera = () => {
   const pcRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Auto-fill stream name when vehicle list loads and only one vehicle exists
+  // Auto-fill stream name to first vehicle on initial load
   useEffect(() => {
-    if (vehicles?.length === 1 && !streamName) {
-      const code = vehicles[0]?.code ?? vehicles[0]?.name ?? "";
-      setStreamName("live/" + code.toLowerCase().replace(/\s+/g, "-"));
+    if (!vehicles || vehicles.length === 0) {
+      setStreamName("");
+      return;
     }
-  }, [vehicles]);
+
+    const streamOptions = vehicles.map((vehicle) => {
+      const code = vehicle?.code ?? vehicle?.name ?? "";
+      return "live/" + code.toLowerCase().replace(/\s+/g, "-");
+    });
+
+    if (!streamName) {
+      setStreamName(streamOptions[0]);
+      return;
+    }
+
+    if (!streamOptions.includes(streamName)) {
+      setStreamName(streamOptions[0]);
+    }
+  }, [vehicles, streamName]);
 
   const disconnectCamera = useCallback(() => {
     if (pcRef.current) {
@@ -219,10 +233,10 @@ const Camera = () => {
               setShowGuide(true);
             }}
             className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-white transition-colors text-sm font-medium whitespace-nowrap"
-            title="User Guide"
+            title={t("control.camera.userGuide")}
           >
             <FaCircleQuestion className="text-blue-500" />
-            User Guide
+            {t("control.camera.userGuide")}
           </button>
         </div>
       </div>
@@ -310,7 +324,7 @@ const Camera = () => {
       <WizardModal
         isOpen={showGuide}
         onClose={() => setShowGuide(false)}
-        title="Camera Stream Guide"
+        title={t("control.camera.guideTitle")}
         currentStep={guideStep}
         totalSteps={4}
         footer={
@@ -320,21 +334,22 @@ const Camera = () => {
               disabled={guideStep === 1}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-white transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <FaChevronLeft className="text-xs" /> Prev
+              <FaChevronLeft className="text-xs" /> {t("control.camera.prev")}
             </button>
             {guideStep < 4 ? (
               <button
                 onClick={() => setGuideStep((s) => Math.min(4, s + 1))}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors text-sm font-semibold"
               >
-                Next <FaChevronRight className="text-xs" />
+                {t("control.camera.next")}{" "}
+                <FaChevronRight className="text-xs" />
               </button>
             ) : (
               <button
                 onClick={() => setShowGuide(false)}
                 className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white transition-colors text-sm font-semibold"
               >
-                Done
+                {t("control.camera.done")}
               </button>
             )}
           </div>
@@ -343,28 +358,30 @@ const Camera = () => {
         {guideStep === 1 && (
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-900 dark:text-white text-base">
-              Step 1 — Start your RTMP stream
+              {t("control.camera.step1Title")}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              Open a mobile streaming app (e.g.{" "}
-              <strong>Larix Broadcaster</strong>) and configure it with these
-              RTMP settings:
+              {t("control.camera.step1Desc")}
             </p>
             <div className="bg-gray-100 dark:bg-slate-800 rounded-xl p-4 text-xs space-y-1">
               <p>
-                <span className="text-gray-500">URL:</span>{" "}
+                <span className="text-gray-500">
+                  {t("control.camera.urlLabel")}
+                </span>{" "}
                 <span className="text-blue-500">
                   rtmp://72.61.141.126:1935/live
                 </span>
               </p>
               <p>
-                <span className="text-gray-500">Stream key:</span>{" "}
+                <span className="text-gray-500">
+                  {t("control.camera.streamKeyLabel")}
+                </span>{" "}
                 <span className="text-green-400">&lt;vehicle-code&gt;</span>{" "}
                 (e.g. <span className="text-green-400">usv-001</span>)
               </p>
             </div>
             <p className="text-xs text-gray-400">
-              The full stream path will be{" "}
+              {t("control.camera.step1PathHint")}{" "}
               <code className="bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                 live/usv-001
               </code>
@@ -374,57 +391,44 @@ const Camera = () => {
         {guideStep === 2 && (
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-900 dark:text-white text-base">
-              Step 2 — Select vehicle or enter stream name
+              {t("control.camera.step2Title")}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              Use the <strong>vehicle dropdown</strong> in the top-right to
-              auto-fill the stream name, or type it manually in the input field
-              at the bottom.
+              {t("control.camera.step2Desc")}
             </p>
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-3 text-sm text-blue-700 dark:text-blue-300">
-              💡 The stream name is auto-prefixed with{" "}
+              {t("control.camera.step2Hint")}{" "}
               <code className="bg-blue-100 dark:bg-blue-800/40 px-1 rounded">
                 live/
-              </code>{" "}
-              when selecting a vehicle.
+              </code>
             </div>
           </div>
         )}
         {guideStep === 3 && (
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-900 dark:text-white text-base">
-              Step 3 — Connect to the stream
+              {t("control.camera.step3Title")}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              Once the stream name is filled in, click the{" "}
-              <strong>Connect</strong> button at the bottom-right. The viewer
-              will establish a WebRTC connection to the live feed.
+              {t("control.camera.step3Desc")}
             </p>
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-3 text-sm text-yellow-700 dark:text-yellow-300">
-              Make sure the RTMP stream is already broadcasting before clicking
-              Connect.
+              {t("control.camera.step3Warning")}
             </div>
           </div>
         )}
         {guideStep === 4 && (
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-900 dark:text-white text-base">
-              Step 4 — View the live feed
+              {t("control.camera.step4Title")}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              The live video will appear in the viewer. You can:
+              {t("control.camera.step4Desc")}
             </p>
             <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1.5 list-none">
-              <li>
-                📺 Click the <strong>expand icon</strong> (top-right of video)
-                to enter fullscreen
-              </li>
-              <li>
-                🔌 Click <strong>Disconnect</strong> to stop the stream
-              </li>
-              <li>
-                🔄 Switch vehicles using the dropdown — it will auto-reconnect
-              </li>
+              <li>📺 {t("control.camera.step4Item1")}</li>
+              <li>🔌 {t("control.camera.step4Item2")}</li>
+              <li>🔄 {t("control.camera.step4Item3")}</li>
             </ul>
           </div>
         )}

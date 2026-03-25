@@ -13,9 +13,19 @@ import {
   FaTrash,
 } from "react-icons/fa";
 import { toast } from "../components/ui";
+import useTranslation from "../hooks/useTranslation";
 
 const Alerts = () => {
-  useTitle("Alerts");
+  const { t } = useTranslation();
+  useTitle(t("pages.alerts.title"));
+
+  const tr = (key, params = {}) => {
+    let text = t(key);
+    Object.entries(params).forEach(([paramKey, value]) => {
+      text = text.replace(`{{${paramKey}}}`, String(value));
+    });
+    return text;
+  };
 
   const {
     alerts = [],
@@ -25,7 +35,6 @@ const Alerts = () => {
     acknowledgeAlert,
     clearAllAlerts,
   } = useAlertData() || {};
-
 
   const { loading: timeoutLoading } = useLoadingTimeout(loading, 5000);
   const shouldShowSkeleton = timeoutLoading && loading && alerts.length === 0;
@@ -67,20 +76,20 @@ const Alerts = () => {
   const handleAcknowledge = async (alertId) => {
     const success = await acknowledgeAlert(alertId);
     if (success) {
-      toast.success("Alert acknowledged");
+      toast.success(t("pages.alerts.ackSuccess"));
     } else {
-      toast.error("Failed to acknowledge alert");
+      toast.error(t("pages.alerts.ackFailed"));
     }
   };
 
   // Handle clear all
   const handleClearAll = async () => {
-    if (window.confirm("Are you sure you want to clear all alerts?")) {
+    if (window.confirm(t("pages.alerts.confirmClearAll"))) {
       const success = await clearAllAlerts();
       if (success) {
-        toast.success("All alerts cleared");
+        toast.success(t("pages.alerts.clearSuccess"));
       } else {
-        toast.error("Failed to clear alerts");
+        toast.error(t("pages.alerts.clearFailed"));
       }
     }
   };
@@ -88,7 +97,7 @@ const Alerts = () => {
   // Widget data
   const widgetData = [
     {
-      title: "Critical Alerts",
+      title: t("pages.alerts.widgets.critical"),
       value: stats.critical,
       icon: <FaExclamationCircle className="text-2xl text-red-500" />,
       iconBgColor: "bg-red-100 dark:bg-red-900/30",
@@ -98,11 +107,11 @@ const Alerts = () => {
         ) : null,
       trendText:
         stats.critical > 0
-          ? `${stats.critical} critical alerts`
-          : "No critical alerts",
+          ? tr("pages.alerts.widgets.criticalTrend", { count: stats.critical })
+          : t("pages.alerts.widgets.noCritical"),
     },
     {
-      title: "Warnings",
+      title: t("pages.alerts.widgets.warnings"),
       value: stats.warning,
       icon: <FaExclamationTriangle className="text-2xl text-yellow-500" />,
       iconBgColor: "bg-yellow-100 dark:bg-yellow-900/30",
@@ -111,20 +120,24 @@ const Alerts = () => {
           <FaExclamationTriangle className="text-yellow-500" />
         ) : null,
       trendText:
-        stats.warning > 0 ? `${stats.warning} warnings` : "No warnings",
+        stats.warning > 0
+          ? tr("pages.alerts.widgets.warningsTrend", { count: stats.warning })
+          : t("pages.alerts.widgets.noWarnings"),
     },
     {
-      title: "Info",
+      title: t("pages.alerts.widgets.info"),
       value: stats.info,
       icon: <FaInfoCircle className="text-2xl text-blue-500" />,
       iconBgColor: "bg-blue-100 dark:bg-blue-900/30",
       trendIcon:
         stats.info > 0 ? <FaInfoCircle className="text-blue-500" /> : null,
       trendText:
-        stats.info > 0 ? `${stats.info} info alerts` : "No info alerts",
+        stats.info > 0
+          ? tr("pages.alerts.widgets.infoTrend", { count: stats.info })
+          : t("pages.alerts.widgets.noInfo"),
     },
     {
-      title: "Total Alerts",
+      title: t("pages.alerts.widgets.total"),
       value: stats.total,
       icon: <FaExclamationCircle className="text-2xl text-slate-500" />,
       iconBgColor: "bg-slate-100 dark:bg-slate-900/30",
@@ -132,7 +145,10 @@ const Alerts = () => {
         stats.total > 0 ? (
           <FaExclamationCircle className="text-slate-500" />
         ) : null,
-      trendText: stats.total > 0 ? `${stats.total} total alerts` : "No alerts",
+      trendText:
+        stats.total > 0
+          ? tr("pages.alerts.widgets.totalTrend", { count: stats.total })
+          : t("pages.alerts.widgets.noAlerts"),
     },
   ];
 
@@ -140,7 +156,7 @@ const Alerts = () => {
   const columns = [
     {
       accessorKey: "severity",
-      header: "Severity",
+      header: t("pages.alerts.severity"),
       sortable: true,
       cell: (row) => (
         <div className="flex items-center gap-2">
@@ -155,7 +171,7 @@ const Alerts = () => {
     },
     {
       accessorKey: "vehicle_name",
-      header: "Vehicle",
+      header: t("pages.alerts.vehicle"),
       sortable: true,
       cell: (row) => (
         <span className="font-medium text-gray-900 dark:text-white">
@@ -165,12 +181,12 @@ const Alerts = () => {
     },
     {
       accessorKey: "type",
-      header: "Type",
+      header: t("pages.alerts.type"),
       sortable: true,
     },
     {
       accessorKey: "message",
-      header: "Message",
+      header: t("pages.alerts.message"),
       sortable: false,
       cell: (row) => (
         <div className="max-w-md">
@@ -182,7 +198,7 @@ const Alerts = () => {
     },
     {
       accessorKey: "timestamp",
-      header: "Time",
+      header: t("pages.alerts.time"),
       sortable: true,
       cell: (row) => (
         <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -192,21 +208,21 @@ const Alerts = () => {
     },
     {
       accessorKey: "acknowledged",
-      header: "Status",
+      header: t("pages.alerts.status"),
       sortable: true,
       cell: (row) => (
         <div className="flex items-center gap-2">
           {row.acknowledged ? (
             <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm">
               <FaCheckCircle />
-              Acknowledged
+              {t("pages.alerts.acknowledged")}
             </span>
           ) : (
             <button
               onClick={() => handleAcknowledge(row.id)}
               className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
             >
-              Acknowledge
+              {t("pages.alerts.acknowledge")}
             </button>
           )}
         </div>
@@ -218,7 +234,10 @@ const Alerts = () => {
     <div className="p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <Title title="Alerts" subtitle="Real-time alerts from USV" />
+        <Title
+          title={t("pages.alerts.title")}
+          subtitle={t("pages.alerts.subtitle")}
+        />
         <div className="flex items-center gap-4">
           {/* Clear All Button */}
           {alerts.length > 0 && (
@@ -227,7 +246,7 @@ const Alerts = () => {
               className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
             >
               <FaTrash />
-              Clear All
+              {t("pages.alerts.clearAll")}
             </button>
           )}
         </div>
@@ -245,17 +264,17 @@ const Alerts = () => {
       {/* Alerts Table */}
       <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          Alert History
+          {t("pages.alerts.history")}
         </h2>
 
         <DataTable
           columns={columns}
           data={alerts}
-          searchPlaceholder="Search alerts..."
+          searchPlaceholder={t("pages.alerts.searchPlaceholder")}
           searchKeys={["vehicle_name", "type", "message", "severity"]}
           pageSize={10}
           loading={loading}
-          emptyMessage="No alerts found"
+          emptyMessage={t("pages.alerts.emptyMessage")}
         />
       </div>
     </div>

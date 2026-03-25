@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { API_BASE_URL } from '../config'
+import { useState, useEffect, useCallback } from 'react'
+import { API_ENDPOINTS } from '../config'
 
 const useNotificationData = () => {
   const [notifications, setNotifications] = useState([])
@@ -7,7 +7,7 @@ const useNotificationData = () => {
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -15,8 +15,8 @@ const useNotificationData = () => {
       // Get token from localStorage
       const token = localStorage.getItem('access_token')
 
-      // API endpoint untuk notifications/alerts
-      const response = await fetch(`${API_BASE_URL}/notifications`, {
+      // Use alerts as notification source.
+      const response = await fetch(API_ENDPOINTS.ALERTS.LIST, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -42,11 +42,19 @@ const useNotificationData = () => {
       // Pastikan data adalah array
       const notificationsArray = Array.isArray(data) ? data : data.data || []
 
-      // Transform data jika perlu
+      // Transform alerts into notification-like rows.
       const transformedData = notificationsArray.map(notification => ({
         id: notification.id || Math.random(),
-        type: notification.type || notification.severity || 'info',
-        title: notification.title || notification.subject || 'Notification',
+        type:
+          notification.alert_type ||
+          notification.type ||
+          notification.severity ||
+          'info',
+        title:
+          notification.title ||
+          notification.alert_type ||
+          notification.subject ||
+          'Alert',
         message:
           notification.message ||
           notification.description ||
@@ -57,9 +65,13 @@ const useNotificationData = () => {
           notification.created_at ||
           new Date().toISOString(),
         badge: getBadgeText(notification.type || notification.severity),
-        vehicle: notification.vehicle_name || notification.vehicle || null,
+        vehicle:
+          notification.vehicle_name ||
+          notification.vehicle?.name ||
+          notification.vehicle ||
+          null,
         priority: notification.priority || 'normal',
-        read: notification.read || false
+        read: notification.read || notification.acknowledged || false
       }))
 
       // Sort by timestamp, newest first
@@ -76,7 +88,7 @@ const useNotificationData = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   // Helper function untuk badge text
   const getBadgeText = type => {
@@ -100,13 +112,12 @@ const useNotificationData = () => {
   // Fetch data saat hook pertama kali dimuat
   useEffect(() => {
     fetchNotifications()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [fetchNotifications])
 
   // Function untuk manual refresh
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     fetchNotifications()
-  }
+  }, [fetchNotifications])
 
   // Function untuk mendapatkan latest alerts (limit)
   const getLatestAlerts = (limit = 5) => {

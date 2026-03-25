@@ -8,19 +8,21 @@ import {
   FaSortDown,
   FaSort,
 } from "react-icons/fa";
+import useTranslation from "../../hooks/useTranslation";
 
 const DataTable = ({
   columns,
   data,
-  searchPlaceholder = "Search...",
+  searchPlaceholder,
   searchKeys = [],
   pageSize: initialPageSize = 10,
   showPagination = true,
-  emptyMessage = "No data available",
+  emptyMessage,
   loading = false,
   skeletonRows = 5,
   SkeletonComponent = null,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -129,11 +131,11 @@ const DataTable = ({
     <div className="w-full space-y-4">
       {/* Search Bar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
+        <div className="relative flex-1 min-w-50 max-w-md">
           <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
-            placeholder={searchPlaceholder}
+            placeholder={searchPlaceholder || `${t("common.search")}...`}
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-3 bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent transition-colors duration-200"
@@ -141,13 +143,15 @@ const DataTable = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {t("common.show")}
+          </span>
 
           {/* Custom Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsPageSizeOpen(!isPageSizeOpen)}
-              className="min-w-[80px] px-4 py-3 bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent transition-colors duration-200 cursor-pointer flex items-center justify-between gap-2"
+              className="min-w-20 px-4 py-3 bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent transition-colors duration-200 cursor-pointer flex items-center justify-between gap-2"
             >
               <span>{pageSize}</span>
               <FaChevronDown
@@ -183,7 +187,7 @@ const DataTable = ({
           </div>
 
           <span className="text-sm text-gray-600 dark:text-gray-400">
-            entries
+            {t("common.entries")}
           </span>
         </div>
       </div>
@@ -230,7 +234,7 @@ const DataTable = ({
                   colSpan={columns.length}
                   className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400"
                 >
-                  {emptyMessage}
+                  {emptyMessage || t("common.noDataAvailable")}
                 </td>
               </tr>
             ) : (
@@ -261,10 +265,10 @@ const DataTable = ({
       {showPagination && filteredData.length > 0 && (
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            Showing{" "}
+            {t("common.showing")}{" "}
             {Math.min((currentPage - 1) * pageSize + 1, filteredData.length)} to{" "}
-            {Math.min(currentPage * pageSize, filteredData.length)} of{" "}
-            {filteredData.length} results
+            {Math.min(currentPage * pageSize, filteredData.length)}{" "}
+            {t("common.of")} {filteredData.length} {t("common.results")}
           </div>
 
           <div className="flex items-center gap-2">

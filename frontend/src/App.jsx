@@ -50,7 +50,11 @@ import User from "./pages/User";
 import Role from "./pages/Role";
 import Permission from "./pages/Permission";
 import MissionsPlanner from "./pages/MissionPlanner";
+import MissionDetails from "./pages/MissionDetails";
 import CTD from "./pages/SensorMonitoring/CTD";
+import ADCP from "./pages/SensorMonitoring/ADCP";
+import SBES from "./pages/SensorMonitoring/SBES";
+import MBES from "./pages/SensorMonitoring/MBES";
 
 // Auth Pages - EAGER LOAD untuk avoid chunking issues
 import Login from "./pages/auth/Login";
@@ -72,18 +76,25 @@ function App() {
   const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (vehicles && vehicles.length > 0) {
-      if (
-        selectedVehicleId &&
-        !vehicles.find((v) => v.id === selectedVehicleId)
-      ) {
-        setSelectedVehicleId(null);
-      }
-    } else if (vehicles && vehicles.length === 0) {
+    if (!vehicles || vehicles.length === 0) {
       setSelectedVehicleId(null);
       initializedRef.current = false;
+      return;
     }
-  }, [vehicles]);
+
+    if (!initializedRef.current && !selectedVehicleId) {
+      setSelectedVehicleId(vehicles[0].id);
+      initializedRef.current = true;
+      return;
+    }
+
+    if (
+      selectedVehicleId &&
+      !vehicles.find((v) => v.id === selectedVehicleId)
+    ) {
+      setSelectedVehicleId(vehicles[0].id);
+    }
+  }, [vehicles, selectedVehicleId]);
 
   const selectedVehicle = selectedVehicleId
     ? vehicles.find((v) => v.id === selectedVehicleId)
@@ -142,6 +153,9 @@ function App() {
     "/missions",
     "/mission-planner",
     "/sensor-monitoring/ctd",
+    "/sensor-monitoring/adcp",
+    "/sensor-monitoring/sbes",
+    "/sensor-monitoring/mbes",
     "/control",
     "/cam",
     "/battery",
@@ -312,6 +326,17 @@ function App() {
                 }
               />
               <Route
+                path="/missions/:missionId"
+                element={
+                  <ProtectedRoute>
+                    <MissionDetails
+                      darkMode={darkMode}
+                      isSidebarOpen={isSidebarOpen}
+                    />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/mission-planner"
                 element={
                   <ProtectedRoute>
@@ -327,6 +352,30 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <CTD darkMode={darkMode} isSidebarOpen={isSidebarOpen} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sensor-monitoring/adcp"
+                element={
+                  <ProtectedRoute>
+                    <ADCP darkMode={darkMode} isSidebarOpen={isSidebarOpen} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sensor-monitoring/sbes"
+                element={
+                  <ProtectedRoute>
+                    <SBES darkMode={darkMode} isSidebarOpen={isSidebarOpen} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sensor-monitoring/mbes"
+                element={
+                  <ProtectedRoute>
+                    <MBES darkMode={darkMode} isSidebarOpen={isSidebarOpen} />
                   </ProtectedRoute>
                 }
               />

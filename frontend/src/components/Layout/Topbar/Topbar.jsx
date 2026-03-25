@@ -15,10 +15,12 @@ import {
 } from "react-icons/fa";
 import { FaLocationDot, FaLocationPin, FaMapLocation } from "react-icons/fa6";
 import { getVehicleStatusLabel } from "../../../utils/vehicleStatus";
+import useTranslation from "../../../hooks/useTranslation";
 
 const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
+  const { t } = useTranslation();
   const [batteryLevel, setBatteryLevel] = useState(1);
-  const [location, setLocation] = useState("Waiting for GPS...");
+  const [location, setLocation] = useState(t("tracking.topbar.waitingGps"));
   const { vehicles, loading } = useVehicleData();
   const { getActiveMissions } = useMissionData();
   const { vehicleLogs, ws } = useLogData();
@@ -89,27 +91,51 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const renderRssiIcon = () => {
     if (rssiLevel === null) {
       return (
-        <FaWifi size={20} className="text-gray-400" title="No Signal Data" />
+        <FaWifi
+          size={20}
+          className="text-gray-400"
+          title={t("tracking.topbar.signal.noData")}
+        />
       );
     }
     if (rssiLevel >= -50)
       return (
-        <FaWifi size={20} className="text-green-500" title="Excellent Signal" />
+        <FaWifi
+          size={20}
+          className="text-green-500"
+          title={t("tracking.topbar.signal.excellent")}
+        />
       );
     if (rssiLevel >= -60)
       return (
-        <FaWifi size={20} className="text-green-400" title="Good Signal" />
+        <FaWifi
+          size={20}
+          className="text-green-400"
+          title={t("tracking.topbar.signal.good")}
+        />
       );
     if (rssiLevel >= -70)
       return (
-        <FaWifi size={20} className="text-yellow-500" title="Fair Signal" />
+        <FaWifi
+          size={20}
+          className="text-yellow-500"
+          title={t("tracking.topbar.signal.fair")}
+        />
       );
     if (rssiLevel >= -80)
       return (
-        <FaWifi size={20} className="text-orange-500" title="Poor Signal" />
+        <FaWifi
+          size={20}
+          className="text-orange-500"
+          title={t("tracking.topbar.signal.poor")}
+        />
       );
     return (
-      <FaWifi size={20} className="text-red-500" title="Very Poor Signal" />
+      <FaWifi
+        size={20}
+        className="text-red-500"
+        title={t("tracking.topbar.signal.veryPoor")}
+      />
     );
   };
 
@@ -151,9 +177,9 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
           setLocation(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
         });
     } else {
-      setLocation("Waiting for GPS...");
+      setLocation(t("tracking.topbar.waitingGps"));
     }
-  }, [vehicleLog]);
+  }, [vehicleLog, t]);
 
   return (
     <div
@@ -216,7 +242,11 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
             onVehicleChange={(vehicle) => {
               setSelectedVehicle(vehicle);
             }}
-            placeholder={loading ? "Loading vehicles..." : "Select Vehicle"}
+            placeholder={
+              loading
+                ? t("tracking.topbar.loadingVehicles")
+                : t("tracking.topbar.selectVehicle")
+            }
             className="text-sm"
             showPlaceholder={true}
           />

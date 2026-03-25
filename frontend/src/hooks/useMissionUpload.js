@@ -1,12 +1,219 @@
 import { useState, useCallback } from 'react'
 import axios from '../utils/axiosConfig'
+import mqtt from 'mqtt'
 import { API_ENDPOINTS } from '../config'
+import useVehicleConnectionStatus from './useVehicleConnectionStatus'
+
+const MQTT_CONNECT_TIMEOUT_MS = 5000
+const MQTT_PUBLISH_TIMEOUT_MS = 4000
+const MQTT_WAYPOINT_ACK_TIMEOUT_MS = 12000
+
+let mqttClient = null
+let mqttClientPromise = null
+
+const buildMqttUrl = () => {
+  const explicitWsUrl = import.meta.env.VITE_MQTT_WS_URL
+  if (explicitWsUrl) {
+    return explicitWsUrl
+  }
+
+  const broker = import.meta.env.VITE_MQTT_BROKER
+  const port = import.meta.env.VITE_MQTT_PORT || '443'
+  const protocol = import.meta.env.VITE_MQTT_PROTOCOL || 'wss'
+  const path = import.meta.env.VITE_MQTT_PATH || '/mqtt'
+
+  if (!broker) {
+    return null
+  }
+
+  return `${protocol}://${broker}:${port}${path}`
+}
+
+const getMqttClient = async () => {
+  if (mqttClient?.connected) {
+    return mqttClient
+  }
+
+  if (mqttClientPromise) {
+    return mqttClientPromise
+  }
+
+  const mqttUrl = buildMqttUrl()
+  if (!mqttUrl) {
+    throw new Error(
+      'MQTT config is missing. Set VITE_MQTT_WS_URL or VITE_MQTT_BROKER.'
+    )
+  }
+
+  mqttClientPromise = new Promise((resolve, reject) => {
+    const client = mqtt.connect(mqttUrl, {
+      username: import.meta.env.VITE_MQTT_USERNAME || undefined,
+      password: import.meta.env.VITE_MQTT_PASSWORD || undefined,
+      connectTimeout: MQTT_CONNECT_TIMEOUT_MS,
+      reconnectPeriod: 0,
+      clean: true
+    })
+
+    const handleConnect = () => {
+      client.off('error', handleError)
+      mqttClient = client
+      resolve(client)
+    }
+
+    const handleError = err => {
+      client.off('connect', handleConnect)
+      client.end(true)
+      mqttClient = null
+      mqttClientPromise = null
+      reject(err || new Error('Failed to connect to MQTT broker'))
+    }
+
+    client.once('connect', handleConnect)
+    client.once('error', handleError)
+    client.on('close', () => {
+      mqttClient = null
+      mqttClientPromise = null
+    })
+  })
+
+  try {
+    const client = await mqttClientPromise
+    mqttClientPromise = null
+    return client
+  } catch (err) {
+    mqttClientPromise = null
+    throw err
+  }
+}
+
+const publishWaypointToMqtt = async (vehicleCode, payload) => {
+  const timeout = (ms, message) =>
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms)
+    })
+
+  const client = await Promise.race([
+    getMqttClient(),
+    timeout(MQTT_CONNECT_TIMEOUT_MS, 'MQTT connect timeout')
+  ])
+
+  const topic = `seano/${String(vehicleCode || '').trim()}/waypoint`
+  const data = JSON.stringify(payload)
+
+  await Promise.race([
+    new Promise((resolve, reject) => {
+      client.publish(topic, data, { qos: 0 }, err => {
+        if (err) {
+          reject(err)
+          return
+        }
+        resolve()
+      })
+    }),
+    timeout(MQTT_PUBLISH_TIMEOUT_MS, 'MQTT waypoint publish timeout')
+  ])
+
+  return client
+}
+
+const normalizeText = value =>
+  String(value || '')
+    .trim()
+    .toUpperCase()
+
+const isFailureText = value => {
+  const text = normalizeText(value)
+  return text.includes('ERROR') || text.includes('FAILED')
+}
+
+const isWaypointRelated = text => {
+  const normalized = normalizeText(text)
+  return (
+    normalized.includes('WAYPOINT') ||
+    normalized.includes('MISSION') ||
+    normalized.includes('HOME') ||
+    normalized.includes('UPLOAD')
+  )
+}
+
+const waitForWaypointAck = (client, vehicleCode) =>
+  new Promise((resolve, reject) => {
+    const statusTopic = `seano/${String(vehicleCode || '').trim()}/status`
+    const timeoutId = setTimeout(() => {
+      cleanup()
+      reject(new Error('MQTT waypoint acknowledgement timeout'))
+    }, MQTT_WAYPOINT_ACK_TIMEOUT_MS)
+
+    const cleanup = () => {
+      clearTimeout(timeoutId)
+      client.removeListener('message', onMessage)
+      client.unsubscribe(statusTopic, () => {})
+    }
+
+    const onMessage = (topic, payloadBuffer) => {
+      if (topic !== statusTopic) {
+        return
+      }
+
+      let payload = {}
+      try {
+        payload = JSON.parse(payloadBuffer.toString())
+      } catch {
+        return
+      }
+
+      const payloadVehicle =
+        payload.vehicle_id || payload.vehicle_code || payload.vehicleCode
+      const sameVehicle =
+        !payloadVehicle ||
+        normalizeText(payloadVehicle) === normalizeText(vehicleCode)
+      if (!sameVehicle) {
+        return
+      }
+
+      const status = String(payload.status || payload.result || '')
+      const message = String(payload.message || payload.detail || '')
+      const command = String(payload.command || payload.action || '')
+      const evidence = `${status} ${message} ${command}`
+
+      if (!isWaypointRelated(evidence)) {
+        return
+      }
+
+      if (isFailureText(status) || isFailureText(message)) {
+        cleanup()
+        resolve({
+          success: false,
+          message: message || 'Waypoint upload failed'
+        })
+        return
+      }
+
+      cleanup()
+      resolve({
+        success: true,
+        message: message || 'Waypoint uploaded successfully'
+      })
+    }
+
+    client.subscribe(statusTopic, { qos: 0 }, err => {
+      if (err) {
+        cleanup()
+        reject(err)
+        return
+      }
+
+      client.on('message', onMessage)
+    })
+  })
 
 /**
  * Custom hook untuk handle mission upload ke vehicle dengan safety checks
  * Includes vehicle state checking, battery validation, dan upload progress tracking
  */
 const useMissionUpload = () => {
+  const { getVehicleStatus, vehicleStatuses } = useVehicleConnectionStatus()
+
   const [uploadState, setUploadState] = useState({
     isUploading: false,
     progress: 0,
@@ -29,62 +236,76 @@ const useMissionUpload = () => {
    * Check vehicle readiness sebelum upload
    * Memastikan vehicle dalam kondisi aman untuk menerima mission baru
    */
-  const checkVehicleReadiness = useCallback(async vehicleId => {
-    try {
-      setUploadState(prev => ({
-        ...prev,
-        currentStep: 'checking',
-        error: null
-      }))
+  const checkVehicleReadiness = useCallback(
+    async vehicleId => {
+      try {
+        setUploadState(prev => ({
+          ...prev,
+          currentStep: 'checking',
+          error: null
+        }))
 
-      // Fetch vehicle status dari API
-      const response = await axios.get(API_ENDPOINTS.VEHICLES.DETAIL(vehicleId))
-      const vehicle = response.data
+        // Fetch vehicle status dari API
+        const response = await axios.get(
+          API_ENDPOINTS.VEHICLES.DETAIL(vehicleId)
+        )
+        const vehicle = response.data
 
-      // Fetch latest telemetry/logs untuk real-time status
-      const logsResponse = await axios.get(
-        `${API_ENDPOINTS.VEHICLES.LOGS(vehicleId)}?limit=1`
-      )
-      const latestLog = logsResponse.data?.[0]
+        // Fetch latest telemetry/logs untuk real-time status
+        const logsResponse = await axios.get(
+          `${API_ENDPOINTS.VEHICLES.LOGS(vehicleId)}?limit=1`
+        )
+        const latestLog = logsResponse.data?.[0]
 
-      // Parse vehicle state
-      const state = {
-        isConnected:
-          vehicle.status === 'idle' || vehicle.status === 'on_mission',
-        status: vehicle.status,
-        batteryLevel:
-          vehicle.battery_level || latestLog?.battery_percentage || 0,
-        hasActiveMission: vehicle.status === 'on_mission',
-        armedState: latestLog?.armed_state || 'unknown',
-        flightMode: latestLog?.flight_mode || 'unknown',
-        lastSeen: vehicle.last_seen || latestLog?.created_at
+        // Connection must come from MQTT LWT status topic only.
+        const vehicleCode = vehicle?.code || vehicle?.vehicle_code || null
+        const mqttConnectionStatus = vehicleCode
+          ? getVehicleStatus(vehicleCode)
+          : 'unknown'
+        const mqttLastSeen = vehicleCode
+          ? vehicleStatuses?.[vehicleCode]?.timestamp
+          : null
+
+        // Parse vehicle state
+        const state = {
+          vehicleCode: vehicleCode || null,
+          isConnected: mqttConnectionStatus === 'online',
+          status: mqttConnectionStatus,
+          batteryLevel:
+            vehicle.battery_level || latestLog?.battery_percentage || 0,
+          hasActiveMission: vehicle.status === 'on_mission',
+          armedState: latestLog?.armed_state || 'unknown',
+          flightMode: latestLog?.flight_mode || 'unknown',
+          lastSeen: mqttLastSeen || vehicle.last_seen || latestLog?.created_at
+        }
+
+        // Determine if vehicle is ready
+        const checks = {
+          isOnline: state.isConnected,
+          batteryOk: state.batteryLevel >= 20, // Minimum 20% battery
+          notArmed: state.armedState !== 'armed', // Vehicle tidak boleh armed
+          noActiveMission: !state.hasActiveMission, // Tidak ada mission aktif
+          recentlyActive: state.lastSeen
+            ? new Date() - new Date(state.lastSeen) < 60000
+            : false // Active dalam 1 menit terakhir
+        }
+
+        state.isReady = Object.values(checks).every(check => check === true)
+        state.checks = checks
+
+        setVehicleState(state)
+        return state
+      } catch (error) {
+        setUploadState(prev => ({
+          ...prev,
+          error: 'Failed to check vehicle status',
+          currentStep: 'error'
+        }))
+        return null
       }
-
-      // Determine if vehicle is ready
-      const checks = {
-        isOnline: state.isConnected,
-        batteryOk: state.batteryLevel >= 20, // Minimum 20% battery
-        notArmed: state.armedState !== 'armed', // Vehicle tidak boleh armed
-        noActiveMission: !state.hasActiveMission, // Tidak ada mission aktif
-        recentlyActive: state.lastSeen
-          ? new Date() - new Date(state.lastSeen) < 60000
-          : false // Active dalam 1 menit terakhir
-      }
-
-      state.isReady = Object.values(checks).every(check => check === true)
-      state.checks = checks
-
-      setVehicleState(state)
-      return state
-    } catch (error) {
-      setUploadState(prev => ({
-        ...prev,
-        error: 'Failed to check vehicle status',
-        currentStep: 'error'
-      }))
-      return null
-    }
-  }, [])
+    },
+    [getVehicleStatus, vehicleStatuses]
+  )
 
   /**
    * Validate mission data sebelum upload
@@ -121,12 +342,14 @@ const useMissionUpload = () => {
   }, [])
 
   /**
-   * Upload mission ke vehicle via MQTT
-   * Process: validate -> upload to backend -> send via MQTT -> verify reception
+   * Upload mission ke vehicle via MQTT (direct from frontend).
+   * Process: validate -> readiness check -> publish waypoint payload -> wait status ack.
    */
   const uploadMissionToVehicle = useCallback(
-    async (missionId, vehicleId, missionData) => {
+    async (missionId, vehicleId, missionData, options = {}) => {
       try {
+        const forceOverride = Boolean(options?.forceOverride)
+
         // Reset state
         setUploadState({
           isUploading: true,
@@ -150,7 +373,7 @@ const useMissionUpload = () => {
 
         // Step 2: Check vehicle readiness
         const vehicleReady = await checkVehicleReadiness(vehicleId)
-        if (!vehicleReady || !vehicleReady.isReady) {
+        if (!forceOverride && (!vehicleReady || !vehicleReady.isReady)) {
           const reasons = []
           if (vehicleReady?.checks) {
             if (!vehicleReady.checks.isOnline)
@@ -174,26 +397,46 @@ const useMissionUpload = () => {
           currentStep: 'uploading'
         }))
 
-        // Step 3: Upload mission via backend API
-        // Backend akan handle MQTT publish ke vehicle
-        const uploadPayload = {
-          mission_id: missionId,
-          vehicle_id: vehicleId,
-          waypoints: missionData.waypoints,
-          home_location: missionData.home_location,
-          mission_name: missionData.name,
-          parameters: {
-            speed: missionData.speed || 2.5,
-            altitude: missionData.altitude || 0,
-            radius: missionData.radius || 2
-          }
+        const vehicleCode =
+          missionData.vehicle_code ||
+          vehicleReady?.vehicleCode ||
+          missionData.vehicleCode
+        if (!vehicleCode) {
+          throw new Error('Vehicle code not found for MQTT topic publishing')
         }
 
-        const response = await axios.post(
-          API_ENDPOINTS.MISSIONS.UPLOAD_TO_VEHICLE ||
-            `/missions/${missionId}/upload-to-vehicle`,
-          uploadPayload
-        )
+        // Use ROS command node "Bentuk A" payload for waypoint upload.
+        const waypointPayload = {
+          set_home_from_first_waypoint:
+            missionData.set_home_from_first_waypoint !== false,
+          waypoints: (missionData.waypoints || []).map(wp => {
+            const mapped = {
+              lat: Number(wp.lat ?? wp.latitude),
+              lon: Number(wp.lng ?? wp.lon ?? wp.longitude),
+              alt: Number(wp.altitude ?? wp.alt ?? 0)
+            }
+
+            const optionalFields = [
+              'frame',
+              'command',
+              'param1',
+              'param2',
+              'param3',
+              'param4',
+              'autocontinue'
+            ]
+
+            optionalFields.forEach(key => {
+              if (wp[key] !== undefined) {
+                mapped[key] = wp[key]
+              }
+            })
+
+            return mapped
+          })
+        }
+
+        const client = await publishWaypointToMqtt(vehicleCode, waypointPayload)
 
         setUploadState(prev => ({
           ...prev,
@@ -201,9 +444,10 @@ const useMissionUpload = () => {
           currentStep: 'verifying'
         }))
 
-        // Step 4: Wait for vehicle acknowledgment (via WebSocket or polling)
-        // Simulate verification delay
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        const ack = await waitForWaypointAck(client, vehicleCode)
+        if (!ack.success) {
+          throw new Error(ack.message || 'Vehicle rejected waypoint upload')
+        }
 
         setUploadState(prev => ({
           ...prev,
@@ -215,11 +459,15 @@ const useMissionUpload = () => {
 
         return {
           success: true,
-          data: response.data,
-          message: 'Mission uploaded successfully to vehicle'
+          data: {
+            mission_id: missionId,
+            vehicle_id: vehicleId,
+            vehicle_code: vehicleCode,
+            status_message: ack.message
+          },
+          message: ack.message || 'Mission uploaded successfully to vehicle'
         }
       } catch (error) {
-
         setUploadState({
           isUploading: false,
           progress: 0,

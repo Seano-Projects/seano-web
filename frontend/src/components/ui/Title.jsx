@@ -1,8 +1,33 @@
 import { Link, useLocation } from "react-router-dom";
 import { FaHome, FaChevronRight } from "react-icons/fa";
 
-const Title = ({ title, subtitle, children, showBreadcrumb = true }) => {
+const Title = ({
+  title,
+  subtitle,
+  children,
+  showBreadcrumb = true,
+  breadcrumbItems,
+}) => {
   const location = useLocation();
+
+  const acronymBreadcrumbMap = {
+    ctd: "CTD",
+    adcp: "ADCP",
+    sbes: "SBES",
+    mbes: "MBES",
+  };
+
+  const formatBreadcrumbName = (pathSegment) => {
+    const normalized = pathSegment.toLowerCase();
+    if (acronymBreadcrumbMap[normalized]) {
+      return acronymBreadcrumbMap[normalized];
+    }
+
+    return (
+      pathSegment.charAt(0).toUpperCase() +
+      pathSegment.slice(1).replace(/-/g, " ")
+    );
+  };
 
   // Generate breadcrumb items from current path
   const getBreadcrumbs = () => {
@@ -12,15 +37,17 @@ const Title = ({ title, subtitle, children, showBreadcrumb = true }) => {
     let currentPath = "";
     paths.forEach((path) => {
       currentPath += `/${path}`;
-      const name =
-        path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, " ");
+      const name = formatBreadcrumbName(path);
       breadcrumbs.push({ name, path: currentPath });
     });
 
     return breadcrumbs;
   };
 
-  const breadcrumbs = getBreadcrumbs();
+  const breadcrumbs =
+    Array.isArray(breadcrumbItems) && breadcrumbItems.length > 0
+      ? breadcrumbItems
+      : getBreadcrumbs();
 
   if (children) {
     return (
@@ -50,7 +77,7 @@ const Title = ({ title, subtitle, children, showBreadcrumb = true }) => {
                   >
                     <span>{crumb.name}</span>
                   </Link>
-                ) : index === breadcrumbs.length - 1 ? (
+                ) : index === breadcrumbs.length - 1 || !crumb.path ? (
                   <span className="text-fourth dark:text-fourth font-medium">
                     {crumb.name}
                   </span>

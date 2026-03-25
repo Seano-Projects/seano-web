@@ -16,7 +16,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
   const { t } = useTranslation();
   const { vehicles, loading } = useVehicleData();
   const { vehicleLogs } = useLogData(); // Get vehicle logs from WebSocket
-  const { getVehicleStatus, isVehicleOnline } = useVehicleConnectionStatus(); // MQTT LWT status
+  const { getVehicleStatus } = useVehicleConnectionStatus(); // MQTT LWT status
   const [showTimeout, setShowTimeout] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -64,11 +64,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
   const mergedData = { ...currentVehicle, ...vehicleLog };
 
   const vehicleStates = {
-    connected:
-      isConnected ||
-      (vehicleLog && vehicleLog.rssi !== undefined && vehicleLog.rssi !== null)
-        ? true
-        : false,
+    connected: isConnected,
     armed: mergedData.armed !== undefined ? mergedData.armed : null,
     guided: mergedData.guided !== undefined ? mergedData.guided : null,
     manual_input:

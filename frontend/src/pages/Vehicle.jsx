@@ -14,9 +14,11 @@ import { API_ENDPOINTS } from "../config";
 import { toast } from "../components/ui";
 import useNotify from "../hooks/useNotify";
 import { FaShip } from "react-icons/fa";
+import useTranslation from "../hooks/useTranslation";
 
 const Vehicle = () => {
-  useTitle("Vehicle");
+  const { t } = useTranslation();
+  useTitle(t("pages.management.vehicle.title"));
   const notify = useNotify();
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
@@ -435,15 +437,15 @@ const Vehicle = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <Title
-          title="Vehicle Management"
-          subtitle="Manage and monitor all USV vehicles"
+          title={t("pages.management.vehicle.title")}
+          subtitle={t("pages.management.vehicle.subtitle")}
         />
         <button
           onClick={() => setShowWizard(true)}
           className="font-semibold flex items-center gap-4 px-3 py-2 rounded-lg text-white hover:bg-blue-700 transition duration-300 cursor-pointer hover:shadow-lg hover:shadow-fourth/50 bg-fourth dark:hover:bg-blue-700"
         >
           <FaShip size={20} />
-          Add Vehicle
+          {t("pages.management.vehicle.add")}
         </button>
       </div>
       {/* Widgets */}
@@ -490,7 +492,7 @@ const Vehicle = () => {
         onConfirm={
           vehicleToDelete?.isBulk ? handleConfirmBulkDelete : confirmDelete
         }
-        title="Delete Vehicle"
+        title={t("pages.management.vehicle.deleteTitle")}
         message={
           vehicleToDelete?.isBulk
             ? `Are you sure you want to delete ${vehicleToDelete.ids.length} vehicle(s)? This action cannot be undone.`

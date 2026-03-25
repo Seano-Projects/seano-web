@@ -10,8 +10,11 @@ import {
   FaCheck,
 } from "react-icons/fa";
 import { API_BASE_URL } from "../../../config";
+import { LoadingDots } from "../../ui";
+import useTranslation from "../../../hooks/useTranslation";
 
 const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({ unread: 0, total: 0 });
@@ -188,10 +191,11 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
 
-    if (days > 0) return `${days}d ago`;
-    if (hours > 0) return `${hours}h ago`;
-    if (minutes > 0) return `${minutes}m ago`;
-    return "Just now";
+    if (days > 0) return `${days}${t("dashboard.latestAlerts.daysAgo")}`;
+    if (hours > 0) return `${hours}${t("dashboard.latestAlerts.hoursAgo")}`;
+    if (minutes > 0)
+      return `${minutes}${t("dashboard.latestAlerts.minutesAgo")}`;
+    return t("dashboard.latestAlerts.justNow");
   };
 
   if (!isOpen) return null;
@@ -207,7 +211,7 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
           <div className="flex items-center gap-2">
             <FaBell className="text-gray-700 dark:text-white text-base" />
             <h3 className="text-gray-900 dark:text-white font-semibold text-base">
-              Notifications
+              {t("pages.notifications.title")}
             </h3>
           </div>
           {stats.unread > 0 && (
@@ -227,7 +231,7 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
               className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors flex items-center justify-center gap-1.5"
             >
               <FaCheck className="text-xs" />
-              Mark All Read
+              {t("pages.notifications.dropdown.markAllRead")}
             </button>
           )}
           {notifications.some((n) => n.read) && (
@@ -236,7 +240,7 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
               className="flex-1 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors flex items-center justify-center gap-1.5"
             >
               <FaTrash className="text-xs" />
-              Clear Read
+              {t("pages.notifications.dropdown.clearRead")}
             </button>
           )}
         </div>
@@ -246,19 +250,16 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
       <div className="max-h-96 overflow-y-auto custom-scrollbar">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Loading notifications...
-            </p>
+            <LoadingDots size="md" />
           </div>
         ) : notifications.length === 0 ? (
           <div className="p-8 text-center">
             <FaBell className="text-4xl text-gray-300 dark:text-gray-600 mx-auto mb-3" />
             <p className="text-sm font-medium text-gray-900 dark:text-white">
-              No new notifications
+              {t("pages.notifications.dropdown.noNewNotifications")}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              You're all caught up!
+              {t("pages.notifications.dropdown.caughtUp")}
             </p>
           </div>
         ) : (
@@ -321,7 +322,7 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
             onClick={onClose}
             className="block text-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
           >
-            View All Notifications →
+            {t("pages.notifications.dropdown.viewAllNotifications")} {"->"}
           </Link>
         </div>
       )}

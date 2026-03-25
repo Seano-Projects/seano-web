@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import {
   WidgetCard,
   VehicleDropdown,
@@ -11,7 +11,7 @@ import { MissionSuccessRate } from "../components/Widgets/Mission";
 import useTitle from "../hooks/useTitle";
 import useVehicleData from "../hooks/useVehicleData";
 import useMissionData from "../hooks/useMissionData";
-import useNotificationData from "../hooks/useNotificationData";
+import { useAlertData } from "../hooks/useAlertData";
 import { Title, LoadingDots } from "../components/ui";
 import { WidgetCardSkeleton } from "../components/Skeleton";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
@@ -24,8 +24,8 @@ const OverviewMap = lazy(
 );
 
 function Dashboard({ darkMode }) {
-  useTitle("Dashboard");
   const { t } = useTranslation();
+  useTitle(t("dashboard.title"));
 
   // Data hooks
   const {
@@ -34,9 +34,34 @@ function Dashboard({ darkMode }) {
     setSelectedVehicleId,
     loading: vehicleLoading,
   } = useVehicleData();
+  const hasInitializedVehicleSelection = useRef(false);
   const { missionData: missions, loading: missionLoading } = useMissionData();
-  const { notifications: alerts, loading: alertLoading } =
-    useNotificationData();
+  const { alerts = [], loading: alertLoading } = useAlertData();
+
+  useEffect(() => {
+    if (vehicleLoading) return;
+
+    if (!vehicles || vehicles.length === 0) {
+      setSelectedVehicleId("");
+      hasInitializedVehicleSelection.current = false;
+      return;
+    }
+
+    if (!hasInitializedVehicleSelection.current && !selectedVehicleId) {
+      setSelectedVehicleId(vehicles[0].id);
+      hasInitializedVehicleSelection.current = true;
+      return;
+    }
+
+    if (
+      selectedVehicleId &&
+      !vehicles.some(
+        (vehicle) => String(vehicle.id) === String(selectedVehicleId),
+      )
+    ) {
+      setSelectedVehicleId(vehicles[0].id);
+    }
+  }, [vehicleLoading, vehicles, selectedVehicleId, setSelectedVehicleId]);
 
   // Combine all loading states
   const loading = vehicleLoading || missionLoading || alertLoading;

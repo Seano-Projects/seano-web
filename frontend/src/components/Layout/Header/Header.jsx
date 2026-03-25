@@ -9,7 +9,7 @@ import {
 import { HiOutlineMenuAlt2, HiX } from "react-icons/hi";
 import { FiLogOut } from "react-icons/fi";
 import SeanoLogo from "../../../assets/logo_seano.webp";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuthContext } from "../../../hooks/useAuthContext";
 import { LanguageToggle } from "../../ui";
 import useTranslation from "../../../hooks/useTranslation";
@@ -71,7 +71,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
   };
 
   // Fetch unread notification count
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     try {
       const token = localStorage.getItem("access_token");
       if (!token) return;
@@ -90,10 +90,10 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
     } catch (error) {
       console.error("Error fetching unread count:", error);
     }
-  };
+  }, []);
 
   // Fetch unacknowledged alert count
-  const fetchAlertCount = async () => {
+  const fetchAlertCount = useCallback(async () => {
     try {
       const token = localStorage.getItem("access_token");
       if (!token) return;
@@ -117,7 +117,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
     } catch (error) {
       console.error("Error fetching alert count:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchUnreadCount();
@@ -128,7 +128,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
       fetchAlertCount();
     }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchUnreadCount, fetchAlertCount]);
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);

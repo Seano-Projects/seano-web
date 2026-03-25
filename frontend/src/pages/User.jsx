@@ -17,9 +17,11 @@ import { Title, toast } from "../components/ui";
 import useNotify from "../hooks/useNotify";
 import { WidgetCardSkeleton } from "../components/Skeleton";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
+import useTranslation from "../hooks/useTranslation";
 
 const User = () => {
-  useTitle("User");
+  const { t } = useTranslation();
+  useTitle(t("pages.management.user.title"));
   const notify = useNotify();
   const { userData, loading, stats, actions } = useUserData();
   const { roleData } = useRoleData();
@@ -150,13 +152,16 @@ const User = () => {
     <div className="p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <Title title="User Management" subtitle="Manage your user" />
+        <Title
+          title={t("pages.management.user.title")}
+          subtitle={t("pages.management.user.subtitle")}
+        />
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer"
         >
           <FaPlus size={16} />
-          Add User
+          {t("pages.management.user.add")}
         </button>
       </div>
 
@@ -187,7 +192,7 @@ const User = () => {
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
           onSubmit={handleAddUser}
-          title="Add New User"
+          title={t("pages.management.user.addModalTitle")}
         />
       )}
 
@@ -228,7 +233,7 @@ const User = () => {
           onConfirm={
             selectedUser.isBulk ? handleConfirmBulkDelete : handleConfirmDelete
           }
-          title="Delete User"
+          title={t("pages.management.user.deleteTitle")}
           itemName={
             selectedUser.isBulk
               ? `${selectedUser.ids.length} user(s)`

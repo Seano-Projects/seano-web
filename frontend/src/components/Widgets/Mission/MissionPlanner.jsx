@@ -193,26 +193,36 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
 
     // Convert waypoints from database format to application format
     const loadedWaypoints = Array.isArray(mission.waypoints)
-      ? mission.waypoints.map((wp, index) => ({
-          id: Date.now() + index,
-          name: wp.name || `WP${index + 1}`,
-          type: wp.type || "path",
-          shape: wp.shape,
-          lat: wp.lat,
-          lng: wp.lng,
-          altitude: wp.altitude || 0,
-          speed: wp.speed || missionParams.speed,
-          delay: wp.delay || missionParams.delay,
-          loiter: wp.loiter || missionParams.loiter,
-          radius: wp.radius || missionParams.radius,
-          action: wp.action || missionParams.action,
-          // Preserve zone/polygon data
-          bounds: wp.bounds,
-          vertices: wp.vertices,
-          pattern: wp.pattern,
-          coverage: wp.coverage,
-          overlap: wp.overlap,
-        }))
+      ? mission.waypoints.map((wp, index) => {
+          const inferredType =
+            wp.type ||
+            (wp.shape ||
+            wp.bounds ||
+            (Array.isArray(wp.vertices) && wp.vertices.length > 0)
+              ? "zone"
+              : "path");
+
+          return {
+            id: Date.now() + index,
+            name: wp.name || `WP${index + 1}`,
+            type: inferredType,
+            shape: wp.shape,
+            lat: wp.lat,
+            lng: wp.lng,
+            altitude: wp.altitude || 0,
+            speed: wp.speed || missionParams.speed,
+            delay: wp.delay || missionParams.delay,
+            loiter: wp.loiter || missionParams.loiter,
+            radius: wp.radius || missionParams.radius,
+            action: wp.action || missionParams.action,
+            // Preserve zone/polygon data
+            bounds: wp.bounds,
+            vertices: wp.vertices,
+            pattern: wp.pattern,
+            coverage: wp.coverage,
+            overlap: wp.overlap,
+          };
+        })
       : [];
 
     // Restore home location if exists

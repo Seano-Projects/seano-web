@@ -11,9 +11,11 @@ import {
   BatteryLog,
   BatteryStatusInfo,
 } from "../components/Widgets/Battery";
+import useTranslation from "../hooks/useTranslation";
 
 const Battery = () => {
-  useTitle("Battery Monitoring");
+  const { t } = useTranslation();
+  useTitle(t("pages.battery.title"));
 
   const {
     vehicles,
@@ -57,20 +59,20 @@ const Battery = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <Title
-          title="Battery Monitoring"
-          subtitle="System Batteries Monitoring"
+          title={t("pages.battery.title")}
+          subtitle={t("pages.battery.subtitle")}
         />
-        <div className="min-w-[200px]">
+        <div className="min-w-50">
           <VehicleDropdown
             vehicles={vehicles || []}
             selectedVehicle={selectedVehicle}
             onVehicleChange={handleVehicleChange}
             placeholder={
               vehicleLoading
-                ? "Loading vehicles..."
+                ? t("pages.battery.loadingVehicles")
                 : !vehicles || vehicles.length === 0
-                  ? "No vehicles available"
-                  : "Select USV"
+                  ? t("pages.battery.noVehicles")
+                  : t("pages.battery.selectUsv")
             }
             className="text-sm"
             disabled={vehicleLoading}

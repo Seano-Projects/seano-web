@@ -182,7 +182,7 @@ const MissionSidebar = ({
   };
 
   // Confirm upload in modal
-  const handleConfirmUpload = async () => {
+  const handleConfirmUpload = async (forceOverride = false) => {
     if (!activeMission || !activeMission.id || !uploadVehicleId) {
       await notify.error("Invalid mission or vehicle", {
         title: "Upload Failed",
@@ -193,10 +193,16 @@ const MissionSidebar = ({
     }
 
     const vehicleId = parseInt(uploadVehicleId);
+    const selectedUploadVehicle = vehicles.find((v) => v.id === vehicleId);
 
     // Prepare mission data for upload
     const missionData = {
       name: activeMission.name,
+      vehicle_code:
+        selectedUploadVehicle?.code ||
+        selectedUploadVehicle?.vehicle_code ||
+        null,
+      set_home_from_first_waypoint: true,
       waypoints: waypoints
         .filter((wp) => wp.type === "path")
         .map((wp) => ({
@@ -216,14 +222,18 @@ const MissionSidebar = ({
       activeMission.id,
       vehicleId,
       missionData,
+      { forceOverride },
     );
 
     if (result.success) {
-      await notify.success("Mission uploaded successfully to vehicle!", {
-        title: "Mission Uploaded",
-        action: notify.ACTIONS.MISSION_UPLOADED,
-        vehicleId: vehicleId,
-      });
+      await notify.success(
+        result.message || "Mission uploaded successfully to vehicle!",
+        {
+          title: "Mission Uploaded",
+          action: notify.ACTIONS.MISSION_UPLOADED,
+          vehicleId: vehicleId,
+        },
+      );
       setTimeout(() => {
         setShowUploadModal(false);
         resetUploadState();
@@ -352,31 +362,16 @@ const MissionSidebar = ({
               if (segment.length > 0) {
                 const startPoint = segment[0];
                 const endPoint = segment[segment.length - 1];
-                const segmentWidth = Math.abs(endPoint.lng - startPoint.lng);
+                // Perimeter mode: keep only edge/turning points for each scan line.
+                // This removes dense interior points and leaves endpoints like:
+                // 2,13,14,25,26,37,...
+                const edgePoints = [startPoint];
 
-                const pointsToAdd = [startPoint];
-
-                // Add intermediate waypoints for better coverage
-                if (segmentWidth > spacing * 2) {
-                  // Calculate number of intermediate points needed
-                  const numIntermediatePoints = Math.floor(
-                    segmentWidth / spacing,
-                  );
-
-                  for (let i = 1; i <= numIntermediatePoints; i++) {
-                    const ratio = i / (numIntermediatePoints + 1);
-                    const intermediateLng =
-                      startPoint.lng + (endPoint.lng - startPoint.lng) * ratio;
-                    pointsToAdd.push({ lat: currentLat, lng: intermediateLng });
-                  }
-                }
-
-                // Add end point if distinct enough
                 if (Math.abs(endPoint.lng - startPoint.lng) > spacing * 0.3) {
-                  pointsToAdd.push(endPoint);
+                  edgePoints.push(endPoint);
                 }
 
-                pointsToAdd.forEach((pt) => {
+                edgePoints.forEach((pt) => {
                   newPathWaypoints.push({
                     id:
                       Date.now() +
@@ -423,19 +418,40 @@ const MissionSidebar = ({
         .map((k) => parseFloat(k))
         .sort((a, b) => a - b);
 
-      sortedWaypoints = [];
-      latKeys.forEach((latKey, lineIndex) => {
-        const lineWaypoints = latGroups[latKey];
-        const isEvenLine = lineIndex % 2 === 0;
+      const distanceToHome = (point) => {
+        if (!homeLocation) return Number.POSITIVE_INFINITY;
 
-        // Zigzag pattern for efficient coverage
-        if (isEvenLine) {
-          lineWaypoints.sort((a, b) => a.lng - b.lng);
+        return Math.sqrt(
+          Math.pow(point.lat - homeLocation.lat, 2) +
+            Math.pow(point.lng - homeLocation.lng, 2),
+        );
+      };
+
+      sortedWaypoints = [];
+      let previousLineAscending = true;
+
+      latKeys.forEach((latKey, lineIndex) => {
+        const lineWaypoints = [...latGroups[latKey]];
+        const ascending = [...lineWaypoints].sort((a, b) => a.lng - b.lng);
+        const descending = [...ascending].reverse();
+
+        let useAscending;
+
+        if (lineIndex === 0) {
+          if (homeLocation && ascending.length > 0) {
+            const distanceStartAscending = distanceToHome(ascending[0]);
+            const distanceStartDescending = distanceToHome(descending[0]);
+            useAscending = distanceStartAscending <= distanceStartDescending;
+          } else {
+            useAscending = true;
+          }
         } else {
-          lineWaypoints.sort((a, b) => b.lng - a.lng);
+          // Keep zigzag continuity after first line direction is chosen.
+          useAscending = !previousLineAscending;
         }
 
-        sortedWaypoints.push(...lineWaypoints);
+        previousLineAscending = useAscending;
+        sortedWaypoints.push(...(useAscending ? ascending : descending));
       });
 
       // Filter out too-close waypoints
@@ -475,8 +491,10 @@ const MissionSidebar = ({
       finalWaypoints.push(...filteredWaypoints);
 
       setWaypoints((prev) => {
-        const newWaypoints = [...prev, ...finalWaypoints];
-        return newWaypoints;
+        // Replace old path waypoints so generation result is deterministic.
+        // Keep zone definitions, then append freshly generated path points.
+        const zoneOnly = prev.filter((wp) => wp.type === "zone");
+        return [...zoneOnly, ...finalWaypoints];
       });
 
       if (finalWaypoints.length > 0) {
@@ -492,9 +510,10 @@ const MissionSidebar = ({
       }
 
       if (activeMission) {
+        const zoneOnly = waypoints.filter((wp) => wp.type === "zone");
         setActiveMission((prev) => ({
           ...prev,
-          waypoints: getActualWaypointCount([...waypoints, ...finalWaypoints]),
+          waypoints: getActualWaypointCount([...zoneOnly, ...finalWaypoints]),
         }));
       }
 

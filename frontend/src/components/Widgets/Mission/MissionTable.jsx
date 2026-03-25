@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import useMissionData from "../../../hooks/useMissionData";
 import { DataTable, ConfirmModal } from "../../ui";
 import DataCard from "../DataCard";
-import { FaEdit, FaTrash } from "react-icons/fa";
+import { FaEdit, FaEye, FaTrash } from "react-icons/fa";
 
 const MissionTable = () => {
   const { missionData, loading, formatTimeElapsed, deleteMission } =
@@ -42,6 +42,10 @@ const MissionTable = () => {
   // Handle edit mission
   const handleEditClick = (mission) => {
     navigate(`/mission-planner?edit=${mission.id}`);
+  };
+
+  const handleViewClick = (mission) => {
+    navigate(`/missions/${mission.id}`);
   };
 
   // Get status badge color
@@ -191,6 +195,13 @@ const MissionTable = () => {
       sortable: false,
       cell: (row) => (
         <div className="flex items-center justify-center gap-3 w-full h-full">
+          <button
+            onClick={() => handleViewClick(row)}
+            className="inline-flex items-center justify-center p-2 text-white bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
+            title="View Mission Details"
+          >
+            <FaEye size={16} />
+          </button>
           <button
             onClick={() => handleEditClick(row)}
             className="inline-flex items-center justify-center p-2 text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"

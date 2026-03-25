@@ -1,4 +1,3 @@
-import { useState } from "react";
 import useTitle from "../hooks/useTitle";
 import useNotificationData from "../hooks/useNotificationData";
 import { Title } from "../components/ui";
@@ -14,24 +13,25 @@ import {
   FaCheckCircle,
   FaEnvelope,
   FaEnvelopeOpen,
-  FaSync,
 } from "react-icons/fa";
+import useTranslation from "../hooks/useTranslation";
 
 const Notification = () => {
-  useTitle("Notification");
+  const { t } = useTranslation();
+  useTitle(t("pages.notifications.title"));
+
+  const tr = (key, params = {}) => {
+    let text = t(key);
+    Object.entries(params).forEach(([paramKey, value]) => {
+      text = text.replace(`{{${paramKey}}}`, String(value));
+    });
+    return text;
+  };
 
   const { notifications, loading, stats, refreshData } = useNotificationData();
   const { loading: timeoutLoading } = useLoadingTimeout(loading, 5000);
   const shouldShowSkeleton =
     timeoutLoading && loading && notifications.length === 0;
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Handle refresh
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await refreshData();
-    setTimeout(() => setRefreshing(false), 500);
-  };
 
   // Format timestamp
   const formatTimestamp = (timestamp) => {
@@ -44,13 +44,19 @@ const Notification = () => {
     const days = Math.floor(hours / 24);
 
     if (days > 0) {
-      return `${days} day${days > 1 ? "s" : ""} ago`;
+      return days > 1
+        ? tr("pages.notifications.dayAgoPlural", { count: days })
+        : tr("pages.notifications.dayAgo", { count: days });
     } else if (hours > 0) {
-      return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+      return hours > 1
+        ? tr("pages.notifications.hourAgoPlural", { count: hours })
+        : tr("pages.notifications.hourAgo", { count: hours });
     } else if (minutes > 0) {
-      return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+      return minutes > 1
+        ? tr("pages.notifications.minuteAgoPlural", { count: minutes })
+        : tr("pages.notifications.minuteAgo", { count: minutes });
     } else {
-      return "Just now";
+      return t("pages.notifications.justNow");
     }
   };
 
@@ -80,25 +86,34 @@ const Notification = () => {
   // Widget data
   const widgetData = [
     {
-      title: "Total Notifications",
+      title: t("pages.notifications.widgets.total"),
       value: stats.total,
       icon: <FaBell className="text-2xl text-slate-500" />,
       iconBgColor: "bg-slate-100 dark:bg-slate-900/30",
       trendIcon: stats.total > 0 ? <FaBell className="text-slate-500" /> : null,
       trendText:
-        stats.total > 0 ? `${stats.total} notifications` : "No notifications",
+        stats.total > 0
+          ? tr("pages.notifications.widgets.totalTrend", {
+              count: stats.total,
+            })
+          : t("pages.notifications.widgets.noNotifications"),
     },
     {
-      title: "Unread",
+      title: t("pages.notifications.widgets.unread"),
       value: stats.unread,
       icon: <FaEnvelope className="text-2xl text-blue-500" />,
       iconBgColor: "bg-blue-100 dark:bg-blue-900/30",
       trendIcon:
         stats.unread > 0 ? <FaEnvelope className="text-blue-500" /> : null,
-      trendText: stats.unread > 0 ? `${stats.unread} unread` : "All read",
+      trendText:
+        stats.unread > 0
+          ? tr("pages.notifications.widgets.unreadTrend", {
+              count: stats.unread,
+            })
+          : t("pages.notifications.allRead"),
     },
     {
-      title: "Critical",
+      title: t("pages.notifications.widgets.critical"),
       value: stats.critical,
       icon: <FaExclamationCircle className="text-2xl text-red-500" />,
       iconBgColor: "bg-red-100 dark:bg-red-900/30",
@@ -107,10 +122,14 @@ const Notification = () => {
           <FaExclamationCircle className="text-red-500" />
         ) : null,
       trendText:
-        stats.critical > 0 ? `${stats.critical} critical` : "No critical",
+        stats.critical > 0
+          ? tr("pages.notifications.widgets.criticalTrend", {
+              count: stats.critical,
+            })
+          : t("pages.notifications.widgets.noCritical"),
     },
     {
-      title: "Warnings",
+      title: t("pages.notifications.widgets.warnings"),
       value: stats.warning,
       icon: <FaExclamationTriangle className="text-2xl text-yellow-500" />,
       iconBgColor: "bg-yellow-100 dark:bg-yellow-900/30",
@@ -119,7 +138,11 @@ const Notification = () => {
           <FaExclamationTriangle className="text-yellow-500" />
         ) : null,
       trendText:
-        stats.warning > 0 ? `${stats.warning} warnings` : "No warnings",
+        stats.warning > 0
+          ? tr("pages.notifications.widgets.warningsTrend", {
+              count: stats.warning,
+            })
+          : t("pages.notifications.widgets.noWarnings"),
     },
   ];
 
@@ -127,7 +150,7 @@ const Notification = () => {
   const columns = [
     {
       accessorKey: "read",
-      header: "Status",
+      header: t("pages.notifications.status"),
       sortable: true,
       cell: (row) => (
         <div className="flex items-center justify-center">
@@ -141,7 +164,7 @@ const Notification = () => {
     },
     {
       accessorKey: "type",
-      header: "Type",
+      header: t("pages.notifications.type"),
       sortable: true,
       cell: (row) => (
         <div className="flex items-center gap-2">
@@ -156,7 +179,7 @@ const Notification = () => {
     },
     {
       accessorKey: "title",
-      header: "Title",
+      header: t("pages.notifications.titleCol"),
       sortable: true,
       cell: (row) => (
         <span
@@ -172,7 +195,7 @@ const Notification = () => {
     },
     {
       accessorKey: "message",
-      header: "Message",
+      header: t("pages.notifications.message"),
       sortable: false,
       cell: (row) => (
         <div className="max-w-md">
@@ -190,7 +213,7 @@ const Notification = () => {
     },
     {
       accessorKey: "vehicle",
-      header: "Vehicle",
+      header: t("pages.notifications.vehicle"),
       sortable: true,
       cell: (row) => (
         <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -200,7 +223,7 @@ const Notification = () => {
     },
     {
       accessorKey: "timestamp",
-      header: "Time",
+      header: t("pages.notifications.time"),
       sortable: true,
       cell: (row) => (
         <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -215,8 +238,8 @@ const Notification = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <Title
-          title="Notifications"
-          subtitle="Web application notifications and system messages"
+          title={t("pages.notifications.title")}
+          subtitle={t("pages.notifications.subtitle")}
         />
       </div>
 
@@ -233,11 +256,11 @@ const Notification = () => {
       <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Notification History
+            {t("pages.notifications.history")}
           </h2>
           {stats.unread > 0 && (
             <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium">
-              {stats.unread} Unread
+              {stats.unread} {t("pages.notifications.unread")}
             </span>
           )}
         </div>
@@ -245,11 +268,11 @@ const Notification = () => {
         <DataTable
           columns={columns}
           data={notifications}
-          searchPlaceholder="Search notifications..."
+          searchPlaceholder={t("pages.notifications.searchPlaceholder")}
           searchKeys={["title", "message", "vehicle", "type"]}
           pageSize={10}
           loading={loading}
-          emptyMessage="No notifications found"
+          emptyMessage={t("pages.notifications.emptyMessage")}
         />
       </div>
     </div>

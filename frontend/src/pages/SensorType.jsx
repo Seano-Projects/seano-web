@@ -16,9 +16,11 @@ import useNotify from "../hooks/useNotify";
 import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 import DeleteConfirmModal from "../components/Widgets/DeleteConfirmModal";
+import useTranslation from "../hooks/useTranslation";
 
 const SensorType = () => {
-  useTitle("Sensor Type");
+  const { t } = useTranslation();
+  useTitle(t("pages.management.sensorType.title"));
   const notify = useNotify();
   const [showAddSensorTypeModal, setShowAddSensorTypeModal] = useState(false);
   const [showEditSensorTypeModal, setShowEditSensorTypeModal] = useState(false);
@@ -154,15 +156,15 @@ const SensorType = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <Title
-          title="Sensor Type Management"
-          subtitle="Manage and configure sensor type categories"
+          title={t("pages.management.sensorType.title")}
+          subtitle={t("pages.management.sensorType.subtitle")}
         />
         <button
           onClick={() => setShowAddSensorTypeModal(true)}
           className="font-semibold flex items-center gap-4 px-3 py-2 rounded-lg text-white hover:bg-blue-700 transition duration-300 cursor-pointer hover:shadow-lg hover:shadow-fourth/50 bg-fourth dark:hover:bg-blue-700"
         >
           <TbCategory size={20} />
-          Add Sensor Type
+          {t("pages.management.sensorType.add")}
         </button>
       </div>
       {/* Widgets */}
@@ -212,7 +214,7 @@ const SensorType = () => {
         onConfirm={
           deleteTarget?.isBulk ? handleConfirmBulkDelete : handleConfirmDelete
         }
-        title="Delete Sensor Type"
+        title={t("pages.management.sensorType.deleteTitle")}
         itemName={
           deleteTarget?.isBulk
             ? `${deleteTarget.ids.length} sensor type(s)`

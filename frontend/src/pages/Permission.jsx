@@ -11,9 +11,11 @@ import DeleteConfirmModal from "../components/Widgets/DeleteConfirmModal";
 import usePermissionData from "../hooks/usePermissionData";
 import { API_ENDPOINTS } from "../config";
 import { Title, toast } from "../components/ui";
+import useTranslation from "../hooks/useTranslation";
 
 const Permission = () => {
-  useTitle("Permission");
+  const { t } = useTranslation();
+  useTitle(t("pages.management.permission.title"));
   const { permissionData, loading, actions } = usePermissionData();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -131,15 +133,15 @@ const Permission = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <Title
-          title="Permission Management"
-          subtitle="Manage your permissions"
+          title={t("pages.management.permission.title")}
+          subtitle={t("pages.management.permission.subtitle")}
         />
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer"
         >
           <FaPlus size={16} />
-          Add Permission
+          {t("pages.management.permission.add")}
         </button>
       </div>
 
@@ -159,7 +161,7 @@ const Permission = () => {
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
           onSubmit={handleAddPermission}
-          title="Add New Permission"
+          title={t("pages.management.permission.addModalTitle")}
         />
       )}
 
@@ -201,7 +203,7 @@ const Permission = () => {
               ? handleConfirmBulkDelete
               : handleConfirmDelete
           }
-          title="Delete Permission"
+          title={t("pages.management.permission.deleteTitle")}
           itemName={
             selectedPermission.isBulk
               ? `${selectedPermission.ids.length} permission(s)`

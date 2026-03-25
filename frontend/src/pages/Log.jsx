@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useLogData } from "../hooks/useLogData";
 import { useAlertData } from "../hooks/useAlertData";
 import useVehicleData from "../hooks/useVehicleData";
@@ -19,12 +19,23 @@ import {
   FiShield,
   FiAlertTriangle,
 } from "react-icons/fi";
+import useTranslation from "../hooks/useTranslation";
 
 const Log = () => {
+  const { t } = useTranslation();
+  const tr = (key, params = {}) => {
+    let text = t(key);
+    Object.entries(params).forEach(([paramKey, value]) => {
+      text = text.replace(`{{${paramKey}}}`, String(value));
+    });
+    return text;
+  };
+
   const { stats, vehicleLogs, sensorLogs, rawLogs, loading } = useLogData();
   const { alerts } = useAlertData();
   const { vehicles, loading: vehicleLoading } = useVehicleData();
   const [activeTab, setActiveTab] = useState("vehicle");
+  const hasInitializedVehicleSelection = useRef(false);
 
   // Get Anti Theft and Failsafe logs from alerts
   const antiTheftLogs = useMemo(() => {
@@ -49,6 +60,29 @@ const Log = () => {
   const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+
+  useEffect(() => {
+    if (vehicleLoading) return;
+
+    if (!vehicles || vehicles.length === 0) {
+      setSelectedVehicle("");
+      hasInitializedVehicleSelection.current = false;
+      return;
+    }
+
+    if (!hasInitializedVehicleSelection.current && !selectedVehicle) {
+      setSelectedVehicle(vehicles[0]);
+      hasInitializedVehicleSelection.current = true;
+      return;
+    }
+
+    if (
+      selectedVehicle?.id &&
+      !vehicles.some((vehicle) => vehicle.id === selectedVehicle.id)
+    ) {
+      setSelectedVehicle(vehicles[0]);
+    }
+  }, [vehicleLoading, vehicles, selectedVehicle]);
 
   // Use loading timeout to prevent infinite skeleton loading
   const { loading: timeoutLoading } = useLoadingTimeout(loading, 5000);
@@ -99,7 +133,7 @@ const Log = () => {
 
   const widgets = [
     {
-      title: "Vehicle Logs",
+      title: t("pages.logs.widgets.vehicle"),
       value: stats.vehicle_logs.total,
       icon: (
         <FiActivity className="text-blue-600 dark:text-blue-400" size={24} />
@@ -110,11 +144,13 @@ const Log = () => {
         ) : (
           <span className="text-red-600 dark:text-red-400">↓</span>
         ),
-      trendText: `${Math.abs(stats.vehicle_logs.percentage_change).toFixed(1)}% vs yesterday`,
+      trendText: tr("pages.logs.widgets.vsYesterday", {
+        count: Math.abs(stats.vehicle_logs.percentage_change).toFixed(1),
+      }),
       iconBgColor: "bg-blue-100 dark:bg-blue-900/30",
     },
     {
-      title: "Sensor Logs",
+      title: t("pages.logs.widgets.sensor"),
       value: stats.sensor_logs.total,
       icon: <FiCpu className="text-green-600 dark:text-green-400" size={24} />,
       trendIcon:
@@ -123,11 +159,13 @@ const Log = () => {
         ) : (
           <span className="text-red-600 dark:text-red-400">↓</span>
         ),
-      trendText: `${Math.abs(stats.sensor_logs.percentage_change).toFixed(1)}% vs yesterday`,
+      trendText: tr("pages.logs.widgets.vsYesterday", {
+        count: Math.abs(stats.sensor_logs.percentage_change).toFixed(1),
+      }),
       iconBgColor: "bg-green-100 dark:bg-green-900/30",
     },
     {
-      title: "Raw Logs",
+      title: t("pages.logs.widgets.raw"),
       value: stats.raw_logs.total,
       icon: (
         <FiFileText
@@ -141,11 +179,13 @@ const Log = () => {
         ) : (
           <span className="text-red-600 dark:text-red-400">↓</span>
         ),
-      trendText: `${Math.abs(stats.raw_logs.percentage_change).toFixed(1)}% vs yesterday`,
+      trendText: tr("pages.logs.widgets.vsYesterday", {
+        count: Math.abs(stats.raw_logs.percentage_change).toFixed(1),
+      }),
       iconBgColor: "bg-purple-100 dark:bg-purple-900/30",
     },
     {
-      title: "Anti Theft Logs",
+      title: t("pages.logs.widgets.antiTheft"),
       value: antiTheftLogs.length,
       icon: (
         <FiShield className="text-orange-600 dark:text-orange-400" size={24} />
@@ -156,12 +196,14 @@ const Log = () => {
         ) : null,
       trendText:
         antiTheftLogs.length > 0
-          ? `${antiTheftLogs.filter((a) => !a.acknowledged).length} unacknowledged`
-          : "No alerts",
+          ? tr("pages.logs.widgets.unacknowledged", {
+              count: antiTheftLogs.filter((a) => !a.acknowledged).length,
+            })
+          : t("pages.logs.widgets.noAlerts"),
       iconBgColor: "bg-orange-100 dark:bg-orange-900/30",
     },
     {
-      title: "Failsafe Logs",
+      title: t("pages.logs.widgets.failsafe"),
       value: failsafeLogs.length,
       icon: (
         <FiAlertTriangle className="text-red-600 dark:text-red-400" size={24} />
@@ -172,8 +214,10 @@ const Log = () => {
         ) : null,
       trendText:
         failsafeLogs.length > 0
-          ? `${failsafeLogs.filter((a) => !a.acknowledged).length} unacknowledged`
-          : "No alerts",
+          ? tr("pages.logs.widgets.unacknowledged", {
+              count: failsafeLogs.filter((a) => !a.acknowledged).length,
+            })
+          : t("pages.logs.widgets.noAlerts"),
       iconBgColor: "bg-red-100 dark:bg-red-900/30",
     },
   ];
@@ -390,7 +434,10 @@ const Log = () => {
     <div className="p-4">
       {/* Header with Title and Filters */}
       <div className="flex items-center justify-between mb-4">
-        <Title title="Logs" subtitle="Real-time log monitoring" />
+        <Title
+          title={t("pages.logs.title")}
+          subtitle={t("pages.logs.subtitle")}
+        />
 
         {/* Filters Section */}
         <div className="flex items-center gap-3">
@@ -405,7 +452,7 @@ const Log = () => {
                   setEndDate("");
                 }
               }}
-              placeholder="Start Date"
+              placeholder={t("pages.logs.startDate")}
               maxDate={endDate || new Date().toISOString().split("T")[0]}
               className="w-40"
             />
@@ -419,13 +466,15 @@ const Log = () => {
             />
 
             {/* Separator */}
-            <span className="text-gray-500 dark:text-gray-400 text-sm">to</span>
+            <span className="text-gray-500 dark:text-gray-400 text-sm">
+              {t("pages.logs.to")}
+            </span>
 
             {/* End Date */}
             <DatePickerField
               value={endDate}
               onChange={setEndDate}
-              placeholder="End Date"
+              placeholder={t("pages.logs.endDate")}
               minDate={startDate || undefined}
               className="w-40"
             />
@@ -446,10 +495,10 @@ const Log = () => {
               onVehicleChange={setSelectedVehicle}
               placeholder={
                 vehicleLoading
-                  ? "Loading vehicles..."
+                  ? t("pages.logs.loadingVehicles")
                   : !vehicles || vehicles.length === 0
-                    ? "No vehicles available"
-                    : "All Vehicles"
+                    ? t("pages.logs.noVehicles")
+                    : t("pages.logs.allVehicles")
               }
               className="text-sm"
               disabled={vehicleLoading}
@@ -471,7 +520,7 @@ const Log = () => {
                 setEndTime("");
               }}
               className="px-3 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 text-sm rounded-xl transition-all flex items-center gap-2 font-medium"
-              title="Clear all filters"
+              title={t("pages.logs.clearAllFilters")}
             >
               <svg
                 className="w-4 h-4"
@@ -486,7 +535,7 @@ const Log = () => {
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-              Clear
+              {t("pages.logs.clear")}
             </button>
           )}
         </div>
@@ -516,11 +565,7 @@ const Log = () => {
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
                   }`}
                 >
-                  {tab === "antitheft"
-                    ? "Anti Theft Logs"
-                    : tab === "failsafe"
-                      ? "Failsafe Logs"
-                      : tab.charAt(0).toUpperCase() + tab.slice(1) + " Logs"}
+                  {t(`pages.logs.tabs.${tab}`)}
                 </button>
               ),
             )}
@@ -533,10 +578,10 @@ const Log = () => {
             <DataTable
               columns={vehicleLogColumns}
               data={filteredVehicleLogs}
-              searchPlaceholder="Search vehicle logs..."
+              searchPlaceholder={t("pages.logs.searchVehicle")}
               searchKeys={["vehicle_code", "system_status"]}
               pageSize={10}
-              emptyMessage="No vehicle logs yet. Waiting for data..."
+              emptyMessage={t("pages.logs.emptyVehicle")}
             />
           </div>
         )}
@@ -547,10 +592,10 @@ const Log = () => {
             <DataTable
               columns={sensorLogColumns}
               data={filteredSensorLogs}
-              searchPlaceholder="Search sensor logs..."
+              searchPlaceholder={t("pages.logs.searchSensor")}
               searchKeys={["vehicle_code", "sensor_code"]}
               pageSize={10}
-              emptyMessage="No sensor logs yet. Waiting for data..."
+              emptyMessage={t("pages.logs.emptySensor")}
             />
           </div>
         )}
@@ -561,7 +606,7 @@ const Log = () => {
             <div className="space-y-3">
               {filteredRawLogs.length === 0 ? (
                 <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  No raw logs yet. Waiting for data...
+                  {t("pages.logs.emptyRaw")}
                 </p>
               ) : (
                 filteredRawLogs.map((log) => (
@@ -598,10 +643,10 @@ const Log = () => {
                     size={48}
                   />
                   <p className="text-gray-500 dark:text-gray-400 font-medium mb-2">
-                    No anti theft alerts found
+                    {t("pages.logs.emptyAntiTheft")}
                   </p>
                   <p className="text-sm text-gray-400 dark:text-gray-500">
-                    Vehicle is operating normally
+                    {t("pages.logs.normalOperation")}
                   </p>
                 </div>
               ) : (
@@ -619,7 +664,7 @@ const Log = () => {
                         </span>
                         {log.acknowledged && (
                           <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
-                            ✓ Acknowledged
+                            ✓ {t("pages.logs.acknowledged")}
                           </span>
                         )}
                       </div>
@@ -640,7 +685,7 @@ const Log = () => {
                         {log.severity || "info"}
                       </span>
                       <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
-                        ANTI-THEFT ALERT
+                        {t("pages.logs.alerts.antiTheft")}
                       </span>
                     </div>
                     <p className="text-sm text-gray-900 dark:text-gray-300">
@@ -648,7 +693,7 @@ const Log = () => {
                     </p>
                     {log.location && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        Location: {log.location}
+                        {t("pages.logs.location")}: {log.location}
                       </p>
                     )}
                   </div>
@@ -669,10 +714,10 @@ const Log = () => {
                     size={48}
                   />
                   <p className="text-gray-500 dark:text-gray-400 font-medium mb-2">
-                    No failsafe alerts found
+                    {t("pages.logs.emptyFailsafe")}
                   </p>
                   <p className="text-sm text-gray-400 dark:text-gray-500">
-                    Vehicle is operating normally
+                    {t("pages.logs.normalOperation")}
                   </p>
                 </div>
               ) : (
@@ -690,7 +735,7 @@ const Log = () => {
                         </span>
                         {log.acknowledged && (
                           <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
-                            ✓ Acknowledged
+                            ✓ {t("pages.logs.acknowledged")}
                           </span>
                         )}
                       </div>
@@ -711,7 +756,7 @@ const Log = () => {
                         {log.severity || "info"}
                       </span>
                       <span className="text-xs font-semibold text-red-700 dark:text-red-300">
-                        FAILSAFE ALERT
+                        {t("pages.logs.alerts.failsafe")}
                       </span>
                     </div>
                     <p className="text-sm text-gray-900 dark:text-gray-300">
@@ -719,7 +764,7 @@ const Log = () => {
                     </p>
                     {log.location && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        Location: {log.location}
+                        {t("pages.logs.location")}: {log.location}
                       </p>
                     )}
                   </div>

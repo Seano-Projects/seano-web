@@ -13,9 +13,11 @@ import useNotify from "../hooks/useNotify";
 import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 import DeleteConfirmModal from "../components/Widgets/DeleteConfirmModal";
+import useTranslation from "../hooks/useTranslation";
 
 const Sensor = () => {
-  useTitle("Sensor");
+  const { t } = useTranslation();
+  useTitle(t("pages.management.sensor.title"));
   const notify = useNotify();
   const { hasPermission } = usePermission();
   const [showAddSensorModal, setShowAddSensorModal] = useState(false);
@@ -152,8 +154,8 @@ const Sensor = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <Title
-          title="Sensor Management"
-          subtitle="Manage and monitor all sensor devices"
+          title={t("pages.management.sensor.title")}
+          subtitle={t("pages.management.sensor.subtitle")}
         />
         {hasPermission("sensor.manage") && (
           <button
@@ -161,7 +163,7 @@ const Sensor = () => {
             className="font-semibold flex items-center gap-4 px-3 py-2 rounded-lg text-white hover:bg-blue-700 transition duration-300 cursor-pointer hover:shadow-lg hover:shadow-fourth/50 bg-fourth dark:hover:bg-blue-700"
           >
             <TbPhotoSensor size={20} />
-            Add Sensor
+            {t("pages.management.sensor.add")}
           </button>
         )}
       </div>
@@ -212,7 +214,7 @@ const Sensor = () => {
         onConfirm={
           deleteTarget?.isBulk ? handleConfirmBulkDelete : handleConfirmDelete
         }
-        title="Delete Sensor"
+        title={t("pages.management.sensor.deleteTitle")}
         itemName={
           deleteTarget?.isBulk
             ? `${deleteTarget.ids.length} sensor(s)`

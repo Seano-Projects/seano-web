@@ -181,7 +181,7 @@ export const API_ENDPOINTS = {
 
   // Vehicle control commands (ARM/DISARM/MODE via MQTT)
   CONTROL: {
-    COMMAND: vehicleCode => `${API_BASE_URL}/api/control/${vehicleCode}/command`
+    COMMAND: vehicleCode => `${API_BASE_URL}/control/${vehicleCode}/command`
   }
 }
 

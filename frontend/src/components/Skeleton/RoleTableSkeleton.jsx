@@ -17,7 +17,7 @@ const RoleTableSkeleton = ({ rows = 5, columns = [] }) => {
                   className={`px-6 py-4 text-sm text-gray-900 dark:text-gray-100 ${column.cellClassName || ""}`}
                   style={{ verticalAlign: "middle" }}
                 >
-                  <div className="w-4 h-4 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                  <div className="w-4 h-4 bg-gray-300 dark:bg-gray-800 rounded"></div>
                 </td>
               );
             }
@@ -30,7 +30,7 @@ const RoleTableSkeleton = ({ rows = 5, columns = [] }) => {
                   className={`px-6 py-4 text-sm text-gray-900 dark:text-gray-100 ${column.cellClassName || ""}`}
                   style={{ verticalAlign: "middle" }}
                 >
-                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-36"></div>
+                  <div className="h-4 bg-gray-300 dark:bg-gray-800 rounded w-36"></div>
                 </td>
               );
             }
@@ -43,7 +43,7 @@ const RoleTableSkeleton = ({ rows = 5, columns = [] }) => {
                   className={`px-6 py-4 text-sm text-gray-900 dark:text-gray-100 ${column.cellClassName || ""}`}
                   style={{ verticalAlign: "middle" }}
                 >
-                  <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-64"></div>
+                  <div className="h-4 bg-gray-300 dark:bg-gray-800 rounded w-64"></div>
                 </td>
               );
             }
@@ -57,9 +57,9 @@ const RoleTableSkeleton = ({ rows = 5, columns = [] }) => {
                   style={{ verticalAlign: "middle" }}
                 >
                   <div className="flex items-center justify-center gap-3 w-full h-full">
-                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
-                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
-                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-800 rounded"></div>
+                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-800 rounded"></div>
+                    <div className="w-8 h-8 bg-gray-300 dark:bg-gray-800 rounded"></div>
                   </div>
                 </td>
               );
@@ -72,7 +72,7 @@ const RoleTableSkeleton = ({ rows = 5, columns = [] }) => {
                 className={`px-6 py-4 text-sm text-gray-900 dark:text-gray-100 ${column.cellClassName || ""}`}
                 style={{ verticalAlign: "middle" }}
               >
-                <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-28"></div>
+                <div className="h-3 bg-gray-300 dark:bg-gray-800 rounded w-28"></div>
               </td>
             );
           })}

@@ -13,9 +13,11 @@ import usePermissionData from "../hooks/usePermissionData";
 import { API_ENDPOINTS } from "../config";
 import { Title, toast } from "../components/ui";
 import useNotify from "../hooks/useNotify";
+import useTranslation from "../hooks/useTranslation";
 
 const Role = () => {
-  useTitle("Role");
+  const { t } = useTranslation();
+  useTitle(t("pages.management.role.title"));
   const notify = useNotify();
   const { roleData, loading, actions } = useRoleData();
   const { permissionData } = usePermissionData();
@@ -260,13 +262,16 @@ const Role = () => {
     <div className="p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <Title title="Role Management" subtitle="Manage your role" />
+        <Title
+          title={t("pages.management.role.title")}
+          subtitle={t("pages.management.role.subtitle")}
+        />
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium cursor-pointer"
         >
           <FaPlus size={16} />
-          Add Role
+          {t("pages.management.role.add")}
         </button>
       </div>
 
@@ -328,7 +333,7 @@ const Role = () => {
           onConfirm={
             selectedRole.isBulk ? handleConfirmBulkDelete : handleConfirmDelete
           }
-          title="Delete Role"
+          title={t("pages.management.role.deleteTitle")}
           itemName={
             selectedRole.isBulk
               ? `${selectedRole.ids.length} role(s)`

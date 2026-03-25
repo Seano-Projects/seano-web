@@ -4,6 +4,7 @@ import useTranslation from "../hooks/useTranslation";
 import useControlCommand from "../hooks/useControlCommand";
 import useVehicleData from "../hooks/useVehicleData";
 import { useLogData } from "../hooks/useLogData";
+import useMissionData from "../hooks/useMissionData";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -101,12 +102,14 @@ const AutoCenterController = ({
 };
 
 const Control = () => {
-  useTitle("Control");
   const { t } = useTranslation();
+  useTitle(t("nav.control"));
   const { sendCommand, isLoading: commandLoading } = useControlCommand();
   const { vehicles } = useVehicleData();
   const { vehicleLogs } = useLogData();
+  const { missionData, getActiveMissions } = useMissionData();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const hasInitializedVehicleSelection = useRef(false);
   const [activeMode, setActiveMode] = useState("MANUAL");
   const [leftMotor, setLeftMotor] = useState(0);
   const [rightMotor, setRightMotor] = useState(0);
@@ -118,11 +121,35 @@ const Control = () => {
   const [showDisarmConfirm, setShowDisarmConfirm] = useState(false);
   const [showArmConfirm, setShowArmConfirm] = useState(false);
   const [pendingMode, setPendingMode] = useState(null);
+  const [lastArmFailureMessage, setLastArmFailureMessage] = useState("");
 
   // Search coordinates state
   const [searchQuery, setSearchQuery] = useState("");
   const [mapCenter, setMapCenter] = useState(MAP_CENTER);
   const [mapZoom, setMapZoom] = useState(MAP_ZOOM);
+
+  useEffect(() => {
+    if (!vehicles || vehicles.length === 0) {
+      setSelectedVehicle(null);
+      hasInitializedVehicleSelection.current = false;
+      setLastArmFailureMessage("");
+      return;
+    }
+
+    if (!hasInitializedVehicleSelection.current && !selectedVehicle) {
+      setSelectedVehicle(vehicles[0]);
+      hasInitializedVehicleSelection.current = true;
+      return;
+    }
+
+    if (
+      selectedVehicle?.id &&
+      !vehicles.some((vehicle) => vehicle.id === selectedVehicle.id)
+    ) {
+      setSelectedVehicle(vehicles[0]);
+      setLastArmFailureMessage("");
+    }
+  }, [vehicles, selectedVehicle]);
 
   // Get latest vehicle log for selected vehicle
   const selectedVehicleLog = useMemo(() => {
@@ -482,6 +509,7 @@ const Control = () => {
   const modes = [
     { id: "MANUAL", icon: FaCog },
     { id: "AUTO", icon: FaArrowUp },
+    { id: "HOLD", icon: FaLock },
     { id: "LOITER", icon: TbAnchor },
     { id: "RTL", icon: FaHome },
   ];
@@ -587,10 +615,11 @@ const Control = () => {
   const handleDisarmConfirm = async () => {
     setShowDisarmConfirm(false);
     toast.info(t("control.missionControl.sendingCommand"));
-    const result = await sendCommand(selectedVehicle?.code, "disarm");
+    const result = await sendCommand(selectedVehicle?.code, "DISARM");
     if (result.success) {
       setIsArmed(false);
       setPowerOn(false);
+      setLastArmFailureMessage("");
       toast.success(t("control.missionControl.disarmSuccess"));
     } else {
       handleCommandError(result);
@@ -600,13 +629,28 @@ const Control = () => {
   const handleArmConfirm = async () => {
     setShowArmConfirm(false);
     toast.info(t("control.missionControl.sendingCommand"));
-    const result = await sendCommand(selectedVehicle?.code, "arm");
+    const result = await sendCommand(selectedVehicle?.code, "ARM");
     if (result.success) {
       setIsArmed(true);
+      setLastArmFailureMessage("");
       toast.success(t("control.missionControl.armSuccess"));
     } else {
+      setLastArmFailureMessage(result.message || "ARM failed");
       handleCommandError(result);
     }
+  };
+
+  const handleForceArm = async () => {
+    toast.info("Sending FORCE_ARM command...");
+    const result = await sendCommand(selectedVehicle?.code, "FORCE_ARM");
+    if (result.success) {
+      setIsArmed(true);
+      setLastArmFailureMessage("");
+      toast.success("Force arm success");
+      return;
+    }
+
+    handleCommandError(result);
   };
 
   const handleModeChangeRequest = (modeId) => {
@@ -620,11 +664,7 @@ const Control = () => {
     const modeToSet = pendingMode;
     setPendingMode(null);
     toast.info(t("control.missionControl.sendingCommand"));
-    const result = await sendCommand(
-      selectedVehicle?.code,
-      "set_mode",
-      modeToSet,
-    );
+    const result = await sendCommand(selectedVehicle?.code, modeToSet);
     if (result.success) {
       setActiveMode(modeToSet);
       toast.success(
@@ -745,7 +785,7 @@ const Control = () => {
                 <button
                   onClick={() => setIsVesselTelemetryExpanded(false)}
                   className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${muteCls}`}
-                  title="Collapse"
+                  title={t("common.collapse")}
                 >
                   <FaChevronUp className="text-sm" />
                 </button>
@@ -845,65 +885,100 @@ const Control = () => {
                 </div>
               </div>
 
-              {/* Mission Progress */}
-              <div>
-                <p
-                  className={`text-xs ${muteCls} uppercase tracking-wider mb-2`}
-                >
-                  {t("control.missionControl.missionProgress")}
-                </p>
-                <div className="space-y-3">
-                  {/* Current Waypoint */}
-                  <div
-                    className={`rounded-lg p-3 bg-blue-500/20 border border-blue-500/50`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <p className={`text-sm font-medium ${textCls}`}>
-                        01 Entrance Buoy
-                      </p>
-                      <span className="text-blue-500 shrink-0">
-                        <TbRoute className="w-5 h-5" />
-                      </span>
-                    </div>
-                    <p className={`text-xs ${muteCls}`}>
-                      {t("control.missionControl.activeTarget")}
-                    </p>
-                  </div>
+              {/* Mission Progress - Only show if vehicle selected and has active mission */}
+              {selectedVehicle &&
+                (() => {
+                  const activeMissions = getActiveMissions();
+                  const vehicleMission = activeMissions.find((m) => {
+                    // Check if mission is for this vehicle
+                    const missionVehicle =
+                      typeof m.vehicle === "string"
+                        ? m.vehicle
+                        : m.vehicle?.name || m.vehicle?.code;
+                    return (
+                      missionVehicle === selectedVehicle?.name ||
+                      missionVehicle === selectedVehicle?.code
+                    );
+                  });
 
-                  {/* Progress Bar */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`text-xs ${muteCls}`}>
-                        {t("control.missionControl.overallProgress")}
-                      </span>
-                      <span className={`text-xs font-medium text-blue-500`}>
-                        33%
-                      </span>
-                    </div>
-                    <div
-                      className={`w-full h-2 ${barTrackCls} rounded-full overflow-hidden`}
-                    >
-                      <div
-                        className="h-full bg-blue-500 transition-all duration-300"
-                        style={{ width: "33%" }}
-                      />
-                    </div>
-                    <p className={`text-xs ${muteCls} mt-1`}>
-                      1 {t("control.missionControl.waypointsOf")} 3{" "}
-                      {t("control.missionControl.waypointsLabel")}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                  if (!vehicleMission) return null;
 
-              {/* Clear Mission */}
-              <button
-                type="button"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors"
-              >
-                <FaTrashAlt className="text-sm" />{" "}
-                {t("control.missionControl.clearMission")}
-              </button>
+                  const currentWaypoint = vehicleMission.current_waypoint || 0;
+                  const totalWaypoints = vehicleMission.total_waypoints || 0;
+                  const progress = Math.round(vehicleMission.progress || 0);
+                  const currentWaypointData =
+                    vehicleMission.waypoints?.[currentWaypoint];
+                  const waypointName =
+                    currentWaypointData?.name ||
+                    `Waypoint ${currentWaypoint + 1}`;
+
+                  return (
+                    <>
+                      <div>
+                        <p
+                          className={`text-xs ${muteCls} uppercase tracking-wider mb-2`}
+                        >
+                          {t("control.missionControl.missionProgress")}
+                        </p>
+                        <div className="space-y-3">
+                          {/* Current Waypoint */}
+                          <div
+                            className={`rounded-lg p-3 bg-blue-500/20 border border-blue-500/50`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <p className={`text-sm font-medium ${textCls}`}>
+                                {waypointName}
+                              </p>
+                              <span className="text-blue-500 shrink-0">
+                                <TbRoute className="w-5 h-5" />
+                              </span>
+                            </div>
+                            <p className={`text-xs ${muteCls}`}>
+                              {t("control.missionControl.activeTarget")}
+                            </p>
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`text-xs ${muteCls}`}>
+                                {t("control.missionControl.overallProgress")}
+                              </span>
+                              <span
+                                className={`text-xs font-medium text-blue-500`}
+                              >
+                                {progress}%
+                              </span>
+                            </div>
+                            <div
+                              className={`w-full h-2 ${barTrackCls} rounded-full overflow-hidden`}
+                            >
+                              <div
+                                className="h-full bg-blue-500 transition-all duration-300"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                            <p className={`text-xs ${muteCls} mt-1`}>
+                              {currentWaypoint}{" "}
+                              {t("control.missionControl.waypointsOf")}{" "}
+                              {totalWaypoints}{" "}
+                              {t("control.missionControl.waypointsLabel")}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Clear Mission */}
+                      <button
+                        type="button"
+                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors"
+                      >
+                        <FaTrashAlt className="text-sm" />{" "}
+                        {t("control.missionControl.clearMission")}
+                      </button>
+                    </>
+                  );
+                })()}
             </motion.section>
           )}
         </AnimatePresence>
@@ -953,7 +1028,7 @@ const Control = () => {
                 <button
                   onClick={() => setIsSearchExpanded(false)}
                   className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${muteCls}`}
-                  title="Collapse"
+                  title={t("common.collapse")}
                 >
                   <FaChevronUp className="text-xs" />
                 </button>
@@ -972,7 +1047,7 @@ const Control = () => {
                   <button
                     onClick={handleSearchCoordinates}
                     className="absolute right-2 p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
-                    title="Search"
+                    title={t("common.search")}
                   >
                     <FaSearch className="text-sm" />
                   </button>
@@ -1017,7 +1092,7 @@ const Control = () => {
                 <button
                   onClick={() => setIsThrustControlExpanded(false)}
                   className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${muteCls}`}
-                  title="Collapse"
+                  title={t("common.collapse")}
                 >
                   <FaChevronDown className="text-sm" />
                 </button>
@@ -1149,7 +1224,7 @@ const Control = () => {
                 <button
                   onClick={() => setIsMissionControlExpanded(false)}
                   className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${muteCls}`}
-                  title="Collapse"
+                  title={t("common.collapse")}
                 >
                   <FaChevronUp className="text-sm" />
                 </button>
@@ -1292,6 +1367,26 @@ const Control = () => {
                 </p>
               )}
 
+              {!isArmed && !showArmConfirm && lastArmFailureMessage && (
+                <div className="space-y-2">
+                  <p className="text-xs text-red-500">
+                    {lastArmFailureMessage}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={commandLoading || !selectedVehicle?.code}
+                    onClick={handleForceArm}
+                    className={`w-full rounded-lg py-2 text-sm font-medium transition-colors ${
+                      !selectedVehicle?.code || commandLoading
+                        ? "bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed opacity-60"
+                        : "bg-amber-500 hover:bg-amber-400 text-black"
+                    }`}
+                  >
+                    FORCE ARM
+                  </button>
+                </div>
+              )}
+
               {/* Control modes */}
               <div className="space-y-2">
                 {modes.map((m) => (
@@ -1388,7 +1483,7 @@ const Control = () => {
                 <button
                   onClick={() => setIsCameraExpanded(false)}
                   className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${muteCls}`}
-                  title="Collapse"
+                  title={t("common.collapse")}
                 >
                   <FaChevronDown className="text-sm" />
                 </button>

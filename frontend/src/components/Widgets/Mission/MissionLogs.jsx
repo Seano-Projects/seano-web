@@ -1,20 +1,26 @@
-import React, { useState, useEffect, useRef } from "react";
-import {
-  FaShip,
-  FaFilter,
-  FaDownload,
-  FaEye,
-  FaFileExport,
-} from "react-icons/fa";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { FaShip, FaFilter } from "react-icons/fa";
 import { VehicleDropdown, DatePickerField, Dropdown } from "../index";
 import useMissionData from "../../../hooks/useMissionData";
 
-const STATUS_OPTIONS = [
-  { value: "All Status", label: "Semua Status" },
-  { value: "Ongoing", label: "Ongoing (42)" },
-  { value: "Completed", label: "Completed" },
-  { value: "Failed", label: "Failed" },
-];
+const normalizeStatus = (status) => {
+  if (!status) return "";
+  const normalized = String(status).toLowerCase();
+
+  if (["ongoing", "active", "running", "in_progress"].includes(normalized)) {
+    return "Ongoing";
+  }
+
+  if (["completed", "finished", "success"].includes(normalized)) {
+    return "Completed";
+  }
+
+  if (["failed", "error", "cancelled"].includes(normalized)) {
+    return "Failed";
+  }
+
+  return status;
+};
 
 const MissionLogs = ({
   vehicles = [],
@@ -27,12 +33,10 @@ const MissionLogs = ({
 }) => {
   const { missionData, loading, formatTimeElapsed, getEnergyStatus } =
     useMissionData();
-  const [statusFilter, setStatusFilter] = useState("Ongoing");
+  const [statusFilter, setStatusFilter] = useState("All Status");
   const [currentPage, setCurrentPage] = useState(1);
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
-  const [openActionRow, setOpenActionRow] = useState(null);
   const filterPopoverRef = useRef(null);
-  const actionMenuRef = useRef(null);
   const itemsPerPage = 10;
 
   const selectedVessel =
@@ -70,13 +74,40 @@ const MissionLogs = ({
       created: createdDate,
       vessel: vehicleName,
       vesselColor: getVehicleColor(mission.vehicle?.id || mission.vehicle_id),
-      status: mission.status,
+      status: normalizeStatus(mission.status),
       progress: Math.round(mission.progress || 0),
       energy: getEnergyStatus(mission),
       timeElapsed: formatTimeElapsed(mission.time_elapsed || 0),
       rawData: mission,
     };
   });
+
+  const statusCounts = useMemo(() => {
+    return missions.reduce(
+      (acc, mission) => {
+        const status = normalizeStatus(mission.status);
+        if (status === "Ongoing") acc.Ongoing += 1;
+        if (status === "Completed") acc.Completed += 1;
+        if (status === "Failed") acc.Failed += 1;
+        return acc;
+      },
+      {
+        Ongoing: 0,
+        Completed: 0,
+        Failed: 0,
+      },
+    );
+  }, [missions]);
+
+  const statusOptions = useMemo(
+    () => [
+      { value: "All Status", label: "Semua Status" },
+      { value: "Ongoing", label: `Ongoing (${statusCounts.Ongoing})` },
+      { value: "Completed", label: `Completed (${statusCounts.Completed})` },
+      { value: "Failed", label: `Failed (${statusCounts.Failed})` },
+    ],
+    [statusCounts],
+  );
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -158,46 +189,7 @@ const MissionLogs = ({
   const paginatedMissions = filteredMissions.slice(startIndex, endIndex);
   const totalPages = Math.ceil(filteredMissions.length / itemsPerPage);
 
-  // Export mission logs ke CSV
-  const handleExportCSV = () => {
-    const headers = [
-      "Mission ID",
-      "Name",
-      "Created",
-      "Vessel",
-      "Status",
-      "Progress (%)",
-      "Energy",
-      "Time Elapsed",
-    ];
-    const rows = filteredMissions.map((m) => [
-      m.id,
-      m.name,
-      m.created,
-      m.vessel,
-      m.status,
-      m.progress,
-      m.energy,
-      m.timeElapsed,
-    ]);
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((r) =>
-        r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","),
-      ),
-    ].join("\n");
-    const blob = new Blob(["\uFEFF" + csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mission-logs-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Click outside tutup filter popover & action menu
+  // Click outside tutup filter popover
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -206,17 +198,10 @@ const MissionLogs = ({
       ) {
         setFilterPopoverOpen(false);
       }
-      if (
-        openActionRow !== null &&
-        actionMenuRef.current &&
-        !actionMenuRef.current.contains(e.target)
-      ) {
-        setOpenActionRow(null);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [openActionRow]);
+  }, []);
 
   const resetAllFilters = () => {
     setStatusFilter("All Status");
@@ -224,43 +209,6 @@ const MissionLogs = ({
     onStartDateChange?.("");
     onEndDateChange?.("");
     setFilterPopoverOpen(false);
-  };
-
-  const exportRowCSV = (mission) => {
-    const headers = [
-      "Mission ID",
-      "Name",
-      "Created",
-      "Vessel",
-      "Status",
-      "Progress (%)",
-      "Energy",
-      "Time Elapsed",
-    ];
-    const row = [
-      mission.id,
-      mission.name,
-      mission.created,
-      mission.vessel,
-      mission.status,
-      mission.progress,
-      mission.energy,
-      mission.timeElapsed,
-    ];
-    const csv = [
-      headers.join(","),
-      row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","),
-    ].join("\n");
-    const blob = new Blob(["\uFEFF" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mission-${mission.id}-${mission.name.replace(/\s+/g, "-")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setOpenActionRow(null);
   };
 
   return (
@@ -274,22 +222,17 @@ const MissionLogs = ({
           <div className="flex items-center gap-4">
             {/* Filter Tabs */}
             <div className="flex gap-2">
-              {["All Status", "Ongoing (42)"].map((filter) => (
+              {statusOptions.slice(0, 2).map((filter) => (
                 <button
-                  key={filter}
-                  onClick={() =>
-                    setStatusFilter(
-                      filter === "Ongoing (42)" ? "Ongoing" : filter,
-                    )
-                  }
+                  key={filter.value}
+                  onClick={() => setStatusFilter(filter.value)}
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    statusFilter ===
-                    (filter === "Ongoing (42)" ? "Ongoing" : filter)
+                    statusFilter === filter.value
                       ? "bg-blue-600 text-white"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >
-                  {filter}
+                  {filter.label}
                 </button>
               ))}
             </div>
@@ -302,14 +245,6 @@ const MissionLogs = ({
                 className={`p-2 rounded-lg transition-colors ${filterPopoverOpen ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"}`}
               >
                 <FaFilter className="text-lg" />
-              </button>
-              <button
-                type="button"
-                onClick={handleExportCSV}
-                title="Export CSV"
-                className="p-2 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <FaDownload className="text-lg" />
               </button>
             </div>
           </div>
@@ -324,9 +259,9 @@ const MissionLogs = ({
                   Status
                 </label>
                 <Dropdown
-                  items={STATUS_OPTIONS}
+                  items={statusOptions}
                   selectedItem={
-                    STATUS_OPTIONS.find((o) => o.value === statusFilter) || null
+                    statusOptions.find((o) => o.value === statusFilter) || null
                   }
                   onItemChange={(item) => setStatusFilter(item.value)}
                   placeholder="Pilih status"
@@ -403,7 +338,7 @@ const MissionLogs = ({
             No missions found
           </div>
         ) : (
-          <div className="overflow-y-auto max-h-[600px] custom-scrollbar pr-3 space-y-3">
+          <div className="overflow-y-auto max-h-150 custom-scrollbar pr-3 space-y-3">
             {paginatedMissions.map((mission, index) => (
               <div
                 key={index}
@@ -472,62 +407,10 @@ const MissionLogs = ({
                   </div>
 
                   {/* Time Elapsed */}
-                  <div className="col-span-6 md:col-span-1">
+                  <div className="col-span-12 md:col-span-2">
                     <div className="text-sm font-medium text-black dark:text-white">
                       {mission.timeElapsed}
                     </div>
-                  </div>
-
-                  {/* Actions - titik tiga */}
-                  <div
-                    className="col-span-6 md:col-span-1 flex justify-end relative"
-                    ref={openActionRow === index ? actionMenuRef : null}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOpenActionRow(openActionRow === index ? null : index)
-                      }
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      title="Menu aksi"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                        />
-                      </svg>
-                    </button>
-                    {openActionRow === index && (
-                      <div className="absolute right-0 top-full mt-1 z-30 min-w-[160px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenActionRow(
-                              null,
-                            ); /* todo: navigate to mission detail */
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                        >
-                          <FaEye className="text-gray-500" /> Lihat detail
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => exportRowCSV(mission)}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                        >
-                          <FaFileExport className="text-gray-500" /> Export
-                          baris
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -539,8 +422,9 @@ const MissionLogs = ({
       {/* Pagination */}
       <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
         <div className="text-sm text-gray-600 dark:text-gray-400">
-          SHOWING {startIndex + 1}-{Math.min(endIndex, filteredMissions.length)}{" "}
-          OF {totalMissions} MISSIONS
+          SHOWING {totalMissions === 0 ? 0 : startIndex + 1}-
+          {Math.min(endIndex, filteredMissions.length)} OF {totalMissions}{" "}
+          MISSIONS
         </div>
         <div className="flex items-center gap-2">
           <button

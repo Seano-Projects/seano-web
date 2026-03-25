@@ -1,5 +1,6 @@
 import { memo } from "react";
 import useTitle from "../hooks/useTitle";
+import useTranslation from "../hooks/useTranslation";
 import { ViewMap } from "../components/Widgets";
 import {
   VehicleStatusPanel,
@@ -12,7 +13,8 @@ import {
 
 const Tracking = memo(
   ({ darkMode, selectedVehicle }) => {
-    useTitle("Tracking");
+    const { t } = useTranslation();
+    useTitle(t("nav.tracking"));
 
     return (
       <div className="w-full grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-5">
@@ -22,7 +24,7 @@ const Tracking = memo(
             <VehicleStatusPanel selectedVehicle={selectedVehicle} />
           </div>
           {/* Center - Map */}
-          <div className="z-0 min-h-120 h-90 md:h-165 col-span-1 order-1 lg:order-2 md:col-span-2 lg:col-span-6 bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden">
+          <div className="z-0 min-h-120 h-auto col-span-1 order-1 lg:order-2 md:col-span-2 lg:col-span-6 bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden">
             <ViewMap darkMode={darkMode} selectedVehicle={selectedVehicle} />
           </div>
           {/* Right Side - Telemetry Panel */}

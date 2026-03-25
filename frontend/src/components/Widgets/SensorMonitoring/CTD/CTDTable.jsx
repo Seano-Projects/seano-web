@@ -48,6 +48,60 @@ const CTDTable = ({ ctdData, loading = false, isConnected = false }) => {
       ),
     },
     {
+      header: "Latitude",
+      accessorKey: "latitude",
+      sortable: true,
+      className: "text-right",
+      cellClassName: "text-right",
+      cell: (row) => (
+        <span className="text-sm text-gray-900 dark:text-gray-300">
+          {typeof row.latitude === "number" ? row.latitude.toFixed(7) : "-"}
+        </span>
+      ),
+    },
+    {
+      header: "Longitude",
+      accessorKey: "longitude",
+      sortable: true,
+      className: "text-right",
+      cellClassName: "text-right",
+      cell: (row) => (
+        <span className="text-sm text-gray-900 dark:text-gray-300">
+          {typeof row.longitude === "number" ? row.longitude.toFixed(7) : "-"}
+        </span>
+      ),
+    },
+    {
+      header: "Altitude (m)",
+      accessorKey: "altitude",
+      sortable: true,
+      className: "text-right",
+      cellClassName: "text-right",
+      cell: (row) => (
+        <span className="text-sm text-gray-900 dark:text-gray-300">
+          {typeof row.altitude === "number" ? row.altitude.toFixed(2) : "-"}
+        </span>
+      ),
+    },
+    {
+      header: "GPS OK",
+      accessorKey: "gps_ok",
+      sortable: true,
+      cell: (row) => (
+        <span
+          className={`text-sm font-medium ${
+            row.gps_ok === true
+              ? "text-green-600 dark:text-green-400"
+              : row.gps_ok === false
+                ? "text-red-600 dark:text-red-400"
+                : "text-gray-500 dark:text-gray-400"
+          }`}
+        >
+          {row.gps_ok === true ? "Yes" : row.gps_ok === false ? "No" : "-"}
+        </span>
+      ),
+    },
+    {
       header: "Depth (m)",
       accessorKey: "depth",
       sortable: true,

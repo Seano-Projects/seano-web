@@ -622,7 +622,7 @@ const MissionUploadModal = ({
               Cancel
             </button>
             <button
-              onClick={onConfirm}
+              onClick={() => onConfirm(overrideSafety)}
               disabled={
                 !selectedVehicleId || (!vehicleState.isReady && !overrideSafety)
               }

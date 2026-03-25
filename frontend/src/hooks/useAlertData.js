@@ -1,21 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-
-// Auto-detect WebSocket URL from API URL
-const getWsUrl = () => {
-  if (import.meta.env.VITE_WS_URL) {
-    return import.meta.env.VITE_WS_URL
-  }
-  // Convert https:// to wss:// and http:// to ws://
-  const apiUrl = API_URL.replace('https://', 'wss://').replace(
-    'http://',
-    'ws://'
-  )
-  return apiUrl
-}
-const WS_URL = getWsUrl()
+import { API_BASE_URL, WS_URL } from '../config'
 
 /**
  * Custom hook untuk mengelola data alerts dari USV via WebSocket
@@ -63,7 +48,7 @@ export const useAlertData = () => {
     try {
       setLoading(true)
       const token = localStorage.getItem('access_token')
-      const response = await axios.get(`${API_URL}/api/alerts`, {
+      const response = await axios.get(`${API_BASE_URL}/alerts`, {
         headers: { Authorization: `Bearer ${token}` }
       })
 
@@ -208,7 +193,7 @@ export const useAlertData = () => {
     try {
       const token = localStorage.getItem('access_token')
       await axios.patch(
-        `${API_URL}/api/alerts/${alertId}/acknowledge`,
+        `${API_BASE_URL}/alerts/${alertId}/acknowledge`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -232,7 +217,7 @@ export const useAlertData = () => {
   const clearAllAlerts = useCallback(async () => {
     try {
       const token = localStorage.getItem('access_token')
-      await axios.delete(`${API_URL}/api/alerts/clear`, {
+      await axios.delete(`${API_BASE_URL}/alerts/clear`, {
         headers: { Authorization: `Bearer ${token}` }
       })
 
