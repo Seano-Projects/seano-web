@@ -22,6 +22,8 @@ type VehicleInfo struct {
 type VehicleLogData struct {
 	ID                  uint         `json:"id"`
 	VehicleID           uint         `json:"vehicle_id"`
+	MissionID           uint         `json:"mission_id,omitempty"`
+	MissionCode         *string      `json:"mission_code,omitempty"`
 	Vehicle             *VehicleInfo `json:"vehicle,omitempty"`
 	BatteryVoltage      *float64     `json:"battery_voltage,omitempty"`
 	BatteryCurrent      *float64     `json:"battery_current,omitempty"`

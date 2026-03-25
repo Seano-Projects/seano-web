@@ -29,6 +29,14 @@ func (r *VehicleLogRepository) GetVehicleLogs(query model.VehicleLogQuery) ([]mo
 	if query.VehicleID != 0 {
 		db = db.Where("vehicle_id = ?", query.VehicleID)
 	}
+
+	if query.MissionID != 0 {
+		db = db.Where("mission_id = ?", query.MissionID)
+	}
+
+	if query.MissionCode != "" {
+		db = db.Where("mission_code = ?", query.MissionCode)
+	}
 	
 	if !query.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", query.StartTime)
@@ -83,6 +91,14 @@ func (r *VehicleLogRepository) CountLogs(query model.VehicleLogQuery) (int64, er
 	
 	if query.VehicleID != 0 {
 		db = db.Where("vehicle_id = ?", query.VehicleID)
+	}
+
+	if query.MissionID != 0 {
+		db = db.Where("mission_id = ?", query.MissionID)
+	}
+
+	if query.MissionCode != "" {
+		db = db.Where("mission_code = ?", query.MissionCode)
 	}
 	
 	if !query.StartTime.IsZero() {

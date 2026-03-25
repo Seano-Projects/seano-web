@@ -5,12 +5,36 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // Waypoint represents a GPS waypoint with lat/lng coordinates
 type Waypoint struct {
-	Lat float64 `json:"lat"`
-	Lng float64 `json:"lng"`
+	Name     string    `json:"name,omitempty"`
+	Type     string    `json:"type,omitempty"`
+	Lat      float64   `json:"lat"`
+	Lng      float64   `json:"lng"`
+	Shape    string    `json:"shape,omitempty"`
+	Altitude float64   `json:"altitude,omitempty"`
+	Speed    float64   `json:"speed,omitempty"`
+	Delay    float64   `json:"delay,omitempty"`
+	Loiter   float64   `json:"loiter,omitempty"`
+	Radius   float64   `json:"radius,omitempty"`
+	Action   string    `json:"action,omitempty"`
+	Bounds   *Bounds   `json:"bounds,omitempty"`
+	Vertices []Waypoint `json:"vertices,omitempty"`
+	Pattern  string    `json:"pattern,omitempty"`
+	Coverage float64   `json:"coverage,omitempty"`
+	Overlap  float64   `json:"overlap,omitempty"`
+}
+
+type Bounds struct {
+	North float64 `json:"north"`
+	South float64 `json:"south"`
+	East  float64 `json:"east"`
+	West  float64 `json:"west"`
 }
 
 // WaypointArray is a custom type for JSON array of waypoints
@@ -36,6 +60,7 @@ func (w *WaypointArray) Scan(value interface{}) error {
 
 type Mission struct {
 	ID                uint          `json:"id" gorm:"primaryKey"`
+	MissionCode       string        `json:"mission_code" gorm:"type:varchar(64);uniqueIndex"`
 	Name              string        `json:"name" gorm:"type:varchar(200);not null"`
 	Description       string        `json:"description" gorm:"type:text"`
 	Status            string        `json:"status" gorm:"type:varchar(20);default:'Draft'"` // Draft, Ongoing, Completed, Failed, Cancelled
@@ -58,8 +83,16 @@ type Mission struct {
 	UpdatedAt         time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
+func (m *Mission) BeforeCreate(_ *gorm.DB) error {
+	if m.MissionCode == "" {
+		m.MissionCode = "MSN-" + uuid.New().String()[:8]
+	}
+	return nil
+}
+
 // Request/Response Models for Mission
 type CreateMissionRequest struct {
+	MissionCode  string     `json:"mission_code,omitempty" example:"MSN-a1b2c3d4"`
 	Name         string     `json:"name" example:"Mission Alpha"`
 	Description  string     `json:"description" example:"Survey mission in sector A"`
 	Status       string     `json:"status,omitempty" example:"Draft"`
@@ -72,6 +105,7 @@ type CreateMissionRequest struct {
 }
 
 type UpdateMissionRequest struct {
+	MissionCode        *string    `json:"mission_code,omitempty"`
 	Name              *string    `json:"name,omitempty"`
 	Description       *string    `json:"description,omitempty"`
 	Status            *string    `json:"status,omitempty"`
@@ -98,6 +132,7 @@ type MissionStats struct {
 
 type MissionProgressUpdate struct {
 	MissionID         uint      `json:"mission_id"`
+	MissionCode       string    `json:"mission_code,omitempty"`
 	Progress          float64   `json:"progress"`
 	EnergyConsumed    float64   `json:"energy_consumed"`
 	TimeElapsed       int64     `json:"time_elapsed"`

@@ -15,13 +15,15 @@ import (
 type VehicleLogHandler struct {
 	vehicleLogRepo *repository.VehicleLogRepository
 	vehicleRepo    *repository.VehicleRepository
+	missionRepo    *repository.MissionRepository
 	db             *gorm.DB
 }
 
-func NewVehicleLogHandler(vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB) *VehicleLogHandler {
+func NewVehicleLogHandler(vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, missionRepo *repository.MissionRepository, db *gorm.DB) *VehicleLogHandler {
 	return &VehicleLogHandler{
 		vehicleLogRepo: vehicleLogRepo,
 		vehicleRepo:    vehicleRepo,
+		missionRepo:    missionRepo,
 		db:             db,
 	}
 }
@@ -55,6 +57,20 @@ func (h *VehicleLogHandler) GetVehicleLogs(c *fiber.Ctx) error {
 			})
 		}
 		query.VehicleID = uint(id)
+	}
+
+	if missionID := c.Query("mission_id"); missionID != "" {
+		id, err := strconv.ParseUint(missionID, 10, 32)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid mission_id",
+			})
+		}
+		query.MissionID = uint(id)
+	}
+
+	if missionCode := c.Query("mission_code"); missionCode != "" {
+		query.MissionCode = missionCode
 	}
 
 	// Check permission: if not admin, filter by user's vehicles only
@@ -245,6 +261,8 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 	
 	log := &model.VehicleLog{
 		VehicleID:         req.VehicleID,
+		MissionID:         req.MissionID,
+		MissionCode:       req.MissionCode,
 		BatteryVoltage:    req.BatteryVoltage,
 		BatteryCurrent:    req.BatteryCurrent,
 		BatteryPercentage: batteryPercentage,
@@ -262,6 +280,18 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 		Pitch:             req.Pitch,
 		Yaw:               req.Yaw,
 		TemperatureSystem: tempSystem,
+	}
+
+	if log.MissionID == nil && req.MissionCode != nil && *req.MissionCode != "" && h.missionRepo != nil {
+		if mission, err := h.missionRepo.GetMissionByCode(*req.MissionCode); err == nil {
+			log.MissionID = &mission.ID
+		}
+	}
+
+	if log.MissionID != nil && (log.MissionCode == nil || *log.MissionCode == "") && h.missionRepo != nil {
+		if mission, err := h.missionRepo.GetMissionByID(*log.MissionID); err == nil {
+			log.MissionCode = &mission.MissionCode
+		}
 	}
 
 	if err := h.vehicleLogRepo.CreateVehicleLog(log); err != nil {

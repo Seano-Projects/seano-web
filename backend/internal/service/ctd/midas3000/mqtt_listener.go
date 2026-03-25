@@ -77,10 +77,10 @@ func (m *MQTTListener) Connect() error {
 }
 
 // Subscribe subscribes to MIDAS 3000 topics
-// Topic format: seano/{vehicle_code}/{sensor_code}/midas3000
+// Topic format: seano/{vehicle_code}/{sensor_code}/data
 func (m *MQTTListener) Subscribe() error {
 	// Subscribe to all MIDAS 3000 sensors using wildcard
-	topic := fmt.Sprintf("%s/+/+/midas3000", m.topicPrefix)
+	topic := fmt.Sprintf("%s/+/+/data", m.topicPrefix)
 	
 	token := m.client.Subscribe(topic, 1, m.messageHandler)
 	if token.Wait() && token.Error() != nil {
@@ -93,7 +93,7 @@ func (m *MQTTListener) Subscribe() error {
 
 // SubscribeToVehicle subscribes to all MIDAS 3000 sensors on a specific vehicle
 func (m *MQTTListener) SubscribeToVehicle(vehicleCode string) error {
-	topic := fmt.Sprintf("%s/%s/+/midas3000", m.topicPrefix, vehicleCode)
+	topic := fmt.Sprintf("%s/%s/+/data", m.topicPrefix, vehicleCode)
 	
 	token := m.client.Subscribe(topic, 1, m.messageHandler)
 	if token.Wait() && token.Error() != nil {
@@ -106,7 +106,7 @@ func (m *MQTTListener) SubscribeToVehicle(vehicleCode string) error {
 
 // SubscribeToSensor subscribes to a specific MIDAS 3000 sensor
 func (m *MQTTListener) SubscribeToSensor(vehicleCode, sensorCode string) error {
-	topic := fmt.Sprintf("%s/%s/%s/midas3000", m.topicPrefix, vehicleCode, sensorCode)
+	topic := fmt.Sprintf("%s/%s/%s/data", m.topicPrefix, vehicleCode, sensorCode)
 	
 	token := m.client.Subscribe(topic, 1, m.messageHandler)
 	if token.Wait() && token.Error() != nil {

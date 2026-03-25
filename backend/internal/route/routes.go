@@ -47,10 +47,10 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	vehicleHandler := handler.NewVehicleHandler(vehicleRepo, db)
 	vehicleSensorHandler := handler.NewVehicleSensorHandler(vehicleSensorRepo, vehicleRepo, sensorRepo, db)
 	sensorLogHandler := handler.NewSensorLogHandler(sensorLogRepo, vehicleRepo, db)
-	vehicleLogHandler := handler.NewVehicleLogHandler(vehicleLogRepo, vehicleRepo, db)
+	vehicleLogHandler := handler.NewVehicleLogHandler(vehicleLogRepo, vehicleRepo, missionRepo, db)
 	rawLogHandler := handler.NewRawLogHandler(rawLogRepo, vehicleRepo, db)
 	logStatsHandler := handler.NewLogStatsHandler(vehicleLogRepo, sensorLogRepo, rawLogRepo)
-	missionHandler := handler.NewMissionHandler(missionRepo, db)
+	missionHandler := handler.NewMissionHandler(missionRepo, vehicleRepo, cmdPublisher, db)
 	alertHandler := handler.NewAlertHandler(alertRepo, vehicleRepo, wsHub, db)
 	notificationHandler := handler.NewNotificationHandler(notificationRepo, db)
 	controlHandler := handler.NewControlHandler(cmdPublisher)
@@ -182,6 +182,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	missions.Get("/ongoing", missionHandler.GetOngoingMissions)       // Get all ongoing missions
 	missions.Get("/:mission_id", missionHandler.GetMissionByID)       // Ownership check in handler
 	missions.Put("/:mission_id", missionHandler.UpdateMission)        // Ownership check in handler
+	missions.Post("/:mission_id/upload-to-vehicle", missionHandler.UploadMissionToVehicle)
 	missions.Put("/:id/progress", missionHandler.UpdateMissionProgress) // Update mission progress
 	missions.Delete("/:mission_id", missionHandler.DeleteMission)     // Ownership check in handler
 

@@ -15,16 +15,20 @@ import (
 type CommandType string
 
 const (
-	CommandArm     CommandType = "arm"
-	CommandDisarm  CommandType = "disarm"
-	CommandSetMode CommandType = "set_mode"
+	CommandArm         CommandType = "ARM"
+	CommandForceArm    CommandType = "FORCE_ARM"
+	CommandDisarm      CommandType = "DISARM"
+	CommandForceDisarm CommandType = "FORCE_DISARM"
+	CommandAuto        CommandType = "AUTO"
+	CommandManual      CommandType = "MANUAL"
+	CommandHold        CommandType = "HOLD"
+	CommandLoiter      CommandType = "LOITER"
+	CommandRTL         CommandType = "RTL"
 )
 
 // CommandPayload is the MQTT message sent to hardware
 type CommandPayload struct {
-	Command   CommandType `json:"command"`
-	Mode      string      `json:"mode,omitempty"` // only for set_mode
-	RequestID string      `json:"request_id"`
+	Command CommandType `json:"command"`
 }
 
 // AckPayload is the MQTT feedback received from hardware
@@ -81,7 +85,7 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 
 // SendCommand publishes a command and waits for hardware ACK.
 // Returns error if MQTT publish fails or hardware does not respond within timeout.
-func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType, mode string) (*AckPayload, error) {
+func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType) (*AckPayload, error) {
 	ackTopic := fmt.Sprintf("seano/%s/ack", vehicleCode)
 	cmdTopic := fmt.Sprintf("seano/%s/command", vehicleCode)
 
@@ -96,21 +100,20 @@ func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType,
 	defer cp.client.Unsubscribe(ackTopic)
 
 	// Build command payload
+	requestID := uuid.New().String()
 	cmd := CommandPayload{
-		Command:   cmdType,
-		Mode:      mode,
-		RequestID: uuid.New().String(),
+		Command: cmdType,
 	}
 
 	// Register pending before publish (avoid race)
 	ch := make(chan AckPayload, 1)
 	cp.mu.Lock()
-	cp.pending[cmd.RequestID] = &pendingRequest{ch: ch}
+	cp.pending[requestID] = &pendingRequest{ch: ch}
 	cp.mu.Unlock()
 
 	defer func() {
 		cp.mu.Lock()
-		delete(cp.pending, cmd.RequestID)
+		delete(cp.pending, requestID)
 		cp.mu.Unlock()
 	}()
 
@@ -137,4 +140,28 @@ func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType,
 	case <-time.After(cp.timeout):
 		return nil, fmt.Errorf("hardware did not respond within %v", cp.timeout)
 	}
+}
+
+// PublishMission publishes mission payload to hardware without waiting for ACK.
+func (cp *CommandPublisher) PublishMission(vehicleCode string, payload interface{}) error {
+	if cp == nil || cp.client == nil {
+		return fmt.Errorf("MQTT publisher not configured")
+	}
+
+	missionTopic := fmt.Sprintf("seano/%s/mission", vehicleCode)
+	message, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal mission payload: %w", err)
+	}
+
+	token := cp.client.Publish(missionTopic, 1, false, message)
+	if !token.WaitTimeout(3 * time.Second) {
+		return fmt.Errorf("timeout publishing mission to MQTT broker")
+	}
+	if token.Error() != nil {
+		return fmt.Errorf("failed to publish mission payload: %w", token.Error())
+	}
+
+	log.Printf("📤 Mission published: topic=%s payload=%s", missionTopic, string(message))
+	return nil
 }

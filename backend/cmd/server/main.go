@@ -70,6 +70,7 @@ func main() {
 	vehicleSensorRepo := repository.NewVehicleSensorRepository(db)
 	vehicleRepo := repository.NewVehicleRepository(db)
 	sensorRepo := repository.NewSensorRepository(db)
+	missionRepo := repository.NewMissionRepository(db)
 	
 	// MIDAS 3000 handler (legacy)
 	midas3000Handler := midas3000.NewDataHandler(sensorLogRepo, vehicleSensorRepo, wsHub)
@@ -118,7 +119,7 @@ func main() {
 				// Create all listeners (they will auto-resubscribe on reconnect via paho library)
 				
 				// Vehicle Log Listener
-				vehicleLogListener := mqttservice.NewVehicleLogListener(mqttClient, vehicleLogRepo, vehicleRepo, wsHub)
+				vehicleLogListener := mqttservice.NewVehicleLogListener(mqttClient, vehicleLogRepo, vehicleRepo, missionRepo, wsHub)
 				if err := vehicleLogListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start vehicle log listener: %v", err)
 				}

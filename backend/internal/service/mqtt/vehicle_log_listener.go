@@ -19,15 +19,17 @@ type VehicleLogListener struct {
 	client         mqtt.Client
 	vehicleLogRepo *repository.VehicleLogRepository
 	vehicleRepo    *repository.VehicleRepository
+	missionRepo    *repository.MissionRepository
 	wsHub          *wsocket.Hub
 }
 
 // NewVehicleLogListener creates a new vehicle log listener
-func NewVehicleLogListener(client mqtt.Client, vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, wsHub *wsocket.Hub) *VehicleLogListener {
+func NewVehicleLogListener(client mqtt.Client, vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, missionRepo *repository.MissionRepository, wsHub *wsocket.Hub) *VehicleLogListener {
 	return &VehicleLogListener{
 		client:         client,
 		vehicleLogRepo: vehicleLogRepo,
 		vehicleRepo:    vehicleRepo,
+		missionRepo:    missionRepo,
 		wsHub:          wsHub,
 	}
 }
@@ -93,6 +95,26 @@ func (l *VehicleLogListener) handleMessage(client mqtt.Client, msg mqtt.Message)
 	log.Printf("   Found vehicle: ID=%d, Code=%s, Name=%s", vehicle.ID, vehicle.Code, vehicle.Name)
 	
 	data := payloadWithCode.CreateVehicleLogRequest
+
+	missionID := data.MissionID
+	missionCode := data.MissionCode
+	if missionID == nil && (missionCode == nil || *missionCode == "") && l.missionRepo != nil {
+		if activeMission, err := l.missionRepo.GetLatestActiveMissionByVehicleID(vehicle.ID); err == nil {
+			missionID = &activeMission.ID
+			missionCode = &activeMission.MissionCode
+			log.Printf("   Fallback mission mapping applied: mission_id=%d mission_code=%s", activeMission.ID, activeMission.MissionCode)
+		}
+	}
+	if missionID == nil && missionCode != nil && *missionCode != "" && l.missionRepo != nil {
+		if mission, err := l.missionRepo.GetMissionByCode(*missionCode); err == nil {
+			missionID = &mission.ID
+		}
+	}
+	if missionID != nil && (missionCode == nil || *missionCode == "") && l.missionRepo != nil {
+		if mission, err := l.missionRepo.GetMissionByID(*missionID); err == nil {
+			missionCode = &mission.MissionCode
+		}
+	}
 	
 	// Convert FlexibleString to *string for database
 	var tempSystem *string
@@ -118,6 +140,8 @@ func (l *VehicleLogListener) handleMessage(client mqtt.Client, msg mqtt.Message)
 	// Create vehicle log
 	vehicleLog := &model.VehicleLog{
 		VehicleID:         vehicle.ID,
+		MissionID:         missionID,
+		MissionCode:       missionCode,
 		BatteryVoltage:    data.BatteryVoltage,
 		BatteryCurrent:    data.BatteryCurrent,
 		BatteryPercentage: batteryPercentage,
@@ -153,6 +177,8 @@ func (l *VehicleLogListener) handleMessage(client mqtt.Client, msg mqtt.Message)
 				Code: vehicle.Code,
 				Name: vehicle.Name,
 			},
+			MissionID:         func() uint { if missionID != nil { return *missionID }; return 0 }(),
+			MissionCode:       missionCode,
 			BatteryVoltage:    vehicleLog.BatteryVoltage,
 			BatteryCurrent:    vehicleLog.BatteryCurrent,
 			BatteryPercentage: vehicleLog.BatteryPercentage,

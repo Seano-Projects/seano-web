@@ -47,6 +47,8 @@ type VehicleLog struct {
 	ID                uint      `json:"id" gorm:"primaryKey"`
 	VehicleID         uint      `json:"vehicle_id" gorm:"not null;index"`
 	Vehicle           *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:CASCADE"`
+	MissionID         *uint     `json:"mission_id,omitempty" gorm:"index"`
+	MissionCode       *string   `json:"mission_code,omitempty" gorm:"type:varchar(64);index"`
 	BatteryVoltage    *float64  `json:"battery_voltage" gorm:"type:numeric"`
 	BatteryCurrent    *float64  `json:"battery_current" gorm:"type:numeric"`
 	BatteryPercentage *float64  `json:"battery_percentage" gorm:"type:numeric"`
@@ -74,6 +76,8 @@ func (VehicleLog) TableName() string {
 // VehicleLogQuery for filtering logs
 type VehicleLogQuery struct {
 	VehicleID uint      `query:"vehicle_id"`
+	MissionID uint      `query:"mission_id"`
+	MissionCode string  `query:"mission_code"`
 	StartTime time.Time `query:"start_time"`
 	EndTime   time.Time `query:"end_time"`
 	Limit     int       `query:"limit"`
@@ -83,6 +87,8 @@ type VehicleLogQuery struct {
 // Request/Response Models for VehicleLog
 type CreateVehicleLogRequest struct {
 	VehicleID         uint             `json:"vehicle_id" example:"1"`
+	MissionID         *uint            `json:"mission_id,omitempty" example:"12"`
+	MissionCode       *string          `json:"mission_code,omitempty" example:"MSN-a1b2c3d4"`
 	BatteryVoltage    *float64         `json:"battery_voltage,omitempty" example:"12.5"`
 	BatteryCurrent    *float64         `json:"battery_current,omitempty" example:"2.3"`
 	BatteryPercentage *float64         `json:"battery_percentage,omitempty" example:"85.5"`

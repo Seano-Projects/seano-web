@@ -19,8 +19,7 @@ func NewControlHandler(cmdPublisher *mqttservice.CommandPublisher) *ControlHandl
 
 // SendCommandRequest is the request body for control commands
 type SendCommandRequest struct {
-	Command string `json:"command"` // "arm", "disarm", "set_mode"
-	Mode    string `json:"mode"`    // Required only for "set_mode"
+	Command string `json:"command"`
 }
 
 // SendCommand godoc
@@ -57,25 +56,18 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate command type
+	// Validate supported command
 	switch req.Command {
-	case "arm", "disarm", "set_mode":
+	case "ARM", "FORCE_ARM", "DISARM", "FORCE_DISARM", "AUTO", "MANUAL", "HOLD", "LOITER", "RTL":
 		// valid
 	default:
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "command must be one of: arm, disarm, set_mode",
-		})
-	}
-
-	// set_mode requires a mode
-	if req.Command == "set_mode" && req.Mode == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "mode is required for set_mode command",
+			"error": "command must be one of: ARM, FORCE_ARM, DISARM, FORCE_DISARM, AUTO, MANUAL, HOLD, LOITER, RTL",
 		})
 	}
 
 	// Send command and wait for hardware ACK
-	ack, err := h.cmdPublisher.SendCommand(vehicleCode, mqttservice.CommandType(req.Command), req.Mode)
+	ack, err := h.cmdPublisher.SendCommand(vehicleCode, mqttservice.CommandType(req.Command))
 	if err != nil {
 		return c.Status(fiber.StatusGatewayTimeout).JSON(fiber.Map{
 			"error":   err.Error(),
@@ -96,6 +88,5 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 		"status":  "ok",
 		"message": ack.Message,
 		"command": ack.Command,
-		"mode":    req.Mode,
 	})
 }

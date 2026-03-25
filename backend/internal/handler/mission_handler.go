@@ -4,23 +4,54 @@ import (
 	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
+	mqttservice "go-fiber-pgsql/internal/service/mqtt"
 	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type MissionHandler struct {
 	missionRepo *repository.MissionRepository
+	vehicleRepo *repository.VehicleRepository
+	cmdPublisher *mqttservice.CommandPublisher
 	db          *gorm.DB
 }
 
-func NewMissionHandler(missionRepo *repository.MissionRepository, db *gorm.DB) *MissionHandler {
+func NewMissionHandler(missionRepo *repository.MissionRepository, vehicleRepo *repository.VehicleRepository, cmdPublisher *mqttservice.CommandPublisher, db *gorm.DB) *MissionHandler {
 	return &MissionHandler{
 		missionRepo: missionRepo,
+		vehicleRepo: vehicleRepo,
+		cmdPublisher: cmdPublisher,
 		db:          db,
 	}
+}
+
+type UploadMissionParameters struct {
+	Speed    float64 `json:"speed,omitempty"`
+	Altitude float64 `json:"altitude,omitempty"`
+	Radius   float64 `json:"radius,omitempty"`
+}
+
+type UploadMissionRequest struct {
+	VehicleID    uint                   `json:"vehicle_id"`
+	MissionName  string                 `json:"mission_name,omitempty"`
+	Waypoints    []model.Waypoint       `json:"waypoints,omitempty"`
+	HomeLocation *model.Waypoint        `json:"home_location,omitempty"`
+	Parameters   UploadMissionParameters `json:"parameters,omitempty"`
+}
+
+type MissionMQTTPayload struct {
+	MissionID    uint                   `json:"mission_id"`
+	MissionCode  string                 `json:"mission_code"`
+	MissionName  string                 `json:"mission_name"`
+	VehicleID    uint                   `json:"vehicle_id"`
+	Waypoints    []model.Waypoint       `json:"waypoints,omitempty"`
+	HomeLocation *model.Waypoint        `json:"home_location,omitempty"`
+	Parameters   UploadMissionParameters `json:"parameters,omitempty"`
+	UploadedAt   time.Time              `json:"uploaded_at"`
 }
 
 // CreateMission godoc
@@ -57,6 +88,7 @@ func (h *MissionHandler) CreateMission(c *fiber.Ctx) error {
 	}
 
 	mission := &model.Mission{
+		MissionCode: req.MissionCode,
 		Name:        req.Name,
 		Description: req.Description,
 		Status:      status,
@@ -202,6 +234,9 @@ func (h *MissionHandler) UpdateMission(c *fiber.Ctx) error {
 	if req.Name != nil {
 		updates["name"] = *req.Name
 	}
+	if req.MissionCode != nil {
+		updates["mission_code"] = *req.MissionCode
+	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
 	}
@@ -234,6 +269,121 @@ func (h *MissionHandler) UpdateMission(c *fiber.Ctx) error {
 	mission, _ = h.missionRepo.GetMissionByID(uint(missionID))
 
 	return c.JSON(mission)
+}
+
+func (h *MissionHandler) UploadMissionToVehicle(c *fiber.Ctx) error {
+	missionID, err := strconv.Atoi(c.Params("mission_id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid mission ID",
+		})
+	}
+
+	if h.cmdPublisher == nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error": "MQTT broker not configured - mission upload unavailable",
+		})
+	}
+
+	mission, err := h.missionRepo.GetMissionByID(uint(missionID))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Mission not found",
+		})
+	}
+
+	userID := c.Locals("user_id").(uint)
+	role := c.Locals("role").(string)
+	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You don't have permission to upload this mission",
+		})
+	}
+
+	var req UploadMissionRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request data",
+		})
+	}
+
+	if req.VehicleID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "vehicle_id is required",
+		})
+	}
+
+	vehicle, err := h.vehicleRepo.GetVehicleByID(req.VehicleID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Vehicle not found",
+		})
+	}
+
+	if role != "Admin" && vehicle.UserID != userID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You don't have permission to use this vehicle",
+		})
+	}
+
+	updates := map[string]interface{}{
+		"vehicle_id": req.VehicleID,
+	}
+	if len(req.Waypoints) > 0 {
+		updates["waypoints"] = model.WaypointArray(req.Waypoints)
+	}
+	if req.HomeLocation != nil {
+		updates["home_location"] = req.HomeLocation
+	}
+	if mission.Status == "Draft" {
+		updates["status"] = "Ongoing"
+	}
+	if err := h.missionRepo.UpdateMission(uint(missionID), updates); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to prepare mission for upload",
+		})
+	}
+
+	mission, _ = h.missionRepo.GetMissionByID(uint(missionID))
+	if mission.MissionCode == "" {
+		generatedCode := "MSN-" + uuid.New().String()[:8]
+		if err := h.missionRepo.UpdateMission(uint(missionID), map[string]interface{}{"mission_code": generatedCode}); err == nil {
+			mission.MissionCode = generatedCode
+		}
+	}
+	payload := MissionMQTTPayload{
+		MissionID:    mission.ID,
+		MissionCode:  mission.MissionCode,
+		MissionName:  mission.Name,
+		VehicleID:    req.VehicleID,
+		Waypoints:    mission.Waypoints,
+		HomeLocation: mission.HomeLocation,
+		Parameters:   req.Parameters,
+		UploadedAt:   time.Now(),
+	}
+	if req.MissionName != "" {
+		payload.MissionName = req.MissionName
+	}
+	if len(req.Waypoints) > 0 {
+		payload.Waypoints = req.Waypoints
+	}
+	if req.HomeLocation != nil {
+		payload.HomeLocation = req.HomeLocation
+	}
+
+	if err := h.cmdPublisher.PublishMission(vehicle.Code, payload); err != nil {
+		return c.Status(fiber.StatusGatewayTimeout).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"status": "ok",
+		"message": "Mission uploaded to vehicle",
+		"mission_id": mission.ID,
+		"mission_code": mission.MissionCode,
+		"vehicle_code": vehicle.Code,
+	})
 }
 
 // DeleteMission godoc

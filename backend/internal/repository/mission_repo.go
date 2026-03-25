@@ -39,6 +39,28 @@ func (r *MissionRepository) GetMissionByID(id uint) (*model.Mission, error) {
 	return &mission, nil
 }
 
+func (r *MissionRepository) GetMissionByCode(code string) (*model.Mission, error) {
+	var mission model.Mission
+	err := r.db.Preload("Vehicle").Preload("Creator").Where("mission_code = ?", code).First(&mission).Error
+	if err != nil {
+		return nil, err
+	}
+	return &mission, nil
+}
+
+func (r *MissionRepository) GetLatestActiveMissionByVehicleID(vehicleID uint) (*model.Mission, error) {
+	var mission model.Mission
+	err := r.db.Preload("Vehicle").Preload("Creator").
+		Where("vehicle_id = ?", vehicleID).
+		Where("status = ?", "Ongoing").
+		Order("last_update_time DESC NULLS LAST, updated_at DESC").
+		First(&mission).Error
+	if err != nil {
+		return nil, err
+	}
+	return &mission, nil
+}
+
 func (r *MissionRepository) UpdateMission(id uint, updates map[string]interface{}) error {
 	return r.db.Model(&model.Mission{}).Where("id = ?", id).Updates(updates).Error
 }

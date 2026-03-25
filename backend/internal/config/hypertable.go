@@ -44,14 +44,41 @@ func SetupHypertables(db *gorm.DB) error {
 		log.Println("✓ Hypertable created: raw_logs")
 	}
 
+	chunkQueries := []string{
+		`SELECT set_chunk_time_interval('vehicle_logs', INTERVAL '1 day');`,
+		`SELECT set_chunk_time_interval('sensor_logs', INTERVAL '12 hours');`,
+		`SELECT set_chunk_time_interval('raw_logs', INTERVAL '1 day');`,
+	}
+
+	for _, query := range chunkQueries {
+		if err := db.Exec(query).Error; err != nil {
+			log.Printf("Warning: Chunk interval setup: %v", err)
+		}
+	}
+
 	compressionQueries := []string{
-		`ALTER TABLE sensor_logs SET (timescaledb.compress, timescaledb.compress_segmentby = 'vehicle_id, sensor_id');`,
+		`ALTER TABLE sensor_logs SET (
+			timescaledb.compress,
+			timescaledb.compress_segmentby = 'vehicle_id, sensor_id',
+			timescaledb.compress_orderby = 'created_at DESC'
+		);`,
+		`ALTER TABLE vehicle_logs SET (
+			timescaledb.compress,
+			timescaledb.compress_segmentby = 'vehicle_id',
+			timescaledb.compress_orderby = 'created_at DESC'
+		);`,
+		`ALTER TABLE raw_logs SET (
+			timescaledb.compress,
+			timescaledb.compress_segmentby = 'vehicle_id',
+			timescaledb.compress_orderby = 'created_at DESC'
+		);`,
+
+		`SELECT remove_compression_policy('sensor_logs', if_exists => TRUE);`,
+		`SELECT remove_compression_policy('vehicle_logs', if_exists => TRUE);`,
+		`SELECT remove_compression_policy('raw_logs', if_exists => TRUE);`,
+
 		`SELECT add_compression_policy('sensor_logs', INTERVAL '7 days', if_not_exists => TRUE);`,
-		
-		`ALTER TABLE vehicle_logs SET (timescaledb.compress, timescaledb.compress_segmentby = 'vehicle_id');`,
-		`SELECT add_compression_policy('vehicle_logs', INTERVAL '7 days', if_not_exists => TRUE);`,
-		
-		`ALTER TABLE raw_logs SET (timescaledb.compress);`,
+		`SELECT add_compression_policy('vehicle_logs', INTERVAL '14 days', if_not_exists => TRUE);`,
 		`SELECT add_compression_policy('raw_logs', INTERVAL '7 days', if_not_exists => TRUE);`,
 	}
 
@@ -64,9 +91,9 @@ func SetupHypertables(db *gorm.DB) error {
 	log.Println("✓ Hypertable compression policies configured")
 
 	retentionQueries := []string{
-		`SELECT add_retention_policy('sensor_logs', INTERVAL '90 days', if_not_exists => TRUE);`,
-		`SELECT add_retention_policy('vehicle_logs', INTERVAL '90 days', if_not_exists => TRUE);`,
-		`SELECT add_retention_policy('raw_logs', INTERVAL '30 days', if_not_exists => TRUE);`,
+		`SELECT remove_retention_policy('sensor_logs', if_exists => TRUE);`,
+		`SELECT remove_retention_policy('vehicle_logs', if_exists => TRUE);`,
+		`SELECT remove_retention_policy('raw_logs', if_exists => TRUE);`,
 	}
 
 	for _, query := range retentionQueries {
@@ -75,7 +102,7 @@ func SetupHypertables(db *gorm.DB) error {
 		}
 	}
 
-	log.Println("✓ Hypertable retention policies configured")
+	log.Println("✓ Hypertable retention policies removed (full history preserved)")
 
 	return nil
 }

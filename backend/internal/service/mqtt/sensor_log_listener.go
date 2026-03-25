@@ -96,12 +96,21 @@ func (l *SensorLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) 
 	
 	// Store raw JSON data
 	dataJSON := string(msg.Payload())
+
+	// Use sensor-provided event time when available.
+	createdAt := time.Now()
+	if dateTime, ok := payloadData["date_time"].(string); ok && dateTime != "" {
+		if parsedTime, err := time.Parse(time.RFC3339, dateTime); err == nil {
+			createdAt = parsedTime
+		}
+	}
 	
 	// Create sensor log
 	sensorLog := &model.SensorLog{
 		VehicleID: vehicle.ID,
 		SensorID:  sensor.ID,
 		Data:      dataJSON,
+		CreatedAt: createdAt,
 	}
 	
 	if err := l.sensorLogRepo.CreateSensorLog(sensorLog); err != nil {
