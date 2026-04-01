@@ -9,6 +9,7 @@ import {
   useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import Dropdown from "../../Dropdown";
 
 const MAX_POINTS = 80;
 const DEFAULT_CENTER = [-6.2, 106.8166667];
@@ -170,32 +171,33 @@ const TSDiagram = ({ ctdData }) => {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-600 dark:text-gray-400">Map</span>
-          <select
-            value={basemap}
-            onChange={(event) => setBasemap(event.target.value)}
-            className="bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-md px-2 py-1 text-xs text-gray-800 dark:text-gray-200"
-          >
-            {Object.entries(BASEMAPS).map(([key, config]) => (
-              <option key={key} value={key}>
-                {config.label}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            items={Object.entries(BASEMAPS).map(([key, config]) => ({
+              id: key,
+              name: config.label,
+            }))}
+            selectedItem={{ id: basemap, name: BASEMAPS[basemap].label }}
+            onItemChange={(item) => setBasemap(item.id)}
+            getItemKey={(item) => item.id}
+            className="w-32"
+          />
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-600 dark:text-gray-400">Heat</span>
-          <select
-            value={heatMetric}
-            onChange={(event) => setHeatMetric(event.target.value)}
-            className="bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-md px-2 py-1 text-xs text-gray-800 dark:text-gray-200"
-          >
-            {Object.entries(HEAT_METRICS).map(([key, config]) => (
-              <option key={key} value={key}>
-                {config.label}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            items={Object.entries(HEAT_METRICS).map(([key, config]) => ({
+              id: key,
+              name: config.label,
+            }))}
+            selectedItem={{
+              id: heatMetric,
+              name: HEAT_METRICS[heatMetric].label,
+            }}
+            onItemChange={(item) => setHeatMetric(item.id)}
+            getItemKey={(item) => item.id}
+            className="w-40"
+          />
         </div>
 
         <div className="flex items-center gap-2">

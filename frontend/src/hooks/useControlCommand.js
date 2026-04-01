@@ -150,7 +150,7 @@ const isPositiveStatus = value => {
 const waitForCommandAck = (client, vehicleCode, command) =>
   new Promise((resolve, reject) => {
     const topicVehicleCode = String(vehicleCode || '').trim()
-    const statusTopic = `seano/${topicVehicleCode}/status`
+    const statusTopic = `seano/${topicVehicleCode}/command/response`
     const normalizedCommand = normalizeText(command)
     const timeoutId = setTimeout(() => {
       cleanup()
@@ -283,6 +283,14 @@ const useControlCommand = () => {
       const errMsg = err.response?.data?.error || err.message
 
       if (!err.response) {
+        const msg = err.message || ''
+        if (
+          msg.includes('acknowledgement timeout') ||
+          msg.includes('publish timeout') ||
+          msg.includes('connect timeout')
+        ) {
+          return { success: false, error: 'timeout', message: errMsg }
+        }
         return { success: false, error: 'mqtt_unavailable', message: errMsg }
       }
 

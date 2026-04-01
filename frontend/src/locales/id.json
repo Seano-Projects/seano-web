@@ -329,11 +329,11 @@
       "title": "Telemetri Kapal",
       "placeholder": "Pilih kapal untuk dikontrol",
       "speed": "KECEPATAN",
-      "hdop": "HDOP",
+      "altitude": "KETINGGIAN",
       "gpsPosition": "POSISI GPS",
-      "satellites": "Satelit",
-      "latency": "Latensi",
-      "windSpd": "Kec. Angin"
+      "rssi": "RSSI",
+      "batteryVoltage": "Tegangan Baterai",
+      "batteryCurrent": "Arus Baterai"
     },
     "search": {
       "title": "Cari Koordinat",

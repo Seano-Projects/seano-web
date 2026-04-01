@@ -56,6 +56,9 @@ const Vehicle = () => {
                   vehicle.code || `USV-${String(vehicle.id).padStart(3, "0")}`,
                 type: vehicle.type || "USV",
                 role: vehicle.role || "Patrol",
+                battery_count: Number(vehicle.battery_count) === 1 ? 1 : 2,
+                battery_total_capacity_ah:
+                  Number(vehicle.battery_total_capacity_ah) || 20,
                 battery_level: vehicle.battery_level || 0,
                 rssi: vehicle.signal_strength
                   ? Math.round(vehicle.signal_strength)
@@ -247,6 +250,7 @@ const Vehicle = () => {
   // Force refresh vehicle data
   const refreshVehicles = () => {
     setRefreshTrigger((prev) => prev + 1);
+    window.dispatchEvent(new Event("vehiclesUpdated"));
   };
 
   const handleCreateOrUpdateVehicle = async (vehicleData, vehicleId = null) => {
@@ -334,6 +338,8 @@ const Vehicle = () => {
       name: vehicle.name,
       code: vehicle.code,
       description: vehicle.description,
+      battery_count: vehicle.battery_count,
+      battery_total_capacity_ah: vehicle.battery_total_capacity_ah,
       status: vehicle.statusRaw || vehicle.status.toLowerCase(),
       user_id: vehicle.user_id,
     };

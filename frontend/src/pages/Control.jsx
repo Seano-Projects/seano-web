@@ -15,8 +15,7 @@ import SlideToConfirm from "../components/ui/SlideToConfirm";
 import { toast } from "../components/ui";
 import {
   FaCompass,
-  FaSatelliteDish,
-  FaWind,
+  FaBolt,
   FaTachometerAlt,
   FaPowerOff,
   FaLock,
@@ -37,6 +36,20 @@ import usvPointIcon from "../assets/usv-point.webp";
 
 const MAP_CENTER = [45.4215, -75.6972];
 const MAP_ZOOM = 14;
+
+const normalizeStreamName = (rawValue = "") => {
+  const normalized = rawValue
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(new RegExp("\\/+", "g"), "/")
+    .replace(/^\/+|\/+$/g, "");
+
+  if (!normalized) return "";
+  if (normalized.startsWith("live/")) return normalized;
+
+  return `live/${normalized}`;
+};
 
 // Component to update map position
 const MapController = ({ center, zoom }) => {
@@ -179,13 +192,12 @@ const Control = () => {
       return {
         heading: 0,
         speed: 0,
-        hdop: 0,
+        altitude: null,
         latitude: null,
         longitude: null,
-        satellites: 0,
-        gps_fix: false,
-        latency: 0,
-        wind_speed: 0,
+        rssi: null,
+        battery_voltage: null,
+        battery_current: null,
         armed: false,
         mode: "MANUAL",
       };
@@ -194,16 +206,12 @@ const Control = () => {
     return {
       heading: selectedVehicleLog.heading || selectedVehicleLog.yaw || 0,
       speed: selectedVehicleLog.speed || 0,
-      hdop: selectedVehicleLog.hdop || 0,
+      altitude: selectedVehicleLog.altitude ?? null,
       latitude: selectedVehicleLog.latitude,
       longitude: selectedVehicleLog.longitude,
-      satellites:
-        selectedVehicleLog.satellites_visible ||
-        selectedVehicleLog.satellites ||
-        0,
-      gps_fix: selectedVehicleLog.gps_fix || false,
-      latency: selectedVehicleLog.latency || 0,
-      wind_speed: selectedVehicleLog.wind_speed || 0,
+      rssi: selectedVehicleLog.rssi ?? null,
+      battery_voltage: selectedVehicleLog.battery_voltage ?? null,
+      battery_current: selectedVehicleLog.battery_current ?? null,
       armed: selectedVehicleLog.armed || false,
       mode:
         selectedVehicleLog.mode || selectedVehicleLog.flight_mode || "MANUAL",
@@ -346,7 +354,7 @@ const Control = () => {
   // Auto-fill stream name from selected vehicle
   useEffect(() => {
     if (selectedVehicle?.code) {
-      setStreamName(selectedVehicle.code.toLowerCase().replace(/\s+/g, "-"));
+      setStreamName(normalizeStreamName(selectedVehicle.code));
     }
   }, [selectedVehicle]);
 
@@ -364,7 +372,9 @@ const Control = () => {
 
   const connectCamera = useCallback(
     async (name) => {
-      if (!name) return;
+      const normalizedName = normalizeStreamName(name);
+      if (!normalizedName) return;
+
       disconnectCamera();
       setCameraConnecting(true);
       try {
@@ -414,7 +424,7 @@ const Control = () => {
           check();
         });
 
-        const res = await fetch(`/mediamtx/${name}/whep`, {
+        const res = await fetch(`/mediamtx/${normalizedName}/whep`, {
           method: "POST",
           headers: { "Content-Type": "application/sdp" },
           body: sdpOffer,
@@ -825,10 +835,12 @@ const Control = () => {
                 </div>
                 <div className={`${panelCls} rounded-lg p-3`}>
                   <p className={`text-xs ${muteCls} mb-1`}>
-                    {t("control.vesselTelemetry.hdop")}
+                    {t("control.vesselTelemetry.altitude")}
                   </p>
                   <p className="text-xl font-bold text-green-500">
-                    {selectedVehicle ? telemetryData.hdop.toFixed(2) : "N/A"}
+                    {selectedVehicle && telemetryData.altitude !== null
+                      ? `${telemetryData.altitude.toFixed(1)} m`
+                      : "N/A"}
                   </p>
                 </div>
               </div>
@@ -854,32 +866,34 @@ const Control = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className={`flex items-center gap-2 ${muteCls}`}>
-                    <FaSatelliteDish className="text-blue-500" />{" "}
-                    {t("control.vesselTelemetry.satellites")}
+                    <FaSignal className="text-blue-500" />{" "}
+                    {t("control.vesselTelemetry.rssi")}
                   </span>
                   <span className={textCls}>
-                    {selectedVehicle
-                      ? `${telemetryData.satellites} ${telemetryData.gps_fix ? "Fixed" : "Searching"}`
+                    {selectedVehicle && telemetryData.rssi !== null
+                      ? `${telemetryData.rssi} dBm`
+                      : "N/A"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className={`flex items-center gap-2 ${muteCls}`}>
+                    <FaBolt className="text-blue-500" />{" "}
+                    {t("control.vesselTelemetry.batteryVoltage")}
+                  </span>
+                  <span className={textCls}>
+                    {selectedVehicle && telemetryData.battery_voltage !== null
+                      ? `${telemetryData.battery_voltage.toFixed(1)} V`
                       : "N/A"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className={`flex items-center gap-2 ${muteCls}`}>
                     <FaTachometerAlt className="text-blue-500" />{" "}
-                    {t("control.vesselTelemetry.latency")}
+                    {t("control.vesselTelemetry.batteryCurrent")}
                   </span>
                   <span className={textCls}>
-                    {selectedVehicle ? `${telemetryData.latency}ms` : "N/A"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className={`flex items-center gap-2 ${muteCls}`}>
-                    <FaWind className="text-blue-500" />{" "}
-                    {t("control.vesselTelemetry.windSpd")}
-                  </span>
-                  <span className={textCls}>
-                    {selectedVehicle
-                      ? `${telemetryData.wind_speed.toFixed(1)} km/h`
+                    {selectedVehicle && telemetryData.battery_current !== null
+                      ? `${telemetryData.battery_current.toFixed(1)} A`
                       : "N/A"}
                   </span>
                 </div>
@@ -1519,6 +1533,9 @@ const Control = () => {
                   type="text"
                   value={streamName}
                   onChange={(e) => setStreamName(e.target.value)}
+                  onBlur={(e) =>
+                    setStreamName(normalizeStreamName(e.target.value))
+                  }
                   placeholder={t("control.camera.streamPlaceholder")}
                   className={`flex-1 text-xs rounded-lg px-3 py-2 border bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 ${textCls} placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-blue-500`}
                 />

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import useTitle from "../hooks/useTitle";
 import useVehicleData from "../hooks/useVehicleData";
 import useBatteryData from "../hooks/useBatteryData";
@@ -46,13 +46,14 @@ const Battery = () => {
     }
   };
 
+  const batteryCount = Number(selectedVehicle?.battery_count) === 1 ? 1 : 2;
+
   // Get battery data for selected vehicle (no dummy data)
   const vehicleBatteries = batteryData[selectedVehicle?.id] || {
     1: null,
     2: null,
   };
-  const batteryA = vehicleBatteries[1] || null;
-  const batteryB = vehicleBatteries[2] || null;
+  const batteryUnits = ["A", "B"].slice(0, batteryCount);
 
   return (
     <div className="p-4">
@@ -81,9 +82,17 @@ const Battery = () => {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="grid grid-cols-1 gap-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <BatteryDisplay unit="A" battery={batteryA} index={0} />
-            <BatteryDisplay unit="B" battery={batteryB} index={1} />
+          <div
+            className={`grid grid-cols-1 gap-4 ${batteryCount === 2 ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}
+          >
+            {batteryUnits.map((unit, index) => (
+              <BatteryDisplay
+                key={unit}
+                unit={unit}
+                battery={vehicleBatteries[index + 1] || null}
+                index={index}
+              />
+            ))}
           </div>
           <div className="">
             <BatteryStatusInfo

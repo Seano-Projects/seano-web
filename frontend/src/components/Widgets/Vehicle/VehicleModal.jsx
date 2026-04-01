@@ -3,6 +3,23 @@ import { Modal } from "../../ui";
 import { Dropdown } from "../";
 import { useAuthContext } from "../../../hooks/useAuthContext";
 
+const parseCapacity = (rawValue) => {
+  if (rawValue === null || rawValue === undefined) {
+    return null;
+  }
+
+  const numericValue = String(rawValue)
+    .replace(/,/g, ".")
+    .replace(/[^0-9.]/g, "");
+
+  if (!numericValue) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(numericValue);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
   const { user } = useAuthContext();
   const [loading, setLoading] = useState(false);
@@ -10,8 +27,16 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
     name: "",
     code: "",
     description: "",
+    battery_count: "2",
+    battery_total_capacity_ah: "20",
     status: "idle",
   });
+
+  // Battery count options
+  const batteryCountOptions = [
+    { id: "1", name: "1 Battery" },
+    { id: "2", name: "2 Battery" },
+  ];
 
   // Status options
   const statusOptions = [
@@ -41,6 +66,12 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
         name: editData.name || "",
         code: editData.code || "",
         description: editData.description || "",
+        battery_count: editData.battery_count
+          ? String(editData.battery_count)
+          : "2",
+        battery_total_capacity_ah: editData.battery_total_capacity_ah
+          ? String(editData.battery_total_capacity_ah)
+          : "20",
         status: editData.statusRaw || editData.status || "idle",
       };
       setFormData(newFormData);
@@ -49,6 +80,8 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
         name: "",
         code: "",
         description: "",
+        battery_count: "2",
+        battery_total_capacity_ah: "20",
         status: "idle",
       });
     }
@@ -62,10 +95,16 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
     e.preventDefault();
     setLoading(true);
 
+    const parsedCapacity = parseCapacity(formData.battery_total_capacity_ah);
+    const parsedBatteryCount = Number(formData.battery_count) === 1 ? 1 : 2;
+
     const vehicleData = {
       name: formData.name,
       code: formData.code,
       description: formData.description || null,
+      battery_count: parsedBatteryCount,
+      battery_total_capacity_ah:
+        parsedCapacity && parsedCapacity > 0 ? parsedCapacity : 20,
       status: formData.status,
       user_id: user?.id || 1, // Use logged in user ID, default to 1
     };
@@ -86,6 +125,8 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       name: "",
       code: "",
       description: "",
+      battery_count: "2",
+      battery_total_capacity_ah: "20",
       status: "idle",
     });
     onClose();
@@ -154,6 +195,75 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
               placeholder="Enter vehicle description"
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent resize-none"
             />
+          </div>
+
+          {/* Battery Count */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+              Jumlah Battery Unit *
+            </label>
+            <Dropdown
+              items={batteryCountOptions}
+              selectedItem={
+                batteryCountOptions.find(
+                  (b) => b.id === formData.battery_count,
+                ) || batteryCountOptions[1]
+              }
+              onItemChange={(item) =>
+                setFormData((prev) => ({ ...prev, battery_count: item.id }))
+              }
+              placeholder="Select battery count"
+              getItemKey={(item) => item.id}
+              renderSelectedItem={(item) => (
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {item.name}
+                </span>
+              )}
+              renderItem={(item, isSelected) => (
+                <>
+                  <div className="flex-1">
+                    <div className="text-gray-900 dark:text-white font-medium">
+                      {item.name}
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className="text-[#018190] dark:text-white">
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </>
+              )}
+            />
+          </div>
+
+          {/* Total Battery Capacity */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+              Total Battery Capacity (Ah) *
+            </label>
+            <input
+              type="text"
+              name="battery_total_capacity_ah"
+              value={formData.battery_total_capacity_ah}
+              onChange={handleInputChange}
+              required
+              placeholder="e.g. 20"
+              inputMode="decimal"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Isi angka saja, satuan Ah otomatis.
+            </p>
           </div>
 
           {/* Status Dropdown */}

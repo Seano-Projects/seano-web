@@ -49,12 +49,36 @@ func (h *VehicleHandler) CreateVehicle(c *fiber.Ctx) error {
 		status = req.Status
 	}
 
+	batteryCount := 2
+	if req.BatteryCount != nil {
+		if *req.BatteryCount < 1 || *req.BatteryCount > 2 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "battery_count must be between 1 and 2",
+			})
+		}
+
+		batteryCount = *req.BatteryCount
+	}
+
+	batteryTotalCapacityAh := 20.0
+	if req.BatteryTotalCapacityAh != nil {
+		if *req.BatteryTotalCapacityAh <= 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "battery_total_capacity_ah must be greater than 0",
+			})
+		}
+
+		batteryTotalCapacityAh = *req.BatteryTotalCapacityAh
+	}
+
 	vehicle := &model.Vehicle{
-		Code:        req.Code,
-		Name:        req.Name,
-		Description: req.Description,
-		Status:      status,
-		UserID:      userID,
+		Code:                   req.Code,
+		Name:                   req.Name,
+		Description:            req.Description,
+		BatteryCount:           batteryCount,
+		BatteryTotalCapacityAh: batteryTotalCapacityAh,
+		Status:                 status,
+		UserID:                 userID,
 	}
 
 	if err := h.vehicleRepo.CreateVehicle(vehicle); err != nil {
@@ -226,6 +250,24 @@ func (h *VehicleHandler) UpdateVehicle(c *fiber.Ctx) error {
 	}
 	if req.Description != nil {
 		updates["description"] = *req.Description
+	}
+	if req.BatteryCount != nil {
+		if *req.BatteryCount < 1 || *req.BatteryCount > 2 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "battery_count must be between 1 and 2",
+			})
+		}
+
+		updates["battery_count"] = *req.BatteryCount
+	}
+	if req.BatteryTotalCapacityAh != nil {
+		if *req.BatteryTotalCapacityAh <= 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "battery_total_capacity_ah must be greater than 0",
+			})
+		}
+
+		updates["battery_total_capacity_ah"] = *req.BatteryTotalCapacityAh
 	}
 	if req.Status != nil {
 		updates["status"] = *req.Status

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FaBatteryFull,
   FaBolt,
@@ -6,53 +6,89 @@ import {
   FaInfoCircle,
 } from "react-icons/fa";
 
+const formatPercentage = (value) => {
+  const numeric = Number(value);
+
+  if (!Number.isFinite(numeric)) {
+    return "0";
+  }
+
+  return Number.isInteger(numeric) ? numeric.toFixed(0) : numeric.toFixed(1);
+};
+
 const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
   const [filter, setFilter] = useState("All");
+  const nominalCapacity =
+    Number(selectedVehicle?.battery_total_capacity_ah) > 0
+      ? Number(selectedVehicle.battery_total_capacity_ah)
+      : 20;
+  const batteryCount = Number(selectedVehicle?.battery_count) === 1 ? 1 : 2;
   const vehicleBatteries = batteryData[selectedVehicle?.id] || {
     1: null,
     2: null,
   };
-  const batteryA = vehicleBatteries[1];
-  const batteryB = vehicleBatteries[2];
+  const activeBatteries = Array.from({ length: batteryCount }, (_, index) => {
+    const batteryId = index + 1;
+    return vehicleBatteries[batteryId] || null;
+  });
+
+  useEffect(() => {
+    if (batteryCount === 1 && filter === "Battery B") {
+      setFilter("All");
+    }
+  }, [batteryCount, filter]);
 
   // Calculate stats based on filter
   const getCombinedStats = () => {
-    let batteries = [];
+    const selectedBatteryIndex =
+      filter === "Battery A" ? 0 : filter === "Battery B" ? 1 : null;
 
-    if (filter === "Battery A") {
-      batteries = batteryA ? [batteryA] : [];
-    } else if (filter === "Battery B") {
-      batteries = batteryB ? [batteryB] : [];
-    } else {
-      // All - combine both
-      batteries = [batteryA, batteryB].filter((b) => b !== null);
-    }
+    const batteriesForStats =
+      selectedBatteryIndex === null
+        ? activeBatteries
+        : [activeBatteries[selectedBatteryIndex] || null];
 
-    if (batteries.length === 0) {
+    const hasAnyData = batteriesForStats.some((battery) => battery !== null);
+    if (!hasAnyData) {
       return null;
     }
 
+    const denominator = selectedBatteryIndex === null ? batteryCount : 1;
+
+    const sumMetric = (picker) =>
+      batteriesForStats.reduce(
+        (sum, battery) => sum + (battery ? picker(battery) : 0),
+        0,
+      );
+
     const avgPercentage =
-      batteries.reduce((sum, b) => sum + (b.percentage || 0), 0) /
-      batteries.length;
+      sumMetric((battery) => battery.percentage || 0) / denominator;
     const avgVoltage =
-      batteries.reduce((sum, b) => sum + (b.voltage || 0), 0) /
-      batteries.length;
+      sumMetric((battery) => battery.voltage || 0) / denominator;
     const avgCurrent =
-      batteries.reduce((sum, b) => sum + (b.current || 0), 0) /
-      batteries.length;
+      sumMetric((battery) => battery.current || 0) / denominator;
     const avgTemp =
-      batteries.reduce((sum, b) => sum + (b.temperature || 0), 0) /
-      batteries.length;
+      sumMetric((battery) => battery.temperature || 0) / denominator;
+
+    const allCellVoltages = batteriesForStats.flatMap((battery) =>
+      battery && Array.isArray(battery.cell_voltages)
+        ? battery.cell_voltages
+        : [],
+    );
+
+    const deltaVoltage =
+      allCellVoltages.length > 1
+        ? Math.max(...allCellVoltages) - Math.min(...allCellVoltages)
+        : 0;
 
     return {
-      soc: Math.round(avgPercentage),
+      soc: avgPercentage,
       batteryVoltage: avgVoltage || 0,
       chargeCurrent: avgCurrent || 0,
       powerTubeTemp: avgTemp || 0,
-      deltaVoltage: 0.003,
-      remainingCapacity: (avgPercentage / 100) * 20,
-      nominalCapacity: 20.0,
+      deltaVoltage,
+      remainingCapacity: (avgPercentage / 100) * nominalCapacity,
+      nominalCapacity,
       cycleCount: 0,
       deviceName: "N/A",
       hardwareVersion: "N/A",
@@ -106,19 +142,21 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
           </h3>
         </div>
         <div className="flex gap-2">
-          {["All", "Battery A", "Battery B"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                filter === f
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+          {["All", ...["Battery A", "Battery B"].slice(0, batteryCount)].map(
+            (f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  filter === f
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                }`}
+              >
+                {f}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
@@ -132,7 +170,7 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
             </span>
           </div>
           <div className={`text-2xl font-bold ${getStatusColor()}`}>
-            {stats.soc}%
+            {formatPercentage(stats.soc)}%
           </div>
         </div>
 

@@ -5,6 +5,24 @@ import axiosInstance from "../../../utils/axiosConfig";
 import { API_ENDPOINTS } from "../../../config";
 import { WizardModal } from "../../ui";
 import useNotify from "../../../hooks/useNotify";
+import Dropdown from "../Dropdown";
+
+const parseCapacity = (rawValue) => {
+  if (rawValue === null || rawValue === undefined) {
+    return null;
+  }
+
+  const numericValue = String(rawValue)
+    .replace(/,/g, ".")
+    .replace(/[^0-9.]/g, "");
+
+  if (!numericValue) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(numericValue);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
   const notify = useNotify();
@@ -15,6 +33,8 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
     name: "",
     code: "",
     description: "",
+    battery_count: "2",
+    battery_total_capacity_ah: "20",
     selectedSensors: [],
   });
 
@@ -25,6 +45,8 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
         name: "",
         code: "",
         description: "",
+        battery_count: "2",
+        battery_total_capacity_ah: "20",
         selectedSensors: [],
       });
       fetchSensors();
@@ -58,6 +80,9 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
   };
 
   const handleNext = () => {
+    const parsedCapacity = parseCapacity(formData.battery_total_capacity_ah);
+    const parsedBatteryCount = Number(formData.battery_count);
+
     if (!formData.name.trim() || !formData.code.trim()) {
       notify.error("Name and Code are required", {
         title: "Validation Error",
@@ -65,6 +90,23 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
       });
       return;
     }
+
+    if (parsedBatteryCount !== 1 && parsedBatteryCount !== 2) {
+      notify.error("Battery count must be 1 or 2", {
+        title: "Validation Error",
+        persist: false,
+      });
+      return;
+    }
+
+    if (!parsedCapacity || parsedCapacity <= 0) {
+      notify.error("Total battery capacity must be greater than 0", {
+        title: "Validation Error",
+        persist: false,
+      });
+      return;
+    }
+
     setStep(2);
   };
 
@@ -74,6 +116,10 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
 
   const handleSubmit = async () => {
     setIsLoading(true);
+
+    const parsedCapacity = parseCapacity(formData.battery_total_capacity_ah);
+    const parsedBatteryCount = Number(formData.battery_count) === 1 ? 1 : 2;
+
     try {
       console.log("🎯 WIZARD: Creating vehicle with data:", formData);
 
@@ -83,6 +129,8 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
           name: formData.name,
           code: formData.code,
           description: formData.description,
+          battery_count: parsedBatteryCount,
+          battery_total_capacity_ah: parsedCapacity || 20,
         },
       );
 
@@ -246,6 +294,83 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
               placeholder="Describe the vehicle's purpose and configuration..."
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-black text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent resize-none"
             />
+          </div>
+
+          {/* Battery Count */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+              Jumlah Battery Unit *
+            </label>
+            <Dropdown
+              items={[
+                { id: "1", name: "1 Battery" },
+                { id: "2", name: "2 Battery" },
+              ]}
+              selectedItem={
+                [
+                  { id: "1", name: "1 Battery" },
+                  { id: "2", name: "2 Battery" },
+                ].find((b) => b.id === formData.battery_count) || {
+                  id: "2",
+                  name: "2 Battery",
+                }
+              }
+              onItemChange={(item) =>
+                setFormData((prev) => ({ ...prev, battery_count: item.id }))
+              }
+              placeholder="Select battery count"
+              getItemKey={(item) => item.id}
+              renderSelectedItem={(item) => (
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {item.name}
+                </span>
+              )}
+              renderItem={(item, isSelected) => (
+                <>
+                  <div className="flex-1">
+                    <div className="text-gray-900 dark:text-white font-medium">
+                      {item.name}
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className="text-[#018190] dark:text-white">
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </>
+              )}
+            />
+          </div>
+
+          {/* Total Battery Capacity */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+              Total Battery Capacity (Ah) *
+            </label>
+            <input
+              type="text"
+              name="battery_total_capacity_ah"
+              value={formData.battery_total_capacity_ah}
+              onChange={handleInputChange}
+              required
+              placeholder="e.g. 20"
+              autoComplete="off"
+              inputMode="decimal"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-black text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Isi angka saja, satuan Ah otomatis.
+            </p>
           </div>
         </div>
       ) : (

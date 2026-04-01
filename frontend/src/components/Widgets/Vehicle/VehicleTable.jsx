@@ -12,6 +12,7 @@ import { DataTable } from "../../ui";
 import DataCard from "../DataCard";
 import { VehicleTableSkeleton } from "../../Skeleton";
 import { useVehicleConnectionStatus } from "../../../hooks";
+import useBatteryData from "../../../hooks/useBatteryData";
 
 const VehicleTable = ({
   vehicleData,
@@ -23,6 +24,7 @@ const VehicleTable = ({
 }) => {
   const [selectedIds, setSelectedIds] = useState([]);
   const { getVehicleStatus } = useVehicleConnectionStatus();
+  const { batteryData } = useBatteryData();
 
   // Transform vehicle data with MQTT LWT realtime status
   const transformedData = vehicleData.map((veh) => {
@@ -43,6 +45,7 @@ const VehicleTable = ({
       name: veh.name || `Vehicle ${veh.id}`,
       description: veh.description || "",
       code: veh.code || `USV-${String(veh.id).padStart(3, "0")}`,
+      capacityLabel: `${(Number(veh.battery_total_capacity_ah) || 20).toFixed(1)} Ah`,
       status: displayStatus,
       statusRaw: veh.status,
       position:
@@ -69,6 +72,8 @@ const VehicleTable = ({
       points_id: veh.points_id,
       created_at: veh.created_at,
       updated_at: veh.updated_at,
+      battery_count: Number(veh.battery_count) === 1 ? 1 : 2,
+      battery_total_capacity_ah: Number(veh.battery_total_capacity_ah) || 20,
     };
   });
 
@@ -177,6 +182,9 @@ const VehicleTable = ({
           <div className="text-xs text-gray-500 dark:text-gray-400">
             {row.code}
           </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            Capacity: {row.capacityLabel}
+          </div>
         </div>
       ),
     },
@@ -197,11 +205,40 @@ const VehicleTable = ({
     {
       header: "Battery",
       accessorKey: "battery",
+      cell: (row) => {
+        const vehicleBatteries = batteryData?.[row.id] || {};
+        const batteryCount = row.battery_count || 1;
+        const units = ["A", "B"].slice(0, batteryCount);
+        return (
+          <div className="flex flex-col gap-1">
+            {units.map((unit, idx) => {
+              const batteryObj = vehicleBatteries[idx + 1];
+              const level = batteryObj
+                ? batteryObj.percentage
+                : idx === 0
+                  ? row.batteryLevel
+                  : 0;
+              return (
+                <div key={unit} className="flex items-center gap-2">
+                  {getBatteryIcon(level)}
+                  <span className="text-sm">{Math.round(level)}%</span>
+                  {batteryCount > 1 && (
+                    <span className="text-xs text-gray-400">{unit}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      },
+    },
+    {
+      header: "Capacity",
+      accessorKey: "battery_total_capacity_ah",
       cell: (row) => (
-        <div className="flex items-center gap-2">
-          {getBatteryIcon(row.batteryLevel)}
-          <span className="text-sm">{row.battery}</span>
-        </div>
+        <span className="text-sm text-gray-700 dark:text-gray-300">
+          {Number(row.battery_total_capacity_ah || 0).toFixed(1)} Ah
+        </span>
       ),
     },
     {
@@ -294,7 +331,14 @@ const VehicleTable = ({
         columns={columns}
         data={transformedData}
         searchPlaceholder="Search vehicles by name, code, or status..."
-        searchKeys={["name", "code", "status", "position"]}
+        searchKeys={[
+          "name",
+          "code",
+          "status",
+          "position",
+          "capacityLabel",
+          "battery_total_capacity_ah",
+        ]}
         pageSize={10}
         showPagination={true}
         emptyMessage="No vehicles found. Click 'Add Vehicle' to create one."

@@ -1,46 +1,55 @@
 import React from "react";
 import { FaTh } from "react-icons/fa";
 
+const getCells = (battery) => {
+  if (!battery) {
+    return null;
+  }
+
+  if (
+    Array.isArray(battery.cell_voltages) &&
+    battery.cell_voltages.length > 0
+  ) {
+    return battery.cell_voltages.map((voltage, index) => ({
+      cell: index + 1,
+      voltage: Number(voltage),
+    }));
+  }
+
+  if (battery.voltage && battery.cell_count) {
+    return Array.from({ length: battery.cell_count }, (_, index) => ({
+      cell: index + 1,
+      voltage: battery.voltage / battery.cell_count,
+    }));
+  }
+
+  return null;
+};
+
 const IndividualCellVoltages = ({ selectedVehicle, batteryData = {} }) => {
+  const batteryCount = Number(selectedVehicle?.battery_count) === 1 ? 1 : 2;
   const vehicleBatteries = batteryData[selectedVehicle?.id] || {
     1: null,
     2: null,
   };
-  const batteryA = vehicleBatteries[1];
-  const batteryB = vehicleBatteries[2];
 
-  // Cell voltages - use actual cell_voltages from MQTT or calculate from total voltage
-  const cellsA = batteryA
-    ? batteryA.cell_voltages && batteryA.cell_voltages.length > 0
-      ? batteryA.cell_voltages.map((voltage, i) => ({
-          cell: i + 1,
-          voltage,
-        }))
-      : batteryA.voltage && batteryA.cell_count
-        ? Array.from({ length: batteryA.cell_count }, (_, i) => ({
-            cell: i + 1,
-            voltage: batteryA.voltage / batteryA.cell_count,
-          }))
-        : null
-    : null;
+  const batteries = Array.from({ length: batteryCount }, (_, index) => {
+    const batteryId = index + 1;
+    const battery = vehicleBatteries[batteryId] || null;
 
-  const cellsB = batteryB
-    ? batteryB.cell_voltages && batteryB.cell_voltages.length > 0
-      ? batteryB.cell_voltages.map((voltage, i) => ({
-          cell: i + 1,
-          voltage,
-        }))
-      : batteryB.voltage && batteryB.cell_count
-        ? Array.from({ length: batteryB.cell_count }, (_, i) => ({
-            cell: i + 1,
-            voltage: batteryB.voltage / batteryB.cell_count,
-          }))
-        : null
-    : null;
+    return {
+      batteryId,
+      unit: batteryId === 1 ? "A" : "B",
+      colorClass: batteryId === 1 ? "text-blue-400" : "text-cyan-400",
+      battery,
+      cells: getCells(battery),
+    };
+  });
 
   const renderCell = (cell, unit) => {
-    const maxVoltage = 2.5;
-    const minVoltage = 1.8;
+    // Most battery cell telemetry here is in the 3.0V - 4.2V range.
+    const maxVoltage = 4.2;
+    const minVoltage = 3.0;
     const percentage =
       ((cell.voltage - minVoltage) / (maxVoltage - minVoltage)) * 100;
     const barColor = unit === "A" ? "bg-blue-500" : "bg-cyan-400";
@@ -50,7 +59,7 @@ const IndividualCellVoltages = ({ selectedVehicle, batteryData = {} }) => {
         key={cell.cell}
         className="flex items-center justify-between py-2.5 border-b border-gray-200 dark:border-gray-700/50"
       >
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-15">
           Cell {cell.cell}
         </span>
         <div className="flex items-center gap-4 flex-1 ml-4">
@@ -60,8 +69,8 @@ const IndividualCellVoltages = ({ selectedVehicle, batteryData = {} }) => {
               style={{ width: `${Math.max(0, Math.min(100, percentage))}%` }}
             />
           </div>
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-[45px] text-right">
-            {cell.voltage.toFixed(1)}V
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 min-w-14.5 text-right">
+            {cell.voltage.toFixed(3)}V
           </span>
         </div>
       </div>
@@ -77,43 +86,31 @@ const IndividualCellVoltages = ({ selectedVehicle, batteryData = {} }) => {
         </h3>
       </div>
 
-      {!cellsA && !cellsB ? (
+      {!batteries.some((item) => item.cells) ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           No cell voltage data available.
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-8 lg:gap-12">
-          {/* Battery A */}
-          <div className="flex flex-col">
-            <h4 className="text-sm font-medium text-blue-400 mb-4">
-              BATTERY A (9 CELLS)
-            </h4>
-            {cellsA ? (
-              <div className="overflow-y-auto max-h-60 custom-scrollbar space-y-1 pr-3">
-                {cellsA.map((cell) => renderCell(cell, "A"))}
-              </div>
-            ) : (
-              <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
-                No data
-              </div>
-            )}
-          </div>
-
-          {/* Battery B */}
-          <div className="flex flex-col">
-            <h4 className="text-sm font-medium text-cyan-400 mb-4">
-              BATTERY B (9 CELLS)
-            </h4>
-            {cellsB ? (
-              <div className="overflow-y-auto max-h-60 custom-scrollbar space-y-1 pr-3">
-                {cellsB.map((cell) => renderCell(cell, "B"))}
-              </div>
-            ) : (
-              <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
-                No data
-              </div>
-            )}
-          </div>
+        <div
+          className={`grid grid-cols-1 gap-8 ${batteryCount === 2 ? "lg:grid-cols-2 lg:gap-12" : "lg:grid-cols-1"}`}
+        >
+          {batteries.map((item) => (
+            <div key={item.batteryId} className="flex flex-col">
+              <h4 className={`text-sm font-medium ${item.colorClass} mb-4`}>
+                BATTERY {item.unit} (
+                {item.cells?.length || item.battery?.cell_count || 0} CELLS)
+              </h4>
+              {item.cells ? (
+                <div className="overflow-y-auto max-h-60 custom-scrollbar space-y-1 pr-3">
+                  {item.cells.map((cell) => renderCell(cell, item.unit))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+                  No data
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

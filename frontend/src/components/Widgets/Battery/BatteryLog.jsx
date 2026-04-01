@@ -2,6 +2,16 @@ import React, { useState, useMemo } from "react";
 import { FaDownload } from "react-icons/fa";
 import useBatteryData from "../../../hooks/useBatteryData";
 
+const formatPercentage = (value) => {
+  const numeric = Number(value);
+
+  if (!Number.isFinite(numeric)) {
+    return "0";
+  }
+
+  return Number.isInteger(numeric) ? numeric.toFixed(0) : numeric.toFixed(1);
+};
+
 const BatteryLog = ({ selectedVehicle }) => {
   const { getVehicleLogs } = useBatteryData();
   const [filterBattery, setFilterBattery] = useState(null); // null = all, 1 = A, 2 = B
@@ -32,7 +42,7 @@ const BatteryLog = ({ selectedVehicle }) => {
       status: log.status
         ? log.status.charAt(0).toUpperCase() + log.status.slice(1)
         : "Unknown",
-      level: `${log.percentage?.toFixed(0) || 0}%`,
+      level: `${formatPercentage(log.percentage)}%`,
       anomaly: detectAnomaly(log),
       statusType: log.status?.toLowerCase() || "unknown",
     }));

@@ -7,16 +7,18 @@ import (
 )
 
 type Vehicle struct {
-	ID             uint       `json:"id" gorm:"primaryKey"`
-	Code           string     `json:"code" gorm:"type:varchar(50);uniqueIndex;not null"` // Registration code & MQTT topic
-	Name           string     `json:"name" gorm:"type:varchar(100);not null"`
-	Description    string     `json:"description" gorm:"type:text"`
-	Status         string     `json:"status" gorm:"type:varchar(20);default:'active'"` // active, inactive, maintenance
-	ConnectionStatus string   `json:"connection_status" gorm:"type:varchar(20);default:'offline'"` // online, offline (MQTT LWT)
-	LastConnected  *time.Time `json:"last_connected,omitempty" gorm:"index"` // Last seen timestamp
-	UserID         uint       `json:"user_id" gorm:"not null;index"`
-	User           *User      `json:"user,omitempty" gorm:"foreignKey:UserID;constraint:OnDelete:RESTRICT"`
-	
+	ID                     uint       `json:"id" gorm:"primaryKey"`
+	Code                   string     `json:"code" gorm:"type:varchar(50);uniqueIndex;not null"`                  // Registration code & MQTT topic
+	Name                   string     `json:"name" gorm:"type:varchar(100);not null"`
+	Description            string     `json:"description" gorm:"type:text"`
+	BatteryCount           int        `json:"battery_count" gorm:"type:int;default:2"`                            // Number of battery units (1-2)
+	BatteryTotalCapacityAh float64    `json:"battery_total_capacity_ah" gorm:"type:decimal(10,2);default:20.00"` // Total battery pack capacity in Ah
+	Status                 string     `json:"status" gorm:"type:varchar(20);default:'active'"`                    // active, inactive, maintenance
+	ConnectionStatus       string     `json:"connection_status" gorm:"type:varchar(20);default:'offline'"`        // online, offline (MQTT LWT)
+	LastConnected          *time.Time `json:"last_connected,omitempty" gorm:"index"`                              // Last seen timestamp
+	UserID                 uint       `json:"user_id" gorm:"not null;index"`
+	User                   *User      `json:"user,omitempty" gorm:"foreignKey:UserID;constraint:OnDelete:RESTRICT"`
+
 	// Latest telemetry data (populated from vehicle_logs)
 	BatteryLevel   *float64   `json:"battery_level,omitempty" gorm:"-"`
 	SignalStrength *float64   `json:"signal_strength,omitempty" gorm:"-"`
@@ -24,9 +26,9 @@ type Vehicle struct {
 	Longitude      *float64   `json:"longitude,omitempty" gorm:"-"`
 	Temperature    *string    `json:"temperature,omitempty" gorm:"-"`
 	LastSeen       *time.Time `json:"last_seen,omitempty" gorm:"-"`
-	
-	CreatedAt      time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt      time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 type VehicleBattery struct {
@@ -46,15 +48,19 @@ type VehicleBattery struct {
 
 // Request/Response Models for Vehicle
 type CreateVehicleRequest struct {
-	Code        string `json:"code" example:"VEH-001"`
-	Name        string `json:"name" example:"Vehicle A"`
-	Description string `json:"description" example:"Main delivery vehicle"`
-	Status      string `json:"status,omitempty" example:"active"`
+	Code                   string   `json:"code" example:"VEH-001"`
+	Name                   string   `json:"name" example:"Vehicle A"`
+	Description            string   `json:"description" example:"Main delivery vehicle"`
+	BatteryCount           *int     `json:"battery_count,omitempty" example:"2"`
+	BatteryTotalCapacityAh *float64 `json:"battery_total_capacity_ah,omitempty" example:"20"`
+	Status                 string   `json:"status,omitempty" example:"active"`
 }
 
 type UpdateVehicleRequest struct {
-	Code        *string `json:"code,omitempty"`
-	Name        *string `json:"name,omitempty"`
-	Description *string `json:"description,omitempty"`
-	Status      *string `json:"status,omitempty"`
+	Code                   *string  `json:"code,omitempty"`
+	Name                   *string  `json:"name,omitempty"`
+	Description            *string  `json:"description,omitempty"`
+	BatteryCount           *int     `json:"battery_count,omitempty"`
+	BatteryTotalCapacityAh *float64 `json:"battery_total_capacity_ah,omitempty"`
+	Status                 *string  `json:"status,omitempty"`
 }

@@ -1,6 +1,73 @@
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 
+const parseNumber = value => {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const parseJsonValue = value => {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  if (Array.isArray(value) || typeof value === 'object') {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return null
+    }
+  }
+
+  return null
+}
+
+const parseCellVoltages = value => {
+  const parsed = parseJsonValue(value)
+
+  if (!Array.isArray(parsed)) {
+    return []
+  }
+
+  return parsed
+    .map(cellVoltage => parseNumber(cellVoltage))
+    .filter(cellVoltage => cellVoltage !== null)
+}
+
+const parseMetadata = value => {
+  const parsed = parseJsonValue(value)
+  return parsed && !Array.isArray(parsed) ? parsed : {}
+}
+
+const normalizeBatteryRecord = battery => {
+  const cellVoltages = parseCellVoltages(battery.cell_voltages)
+  const metadata = parseMetadata(battery.metadata)
+  const explicitCellCount = parseNumber(battery.cell_count)
+  const metadataCellCount = parseNumber(metadata.cell_count)
+
+  return {
+    battery_id: parseNumber(battery.battery_id) || 1,
+    percentage: parseNumber(battery.percentage) || 0,
+    voltage: parseNumber(battery.voltage) || 0,
+    current: parseNumber(battery.current) || 0,
+    temperature: parseNumber(battery.temperature) || 0,
+    status: battery.status || 'N/A',
+    cell_voltages: cellVoltages,
+    cell_count:
+      explicitCellCount || metadataCellCount || cellVoltages.length || 0,
+    timestamp:
+      battery.timestamp || battery.created_at || new Date().toISOString()
+  }
+}
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 // Auto-detect WebSocket URL from API URL
 const getWsUrl = () => {
@@ -15,6 +82,36 @@ const getWsUrl = () => {
   return apiUrl
 }
 const WS_URL = getWsUrl()
+const BATTERY_STORAGE_KEY = 'batteryData'
+
+const normalizeBatteryMap = rawBatteryMap => {
+  if (!rawBatteryMap || typeof rawBatteryMap !== 'object') {
+    return {}
+  }
+
+  const normalizedMap = {}
+
+  Object.entries(rawBatteryMap).forEach(([vehicleId, batteries]) => {
+    if (!batteries || typeof batteries !== 'object') {
+      return
+    }
+
+    const normalizedBatteries = { 1: null, 2: null }
+
+    Object.values(batteries).forEach(battery => {
+      if (!battery || typeof battery !== 'object') {
+        return
+      }
+
+      const normalizedBattery = normalizeBatteryRecord(battery)
+      normalizedBatteries[normalizedBattery.battery_id] = normalizedBattery
+    })
+
+    normalizedMap[vehicleId] = normalizedBatteries
+  })
+
+  return normalizedMap
+}
 
 export const useLogData = () => {
   const [stats, setStats] = useState({
@@ -31,8 +128,8 @@ export const useLogData = () => {
   const [batteryData, setBatteryData] = useState(() => {
     // Load from localStorage on init
     try {
-      const stored = localStorage.getItem('batteryData')
-      return stored ? JSON.parse(stored) : {}
+      const stored = localStorage.getItem(BATTERY_STORAGE_KEY)
+      return stored ? normalizeBatteryMap(JSON.parse(stored)) : {}
     } catch {
       return {}
     }
@@ -52,28 +149,30 @@ export const useLogData = () => {
 
       // Transform API response to batteryData format
       const latestBatteries = response.data || []
+
+      // Keep cached data if backend has no battery rows yet.
+      if (!Array.isArray(latestBatteries) || latestBatteries.length === 0) {
+        return
+      }
+
       const batteryMap = {}
 
       latestBatteries.forEach(battery => {
         const vehicleId = battery.vehicle_id
+        if (!vehicleId) {
+          return
+        }
+
         if (!batteryMap[vehicleId]) {
           batteryMap[vehicleId] = { 1: null, 2: null }
         }
-        // Assume battery_id from API or use index
-        const batteryId = battery.battery_id || 1
-        batteryMap[vehicleId][batteryId] = {
-          battery_id: batteryId,
-          percentage: battery.percentage,
-          voltage: battery.voltage,
-          current: battery.current,
-          temperature: battery.temperature,
-          status: battery.status,
-          timestamp: battery.created_at
-        }
+
+        const normalizedBattery = normalizeBatteryRecord(battery)
+        batteryMap[vehicleId][normalizedBattery.battery_id] = normalizedBattery
       })
 
       setBatteryData(batteryMap)
-      localStorage.setItem('batteryData', JSON.stringify(batteryMap))
+      localStorage.setItem(BATTERY_STORAGE_KEY, JSON.stringify(batteryMap))
     } catch (err) {
       // Keep localStorage data if API fails
     }
@@ -326,18 +425,12 @@ export const useLogData = () => {
               }
             }))
           } else if (message.type === 'battery') {
-            const {
-              vehicle_id,
-              battery_id,
-              percentage,
-              voltage,
-              current,
-              temperature,
-              status,
-              cell_voltages,
-              cell_count,
-              timestamp
-            } = message
+            const { vehicle_id } = message
+            if (!vehicle_id) {
+              return
+            }
+
+            const normalizedBattery = normalizeBatteryRecord(message)
 
             setBatteryData(prev => {
               const vehicleBatteries = prev[vehicle_id] || { 1: null, 2: null }
@@ -345,22 +438,15 @@ export const useLogData = () => {
                 ...prev,
                 [vehicle_id]: {
                   ...vehicleBatteries,
-                  [battery_id]: {
-                    battery_id,
-                    percentage,
-                    voltage,
-                    current,
-                    temperature,
-                    status,
-                    cell_voltages: cell_voltages || [],
-                    cell_count: cell_count || cell_voltages?.length || 0,
-                    timestamp: timestamp || new Date().toISOString()
-                  }
+                  [normalizedBattery.battery_id]: normalizedBattery
                 }
               }
               // Save to localStorage
               try {
-                localStorage.setItem('batteryData', JSON.stringify(newData))
+                localStorage.setItem(
+                  BATTERY_STORAGE_KEY,
+                  JSON.stringify(newData)
+                )
               } catch (e) {}
               return newData
             })

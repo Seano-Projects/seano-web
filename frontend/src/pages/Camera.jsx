@@ -16,6 +16,20 @@ import { toast } from "../components/ui";
 import Dropdown from "../components/Widgets/Dropdown";
 import WizardModal from "../components/ui/WizardModal";
 
+const normalizeStreamName = (rawValue = "") => {
+  const normalized = rawValue
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(new RegExp("\\/+", "g"), "/")
+    .replace(/^\/+|\/+$/g, "");
+
+  if (!normalized) return "";
+  if (normalized.startsWith("live/")) return normalized;
+
+  return `live/${normalized}`;
+};
+
 const Camera = () => {
   const { t } = useTranslation();
   useTitle(t("control.camera.title"));
@@ -40,7 +54,7 @@ const Camera = () => {
 
     const streamOptions = vehicles.map((vehicle) => {
       const code = vehicle?.code ?? vehicle?.name ?? "";
-      return "live/" + code.toLowerCase().replace(/\s+/g, "-");
+      return normalizeStreamName(code);
     });
 
     if (!streamName) {
@@ -67,7 +81,9 @@ const Camera = () => {
 
   const connectCamera = useCallback(
     async (name) => {
-      if (!name) return;
+      const normalizedName = normalizeStreamName(name);
+      if (!normalizedName) return;
+
       disconnectCamera();
       setCameraConnecting(true);
       try {
@@ -116,7 +132,7 @@ const Camera = () => {
           check();
         });
 
-        const res = await fetch(`/mediamtx/${name}/whep`, {
+        const res = await fetch(`/mediamtx/${normalizedName}/whep`, {
           method: "POST",
           headers: { "Content-Type": "application/sdp" },
           body: sdpOffer,
@@ -292,6 +308,7 @@ const Camera = () => {
           type="text"
           value={streamName}
           onChange={(e) => setStreamName(e.target.value)}
+          onBlur={(e) => setStreamName(normalizeStreamName(e.target.value))}
           onKeyDown={(e) =>
             e.key === "Enter" && !cameraConnected && connectCamera(streamName)
           }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -9,27 +9,65 @@ import {
 } from "recharts";
 import useBatteryData from "../../../hooks/useBatteryData";
 
+const formatPercentage = (value) => {
+  const numeric = Number(value);
+
+  if (!Number.isFinite(numeric)) {
+    return "0";
+  }
+
+  return Number.isInteger(numeric) ? numeric.toFixed(0) : numeric.toFixed(1);
+};
+
 const DualUnitAnalytics = ({ selectedVehicle }) => {
   const [filter, setFilter] = useState("Both");
   const { getVehicleLogs } = useBatteryData();
+  const batteryCount = Number(selectedVehicle?.battery_count) === 1 ? 1 : 2;
+
+  useEffect(() => {
+    if (batteryCount === 1 && filter === "Unit B") {
+      setFilter("Both");
+    }
+  }, [batteryCount, filter]);
 
   // Get chart data from real battery logs
   const chartData = useMemo(() => {
     if (!selectedVehicle?.id) return [];
 
-    const logs = getVehicleLogs(selectedVehicle.id, null, 30);
+    const logs = getVehicleLogs(selectedVehicle.id, null, 200).filter(
+      (log) => log?.timestamp,
+    );
 
     if (logs.length === 0) return [];
 
-    // Group logs by time (every 2 minutes) and get latest value for each battery
+    // Group by minute and keep latest sample for each battery in each minute bucket.
     const timeGroups = {};
 
     logs.forEach((log) => {
       const time = new Date(log.timestamp);
-      const timeKey = `${String(time.getHours()).padStart(2, "0")}:${String(Math.floor(time.getMinutes() / 2) * 2).padStart(2, "0")}`;
+      if (Number.isNaN(time.getTime())) {
+        return;
+      }
+
+      const timeKey = `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`;
+      const epoch =
+        new Date(
+          time.getFullYear(),
+          time.getMonth(),
+          time.getDate(),
+          time.getHours(),
+          time.getMinutes(),
+          0,
+          0,
+        ).getTime() / 1000;
 
       if (!timeGroups[timeKey]) {
-        timeGroups[timeKey] = { time: timeKey };
+        timeGroups[timeKey] = {
+          time: timeKey,
+          epoch,
+          "BATTERY A": null,
+          "BATTERY B": null,
+        };
       }
 
       if (log.battery_id === 1) {
@@ -39,7 +77,10 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
       }
     });
 
-    return Object.values(timeGroups).reverse().slice(0, 20);
+    return Object.values(timeGroups)
+      .sort((a, b) => a.epoch - b.epoch)
+      .slice(-10)
+      .map(({ epoch, ...item }) => item);
   }, [getVehicleLogs, selectedVehicle]);
 
   const filteredData = chartData.map((item) => {
@@ -60,7 +101,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
           </h3>
         </div>
         <div className="flex gap-2">
-          {["Both", "Unit A", "Unit B"].map((f) => (
+          {["Both", ...["Unit A", "Unit B"].slice(0, batteryCount)].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -77,7 +118,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
       </div>
 
       {/* Chart - No grid, Area Chart with Shadcn styling */}
-      <div className="h-[560px]" style={{ minHeight: "560px" }}>
+      <div className="h-140" style={{ minHeight: "560px" }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={filteredData}
@@ -134,7 +175,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
                           className="text-sm font-medium"
                           style={{ color: entry.color }}
                         >
-                          {entry.name}: {entry.value?.toFixed(1)}%
+                          {entry.name}: {formatPercentage(entry.value)}%
                         </p>
                       ))}
                     </div>
@@ -153,7 +194,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
                 fillOpacity={1}
               />
             )}
-            {filter !== "Unit A" && (
+            {batteryCount === 2 && filter !== "Unit A" && (
               <Area
                 type="monotone"
                 dataKey="BATTERY B"

@@ -329,11 +329,11 @@
       "title": "Vessel Telemetry",
       "placeholder": "Select a vessel to control",
       "speed": "SPEED",
-      "hdop": "HDOP",
+      "altitude": "ALTITUDE",
       "gpsPosition": "GPS POSITION",
-      "satellites": "Satellites",
-      "latency": "Latency",
-      "windSpd": "Wind Spd"
+      "rssi": "RSSI",
+      "batteryVoltage": "Bat. Voltage",
+      "batteryCurrent": "Bat. Current"
     },
     "search": {
       "title": "Search Coordinates",

@@ -58,6 +58,9 @@ const useVehicleData = () => {
           id: vehicle.id,
           name: vehicle.name || `Vehicle ${vehicle.id}`,
           code: vehicle.code || `USV-${String(vehicle.id).padStart(3, '0')}`,
+          battery_count: Number(vehicle.battery_count) === 1 ? 1 : 2,
+          battery_total_capacity_ah:
+            Number(vehicle.battery_total_capacity_ah) || 20,
           type: vehicle.type || 'USV',
           role: vehicle.role || 'Patrol',
           status: vehicle.status || 'offline',
@@ -91,11 +94,18 @@ const useVehicleData = () => {
       fetchVehicles()
     }
 
+    // Re-fetch when vehicles are created/updated/deleted elsewhere.
+    const handleVehiclesUpdated = () => {
+      fetchVehicles()
+    }
+
     window.addEventListener('userLoggedIn', handleUserLogin)
+    window.addEventListener('vehiclesUpdated', handleVehiclesUpdated)
 
     return () => {
       if (loadingTimeout) clearTimeout(loadingTimeout)
       window.removeEventListener('userLoggedIn', handleUserLogin)
+      window.removeEventListener('vehiclesUpdated', handleVehiclesUpdated)
     }
   }, [])
 

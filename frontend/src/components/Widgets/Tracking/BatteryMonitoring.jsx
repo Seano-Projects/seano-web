@@ -27,41 +27,44 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
     return () => clearTimeout(timeout);
   }, []);
 
+  const batteryCount = Number(selectedVehicle?.battery_count) === 1 ? 1 : 2;
+
   // Get battery data for selected vehicle
   const vehicleBatteries = batteryData[selectedVehicle?.id] || {
     1: null,
     2: null,
   };
 
-  // Ensure we always have exactly 2 batteries for display
-  const displayBatteries = [
-    vehicleBatteries[1] || {
-      battery_id: 1,
-      percentage: null,
-      voltage: null,
-      current: null,
-      temperature: null,
-      status: null,
-    },
-    vehicleBatteries[2] || {
-      battery_id: 2,
-      percentage: null,
-      voltage: null,
-      current: null,
-      temperature: null,
-      status: null,
-    },
-  ];
+  // Build display batteries based on configured battery count.
+  const displayBatteries = Array.from({ length: batteryCount }, (_, index) => {
+    const batteryId = index + 1;
+    return (
+      vehicleBatteries[batteryId] || {
+        battery_id: batteryId,
+        percentage: null,
+        voltage: null,
+        current: null,
+        temperature: null,
+        status: null,
+      }
+    );
+  });
+
+  const totalCapacity =
+    Number(selectedVehicle?.battery_total_capacity_ah) > 0
+      ? Number(selectedVehicle.battery_total_capacity_ah)
+      : 20;
 
   // Calculate summary
   const validBatteries = displayBatteries.filter((b) => b.percentage !== null);
+  const percentageSum = displayBatteries.reduce(
+    (sum, battery) => sum + (battery.percentage ?? 0),
+    0,
+  );
   const summary = {
-    totalCapacity: 0, // Would come from battery specs if available
+    totalCapacity,
     averagePercentage:
-      validBatteries.length > 0
-        ? validBatteries.reduce((sum, b) => sum + b.percentage, 0) /
-          validBatteries.length
-        : 0,
+      validBatteries.length > 0 ? percentageSum / batteryCount : 0,
   };
 
   // Get most recent battery timestamp for "Last Sync"
@@ -309,7 +312,7 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
                   {t("tracking.battery.averagePercentage")}:
                 </span>
                 <span className="font-medium text-blue-700 dark:text-blue-300">
-                  {Math.round(summary.averagePercentage)}%
+                  {summary.averagePercentage.toFixed(1)}%
                 </span>
               </div>
             </div>

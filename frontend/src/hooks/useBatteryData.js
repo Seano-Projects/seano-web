@@ -1,6 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLogData } from './useLogData'
 
+const BATTERY_LOG_STORAGE_KEY = 'batteryLogs'
+
+const loadStoredBatteryLogs = () => {
+  try {
+    const stored = localStorage.getItem(BATTERY_LOG_STORAGE_KEY)
+    if (!stored) {
+      return []
+    }
+
+    const parsed = JSON.parse(stored)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 /**
  * useBatteryData - Hook untuk battery monitoring real-time
  *
@@ -24,7 +40,7 @@ import { useLogData } from './useLogData'
  */
 const useBatteryData = () => {
   const { batteryData: batteryDataFromLog } = useLogData()
-  const [batteryLogs, setBatteryLogs] = useState([]) // Store battery history
+  const [batteryLogs, setBatteryLogs] = useState(loadStoredBatteryLogs) // Store battery history
   const [lastUpdate, setLastUpdate] = useState(null)
 
   // Monitor battery data changes and add to logs
@@ -53,7 +69,17 @@ const useBatteryData = () => {
             )
 
             if (!exists) {
-              const updated = [logEntry, ...prev].slice(0, 100)
+              const updated = [logEntry, ...prev].slice(0, 200)
+
+              try {
+                localStorage.setItem(
+                  BATTERY_LOG_STORAGE_KEY,
+                  JSON.stringify(updated)
+                )
+              } catch {
+                // Ignore storage write errors and keep in-memory logs.
+              }
+
               return updated
             }
             return prev
