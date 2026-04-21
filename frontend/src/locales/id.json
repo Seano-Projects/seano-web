@@ -104,7 +104,7 @@
     }
   },
   "nav": {
-    "dashboard": "Dasbor",
+    "dashboard": "Overview",
     "dataOperations": "Operasi Data",
     "tracking": "Pelacakan",
     "control": "Kontrol",
@@ -128,11 +128,12 @@
     "sensorType": "Tipe Sensor",
     "userManagement": "Manajemen Pengguna",
     "user": "Pengguna",
-    "cam": "Kontrol Kamera",
+    "cam": "Live Stream",
     "role": "Peran",
     "permission": "Izin",
     "profile": "Profil",
-    "logout": "Keluar"
+    "logout": "Keluar",
+    "weather": "Cuaca"
   },
   "header": {
     "notifications": "Notifikasi",
@@ -145,7 +146,7 @@
     "switchToDarkMode": "Beralih ke mode gelap"
   },
   "dashboard": {
-    "title": "Dasbor",
+    "title": "Overview",
     "subtitle": "Pemantauan dan kontrol real-time kendaraan permukaan tanpa awak",
     "welcome": "Selamat datang kembali",
     "overview": "Ringkasan",
@@ -176,7 +177,7 @@
       "speed": "Kecepatan",
       "heading": "Arah",
       "gps": "GPS",
-      "armed": "Dipersenjatai",
+      "armed": "Armed",
       "mode": "Mode",
       "coordinates": "Koordinat",
       "noGPS": "Tidak Ada GPS",
@@ -230,11 +231,11 @@
       "online": "Online",
       "offline": "Offline",
       "na": "T/A",
-      "armed": "Dipersenjatai",
-      "disarmed": "Tidak Dipersenjatai",
+      "armed": "Armed",
+      "disarmed": "Disarmed",
       "flightMode": "Mode Penerbangan",
       "gps": "GPS",
-      "noFix": "Tidak Ada Fix",
+      "noFix": "Tidak Ada FIX",
       "deadReckoning": "Dead Reckoning",
       "fix2d": "Fix 2D",
       "fix3d": "Fix 3D",
@@ -306,7 +307,7 @@
       "title": "Peringatan Terbaru",
       "noAlerts": "Tidak ada peringatan ditemukan",
       "operatingNormally": "Kendaraan beroperasi normal",
-      "defaultVehicleCode": "USV 001",
+      "defaultVehicleCode": "-",
       "footerCount": "peringatan",
       "lastUpdated": "Terakhir diperbarui"
     },
@@ -331,6 +332,9 @@
       "speed": "KECEPATAN",
       "altitude": "KETINGGIAN",
       "gpsPosition": "POSISI GPS",
+      "gpsFix": "GPS FIX",
+      "gpsNoFix": "GPS No FIX",
+      "gpsUnknown": "GPS N/A",
       "rssi": "RSSI",
       "batteryVoltage": "Tegangan Baterai",
       "batteryCurrent": "Arus Baterai"
@@ -370,12 +374,15 @@
       "clearMission": "HAPUS MISI",
       "sendingCommand": "Mengirim perintah ke hardware...",
       "waitingAck": "Menunggu respons hardware...",
+      "commandQueued": "Perintah diantrekan — menunggu kendaraan",
+      "armPendingHint": "Masih belum aktif? Coba FORCE ARM.",
       "armSuccess": "Sistem berhasil diaktifkan",
       "disarmSuccess": "Sistem berhasil dinonaktifkan",
       "modeChangedTo": "Mode berhasil diubah ke",
       "successfully": "",
       "commandFailed": "Perintah gagal",
       "hardwareTimeout": "Hardware tidak merespons tepat waktu",
+      "mqttDisabled": "Mode API aktif — kontrol via MQTT dimatikan",
       "mqttUnavailable": "MQTT tidak terkonfigurasi — periksa koneksi broker",
       "noVehicleSelected": "Pilih kendaraan terlebih dahulu",
       "hardwareError": "Hardware melaporkan kesalahan"
@@ -561,18 +568,34 @@
         "sensor": "Log Sensor",
         "raw": "Log Raw",
         "antitheft": "Log Anti Theft",
-        "failsafe": "Log Failsafe"
+        "failsafe": "Log Failsafe",
+        "command": "Log Command",
+        "waypoint": "Log Waypoint"
       },
       "searchVehicle": "Cari log kendaraan...",
       "searchSensor": "Cari log sensor...",
+      "searchCommand": "Cari log command...",
+      "searchWaypoint": "Cari log waypoint...",
       "emptyVehicle": "Belum ada log kendaraan. Menunggu data...",
       "emptySensor": "Belum ada log sensor. Menunggu data...",
       "emptyRaw": "Belum ada log raw. Menunggu data...",
       "emptyAntiTheft": "Tidak ada alert anti theft",
       "emptyFailsafe": "Tidak ada alert failsafe",
+      "emptyCommand": "Belum ada log command. Log akan muncul setelah perintah dikirim.",
+      "emptyWaypoint": "Belum ada log waypoint. Upload misi untuk melihat log di sini.",
       "normalOperation": "Kendaraan beroperasi normal",
       "acknowledged": "Ditandai",
       "location": "Lokasi",
+      "columns": {
+        "time": "Waktu",
+        "vehicle": "Kendaraan",
+        "command": "Perintah",
+        "mission": "Misi",
+        "waypointCount": "Waypoint",
+        "status": "Status",
+        "message": "Pesan",
+        "resolved": "Selesai"
+      },
       "alerts": {
         "antiTheft": "ALERT ANTI-THEFT",
         "failsafe": "ALERT FAILSAFE"
@@ -747,7 +770,13 @@
       "passwordMinLength": "Kata sandi minimal 6 karakter",
       "defaultUser": "Pengguna",
       "altProfile": "Profil",
-      "altPreview": "Pratinjau"
+      "altPreview": "Pratinjau",
+      "personalInfo": "Informasi personal",
+      "savingChanges": "Menyimpan perubahan",
+      "saved": "Tersimpan",
+      "deleteAccount": "Hapus Akun",
+      "deleteAccountDesc": "Setelah melakukan permintaan penghapusan, akun Anda akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.",
+      "deleteAccountConfirm": "Apakah Anda yakin ingin menghapus akun Anda? Tindakan ini bersifat permanen dan tidak dapat dipulihkan."
     }
   },
   "toast": {
@@ -755,5 +784,82 @@
     "error": "Kesalahan",
     "warning": "Peringatan",
     "info": "Informasi"
+  },
+  "weather": {
+    "title": "Monitor Cuaca",
+    "subtitle": "Kondisi cuaca operasional untuk USV",
+    "sourceUsv": "Menggunakan GPS USV",
+    "sourceBrowser": "Menggunakan lokasi Anda",
+    "sourceNone": "Lokasi tidak tersedia",
+    "locatingBrowser": "Menentukan lokasi...",
+    "lastUpdated": "Diperbarui",
+    "refresh": "Segarkan",
+    "noApiKey": "API key OpenWeatherMap belum dikonfigurasi",
+    "locationError": "Tidak dapat mendapatkan lokasi",
+    "fetchError": "Gagal mengambil data cuaca",
+    "conditions": "Kondisi",
+    "today": "Hari Ini",
+    "forecast": {
+      "title": "Prakiraan",
+      "tomorrow": "Besok",
+      "noData": "Tidak ada data prakiraan"
+    },
+    "precip": {
+      "title": "Total presipitasi",
+      "next24h": "24 jam ke depan",
+      "nextWeek": "Minggu depan",
+      "total": "Total",
+      "chance": "Peluang hujan"
+    },
+    "compare": {
+      "title": "Perbandingan per hari"
+    },
+    "chart": {
+      "tempToday": "Suhu hari ini",
+      "precipToday": "Presipitasi hari ini"
+    },
+    "map": {
+      "title": "Map"
+    },
+    "wind": {
+      "title": "Angin",
+      "speed": "Kecepatan",
+      "direction": "Arah",
+      "gust": "Hembusan",
+      "safe": "Aman",
+      "caution": "Hati-hati",
+      "danger": "Berbahaya",
+      "usvStatus": "Status USV",
+      "usvOps": "Ops USV"
+    },
+    "temperature": {
+      "title": "Suhu",
+      "feelsLike": "Terasa Seperti",
+      "min": "Min",
+      "max": "Maks"
+    },
+    "atmosphere": {
+      "title": "Atmosfer",
+      "humidity": "Kelembaban",
+      "pressure": "Tekanan",
+      "visibility": "Jarak Pandang",
+      "clouds": "Tutupan Awan"
+    },
+    "sun": {
+      "title": "Matahari",
+      "sunrise": "Terbit",
+      "sunset": "Terbenam"
+    }
+  },
+  "helpResources": {
+    "title": "Bantuan & Sumber Daya",
+    "gettingStarted": "Memulai",
+    "gettingStartedDesc": "Panduan dasar penggunaan SeaPortal",
+    "mqttTopics": "Topik MQTT",
+    "mqttTopicsDesc": "Referensi topik MQTT untuk integrasi USV",
+    "apiDocumentation": "Dokumentasi API",
+    "apiDocumentationDesc": "Referensi endpoint REST API",
+    "settings": "Pengaturan",
+    "settingsDesc": "Konfigurasi aplikasi"
   }
 }

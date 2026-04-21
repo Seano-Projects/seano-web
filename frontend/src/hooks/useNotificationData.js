@@ -7,6 +7,32 @@ const useNotificationData = () => {
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
 
+  const applyStatsFallback = useCallback(currentNotifications => {
+    const unread = currentNotifications.filter(item => !item.read).length
+    const countByType = type =>
+      currentNotifications.filter(
+        item => String(item.type || '').toLowerCase() === type
+      ).length
+
+    return {
+      total: currentNotifications.length,
+      unread,
+      critical: countByType('error'),
+      warning: countByType('warning'),
+      info: countByType('info'),
+      success: countByType('success')
+    }
+  }, [])
+
+  const [stats, setStats] = useState({
+    total: 0,
+    unread: 0,
+    critical: 0,
+    warning: 0,
+    info: 0,
+    success: 0
+  })
+
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true)
@@ -15,8 +41,7 @@ const useNotificationData = () => {
       // Get token from localStorage
       const token = localStorage.getItem('access_token')
 
-      // Use alerts as notification source.
-      const response = await fetch(API_ENDPOINTS.ALERTS.LIST, {
+      const response = await fetch(API_ENDPOINTS.NOTIFICATIONS.LIST, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -39,22 +64,12 @@ const useNotificationData = () => {
 
       const data = await response.json()
 
-      // Pastikan data adalah array
       const notificationsArray = Array.isArray(data) ? data : data.data || []
 
-      // Transform alerts into notification-like rows.
       const transformedData = notificationsArray.map(notification => ({
         id: notification.id || Math.random(),
-        type:
-          notification.alert_type ||
-          notification.type ||
-          notification.severity ||
-          'info',
-        title:
-          notification.title ||
-          notification.alert_type ||
-          notification.subject ||
-          'Alert',
+        type: notification.type || 'info',
+        title: notification.title || notification.subject || 'Notification',
         message:
           notification.message ||
           notification.description ||
@@ -71,7 +86,7 @@ const useNotificationData = () => {
           notification.vehicle ||
           null,
         priority: notification.priority || 'normal',
-        read: notification.read || notification.acknowledged || false
+        read: Boolean(notification.read)
       }))
 
       // Sort by timestamp, newest first
@@ -80,15 +95,36 @@ const useNotificationData = () => {
       )
 
       setNotifications(sortedData)
+      const serverStats = data?.stats
+      if (serverStats) {
+        setStats({
+          total: serverStats.total || sortedData.length,
+          unread: serverStats.unread || 0,
+          critical: serverStats.critical || 0,
+          warning: serverStats.warning || 0,
+          info: serverStats.info || 0,
+          success: serverStats.success || 0
+        })
+      } else {
+        setStats(applyStatsFallback(sortedData))
+      }
       setLastUpdated(new Date())
     } catch {
       setError('Failed to load notifications')
       setNotifications([])
+      setStats({
+        total: 0,
+        unread: 0,
+        critical: 0,
+        warning: 0,
+        info: 0,
+        success: 0
+      })
       setLastUpdated(new Date())
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [applyStatsFallback])
 
   // Helper function untuk badge text
   const getBadgeText = type => {
@@ -136,15 +172,91 @@ const useNotificationData = () => {
     return notifications.filter(notification => !notification.read)
   }
 
-  // Statistics
-  const stats = {
-    total: notifications.length,
-    unread: getUnreadAlerts().length,
-    critical: getAlertsByType('critical').length,
-    warning: getAlertsByType('warning').length,
-    info: getAlertsByType('info').length,
-    success: getAlertsByType('success').length
-  }
+  const markAsRead = useCallback(
+    async id => {
+      try {
+        const token = localStorage.getItem('access_token')
+        const response = await fetch(API_ENDPOINTS.NOTIFICATIONS.MARK_READ(id), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` })
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to mark notification as read')
+        }
+
+        setNotifications(prev => {
+          const updated = prev.map(item =>
+            item.id === id ? { ...item, read: true } : item
+          )
+          setStats(applyStatsFallback(updated))
+          return updated
+        })
+
+        return { success: true }
+      } catch {
+        return { success: false }
+      }
+    },
+    [applyStatsFallback]
+  )
+
+  const markAllAsRead = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(API_ENDPOINTS.NOTIFICATIONS.READ_ALL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` })
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to mark all notifications as read')
+      }
+
+      setNotifications(prev => {
+        const updated = prev.map(item => ({ ...item, read: true }))
+        setStats(applyStatsFallback(updated))
+        return updated
+      })
+
+      return { success: true }
+    } catch {
+      return { success: false }
+    }
+  }, [applyStatsFallback])
+
+  const clearRead = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(API_ENDPOINTS.NOTIFICATIONS.CLEAR_READ, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` })
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to clear read notifications')
+      }
+
+      setNotifications(prev => {
+        const updated = prev.filter(item => !item.read)
+        setStats(applyStatsFallback(updated))
+        return updated
+      })
+
+      return { success: true }
+    } catch {
+      return { success: false }
+    }
+  }, [applyStatsFallback])
 
   return {
     notifications,
@@ -152,6 +264,9 @@ const useNotificationData = () => {
     error,
     lastUpdated,
     refreshData,
+    markAsRead,
+    markAllAsRead,
+    clearRead,
     getLatestAlerts,
     getAlertsByType,
     getUnreadAlerts,

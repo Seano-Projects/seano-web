@@ -1,7 +1,23 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import mqtt from 'mqtt'
 import axios from '../utils/axiosConfig'
 import { API_ENDPOINTS } from '../config'
+import { REALTIME_MODE } from '../utils/realtimeConfig'
+
+const postCommandLog = async (vehicleCode, command, status, message, initiatedAt, resolvedAt) => {
+  try {
+    await axios.post(API_ENDPOINTS.COMMAND_LOGS.CREATE, {
+      vehicle_code: vehicleCode,
+      command,
+      status,
+      message: message || '',
+      initiated_at: initiatedAt,
+      resolved_at: resolvedAt || null
+    })
+  } catch {
+    // log failure is non-blocking
+  }
+}
 
 const SUPPORTED_COMMANDS = new Set([
   'ARM',
@@ -18,6 +34,8 @@ const SUPPORTED_COMMANDS = new Set([
 const MQTT_CONNECT_TIMEOUT_MS = 5000
 const MQTT_PUBLISH_TIMEOUT_MS = 3000
 const MQTT_COMMAND_ACK_TIMEOUT_MS = 5000
+const API_THRUSTER_MIN_INTERVAL_MS = 200
+const API_THRUSTER_TTL_MS = 1500
 
 let mqttClient = null
 let mqttClientPromise = null
@@ -95,6 +113,18 @@ const getMqttClient = async () => {
     mqttClientPromise = null
     throw err
   }
+}
+
+const publishThrusterToMqtt = async (vehicleCode, throttle, steering) => {
+  const client = await getMqttClient()
+  const topic = `seano/${String(vehicleCode || '').trim()}/thruster`
+  const payload = JSON.stringify({ throttle, steering })
+  return new Promise((resolve, reject) => {
+    client.publish(topic, payload, { qos: 1 }, err => {
+      if (err) reject(err)
+      else resolve()
+    })
+  })
 }
 
 const publishCommandToMqtt = async (vehicleCode, command) => {
@@ -233,6 +263,9 @@ const waitForCommandAck = (client, vehicleCode, command) =>
  */
 const useControlCommand = () => {
   const [isLoading, setIsLoading] = useState(false)
+  const isPollingMode = REALTIME_MODE === 'api'
+  const lastThrusterApiSendRef = useRef(0)
+  const lastThrusterPayloadRef = useRef({ throttle: null, steering: null })
 
   /**
    * @param {string} vehicleCode  – e.g. "USV-001"
@@ -251,12 +284,26 @@ const useControlCommand = () => {
       ? normalizedCommand
       : rawCommand
 
+    const useMqttForCommand =
+      SUPPORTED_COMMANDS.has(normalizedCommand) && !isPollingMode
+
     try {
-      if (SUPPORTED_COMMANDS.has(normalizedCommand)) {
+      if (useMqttForCommand) {
         setIsLoading(true)
+        const initiatedAt = new Date().toISOString()
         await publishCommandToMqtt(vehicleCode, normalizedCommand)
         const client = await getMqttClient()
-        return await waitForCommandAck(client, vehicleCode, normalizedCommand)
+        const result = await waitForCommandAck(client, vehicleCode, normalizedCommand)
+        const resolvedAt = new Date().toISOString()
+        postCommandLog(
+          vehicleCode,
+          normalizedCommand,
+          result.success ? 'success' : (result.error || 'failed'),
+          result.message || '',
+          initiatedAt,
+          resolvedAt
+        )
+        return result
       }
 
       setIsLoading(true)
@@ -273,11 +320,17 @@ const useControlCommand = () => {
         Object.assign(payload, extraPayload)
       }
 
+      const initiatedAt = new Date().toISOString()
       const response = await axios.post(
         API_ENDPOINTS.CONTROL.COMMAND(vehicleCode),
         payload
       )
-      return { success: true, message: response.data?.message }
+      const status = String(response.data?.status || '').toLowerCase()
+      const queued = status === 'queued'
+      const message =
+        response.data?.message ||
+        (queued ? 'Command queued for vehicle' : 'Command sent')
+      return { success: true, queued, message }
     } catch (err) {
       const status = err.response?.status
       const errMsg = err.response?.data?.error || err.message
@@ -289,22 +342,40 @@ const useControlCommand = () => {
           msg.includes('publish timeout') ||
           msg.includes('connect timeout')
         ) {
+          if (useMqttForCommand) {
+            postCommandLog(vehicleCode, rawCommand, 'timeout', errMsg, new Date().toISOString(), new Date().toISOString())
+          }
           return { success: false, error: 'timeout', message: errMsg }
+        }
+        if (useMqttForCommand) {
+          postCommandLog(vehicleCode, rawCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
         }
         return { success: false, error: 'mqtt_unavailable', message: errMsg }
       }
 
       // 503 = MQTT not configured (dev mode without broker)
       if (status === 503) {
+        if (useMqttForCommand) {
+          postCommandLog(vehicleCode, rawCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
+        }
         return { success: false, error: 'mqtt_unavailable', message: errMsg }
       }
       // 504 = hardware timeout
       if (status === 504) {
+        if (useMqttForCommand) {
+          postCommandLog(vehicleCode, rawCommand, 'timeout', errMsg, new Date().toISOString(), new Date().toISOString())
+        }
         return { success: false, error: 'timeout', message: errMsg }
       }
       // 422 = hardware replied with error
       if (status === 422) {
+        if (useMqttForCommand) {
+          postCommandLog(vehicleCode, rawCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
+        }
         return { success: false, error: 'hardware_error', message: errMsg }
+      }
+      if (useMqttForCommand) {
+        postCommandLog(vehicleCode, rawCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
       }
       return { success: false, error: 'unknown', message: errMsg }
     } finally {
@@ -312,7 +383,54 @@ const useControlCommand = () => {
     }
   }
 
-  return { sendCommand, isLoading }
+  /**
+   * @param {string} vehicleCode
+   * @param {number} throttle  – [-100, 100]
+   * @param {number} steering  – [-100, 100]
+   */
+  const sendThruster = async (vehicleCode, throttle, steering) => {
+    if (!vehicleCode) return { success: false, error: 'no_vehicle' }
+    if (isPollingMode) {
+      const now = Date.now()
+      const safeThrottle = Math.max(-100, Math.min(100, Number(throttle)))
+      const safeSteering = Math.max(-100, Math.min(100, Number(steering)))
+      const lastPayload = lastThrusterPayloadRef.current
+      const samePayload =
+        lastPayload.throttle === safeThrottle &&
+        lastPayload.steering === safeSteering
+
+      if (now - lastThrusterApiSendRef.current < API_THRUSTER_MIN_INTERVAL_MS && samePayload) {
+        return { success: true, queued: true }
+      }
+
+      lastThrusterApiSendRef.current = now
+      lastThrusterPayloadRef.current = {
+        throttle: safeThrottle,
+        steering: safeSteering
+      }
+
+      try {
+        await axios.post(API_ENDPOINTS.THRUSTER.CREATE, {
+          vehicle_code: vehicleCode,
+          throttle: safeThrottle,
+          steering: safeSteering,
+          ttl_ms: API_THRUSTER_TTL_MS
+        })
+        return { success: true, queued: true }
+      } catch (err) {
+        const errMsg = err.response?.data?.error || err.message
+        return { success: false, error: 'api_failed', message: errMsg }
+      }
+    }
+    try {
+      await publishThrusterToMqtt(vehicleCode, throttle, steering)
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: 'mqtt_unavailable', message: err.message }
+    }
+  }
+
+  return { sendCommand, sendThruster, isLoading }
 }
 
 export default useControlCommand

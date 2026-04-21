@@ -104,12 +104,12 @@
     }
   },
   "nav": {
-    "dashboard": "Dashboard",
+    "dashboard": "Overview",
     "dataOperations": "Data Operations",
     "tracking": "Tracking",
     "control": "Control",
     "dataMission": "Data Mission",
-    "missionPlanner": "Mission Planner",
+    "missionPlanner": "Planner",
     "missions": "Missions",
     "dataMonitoring": "Data Monitoring",
     "battery": "Battery",
@@ -128,11 +128,12 @@
     "sensorType": "Sensor Type",
     "userManagement": "User Management",
     "user": "User",
-    "cam": "Camera Control",
+    "cam": "Live Stream",
     "role": "Role",
     "permission": "Permission",
     "profile": "Profile",
-    "logout": "Logout"
+    "logout": "Logout",
+    "weather": "Weather"
   },
   "header": {
     "notifications": "Notifications",
@@ -145,7 +146,7 @@
     "switchToDarkMode": "Switch to dark mode"
   },
   "dashboard": {
-    "title": "Dashboard",
+    "title": "Overview",
     "subtitle": "Real-time monitoring and control of unmanned surface vehicles",
     "welcome": "Welcome back",
     "overview": "Overview",
@@ -234,7 +235,7 @@
       "disarmed": "Disarmed",
       "flightMode": "Flight Mode",
       "gps": "GPS",
-      "noFix": "No Fix",
+      "noFix": "No FIX",
       "deadReckoning": "Dead Reckoning",
       "fix2d": "2D Fix",
       "fix3d": "3D Fix",
@@ -306,7 +307,7 @@
       "title": "Latest Alerts",
       "noAlerts": "No alerts found",
       "operatingNormally": "Vehicle is operating normally",
-      "defaultVehicleCode": "USV 001",
+      "defaultVehicleCode": "-",
       "footerCount": "alerts",
       "lastUpdated": "Last updated"
     },
@@ -331,6 +332,9 @@
       "speed": "SPEED",
       "altitude": "ALTITUDE",
       "gpsPosition": "GPS POSITION",
+      "gpsFix": "GPS FIX",
+      "gpsNoFix": "GPS No FIX",
+      "gpsUnknown": "GPS N/A",
       "rssi": "RSSI",
       "batteryVoltage": "Bat. Voltage",
       "batteryCurrent": "Bat. Current"
@@ -370,12 +374,15 @@
       "clearMission": "CLEAR MISSION",
       "sendingCommand": "Sending command to hardware...",
       "waitingAck": "Waiting for hardware response...",
+      "commandQueued": "Command queued — waiting for vehicle",
+      "armPendingHint": "Still disarmed? Try FORCE ARM.",
       "armSuccess": "System armed successfully",
       "disarmSuccess": "System disarmed successfully",
       "modeChangedTo": "Mode changed to",
       "successfully": "successfully",
       "commandFailed": "Command failed",
       "hardwareTimeout": "Hardware did not respond in time",
+      "mqttDisabled": "API mode is active — MQTT control is disabled",
       "mqttUnavailable": "MQTT not configured — check broker connection",
       "noVehicleSelected": "Please select a vehicle first",
       "hardwareError": "Hardware reported an error"
@@ -388,7 +395,7 @@
       "RTL": "Return to Launch"
     },
     "camera": {
-      "title": "Camera Control",
+      "title": "Live Stream",
       "subtitle": "Live camera from your vessel",
       "connect": "Connect",
       "disconnect": "Disconnect",
@@ -561,18 +568,34 @@
         "sensor": "Sensor Logs",
         "raw": "Raw Logs",
         "antitheft": "Anti Theft Logs",
-        "failsafe": "Failsafe Logs"
+        "failsafe": "Failsafe Logs",
+        "command": "Command Logs",
+        "waypoint": "Waypoint Logs"
       },
       "searchVehicle": "Search vehicle logs...",
       "searchSensor": "Search sensor logs...",
+      "searchCommand": "Search command logs...",
+      "searchWaypoint": "Search waypoint logs...",
       "emptyVehicle": "No vehicle logs yet. Waiting for data...",
       "emptySensor": "No sensor logs yet. Waiting for data...",
       "emptyRaw": "No raw logs yet. Waiting for data...",
       "emptyAntiTheft": "No anti theft alerts found",
       "emptyFailsafe": "No failsafe alerts found",
+      "emptyCommand": "No command logs yet. Commands will appear here after use.",
+      "emptyWaypoint": "No waypoint logs yet. Upload a mission to see logs here.",
       "normalOperation": "Vehicle is operating normally",
       "acknowledged": "Acknowledged",
       "location": "Location",
+      "columns": {
+        "time": "Time",
+        "vehicle": "Vehicle",
+        "command": "Command",
+        "mission": "Mission",
+        "waypointCount": "Waypoints",
+        "status": "Status",
+        "message": "Message",
+        "resolved": "Resolved"
+      },
       "alerts": {
         "antiTheft": "ANTI-THEFT ALERT",
         "failsafe": "FAILSAFE ALERT"
@@ -747,7 +770,13 @@
       "passwordMinLength": "Password must be at least 6 characters",
       "defaultUser": "User",
       "altProfile": "Profile",
-      "altPreview": "Preview"
+      "altPreview": "Preview",
+      "personalInfo": "Personal information",
+      "savingChanges": "Saving changes",
+      "saved": "Saved",
+      "deleteAccount": "Delete Account",
+      "deleteAccountDesc": "After making a deletion request, your account will be permanently removed. This action cannot be undone.",
+      "deleteAccountConfirm": "Are you sure you want to delete your account? This action is permanent and cannot be reversed."
     }
   },
   "toast": {
@@ -755,5 +784,82 @@
     "error": "Error",
     "warning": "Warning",
     "info": "Information"
+  },
+  "weather": {
+    "title": "Weather Monitor",
+    "subtitle": "Operational weather conditions for USV",
+    "sourceUsv": "Using USV GPS",
+    "sourceBrowser": "Using your location",
+    "sourceNone": "Location unavailable",
+    "locatingBrowser": "Locating...",
+    "lastUpdated": "Updated",
+    "refresh": "Refresh",
+    "noApiKey": "OpenWeatherMap API key not configured",
+    "locationError": "Could not get location",
+    "fetchError": "Failed to fetch weather data",
+    "conditions": "Conditions",
+    "today": "Today",
+    "forecast": {
+      "title": "Forecast",
+      "tomorrow": "Tomorrow",
+      "noData": "No forecast data"
+    },
+    "precip": {
+      "title": "Precipitation total",
+      "next24h": "Next 24 hours",
+      "nextWeek": "Next week",
+      "total": "Total",
+      "chance": "Precipitation chance"
+    },
+    "compare": {
+      "title": "Comparison by day"
+    },
+    "chart": {
+      "tempToday": "Temperatures today",
+      "precipToday": "Precipitation today"
+    },
+    "map": {
+      "title": "Map"
+    },
+    "wind": {
+      "title": "Wind",
+      "speed": "Speed",
+      "direction": "Direction",
+      "gust": "Gusts",
+      "safe": "Safe",
+      "caution": "Caution",
+      "danger": "Danger",
+      "usvStatus": "USV Status",
+      "usvOps": "USV Ops"
+    },
+    "temperature": {
+      "title": "Temperature",
+      "feelsLike": "Feels Like",
+      "min": "Min",
+      "max": "Max"
+    },
+    "atmosphere": {
+      "title": "Atmosphere",
+      "humidity": "Humidity",
+      "pressure": "Pressure",
+      "visibility": "Visibility",
+      "clouds": "Cloud Cover"
+    },
+    "sun": {
+      "title": "Sun",
+      "sunrise": "Sunrise",
+      "sunset": "Sunset"
+    }
+  },
+  "helpResources": {
+    "title": "Help & Resources",
+    "gettingStarted": "Getting Started",
+    "gettingStartedDesc": "Basic guide to using SeaPortal",
+    "mqttTopics": "MQTT Topics",
+    "mqttTopicsDesc": "MQTT topic reference for USV integration",
+    "apiDocumentation": "API Documentation",
+    "apiDocumentationDesc": "REST API endpoint reference",
+    "settings": "Settings",
+    "settingsDesc": "Application configuration"
   }
 }

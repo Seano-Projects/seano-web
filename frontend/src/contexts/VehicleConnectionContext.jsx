@@ -6,6 +6,10 @@ import {
   useCallback,
   useRef,
 } from "react";
+import {
+  REALTIME_MODE,
+  REALTIME_POLL_INTERVAL_MS,
+} from "../utils/realtimeConfig";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -38,6 +42,7 @@ export const VehicleConnectionProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const isPollingMode = REALTIME_MODE === "api";
 
   // Fetch initial connection statuses from backend
   const fetchInitialStatuses = useCallback(async () => {
@@ -66,11 +71,6 @@ export const VehicleConnectionProvider = ({ children }) => {
         );
 
         setVehicleStatuses(statusMap);
-        console.log(
-          "✅ Initial vehicle connection statuses loaded:",
-          Object.keys(statusMap).length,
-          "vehicles",
-        );
       }
     } catch (err) {
       console.error("Failed to fetch initial vehicle statuses:", err);
@@ -81,7 +81,6 @@ export const VehicleConnectionProvider = ({ children }) => {
     const token = localStorage.getItem("access_token");
 
     if (!token) {
-      // console.log('⚠️ No token found, skipping WebSocket connection');
       return;
     }
 
@@ -99,7 +98,6 @@ export const VehicleConnectionProvider = ({ children }) => {
         setIsConnected(true);
         setError(null);
         reconnectDelay = 1000;
-        console.log("✅ Vehicle Status WebSocket Connected");
 
         // Send ping to keep connection alive
         const pingInterval = setInterval(() => {
@@ -125,10 +123,6 @@ export const VehicleConnectionProvider = ({ children }) => {
                 vehicle_code: data.vehicle_code,
               },
             }));
-
-            console.log(
-              `🚗 MQTT Status Update - ${data.vehicle_code}: ${data.status}`,
-            );
           } else if (data.type === "pong") {
             // Heartbeat response
           } else if (data.type === "error") {
@@ -146,9 +140,6 @@ export const VehicleConnectionProvider = ({ children }) => {
 
       websocket.onclose = () => {
         setIsConnected(false);
-        console.log(
-          "⚠️ Vehicle Status WebSocket Disconnected - Reconnecting...",
-        );
 
         // Reconnect with exponential backoff
         reconnectTimeoutRef.current = setTimeout(() => {
@@ -175,10 +166,25 @@ export const VehicleConnectionProvider = ({ children }) => {
     // Load initial statuses from backend on mount
     fetchInitialStatuses();
 
+    if (isPollingMode) {
+      setIsConnected(true);
+      setError(null);
+      const interval = setInterval(() => {
+        fetchInitialStatuses();
+      }, REALTIME_POLL_INTERVAL_MS);
+
+      return () => clearInterval(interval);
+    }
+
     // Then connect WebSocket for real-time updates
     const cleanup = connectWebSocket();
     return cleanup;
-  }, [fetchInitialStatuses, connectWebSocket]);
+  }, [
+    fetchInitialStatuses,
+    connectWebSocket,
+    isPollingMode,
+    REALTIME_POLL_INTERVAL_MS,
+  ]);
 
   /**
    * Get MQTT connection status for a specific vehicle

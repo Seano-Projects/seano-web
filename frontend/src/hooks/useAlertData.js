@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { API_BASE_URL, WS_URL } from '../config'
+import {
+  REALTIME_MODE,
+  REALTIME_POLL_INTERVAL_MS
+} from '../utils/realtimeConfig'
 
 /**
  * Custom hook untuk mengelola data alerts dari USV via WebSocket
@@ -8,6 +12,7 @@ import { API_BASE_URL, WS_URL } from '../config'
  * Notification datang dari web application itu sendiri
  */
 export const useAlertData = () => {
+  const isPollingMode = REALTIME_MODE === 'api'
   const [alerts, setAlerts] = useState([])
   const [stats, setStats] = useState({
     critical: 0,
@@ -90,6 +95,12 @@ export const useAlertData = () => {
 
   // Setup WebSocket connection untuk real-time alerts
   useEffect(() => {
+    if (isPollingMode) {
+      setWs(null)
+      setConnectionStatus('polling')
+      return
+    }
+
     let websocket = null
     let reconnectTimeout = null
     let reconnectAttempts = 0
@@ -181,7 +192,19 @@ export const useAlertData = () => {
         websocket.close()
       }
     }
-  }, [calculateStats])
+  }, [calculateStats, isPollingMode])
+
+  useEffect(() => {
+    if (!isPollingMode) {
+      return
+    }
+
+    const interval = setInterval(() => {
+      fetchAlerts()
+    }, REALTIME_POLL_INTERVAL_MS)
+
+    return () => clearInterval(interval)
+  }, [fetchAlerts, isPollingMode, REALTIME_POLL_INTERVAL_MS])
 
   // Fetch initial data
   useEffect(() => {

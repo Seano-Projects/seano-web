@@ -20,8 +20,6 @@ const useNotify = () => {
    * @param {Object} options.toastOptions - Additional toast options
    */
   const success = async (message, options = {}) => {
-    console.log('🎯 useNotify.success CALLED!', { message, options })
-
     const {
       title,
       action,
@@ -32,11 +30,9 @@ const useNotify = () => {
 
     // Show toast
     toast.success(message, toastOptions)
-    console.log('✅ Toast shown, persist=', persist)
 
     // Create notification
     if (persist) {
-      console.log('💾 Attempting to create notification...')
       const notificationTitle = title || generateTitle(message, 'success')
       await createNotification({
         type: 'success',
@@ -55,13 +51,11 @@ const useNotify = () => {
    * @param {Object} options - Options
    */
   const error = async (message, options = {}) => {
-    console.log('❌ useNotify.error CALLED!', { message, options })
-
     const {
       title,
       action,
       vehicleId,
-      persist = true,
+      persist = false,
       toastOptions = {}
     } = options
 
@@ -92,7 +86,7 @@ const useNotify = () => {
       title,
       action,
       vehicleId,
-      persist = true,
+      persist = false,
       toastOptions = {}
     } = options
 

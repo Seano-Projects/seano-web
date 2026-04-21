@@ -1,5 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
+import {
+  REALTIME_MODE,
+  REALTIME_POLL_INTERVAL_MS
+} from '../utils/realtimeConfig'
+
+const LOG_LIMIT = 200
+const WS_FLUSH_INTERVAL_MS = 250
+const MAX_RAW_LOG_CHARS = 512
 
 const parseNumber = value => {
   if (value === null || value === undefined || value === '') {
@@ -113,7 +121,37 @@ const normalizeBatteryMap = rawBatteryMap => {
   return normalizedMap
 }
 
-export const useLogData = () => {
+const normalizeRawLogEntry = entry => {
+  if (!entry || typeof entry !== 'object') {
+    return entry
+  }
+
+  const rawText = typeof entry.logs === 'string' ? entry.logs : String(entry.logs || '')
+
+  if (rawText.length <= MAX_RAW_LOG_CHARS) {
+    return entry
+  }
+
+  return {
+    ...entry,
+    logs: `${rawText.slice(0, MAX_RAW_LOG_CHARS)}...`,
+    _truncated: true
+  }
+}
+
+export const useLogData = (options = {}) => {
+  const enableStats = options.enableStats ?? true
+  const enableChartData = options.enableChartData ?? true
+  const enableVehicleLogs = options.enableVehicleLogs ?? true
+  const enableSensorLogs = options.enableSensorLogs ?? true
+  const enableRawLogs = options.enableRawLogs ?? true
+  const enableCommandLogs = options.enableCommandLogs ?? true
+  const enableWaypointLogs = options.enableWaypointLogs ?? true
+  const enableBatteryData = options.enableBatteryData ?? true
+  const enableRealtime = options.enableRealtime ?? true
+  const pauseRealtime = options.pauseRealtime ?? false
+  const isPollingMode = REALTIME_MODE === 'api'
+
   const [stats, setStats] = useState({
     vehicle_logs: { today: 0, yesterday: 0, total: 0, percentage_change: 0 },
     sensor_logs: { today: 0, yesterday: 0, total: 0, percentage_change: 0 },
@@ -125,6 +163,8 @@ export const useLogData = () => {
   const [vehicleLogs, setVehicleLogs] = useState([])
   const [sensorLogs, setSensorLogs] = useState([])
   const [rawLogs, setRawLogs] = useState([])
+  const [commandLogs, setCommandLogs] = useState([])
+  const [waypointLogs, setWaypointLogs] = useState([])
   const [batteryData, setBatteryData] = useState(() => {
     // Load from localStorage on init
     try {
@@ -138,9 +178,52 @@ export const useLogData = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [ws, setWs] = useState(null)
+  const vehicleQueueRef = useRef([])
+  const sensorQueueRef = useRef([])
+  const rawQueueRef = useRef([])
+  const commandQueueRef = useRef([])
+  const waypointQueueRef = useRef([])
+  const rawClientSeqRef = useRef(0)
+  const wsClientSeqRef = useRef(0)
+  const pauseRealtimeRef = useRef(pauseRealtime)
+
+  useEffect(() => {
+    pauseRealtimeRef.current = pauseRealtime
+  }, [pauseRealtime])
+
+  const flushQueues = useCallback(() => {
+    if (vehicleQueueRef.current.length > 0) {
+      const chunk = vehicleQueueRef.current.splice(0, vehicleQueueRef.current.length)
+      setVehicleLogs(prev => [...chunk, ...prev].slice(0, LOG_LIMIT))
+    }
+
+    if (sensorQueueRef.current.length > 0) {
+      const chunk = sensorQueueRef.current.splice(0, sensorQueueRef.current.length)
+      setSensorLogs(prev => [...chunk, ...prev].slice(0, LOG_LIMIT))
+    }
+
+    if (rawQueueRef.current.length > 0) {
+      const chunk = rawQueueRef.current.splice(0, rawQueueRef.current.length)
+      setRawLogs(prev => [...chunk, ...prev].slice(0, LOG_LIMIT))
+    }
+
+    if (commandQueueRef.current.length > 0) {
+      const chunk = commandQueueRef.current.splice(0, commandQueueRef.current.length)
+      setCommandLogs(prev => [...chunk, ...prev].slice(0, LOG_LIMIT))
+    }
+
+    if (waypointQueueRef.current.length > 0) {
+      const chunk = waypointQueueRef.current.splice(0, waypointQueueRef.current.length)
+      setWaypointLogs(prev => [...chunk, ...prev].slice(0, LOG_LIMIT))
+    }
+  }, [])
 
   // Fetch latest battery data from API
   const fetchBatteryData = useCallback(async () => {
+    if (!enableBatteryData) {
+      return
+    }
+
     try {
       const token = localStorage.getItem('access_token')
       const response = await axios.get(`${API_URL}/vehicle-batteries/latest`, {
@@ -176,10 +259,14 @@ export const useLogData = () => {
     } catch (err) {
       // Keep localStorage data if API fails
     }
-  }, [])
+  }, [enableBatteryData])
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
+    if (!enableStats) {
+      return
+    }
+
     try {
       const token = localStorage.getItem('access_token')
       const response = await axios.get(`${API_URL}/logs/stats`, {
@@ -189,10 +276,14 @@ export const useLogData = () => {
     } catch (err) {
       setError(err.message)
     }
-  }, [])
+  }, [enableStats])
 
   // Fetch chart data
   const fetchChartData = useCallback(async () => {
+    if (!enableChartData) {
+      return
+    }
+
     try {
       const token = localStorage.getItem('access_token')
       const response = await axios.get(`${API_URL}/logs/chart`, {
@@ -202,10 +293,14 @@ export const useLogData = () => {
     } catch (err) {
       setError(err.message)
     }
-  }, [])
+  }, [enableChartData])
 
   // Fetch vehicle logs
   const fetchVehicleLogs = useCallback(async (limit = 200) => {
+    if (!enableVehicleLogs) {
+      return
+    }
+
     try {
       const token = localStorage.getItem('access_token')
       const response = await axios.get(
@@ -214,13 +309,24 @@ export const useLogData = () => {
           headers: { Authorization: `Bearer ${token}` }
         }
       )
-      const data = response.data.data || response.data || []
+      const raw = response.data.data || response.data || []
+      const fetchedAt = new Date().toISOString()
+      const data = raw.map((item, idx) => ({
+        ...item,
+        _received_at: fetchedAt,
+        _source: 'rest',
+        _client_id: item?._client_id || `vehicle-rest-${item?.id ?? fetchedAt}-${idx}`
+      }))
       setVehicleLogs(data)
     } catch (err) {}
-  }, [])
+  }, [enableVehicleLogs])
 
   // Fetch sensor logs
   const fetchSensorLogs = useCallback(async (limit = 200) => {
+    if (!enableSensorLogs) {
+      return
+    }
+
     try {
       const token = localStorage.getItem('access_token')
       const response = await axios.get(
@@ -229,13 +335,24 @@ export const useLogData = () => {
           headers: { Authorization: `Bearer ${token}` }
         }
       )
-      const data = response.data.data || response.data || []
+      const raw = response.data.data || response.data || []
+      const fetchedAt = new Date().toISOString()
+      const data = raw.map((item, idx) => ({
+        ...item,
+        _received_at: fetchedAt,
+        _source: 'rest',
+        _client_id: item?._client_id || `sensor-rest-${item?.id ?? fetchedAt}-${idx}`
+      }))
       setSensorLogs(data)
     } catch (err) {}
-  }, [])
+  }, [enableSensorLogs])
 
   // Fetch raw logs
   const fetchRawLogs = useCallback(async (limit = 200) => {
+    if (!enableRawLogs) {
+      return
+    }
+
     try {
       const token = localStorage.getItem('access_token')
       const response = await axios.get(`${API_URL}/raw-logs?limit=${limit}`, {
@@ -251,14 +368,75 @@ export const useLogData = () => {
       } else {
       }
 
-      setRawLogs(data)
+      const fetchedAt = new Date().toISOString()
+      setRawLogs(
+        data
+          .map((item, idx) => {
+            const normalized = normalizeRawLogEntry({
+              ...item,
+              _received_at: fetchedAt,
+              _source: 'rest'
+            })
+            return {
+              ...normalized,
+              _client_id: normalized?._client_id || `raw-rest-${item?.id ?? fetchedAt}-${idx}`
+            }
+          })
+          .slice(0, LOG_LIMIT)
+      )
     } catch (err) {
       setRawLogs([]) // Set empty array on error
     }
-  }, [])
+  }, [enableRawLogs])
+
+  // Fetch command logs
+  const fetchCommandLogs = useCallback(async (limit = 200) => {
+    if (!enableCommandLogs) {
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await axios.get(`${API_URL}/command-logs?limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = Array.isArray(response.data) ? response.data : (response.data?.data || [])
+      const fetchedAt = new Date().toISOString()
+      const normalized = data.map((item, idx) => ({
+        ...item,
+        _client_id: item?._client_id || `command-rest-${item?.id ?? fetchedAt}-${idx}`
+      }))
+      setCommandLogs(normalized)
+    } catch {}
+  }, [enableCommandLogs])
+
+  // Fetch waypoint logs
+  const fetchWaypointLogs = useCallback(async (limit = 200) => {
+    if (!enableWaypointLogs) {
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await axios.get(`${API_URL}/waypoint-logs?limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = Array.isArray(response.data) ? response.data : (response.data?.data || [])
+      const fetchedAt = new Date().toISOString()
+      const normalized = data.map((item, idx) => ({
+        ...item,
+        _client_id: item?._client_id || `waypoint-rest-${item?.id ?? fetchedAt}-${idx}`
+      }))
+      setWaypointLogs(normalized)
+    } catch {}
+  }, [enableWaypointLogs])
 
   // Recalculate stats from current data
   useEffect(() => {
+    if (!enableStats) {
+      return
+    }
+
     const today = new Date().toDateString()
     const yesterday = new Date(Date.now() - 86400000).toDateString()
 
@@ -312,19 +490,23 @@ export const useLogData = () => {
             : 0
       }
     })
-  }, [vehicleLogs, sensorLogs, rawLogs])
+  }, [vehicleLogs, sensorLogs, rawLogs, enableStats])
 
   // Initial data fetch
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true)
-      await Promise.all([
-        fetchChartData(),
-        fetchVehicleLogs(),
-        fetchSensorLogs(),
-        fetchRawLogs(),
-        fetchBatteryData() // Fetch battery data from API
-      ])
+      const tasks = []
+
+      if (enableChartData) tasks.push(fetchChartData())
+      if (enableVehicleLogs) tasks.push(fetchVehicleLogs())
+      if (enableSensorLogs) tasks.push(fetchSensorLogs())
+      if (enableRawLogs) tasks.push(fetchRawLogs())
+      if (enableCommandLogs) tasks.push(fetchCommandLogs())
+      if (enableWaypointLogs) tasks.push(fetchWaypointLogs())
+      if (enableBatteryData) tasks.push(fetchBatteryData())
+
+      await Promise.all(tasks)
       setLoading(false)
     }
 
@@ -334,7 +516,16 @@ export const useLogData = () => {
     fetchVehicleLogs,
     fetchSensorLogs,
     fetchRawLogs,
-    fetchBatteryData
+    fetchCommandLogs,
+    fetchWaypointLogs,
+    fetchBatteryData,
+    enableChartData,
+    enableVehicleLogs,
+    enableSensorLogs,
+    enableRawLogs,
+    enableCommandLogs,
+    enableWaypointLogs,
+    enableBatteryData
   ])
 
   // Periodic token refresh check (every 5 minutes)
@@ -361,8 +552,23 @@ export const useLogData = () => {
     return () => clearInterval(checkTokenInterval)
   }, [fetchStats])
 
+  // Batch websocket updates to prevent rerender spikes during high-frequency logs.
+  useEffect(() => {
+    const interval = setInterval(flushQueues, WS_FLUSH_INTERVAL_MS)
+
+    return () => {
+      clearInterval(interval)
+      flushQueues()
+    }
+  }, [flushQueues])
+
   // WebSocket connection with auto-reconnect
   useEffect(() => {
+    if (!enableRealtime || isPollingMode) {
+      setWs(null)
+      return
+    }
+
     const token = localStorage.getItem('access_token')
     if (!token) {
       return
@@ -394,37 +600,62 @@ export const useLogData = () => {
           // Ignore pong messages
           if (message.type === 'pong') return
 
-          if (message.type === 'vehicle_log') {
-            setVehicleLogs(prev => [message.data, ...prev].slice(0, 200))
-            setStats(prev => ({
-              ...prev,
-              vehicle_logs: {
-                ...prev.vehicle_logs,
-                today: prev.vehicle_logs.today + 1,
-                total: prev.vehicle_logs.total + 1
-              }
-            }))
-          } else if (message.type === 'sensor_log') {
-            setSensorLogs(prev => [message.data, ...prev].slice(0, 200))
-            setStats(prev => ({
-              ...prev,
-              sensor_logs: {
-                ...prev.sensor_logs,
-                today: prev.sensor_logs.today + 1,
-                total: prev.sensor_logs.total + 1
-              }
-            }))
-          } else if (message.type === 'raw_log') {
-            setRawLogs(prev => [message.data, ...prev].slice(0, 200))
-            setStats(prev => ({
-              ...prev,
-              raw_logs: {
-                ...prev.raw_logs,
-                today: prev.raw_logs.today + 1,
-                total: prev.raw_logs.total + 1
-              }
-            }))
-          } else if (message.type === 'battery') {
+          if (pauseRealtimeRef.current) {
+            return
+          }
+
+          if (message.type === 'vehicle_log' && enableVehicleLogs) {
+            const receivedAt = new Date().toISOString()
+            if (message.data) {
+              wsClientSeqRef.current += 1
+              vehicleQueueRef.current.push({
+                ...message.data,
+                _received_at: receivedAt,
+                _source: 'ws',
+                _client_id: `vehicle-${receivedAt}-${wsClientSeqRef.current}`
+              })
+            }
+          } else if (message.type === 'sensor_log' && enableSensorLogs) {
+            const receivedAt = new Date().toISOString()
+            if (message.data) {
+              wsClientSeqRef.current += 1
+              sensorQueueRef.current.push({
+                ...message.data,
+                _received_at: receivedAt,
+                _source: 'ws',
+                _client_id: `sensor-${receivedAt}-${wsClientSeqRef.current}`
+              })
+            }
+          } else if (message.type === 'raw_log' && enableRawLogs) {
+            const receivedAt = new Date().toISOString()
+            if (message.data) {
+              rawClientSeqRef.current += 1
+              rawQueueRef.current.push(
+                normalizeRawLogEntry({
+                  ...message.data,
+                  _received_at: receivedAt,
+                  _source: 'ws',
+                  _client_id: `raw-${receivedAt}-${rawClientSeqRef.current}`
+                })
+              )
+            }
+          } else if (message.type === 'command_log' && enableCommandLogs) {
+            if (message.data) {
+              wsClientSeqRef.current += 1
+              commandQueueRef.current.push({
+                ...message.data,
+                _client_id: `command-${new Date().toISOString()}-${wsClientSeqRef.current}`
+              })
+            }
+          } else if (message.type === 'waypoint_log' && enableWaypointLogs) {
+            if (message.data) {
+              wsClientSeqRef.current += 1
+              waypointQueueRef.current.push({
+                ...message.data,
+                _client_id: `waypoint-${new Date().toISOString()}-${wsClientSeqRef.current}`
+              })
+            }
+          } else if (message.type === 'battery' && enableBatteryData) {
             const { vehicle_id } = message
             if (!vehicle_id) {
               return
@@ -486,7 +717,36 @@ export const useLogData = () => {
         websocket.close()
       }
     }
-  }, [])
+  }, [enableRealtime, isPollingMode, enableVehicleLogs, enableSensorLogs, enableRawLogs, enableCommandLogs, enableWaypointLogs, enableBatteryData])
+
+  useEffect(() => {
+    if (!enableRealtime || !isPollingMode) {
+      return
+    }
+
+    const interval = setInterval(() => {
+      fetchVehicleLogs()
+      fetchSensorLogs()
+      fetchRawLogs()
+      fetchCommandLogs()
+      fetchWaypointLogs()
+      fetchBatteryData()
+    }, REALTIME_POLL_INTERVAL_MS)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [
+    enableRealtime,
+    isPollingMode,
+    REALTIME_POLL_INTERVAL_MS,
+    fetchVehicleLogs,
+    fetchSensorLogs,
+    fetchRawLogs,
+    fetchCommandLogs,
+    fetchWaypointLogs,
+    fetchBatteryData
+  ])
 
   return {
     stats,
@@ -494,6 +754,8 @@ export const useLogData = () => {
     vehicleLogs,
     sensorLogs,
     rawLogs,
+    commandLogs,
+    waypointLogs,
     batteryData,
     loading,
     error,
@@ -504,6 +766,8 @@ export const useLogData = () => {
       fetchVehicleLogs()
       fetchSensorLogs()
       fetchRawLogs()
+      fetchCommandLogs()
+      fetchWaypointLogs()
     }
   }
 }

@@ -1,10 +1,30 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { API_BASE_URL } from '../config'
+
+const SELECTED_VEHICLE_KEY = 'selectedVehicleId'
 
 const useVehicleData = () => {
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selectedVehicleId, setSelectedVehicleId] = useState('')
+  const [selectedVehicleId, setSelectedVehicleIdState] = useState(() => {
+    try {
+      return localStorage.getItem(SELECTED_VEHICLE_KEY) || ''
+    } catch {
+      return ''
+    }
+  })
+
+  const setSelectedVehicleId = useCallback((nextId) => {
+    const value = nextId ? String(nextId) : ''
+    setSelectedVehicleIdState(value)
+    try {
+      if (value) {
+        localStorage.setItem(SELECTED_VEHICLE_KEY, value)
+      } else {
+        localStorage.removeItem(SELECTED_VEHICLE_KEY)
+      }
+    } catch {}
+  }, [])
 
   useEffect(() => {
     let loadingTimeout
@@ -169,6 +189,20 @@ const useVehicleData = () => {
       maintenanceYesterday
     }
   }, [vehicles])
+
+  useEffect(() => {
+    if (!vehicles.length) {
+      return
+    }
+
+    const hasSelected = vehicles.some(
+      vehicle => String(vehicle.id) === String(selectedVehicleId)
+    )
+
+    if (!hasSelected) {
+      setSelectedVehicleId(vehicles[0].id)
+    }
+  }, [vehicles, selectedVehicleId, setSelectedVehicleId])
 
   return {
     vehicles,

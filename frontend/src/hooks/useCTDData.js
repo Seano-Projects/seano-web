@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { WS_URL, API_BASE_URL } from '../config'
+import {
+  REALTIME_MODE,
+  REALTIME_POLL_INTERVAL_MS
+} from '../utils/realtimeConfig'
 
 const toNumber = value => {
   const num = Number(value)
@@ -72,6 +76,7 @@ const normalizeCTDData = (payload, fallback = {}) => {
 export const useCTDData = (vehicle = null) => {
   const vehicleCode = vehicle?.code || null
   const vehicleId = vehicle?.id || null
+  const isPollingMode = REALTIME_MODE === 'api'
 
   const [ctdData, setCTDData] = useState([])
   const [isConnected, setIsConnected] = useState(false)
@@ -355,9 +360,25 @@ export const useCTDData = (vehicle = null) => {
   }, [])
 
   useEffect(() => {
+    if (isPollingMode) {
+      return
+    }
+
     const cleanup = connectWebSocket()
     return cleanup
-  }, [connectWebSocket])
+  }, [connectWebSocket, isPollingMode])
+
+  useEffect(() => {
+    if (!isPollingMode) {
+      return
+    }
+
+    const interval = setInterval(() => {
+      fetchHistoricalData()
+    }, REALTIME_POLL_INTERVAL_MS)
+
+    return () => clearInterval(interval)
+  }, [fetchHistoricalData, isPollingMode, REALTIME_POLL_INTERVAL_MS])
 
   const clearData = useCallback(() => {
     setCTDData([])

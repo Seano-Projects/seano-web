@@ -31,25 +31,11 @@ export const createNotification = async ({
   vehicleId,
   source = 'system'
 }) => {
-  console.log('🔔 createNotification called with:', {
-    type,
-    title,
-    message,
-    action,
-    vehicleId,
-    source
-  })
-
   try {
     const token = localStorage.getItem('access_token')
     const userStr = localStorage.getItem('user')
 
-    console.log('📦 Token exists:', !!token, 'User data exists:', !!userStr)
-
     if (!token || !userStr) {
-      console.warn(
-        '❌ No auth token or user data found. Skipping notification creation.'
-      )
       return null
     }
 
@@ -57,12 +43,8 @@ export const createNotification = async ({
     try {
       const user = JSON.parse(userStr)
       userId = user?.id
-      console.log('👤 Parsed user:', user, 'User ID:', userId)
 
       if (!userId) {
-        console.warn(
-          '❌ User ID not found in user object. Skipping notification creation.'
-        )
         return null
       }
     } catch (e) {
@@ -80,8 +62,6 @@ export const createNotification = async ({
       source
     }
 
-    console.log('🚀 Sending notification to backend:', payload)
-
     const response = await fetch(`${API_BASE_URL}/notifications`, {
       method: 'POST',
       headers: {
@@ -90,8 +70,6 @@ export const createNotification = async ({
       },
       body: JSON.stringify(payload)
     })
-
-    console.log('📡 Response status:', response.status, response.statusText)
 
     if (!response.ok) {
       const errorData = await response.text()
@@ -104,7 +82,6 @@ export const createNotification = async ({
     }
 
     const data = await response.json()
-    console.log('✅ Notification created successfully:', data)
     return data
   } catch (error) {
     console.error('❌ Error creating notification:', error)

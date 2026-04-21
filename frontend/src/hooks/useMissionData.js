@@ -4,9 +4,14 @@ import axios from '../utils/axiosConfig'
 import config from '../config'
 import useNotify from './useNotify'
 import { NOTIFICATION_ACTIONS } from '../utils/notificationService'
+import {
+  REALTIME_MODE,
+  REALTIME_POLL_INTERVAL_MS
+} from '../utils/realtimeConfig'
 
 const useMissionData = () => {
   const notify = useNotify()
+  const isPollingMode = REALTIME_MODE === 'api'
   const [missionData, setMissionData] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -34,6 +39,9 @@ const useMissionData = () => {
 
       // Transform data jika perlu
       const transformedData = missionsArray.map(mission => ({
+        // Keep ALL original API fields first
+        ...mission,
+        // Override / add computed fields
         id: mission.id || Math.random(),
         name: mission.name || mission.title || 'Unnamed Mission',
         title: mission.name || mission.title || 'Unnamed Mission',
@@ -48,12 +56,13 @@ const useMissionData = () => {
         endTime: mission.end_time,
         waypoints: mission.waypoints || [],
         home_location: mission.home_location || null,
-        total_waypoints: Array.isArray(mission.waypoints)
-          ? mission.waypoints.length
-          : 0,
-        current_waypoint:
-          mission.current_waypoint || mission.completed_waypoints || 0,
-        distance: mission.distance || 0,
+        current_waypoint: mission.current_waypoint || 0,
+        completed_waypoint: mission.completed_waypoint || 0,
+        total_waypoints: mission.total_waypoints ||
+          (Array.isArray(mission.waypoints) ? mission.waypoints.length : 0),
+        total_distance: mission.total_distance || 0,
+        estimated_time: mission.estimated_time || 0,
+        distance: mission.total_distance || mission.distance || 0,
         duration: mission.duration || 0
       }))
 
@@ -134,6 +143,15 @@ const useMissionData = () => {
     fetchMissionData()
     fetchMissionStats()
 
+    if (isPollingMode) {
+      const interval = setInterval(() => {
+        fetchMissionData()
+        fetchMissionStats()
+      }, REALTIME_POLL_INTERVAL_MS)
+
+      return () => clearInterval(interval)
+    }
+
     // Setup WebSocket untuk real-time updates
     const connectWebSocket = () => {
       const token = localStorage.getItem('token')
@@ -204,12 +222,10 @@ const useMissionData = () => {
   // Function untuk create mission
   const createMission = async missionData => {
     try {
-      console.log('Creating mission with data:', missionData)
       const response = await axios.post(
         API_ENDPOINTS.MISSIONS.CREATE,
         missionData
       )
-      console.log('Mission created successfully:', response.data)
       await fetchMissionData() // Refresh data
       return response.data
     } catch (error) {
@@ -237,13 +253,11 @@ const useMissionData = () => {
 
   // Function untuk update mission
   const updateMission = async (id, missionData) => {
-    console.log('✏️ MISSION UPDATE: Starting for mission ID:', id)
     try {
       const response = await axios.put(
         API_ENDPOINTS.MISSIONS.UPDATE(id),
         missionData
       )
-      console.log('✅ MISSION UPDATE: API call successful')
 
       await fetchMissionData() // Refresh data
 
@@ -253,7 +267,6 @@ const useMissionData = () => {
         action: NOTIFICATION_ACTIONS.MISSION_UPDATED,
         persist: true
       })
-      console.log('✅ MISSION UPDATE: Notification created')
 
       return response.data
     } catch (error) {
@@ -272,10 +285,8 @@ const useMissionData = () => {
 
   // Function untuk delete mission
   const deleteMission = async id => {
-    console.log('🗑️ MISSION DELETE: Starting for mission ID:', id)
     try {
       await axios.delete(API_ENDPOINTS.MISSIONS.DELETE(id))
-      console.log('✅ MISSION DELETE: API call successful')
 
       await fetchMissionData() // Refresh data
 
@@ -285,7 +296,6 @@ const useMissionData = () => {
         action: NOTIFICATION_ACTIONS.MISSION_DELETED,
         persist: true
       })
-      console.log('✅ MISSION DELETE: Notification created')
     } catch (error) {
       console.error('❌ MISSION DELETE: Failed', error)
 
