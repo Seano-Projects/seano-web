@@ -152,6 +152,11 @@ VITE_API_URL=http://localhost:8080/api
 # WebSocket Configuration
 VITE_WS_URL=ws://localhost:8080/ws
 
+# Real-time Mode (mqtt or api)
+VITE_REALTIME_MODE=mqtt
+# Polling interval in milliseconds (used when mode=api)
+VITE_REALTIME_POLL_INTERVAL_MS=5000
+
 # Map Configuration (optional)
 VITE_MAP_CENTER_LAT=-6.200000
 VITE_MAP_CENTER_LNG=106.816666

@@ -258,6 +258,113 @@ export MQTT_TOPIC_PREFIX="seano"
 go run cmd/mqtt-listener/main.go
 ```
 
+## Real-time Data Paths (MQTT vs API)
+
+Detail alur realtime ada di [backend/README-REALTIME.md](backend/README-REALTIME.md).
+
+This backend supports two real-time paths:
+
+### 1) MQTT (USV publishes topics)
+
+USV publishes to MQTT topics. The backend listens, saves to DB, then broadcasts to WebSocket.
+
+**Topics consumed by backend:**
+
+```
+seano/{vehicle_code}/telemetry                # vehicle log
+seano/{vehicle_code}/{sensor_code}/data      # sensor log
+seano/{vehicle_code}/raw                      # raw log (text/JSON)
+seano/{vehicle_code}/battery                  # battery status
+seano/{vehicle_code}/status                   # LWT online/offline
+seano/{vehicle_code}/mission/waypoint_reached # mission progress
+seano/{vehicle_code}/antitheft/alert          # alert
+seano/{vehicle_code}/failsafe/alert           # alert
+```
+
+**Topics published by backend (command/missions):**
+
+```
+seano/{vehicle_code}/command                  # control command to USV
+seano/{vehicle_code}/ack                      # USV replies ACK here
+seano/{vehicle_code}/mission                  # mission upload to USV
+```
+
+**WebSocket streams (all share the same hub):**
+
+```
+WS /ws/logs       # vehicle_log, sensor_log, raw_log, command_log, waypoint_log, battery, vehicle_status
+WS /ws/alerts     # alert + alert_update
+WS /ws/missions   # mission_progress + mission_update
+```
+
+### 2) API (HTTP ingestion + frontend polling)
+
+If USV cannot use MQTT, it can send logs directly via REST API (JWT required):
+
+```
+POST /vehicle-logs
+POST /sensor-logs
+POST /raw-logs
+POST /command-logs
+POST /waypoint-logs
+```
+
+**Catatan (API bisa pakai ID atau code):**
+
+- `POST /vehicle-logs` bisa pakai `vehicle_id` atau `vehicle_code` di body.
+- `POST /sensor-logs` bisa pakai `vehicle_id`/`vehicle_code` dan `sensor_id`/`sensor_code` di body.
+- `POST /command-logs` dan `POST /waypoint-logs` memakai `vehicle_id` dan `vehicle_code` di body.
+- `POST /raw-logs` hanya memakai `logs` (tanpa vehicle_id pada request).
+
+Jika mau lookup ID dari code:
+
+- `GET /vehicles` (ambil `id` dari `code`)
+- `GET /sensors/code/:code` (ambil `id` dari `sensor_code`)
+
+**Contoh payload API:**
+
+```json
+POST /sensor-logs
+{
+  "vehicle_code": "USV-01",
+  "sensor_code": "CTD-MIDAS-01",
+  "data": "{\"temperature\":25.5,\"pressure\":1013}"
+}
+```
+
+```json
+POST /vehicle-logs
+{
+  "vehicle_code": "USV-01",
+  "latitude": -6.2088,
+  "longitude": 106.8456,
+  "speed": 5.2,
+  "heading": 90.5,
+  "battery_voltage": 12.5
+}
+```
+
+When the frontend is set to API mode, it polls these endpoints for real-time updates:
+
+```
+GET /vehicle-logs
+GET /sensor-logs
+GET /raw-logs
+GET /command-logs
+GET /waypoint-logs
+GET /alerts
+GET /missions
+GET /vehicle-batteries/latest
+GET /vehicles/connection-statuses
+```
+
+**Frontend env (realtime mode):**
+
+```
+VITE_REALTIME_MODE=mqtt   # mqtt or api
+VITE_REALTIME_POLL_INTERVAL_MS=5000
+```
+
 ## Sensor Integration
 
 ### Supported Sensor Types
