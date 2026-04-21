@@ -58,12 +58,12 @@ const Battery = () => {
   return (
     <div className="p-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <Title
           title={t("pages.battery.title")}
           subtitle={t("pages.battery.subtitle")}
         />
-        <div className="min-w-50">
+        <div className="w-44 flex-shrink-0">
           <VehicleDropdown
             vehicles={vehicles || []}
             selectedVehicle={selectedVehicle}
@@ -80,37 +80,39 @@ const Battery = () => {
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="grid grid-cols-1 gap-4">
-          <div
-            className={`grid grid-cols-1 gap-4 ${batteryCount === 2 ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}
-          >
-            {batteryUnits.map((unit, index) => (
-              <BatteryDisplay
-                key={unit}
-                unit={unit}
-                battery={vehicleBatteries[index + 1] || null}
-                index={index}
-              />
-            ))}
-          </div>
-          <div className="">
-            <BatteryStatusInfo
-              selectedVehicle={selectedVehicle}
-              batteryData={batteryData}
-            />
-          </div>
-          <div className="">
-            <IndividualCellVoltages
-              selectedVehicle={selectedVehicle}
-              batteryData={batteryData}
-            />
-          </div>
+
+      {/* Row 1: Status + Battery + Chart */}
+      {/* Mobile: stacked | md: 2-col | lg: 7-col */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3 items-stretch">
+        {/* Status Info */}
+        <div className="md:col-span-1 lg:col-span-2">
+          <BatteryStatusInfo
+            selectedVehicle={selectedVehicle}
+            batteryData={batteryData}
+          />
         </div>
-        <div className="grid grid-cols-1 gap-6">
+
+        {/* Battery Display */}
+        <div className={`md:col-span-1 lg:col-span-2 grid gap-2 ${batteryCount === 2 ? "grid-rows-2" : "grid-rows-1"}`}>
+          {batteryUnits.map((unit, index) => (
+            <BatteryDisplay
+              key={unit}
+              unit={unit}
+              battery={vehicleBatteries[index + 1] || null}
+              index={index}
+            />
+          ))}
+        </div>
+
+        {/* Chart — full width on mobile/md, 3 cols on lg */}
+        <div className="md:col-span-2 lg:col-span-3">
           <DualUnitAnalytics selectedVehicle={selectedVehicle} />
-          <BatteryLog selectedVehicle={selectedVehicle} />
         </div>
+      </div>
+
+      {/* Row 2: Full-width Data Logs */}
+      <div className="mt-3">
+        <BatteryLog selectedVehicle={selectedVehicle} />
       </div>
     </div>
   );

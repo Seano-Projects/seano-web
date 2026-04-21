@@ -90,11 +90,7 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
       remainingCapacity: (avgPercentage / 100) * nominalCapacity,
       nominalCapacity,
       cycleCount: 0,
-      deviceName: "N/A",
-      hardwareVersion: "N/A",
-      softwareVersion: "N/A",
       deviceUptime: 0,
-      powerOnCount: 0,
     };
   };
 
@@ -118,8 +114,8 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
 
   if (!stats) {
     return (
-      <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-6">
+      <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-full">
+        <div className="flex items-center gap-2 mb-3">
           <FaInfoCircle className="text-gray-500 dark:text-gray-400" />
           <h3 className="text-lg font-semibold text-black dark:text-white">
             Status Info
@@ -133,34 +129,34 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
   }
 
   return (
-    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
+    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-full">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mr-auto">
           <FaInfoCircle className="text-gray-500 dark:text-gray-400" />
           <h3 className="text-lg font-semibold text-black dark:text-white">
             Status Info
           </h3>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 flex-wrap">
           {["All", ...["Battery A", "Battery B"].slice(0, batteryCount)].map(
             (f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                   filter === f
                     ? "bg-blue-600 text-white"
                     : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                 }`}
               >
-                {f}
+                {f === "Battery A" ? "A" : f === "Battery B" ? "B" : f}
               </button>
             ),
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
         {/* SOC */}
         <div className="bg-white dark:bg-black rounded-lg p-4 border border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2 mb-2">
@@ -200,90 +196,19 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
           </div>
         </div>
 
-        {/* Temperature */}
-        <div className="bg-white dark:bg-black rounded-lg p-4 border border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-2 mb-2">
-            <FaThermometerHalf className="text-orange-500" />
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              Temp
-            </span>
-          </div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-            {stats.powerTubeTemp.toFixed(1)}°C
-          </div>
-        </div>
-
-        {/* Delta Voltage */}
-        <div className="bg-white dark:bg-black rounded-lg p-4 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 block">
-            Delta V
-          </span>
-          <div className="text-xl font-semibold text-gray-900 dark:text-white">
-            {stats.deltaVoltage.toFixed(3)}V
-          </div>
-        </div>
-
         {/* Capacity */}
         <div className="bg-white dark:bg-black rounded-lg p-4 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 block">
-            Capacity
-          </span>
-          <div className="text-xl font-semibold text-gray-900 dark:text-white">
-            {stats.remainingCapacity.toFixed(1)}/
-            {stats.nominalCapacity.toFixed(1)}Ah
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+              Capacity
+            </span>
           </div>
-        </div>
-
-        {/* Cycle Count */}
-        <div className="bg-white dark:bg-black rounded-lg p-4 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 block">
-            Cycles
-          </span>
           <div className="text-xl font-semibold text-gray-900 dark:text-white">
-            {stats.cycleCount}
-          </div>
-        </div>
-
-        {/* Uptime */}
-        <div className="bg-white dark:bg-black rounded-lg p-4 border border-gray-200 dark:border-gray-800">
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 block">
-            Uptime
-          </span>
-          <div className="text-xl font-semibold text-gray-900 dark:text-white">
-            {formatUptime(stats.deviceUptime)}
+            {stats.remainingCapacity.toFixed(1)}/{stats.nominalCapacity.toFixed(1)}Ah
           </div>
         </div>
       </div>
 
-      {/* Device Info */}
-      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Device</span>
-            <p className="font-medium text-gray-900 dark:text-white mt-1">
-              {stats.deviceName}
-            </p>
-          </div>
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Hardware</span>
-            <p className="font-medium text-gray-900 dark:text-white mt-1">
-              {stats.hardwareVersion}
-            </p>
-          </div>
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Software</span>
-            <p className="font-medium text-gray-900 dark:text-white mt-1">
-              {stats.softwareVersion}
-            </p>
-          </div>
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Power On</span>
-            <p className="font-medium text-gray-900 dark:text-white mt-1">
-              {stats.powerOnCount}x
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

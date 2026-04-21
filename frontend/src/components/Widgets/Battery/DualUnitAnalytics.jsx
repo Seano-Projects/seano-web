@@ -19,6 +19,16 @@ const formatPercentage = (value) => {
   return Number.isInteger(numeric) ? numeric.toFixed(0) : numeric.toFixed(1);
 };
 
+const formatNumber = (value, digits = 1) => {
+  const numeric = Number(value);
+
+  if (!Number.isFinite(numeric)) {
+    return "0";
+  }
+
+  return numeric.toFixed(digits);
+};
+
 const DualUnitAnalytics = ({ selectedVehicle }) => {
   const [filter, setFilter] = useState("Both");
   const { getVehicleLogs } = useBatteryData();
@@ -65,15 +75,23 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
         timeGroups[timeKey] = {
           time: timeKey,
           epoch,
-          "BATTERY A": null,
-          "BATTERY B": null,
+          A_SOC: null,
+          A_VOLT: null,
+          A_CURR: null,
+          B_SOC: null,
+          B_VOLT: null,
+          B_CURR: null,
         };
       }
 
       if (log.battery_id === 1) {
-        timeGroups[timeKey]["BATTERY A"] = log.percentage;
+        timeGroups[timeKey].A_SOC = log.percentage;
+        timeGroups[timeKey].A_VOLT = log.voltage;
+        timeGroups[timeKey].A_CURR = log.current;
       } else if (log.battery_id === 2) {
-        timeGroups[timeKey]["BATTERY B"] = log.percentage;
+        timeGroups[timeKey].B_SOC = log.percentage;
+        timeGroups[timeKey].B_VOLT = log.voltage;
+        timeGroups[timeKey].B_CURR = log.current;
       }
     });
 
@@ -83,53 +101,110 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
       .map(({ epoch, ...item }) => item);
   }, [getVehicleLogs, selectedVehicle]);
 
+  const average = (values) => {
+    const valid = values.filter((value) => Number.isFinite(Number(value)));
+    if (valid.length === 0) return null;
+    return valid.reduce((sum, value) => sum + Number(value), 0) / valid.length;
+  };
+
   const filteredData = chartData.map((item) => {
-    if (filter === "Unit A") {
-      return { ...item, "BATTERY B": null };
-    } else if (filter === "Unit B") {
-      return { ...item, "BATTERY A": null };
+    if (filter === "Unit A" || batteryCount === 1) {
+      return {
+        time: item.time,
+        soc: item.A_SOC,
+        voltage: item.A_VOLT,
+        current: item.A_CURR,
+      };
     }
-    return item;
+
+    if (filter === "Unit B") {
+      return {
+        time: item.time,
+        soc: item.B_SOC,
+        voltage: item.B_VOLT,
+        current: item.B_CURR,
+      };
+    }
+
+    return {
+      time: item.time,
+      soc: average([item.A_SOC, item.B_SOC]),
+      voltage: average([item.A_VOLT, item.B_VOLT]),
+      current: average([item.A_CURR, item.B_CURR]),
+    };
   });
 
+  const formatMetricValue = (dataKey, value) => {
+    if (!Number.isFinite(Number(value))) {
+      return "N/A";
+    }
+
+    switch (dataKey) {
+      case "soc":
+        return `${formatPercentage(value)}%`;
+      case "voltage":
+        return `${formatNumber(value, 1)}V`;
+      case "current":
+        return `${formatNumber(value, 1)}A`;
+      default:
+        return value;
+    }
+  };
+
   return (
-    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-xl font-semibold text-black dark:text-white">
+    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl pt-4 px-4 pb-2 h-full flex flex-col">
+      <div className="flex flex-wrap items-start gap-2 mb-3">
+        <div className="mr-auto">
+          <h3 className="text-base font-semibold text-black dark:text-white">
             Grafik Penggunaan Baterai
           </h3>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 flex-wrap">
           {["Both", ...["Unit A", "Unit B"].slice(0, batteryCount)].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                 filter === f
                   ? "bg-blue-600 text-white"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
               }`}
             >
-              {f}
+              {f === "Unit A" ? "A" : f === "Unit B" ? "B" : f}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Chart - No grid, Area Chart with Shadcn styling */}
-      <div className="h-140" style={{ minHeight: "560px" }}>
+      {/* Chart */}
+      <div className="flex-1" style={{ minHeight: "240px" }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={filteredData}
-            margin={{ top: 10, right: 50, left: -15, bottom: 0 }}
+            margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
           >
             <defs>
-              <linearGradient id="colorBatteryA" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+              <linearGradient id="colorSoc" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.35} />
                 <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
               </linearGradient>
-              <linearGradient id="colorBatteryB" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient
+                id="colorVoltage"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient
+                id="colorCurrent"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
                 <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.3} />
                 <stop offset="95%" stopColor="#22D3EE" stopOpacity={0} />
               </linearGradient>
@@ -143,12 +218,23 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
               axisLine={false}
             />
             <YAxis
+              yAxisId="left"
               stroke="#6B7280"
               className="dark:stroke-gray-500"
               fontSize={12}
               tickLine={false}
               axisLine={false}
               domain={[0, 100]}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              stroke="#6B7280"
+              className="dark:stroke-gray-500"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              domain={['auto', 'auto']}
             />
             <Tooltip
               contentStyle={{
@@ -175,7 +261,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
                           className="text-sm font-medium"
                           style={{ color: entry.color }}
                         >
-                          {entry.name}: {formatPercentage(entry.value)}%
+                          {entry.name}: {formatMetricValue(entry.dataKey, entry.value)}
                         </p>
                       ))}
                     </div>
@@ -184,26 +270,36 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
                 return null;
               }}
             />
-            {filter !== "Unit B" && (
-              <Area
-                type="monotone"
-                dataKey="BATTERY A"
-                stroke="#3B82F6"
-                strokeWidth={2}
-                fill="url(#colorBatteryA)"
-                fillOpacity={1}
-              />
-            )}
-            {batteryCount === 2 && filter !== "Unit A" && (
-              <Area
-                type="monotone"
-                dataKey="BATTERY B"
-                stroke="#22D3EE"
-                strokeWidth={2}
-                fill="url(#colorBatteryB)"
-                fillOpacity={1}
-              />
-            )}
+            <Area
+              yAxisId="left"
+              type="monotone"
+              dataKey="soc"
+              name="SOC"
+              stroke="#3B82F6"
+              strokeWidth={2}
+              fill="url(#colorSoc)"
+              fillOpacity={1}
+            />
+            <Area
+              yAxisId="right"
+              type="monotone"
+              dataKey="voltage"
+              name="Voltage"
+              stroke="#F59E0B"
+              strokeWidth={2}
+              fill="url(#colorVoltage)"
+              fillOpacity={1}
+            />
+            <Area
+              yAxisId="right"
+              type="monotone"
+              dataKey="current"
+              name="Current"
+              stroke="#22D3EE"
+              strokeWidth={2}
+              fill="url(#colorCurrent)"
+              fillOpacity={1}
+            />
           </AreaChart>
         </ResponsiveContainer>
       </div>
