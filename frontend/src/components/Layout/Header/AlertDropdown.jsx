@@ -40,10 +40,6 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
     const wsUrl = `${config.wsBaseUrl || "ws://localhost:8080"}/ws/alerts?token=${token}`;
     const ws = new WebSocket(wsUrl);
 
-    ws.onopen = () => {
-      console.log("🚨 Alert WebSocket connected");
-    };
-
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -55,7 +51,6 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
           setAlerts((prev) => [newAlert, ...prev.slice(0, 9)]);
           fetchStats(); // Update stats
           if (onUpdate) onUpdate();
-          console.log("🚨 New alert received:", newAlert);
         } else if (messageType === "alert_update") {
           setAlerts((prev) =>
             prev.map((alert) =>
@@ -74,10 +69,6 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
 
     ws.onerror = (error) => {
       console.error("🚨 Alert WebSocket error:", error);
-    };
-
-    ws.onclose = () => {
-      console.log("🚨 Alert WebSocket disconnected");
     };
 
     return () => {

@@ -210,7 +210,7 @@ const Navbar = () => {
             }`}
           >
             <a
-              href="#get-started"
+              href="/auth/login"
               onClick={() => setIsMenuOpen(false)}
               className="w-full block text-center px-6 py-3 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_100%] animate-gradient"
             >

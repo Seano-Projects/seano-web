@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import useVehicleData from "../../../hooks/useVehicleData";
 import useMissionData from "../../../hooks/useMissionData";
+import useBatteryData from "../../../hooks/useBatteryData";
 import { useLogData, useVehicleConnectionStatus } from "../../../hooks";
 import { VehicleDropdown } from "../../Widgets";
 import {
@@ -19,12 +20,44 @@ import useTranslation from "../../../hooks/useTranslation";
 
 const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const { t } = useTranslation();
-  const [batteryLevel, setBatteryLevel] = useState(1);
   const [location, setLocation] = useState(t("tracking.topbar.waitingGps"));
   const { vehicles, loading } = useVehicleData();
   const { getActiveMissions } = useMissionData();
   const { vehicleLogs, ws } = useLogData();
-  const { getVehicleStatus } = useVehicleConnectionStatus(); // MQTT LWT status
+  const { getVehicleStatus } = useVehicleConnectionStatus();
+  const { batteryData = {} } = useBatteryData() || {};
+
+  // USV battery units for selected vehicle
+  const batteryCount = Number(selectedVehicle?.battery_count) === 1 ? 1 : 2;
+  const vehicleBatteries = batteryData[selectedVehicle?.id] || {};
+  const batteryUnits = Array.from({ length: batteryCount }, (_, i) => ({
+    unit: String.fromCharCode(65 + i), // A, B
+    data: vehicleBatteries[i + 1] || null,
+  }));
+
+  const renderBatteryIcon = (pct, unit) => {
+    const level = pct ?? null;
+    const color =
+      level === null ? "text-gray-400"
+      : level <= 10 ? "text-red-500"
+      : level <= 30 ? "text-orange-500"
+      : level <= 60 ? "text-yellow-500"
+      : level <= 90 ? "text-green-400"
+      : "text-green-500";
+    const Icon =
+      level === null || level <= 10 ? FaBatteryEmpty
+      : level <= 30 ? FaBatteryQuarter
+      : level <= 60 ? FaBatteryHalf
+      : level <= 90 ? FaBatteryThreeQuarters
+      : FaBatteryFull;
+    const label = level !== null ? `${Math.round(level)}%` : "-- %";
+    return (
+      <div key={unit} className="flex items-center gap-1" title={`Battery ${unit}: ${label}`}>
+        <Icon size={22} className={color} />
+        <span className="hidden sm:inline text-xs font-medium">{label}</span>
+      </div>
+    );
+  };
 
   // Get latest vehicle log for selected vehicle
   const vehicleLog = useMemo(() => {
@@ -42,13 +75,14 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
     return getVehicleStatus(selectedVehicle.code) || "offline";
   }, [selectedVehicle, getVehicleStatus]);
 
-  // Get real RSSI from vehicle log
+  // Get real RSSI from vehicle log (only when online)
   const rssiLevel = useMemo(() => {
+    if (usvStatus !== 'online') return null;
     if (vehicleLog?.rssi !== undefined && vehicleLog?.rssi !== null) {
       return vehicleLog.rssi;
     }
     return null;
-  }, [vehicleLog]);
+  }, [vehicleLog, usvStatus]);
 
   // Get current active mission for selected vehicle
   const getCurrentMission = () => {
@@ -64,29 +98,6 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   };
 
   const currentMission = getCurrentMission();
-
-  useEffect(() => {
-    if (navigator.getBattery) {
-      navigator.getBattery().then((battery) => {
-        setBatteryLevel(battery.level);
-        battery.addEventListener("levelchange", () =>
-          setBatteryLevel(battery.level),
-        );
-      });
-    }
-  }, []);
-
-  const renderBatteryIcon = () => {
-    if (batteryLevel <= 0.1)
-      return <FaBatteryEmpty size={30} className="text-red-500" />;
-    if (batteryLevel <= 0.3)
-      return <FaBatteryQuarter size={30} className="text-orange-500" />;
-    if (batteryLevel <= 0.6)
-      return <FaBatteryHalf size={30} className="text-yellow-500" />;
-    if (batteryLevel <= 0.9)
-      return <FaBatteryThreeQuarters size={30} className="text-green-400" />;
-    return <FaBatteryFull size={30} className="text-green-500" />;
-  };
 
   const renderRssiIcon = () => {
     if (rssiLevel === null) {
@@ -141,6 +152,10 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
 
   // Reverse geocoding untuk mendapatkan lokasi dari koordinat
   useEffect(() => {
+    if (usvStatus !== 'online') {
+      setLocation(t("tracking.topbar.waitingGps"));
+      return;
+    }
     if (vehicleLog?.latitude && vehicleLog?.longitude) {
       const lat = vehicleLog.latitude;
       const lon = vehicleLog.longitude;
@@ -179,18 +194,18 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
     } else {
       setLocation(t("tracking.topbar.waitingGps"));
     }
-  }, [vehicleLog, t]);
+  }, [vehicleLog, t, usvStatus]);
 
   return (
     <div
-      className={`fixed z-30 top-15 right-0 bg-white
-                  h-30 sm:h-15 py-2 px-4 border-b border-gray-200
+      className={`fixed z-30 top-13 right-0 bg-white
+                  py-2 px-3 border-b border-gray-200
                   dark:bg-black dark:border-gray-700
-                  flex flex-col sm:flex-row space-y-3 md:space-y-0 sm:items-center sm:justify-between
+                  flex items-center justify-between gap-2
                   ${isSidebarOpen ? "md:left-64 left-16" : "left-16"}`}
     >
-      <div className="flex items-center gap-4 dark:text-white text-sm">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 dark:text-white text-sm min-w-0">
+        <div className="flex items-center gap-2 shrink-0">
           <span
             className={`relative flex items-center gap-2 px-2.5 py-1.5 text-sm font-semibold rounded-full ${
               usvStatus === "online"
@@ -234,7 +249,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
             {getVehicleStatusLabel(usvStatus)}
           </span>
         </div>
-        <div className="min-w-50">
+        <div className="w-36 sm:w-44 lg:min-w-50">
           <VehicleDropdown
             key={selectedVehicle?.id || "no-vehicle"}
             vehicles={vehicles}
@@ -254,14 +269,14 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
       </div>
 
       {/* Indikator */}
-      <div className="flex items-center gap-4 dark:text-white text-sm">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 sm:gap-4 dark:text-white text-sm shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2">
           <FaRoute
-            size={20}
+            size={18}
             className={currentMission ? "text-blue-500" : "text-gray-400"}
           />
           <span
-            className={`font-medium ${
+            className={`font-medium hidden xs:inline ${
               currentMission
                 ? "text-blue-700 dark:text-blue-300"
                 : "text-gray-500 dark:text-gray-400"
@@ -273,21 +288,37 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
                 }`
               : "WP -- / --"}
           </span>
+          <span
+            className={`font-medium inline xs:hidden ${
+              currentMission
+                ? "text-blue-700 dark:text-blue-300"
+                : "text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            {currentMission
+              ? `${currentMission.current_waypoint || 0}/${currentMission.waypoints || 0}`
+              : "--/--"}
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {renderRssiIcon()}
-          <span>{rssiLevel !== null ? `${rssiLevel} dBm` : "-- dBm"}</span>
+          <span className="hidden sm:inline">
+            {rssiLevel !== null ? `${rssiLevel} dBm` : "-- dBm"}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
-          {renderBatteryIcon()}
-          <span>{Math.round(batteryLevel * 100)}%</span>
+          {batteryUnits.map(({ unit, data }) =>
+            renderBatteryIcon(data?.percentage, unit)
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <FaMapMarkerAlt className="text-red-400" />
-          <span>{location}</span>
+          <span className="hidden lg:inline truncate max-w-40 xl:max-w-64">
+            {location}
+          </span>
         </div>
       </div>
     </div>

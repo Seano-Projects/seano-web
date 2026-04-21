@@ -142,8 +142,6 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
   };
 
   const clearReadNotifications = () => {
-    console.log("🗑️ Clear Read: Removing read notifications permanently");
-
     // Get IDs of read notifications to clear
     const readNotificationIds = notifications
       .filter((notif) => notif.read)
@@ -158,12 +156,6 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
 
     // Remove from UI
     setNotifications((prev) => prev.filter((notif) => !notif.read));
-
-    console.log(
-      "🗑️ Clear Read: Completed - cleared",
-      readNotificationIds.length,
-      "notifications",
-    );
   };
 
   const getTypeIcon = (type) => {

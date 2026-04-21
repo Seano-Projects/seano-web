@@ -15,6 +15,7 @@ const LinkItem = ({
   size,
   type,
   action,
+  hideIcon,
 }) => {
   const { logout } = useAuthContext();
   const { t } = useTranslation();
@@ -105,7 +106,7 @@ const LinkItem = ({
               : "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600"
           }`}
         >
-          <Icon size={size} />
+          {!hideIcon && <Icon size={size} />}
           <span className={`me-3 ${isSidebarOpen ? "flex-1" : "hidden"}`}>
             {t(text)}
           </span>
@@ -130,7 +131,7 @@ const LinkItem = ({
           }`
         }
       >
-        <Icon size={size} />
+        {!hideIcon && <Icon size={size} />}
         <span className={`me-3 ${isSidebarOpen ? "flex-1" : "hidden"}`}>
           {t(text)}
         </span>

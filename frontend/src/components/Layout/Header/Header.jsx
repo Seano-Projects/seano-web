@@ -5,11 +5,14 @@ import {
   FaRegBell,
   FaBell,
   FaExclamationTriangle,
+  FaExpand,
+  FaCompress,
 } from "react-icons/fa";
-import { HiOutlineMenuAlt2, HiX } from "react-icons/hi";
+
 import { FiLogOut } from "react-icons/fi";
 import SeanoLogo from "../../../assets/logo_seano.webp";
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useAuthContext } from "../../../hooks/useAuthContext";
 import { LanguageToggle } from "../../ui";
 import useTranslation from "../../../hooks/useTranslation";
@@ -17,7 +20,7 @@ import NotificationDropdown from "./NotificationDropdown";
 import AlertDropdown from "./AlertDropdown";
 import { API_BASE_URL } from "../../../config";
 
-const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
+const Header = ({ darkMode, toggleDarkMode }) => {
   const { user, logout } = useAuthContext();
   const { t, language } = useTranslation();
   const [time, setTime] = useState(new Date());
@@ -30,6 +33,23 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
   const userMenuRef = useRef(null);
   const notificationsRef = useRef(null);
   const alertsRef = useRef(null);
+
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(
+    () => !!document.fullscreenElement,
+  );
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   // Get initials for avatar (same logic as Profile page)
   const getInitials = (username, email) => {
@@ -185,7 +205,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
       <div className="px-2 py-2 lg:px-5 lg:pl-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center justify-start rtl:justify-end gap-2">
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <img
                 src={SeanoLogo}
                 className="w-8"
@@ -196,21 +216,6 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
                 SeaPortal
               </span>
             </div>
-            <button
-              aria-label={
-                isSidebarOpen
-                  ? t("header.closeSidebar")
-                  : t("header.openSidebar")
-              }
-              className="inline-flex items-center p-1.5 ml-10 text-sm text-gray-500 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600 cursor-pointer transition-colors"
-              onClick={toggleSidebar}
-            >
-              {isSidebarOpen ? (
-                <HiX className="text-2xl" aria-hidden="true" />
-              ) : (
-                <HiOutlineMenuAlt2 className="text-2xl" aria-hidden="true" />
-              )}
-            </button>
           </div>
           <div className="flex items-center gap-4 relative justify-between">
             {/* Tanggal & Waktu */}
@@ -227,6 +232,21 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
               {/* Language Toggle */}
               <LanguageToggle className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800" />
 
+              {/* Fullscreen Toggle */}
+              <button
+                aria-label={
+                  isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
+                }
+                className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer focus:outline-none hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-white"
+                onClick={toggleFullscreen}
+              >
+                {isFullscreen ? (
+                  <FaCompress aria-hidden="true" />
+                ) : (
+                  <FaExpand aria-hidden="true" />
+                )}
+              </button>
+
               {/* Dark Mode Toggle */}
               <button
                 aria-label={
@@ -234,7 +254,7 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
                     ? t("header.switchToLightMode")
                     : t("header.switchToDarkMode")
                 }
-                className="dark:bg-slate-50 dark:text-slate-700 rounded-full p-2 transition-all duration-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer focus:outline-none hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-white"
                 onClick={toggleDarkMode}
               >
                 {darkMode ? (
@@ -319,11 +339,11 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
                 </button>
                 {isUserMenuOpen && (
                   <div
-                    className="absolute right-0 top-12 mt-2 w-48 bg-white dark:bg-black rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2"
+                    className="absolute right-0 top-12 mt-2 w-48 bg-white dark:bg-black rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
                     style={{ zIndex: 10002 }}
                   >
                     {/* User Info */}
-                    <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 mb-2">
+                    <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
                       <p className="text-sm font-semibold dark:text-white">
                         {user?.username || "User"}
                       </p>
@@ -332,17 +352,23 @@ const Header = ({ darkMode, toggleDarkMode, toggleSidebar, isSidebarOpen }) => {
                       </p>
                     </div>
 
-                    <ul className="space-y-1">
+                    <ul className="px-2 py-2 space-y-1">
                       <li>
-                        <a
-                          href="/profile"
+                        <Link
+                          to="/profile"
+                          onClick={() => setIsUserMenuOpen(false)}
                           className="flex items-center gap-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white font-medium rounded px-3 py-2 transition"
                         >
                           <FaRegUser />
                           <span>{t("header.profile")}</span>
-                        </a>
+                        </Link>
                       </li>
-                      <li className="border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">
+                    </ul>
+
+                    <div className="border-t border-gray-200 dark:border-gray-700" />
+
+                    <ul className="px-2 py-2">
+                      <li>
                         <button
                           onClick={handleLogout}
                           className="w-full flex items-center gap-3 cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 font-medium rounded px-3 py-2 transition"
