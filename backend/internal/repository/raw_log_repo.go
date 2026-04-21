@@ -28,7 +28,9 @@ func (r *RawLogRepository) GetRawLogs(query model.RawLogQuery) ([]model.RawLog, 
 	
 	db := r.db.Model(&model.RawLog{})
 	
-	if query.VehicleID != 0 {
+	if len(query.VehicleIDs) > 0 {
+		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
+	} else if query.VehicleID != 0 {
 		db = db.Where("vehicle_id = ?", query.VehicleID)
 	}
 	
@@ -73,7 +75,9 @@ func (r *RawLogRepository) CountLogs(query model.RawLogQuery) (int64, error) {
 	
 	db := r.db.Model(&model.RawLog{})
 	
-	if query.VehicleID != 0 {
+	if len(query.VehicleIDs) > 0 {
+		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
+	} else if query.VehicleID != 0 {
 		db = db.Where("vehicle_id = ?", query.VehicleID)
 	}
 	

@@ -2,13 +2,20 @@ package mqtt
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
+
+	"go-fiber-pgsql/internal/model"
+	"go-fiber-pgsql/internal/repository"
+	wsocket "go-fiber-pgsql/internal/websocket"
 )
 
 // CommandType defines the type of command to send
@@ -46,18 +53,24 @@ type pendingRequest struct {
 
 // CommandPublisher sends commands via MQTT and waits for hardware ACK
 type CommandPublisher struct {
-	client  mqtt.Client
-	mu      sync.Mutex
-	pending map[string]*pendingRequest
-	timeout time.Duration
+	client         mqtt.Client
+	mu             sync.Mutex
+	pending        map[string]*pendingRequest
+	timeout        time.Duration
+	commandLogRepo *repository.CommandLogRepository
+	vehicleRepo    *repository.VehicleRepository
+	wsHub          *wsocket.Hub
 }
 
 // NewCommandPublisher creates a new CommandPublisher with the shared MQTT client
-func NewCommandPublisher(client mqtt.Client) *CommandPublisher {
+func NewCommandPublisher(client mqtt.Client, commandLogRepo *repository.CommandLogRepository, vehicleRepo *repository.VehicleRepository, wsHub *wsocket.Hub) *CommandPublisher {
 	return &CommandPublisher{
-		client:  client,
-		pending: make(map[string]*pendingRequest),
-		timeout: 8 * time.Second,
+		client:         client,
+		pending:        make(map[string]*pendingRequest),
+		timeout:        8 * time.Second,
+		commandLogRepo: commandLogRepo,
+		vehicleRepo:    vehicleRepo,
+		wsHub:          wsHub,
 	}
 }
 
@@ -71,6 +84,72 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 
 	log.Printf("📥 ACK received from hardware: request_id=%s status=%s message=%s",
 		ack.RequestID, ack.Status, ack.Message)
+
+	vehicleCode := ""
+	parts := strings.Split(msg.Topic(), "/")
+	if len(parts) >= 3 {
+		vehicleCode = parts[1]
+	}
+
+	if cp.commandLogRepo != nil && vehicleCode != "" {
+		status := strings.ToLower(strings.TrimSpace(ack.Status))
+		finalStatus := "failed"
+		switch status {
+		case "ok", "success":
+			finalStatus = "success"
+		case "error", "failed":
+			finalStatus = "failed"
+		case "timeout":
+			finalStatus = "timeout"
+		}
+
+		resolvedAt := time.Now()
+		updated, err := cp.commandLogRepo.UpdateLatestPendingCommandLog(vehicleCode, ack.Command, finalStatus, ack.Message, resolvedAt)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) && cp.vehicleRepo != nil {
+				vehicle, err := cp.vehicleRepo.GetVehicleByCode(vehicleCode)
+				if err == nil {
+					entry := &model.CommandLog{
+						VehicleID:   vehicle.ID,
+						VehicleCode: vehicleCode,
+						Command:     ack.Command,
+						Status:      finalStatus,
+						Message:     ack.Message,
+						InitiatedAt: resolvedAt,
+						ResolvedAt:  &resolvedAt,
+					}
+					if err := cp.commandLogRepo.CreateCommandLog(entry); err != nil {
+						log.Printf("⚠️  Failed to create command log from ACK: %v", err)
+					} else {
+						updated = entry
+					}
+				} else {
+					log.Printf("⚠️  Vehicle not found for ACK update: %s", vehicleCode)
+				}
+			} else {
+				log.Printf("⚠️  Failed to update command log from ACK: %v", err)
+			}
+		}
+
+		if updated != nil && cp.wsHub != nil {
+			var resolvedAtStr *string
+			if updated.ResolvedAt != nil {
+				s := updated.ResolvedAt.Format(time.RFC3339)
+				resolvedAtStr = &s
+			}
+			_ = cp.wsHub.BroadcastCommandLog(wsocket.CommandLogData{
+				ID:          updated.ID,
+				VehicleID:   updated.VehicleID,
+				VehicleCode: updated.VehicleCode,
+				Command:     updated.Command,
+				Status:      updated.Status,
+				Message:     updated.Message,
+				InitiatedAt: updated.InitiatedAt.Format(time.RFC3339),
+				ResolvedAt:  resolvedAtStr,
+				CreatedAt:   updated.CreatedAt.Format(time.RFC3339),
+			})
+		}
+	}
 
 	cp.mu.Lock()
 	req, ok := cp.pending[ack.RequestID]

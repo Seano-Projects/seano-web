@@ -146,7 +146,7 @@ func (h *VehicleSensorHandler) GetVehicleSensors(c *fiber.Ctx) error {
 		})
 	}
 
-	if vehicle.UserID != userID && !middleware.HasPermission(h.db, userID, "vehicles.read") {
+	if vehicle.UserID != userID && !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to view this vehicle",
 		})
@@ -252,7 +252,7 @@ func (h *VehicleSensorHandler) GetAllSensorsStatus(c *fiber.Ctx) error {
 	var err error
 
 	// Check if user has vehicles.read permission (admin/moderator)
-	if middleware.HasPermission(h.db, userID, "vehicles.read") {
+	if middleware.HasPermission(h.db, userID, "vehicles.read_all") {
 		vehicleSensors, err = h.vehicleSensorRepo.GetAllVehicleSensorsWithStatus()
 	} else {
 		// Regular users only see their own vehicle sensors

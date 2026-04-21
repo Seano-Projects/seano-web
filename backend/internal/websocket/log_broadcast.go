@@ -142,6 +142,70 @@ func (h *Hub) BroadcastRawLog(data RawLogData, timestamp string) error {
 	return nil
 }
 
+// CommandLogData represents a command log entry for WebSocket broadcast
+type CommandLogData struct {
+	ID          uint    `json:"id"`
+	VehicleID   uint    `json:"vehicle_id"`
+	VehicleCode string  `json:"vehicle_code"`
+	Command     string  `json:"command"`
+	Status      string  `json:"status"`
+	Message     string  `json:"message"`
+	InitiatedAt string  `json:"initiated_at"`
+	ResolvedAt  *string `json:"resolved_at,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+}
+
+// WaypointLogData represents a waypoint log entry for WebSocket broadcast
+type WaypointLogData struct {
+	ID            uint    `json:"id"`
+	VehicleID     uint    `json:"vehicle_id"`
+	VehicleCode   string  `json:"vehicle_code"`
+	MissionID     *uint   `json:"mission_id,omitempty"`
+	MissionName   string  `json:"mission_name"`
+	WaypointCount int     `json:"waypoint_count"`
+	Status        string  `json:"status"`
+	Message       string  `json:"message"`
+	InitiatedAt   string  `json:"initiated_at"`
+	ResolvedAt    *string `json:"resolved_at,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+}
+
+// BroadcastCommandLog broadcasts a command log entry to all connected clients
+func (h *Hub) BroadcastCommandLog(data CommandLogData) error {
+	msg := LogMessage{
+		Type:      "command_log",
+		Timestamp: data.CreatedAt,
+		Data:      data,
+	}
+
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal command log: %v", err)
+		return err
+	}
+
+	h.broadcast <- jsonData
+	return nil
+}
+
+// BroadcastWaypointLog broadcasts a waypoint log entry to all connected clients
+func (h *Hub) BroadcastWaypointLog(data WaypointLogData) error {
+	msg := LogMessage{
+		Type:      "waypoint_log",
+		Timestamp: data.CreatedAt,
+		Data:      data,
+	}
+
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal waypoint log: %v", err)
+		return err
+	}
+
+	h.broadcast <- jsonData
+	return nil
+}
+
 // BroadcastToVehicle broadcasts message to all clients watching a specific vehicle
 func (h *Hub) BroadcastToVehicle(vehicleID uint, data interface{}) error {
 	jsonData, err := json.Marshal(data)

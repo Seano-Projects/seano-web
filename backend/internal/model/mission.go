@@ -37,6 +37,12 @@ type Bounds struct {
 	West  float64 `json:"west"`
 }
 
+type UploadMissionParameters struct {
+	Speed    float64 `json:"speed,omitempty"`
+	Altitude float64 `json:"altitude,omitempty"`
+	Radius   float64 `json:"radius,omitempty"`
+}
+
 // WaypointArray is a custom type for JSON array of waypoints
 type WaypointArray []Waypoint
 
@@ -68,6 +74,7 @@ type Mission struct {
 	Vehicle           *Vehicle      `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:SET NULL"`
 	Waypoints         WaypointArray `json:"waypoints" gorm:"type:jsonb"`
 	HomeLocation      *Waypoint     `json:"home_location,omitempty" gorm:"type:jsonb;serializer:json"`
+	UploadParameters  *UploadMissionParameters `json:"upload_parameters,omitempty" gorm:"type:jsonb;serializer:json"`
 	StartTime         *time.Time    `json:"start_time"`
 	EndTime           *time.Time    `json:"end_time"`
 	Progress          float64       `json:"progress" gorm:"type:decimal(5,2);default:0"`              // Progress percentage (0-100)
@@ -76,6 +83,9 @@ type Mission struct {
 	TimeElapsed       int64         `json:"time_elapsed" gorm:"default:0"`                            // seconds
 	CurrentWaypoint   int           `json:"current_waypoint" gorm:"default:0"`                        // Current waypoint index
 	CompletedWaypoint int           `json:"completed_waypoint" gorm:"default:0"`                      // Number of completed waypoints
+	TotalWaypoints    int           `json:"total_waypoints" gorm:"default:0"`                         // Total waypoints including home and RTH
+	TotalDistance     float64       `json:"total_distance" gorm:"type:decimal(12,2);default:0"`       // Total distance in meters
+	EstimatedTime     float64       `json:"estimated_time" gorm:"type:decimal(10,2);default:0"`       // Estimated time in minutes
 	LastUpdateTime    *time.Time    `json:"last_update_time"`                                         // Last progress update
 	CreatedBy         *uint         `json:"created_by,omitempty" gorm:"index"`
 	Creator           *User         `json:"creator,omitempty" gorm:"foreignKey:CreatedBy;constraint:OnDelete:SET NULL"`
@@ -120,6 +130,9 @@ type UpdateMissionRequest struct {
 	TimeElapsed       *int64     `json:"time_elapsed,omitempty"`
 	CurrentWaypoint   *int       `json:"current_waypoint,omitempty"`
 	CompletedWaypoint *int       `json:"completed_waypoint,omitempty"`
+	TotalWaypoints    *int       `json:"total_waypoints,omitempty"`
+	TotalDistance     *float64   `json:"total_distance,omitempty"`
+	EstimatedTime     *float64   `json:"estimated_time,omitempty"`
 }
 
 type MissionStats struct {
@@ -140,4 +153,15 @@ type MissionProgressUpdate struct {
 	CompletedWaypoint int       `json:"completed_waypoint"`
 	Status            string    `json:"status"`
 	Timestamp         time.Time `json:"timestamp"`
+}
+
+// WaypointReachedRequest mirrors MQTT waypoint_reached payload
+type WaypointReachedRequest struct {
+	VehicleCode string `json:"vehicle_code,omitempty" example:"USV-001"`
+	VehicleID   string `json:"vehicle_id,omitempty" example:"USV-001"`
+	Event       string `json:"event,omitempty" example:"waypoint_reached"`
+	WpSeq       int    `json:"wp_seq" example:"3"`
+	Total       int    `json:"total" example:"12"`
+	Remaining   int    `json:"remaining" example:"9"`
+	Timestamp   string `json:"timestamp,omitempty" example:"2025-01-01T08:35:00Z"`
 }

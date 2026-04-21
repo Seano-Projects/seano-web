@@ -28,6 +28,7 @@ func (Alert) TableName() string {
 // AlertQuery for filtering alerts
 type AlertQuery struct {
 	VehicleID    *uint     `query:"vehicle_id"`
+	VehicleIDs   []uint    // filter by multiple vehicle IDs (user-scoped)
 	SensorID     *uint     `query:"sensor_id"`
 	Severity     string    `query:"severity"`
 	AlertType    string    `query:"alert_type"`
@@ -40,7 +41,8 @@ type AlertQuery struct {
 
 // Request/Response Models for Alert
 type CreateAlertRequest struct {
-	VehicleID uint     `json:"vehicle_id" validate:"required" example:"1"`
+	VehicleID  uint     `json:"vehicle_id,omitempty" example:"1"`
+	VehicleCode string  `json:"vehicle_code,omitempty" example:"USV-001"`
 	SensorID  *uint    `json:"sensor_id,omitempty" example:"1"`
 	Severity  string   `json:"severity" validate:"required,oneof=critical warning info" example:"warning"`
 	AlertType string   `json:"alert_type" validate:"required" example:"Battery"`

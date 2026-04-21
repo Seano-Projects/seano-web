@@ -26,7 +26,9 @@ func (r *SensorLogRepository) GetSensorLogs(query model.SensorLogQuery) ([]model
 	
 	db := r.db.Model(&model.SensorLog{}).Preload("Vehicle").Preload("Sensor").Preload("Sensor.SensorType")
 	
-	if query.VehicleID != 0 {
+	if len(query.VehicleIDs) > 0 {
+		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
+	} else if query.VehicleID != 0 {
 		db = db.Where("vehicle_id = ?", query.VehicleID)
 	}
 	
@@ -85,7 +87,9 @@ func (r *SensorLogRepository) CountLogs(query model.SensorLogQuery) (int64, erro
 	
 	db := r.db.Model(&model.SensorLog{})
 	
-	if query.VehicleID != 0 {
+	if len(query.VehicleIDs) > 0 {
+		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
+	} else if query.VehicleID != 0 {
 		db = db.Where("vehicle_id = ?", query.VehicleID)
 	}
 	

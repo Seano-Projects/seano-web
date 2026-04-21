@@ -1,20 +1,31 @@
 package handler
 
 import (
+	"strings"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 
+	"go-fiber-pgsql/internal/model"
+	"go-fiber-pgsql/internal/repository"
 	mqttservice "go-fiber-pgsql/internal/service/mqtt"
 )
 
 // ControlHandler handles vehicle control commands via MQTT
 type ControlHandler struct {
-	cmdPublisher *mqttservice.CommandPublisher
+	cmdPublisher  *mqttservice.CommandPublisher
+	commandLogRepo *repository.CommandLogRepository
+	vehicleRepo    *repository.VehicleRepository
 }
 
 // NewControlHandler creates a new ControlHandler.
 // cmdPublisher may be nil when MQTT is not configured (dev/no-broker mode).
-func NewControlHandler(cmdPublisher *mqttservice.CommandPublisher) *ControlHandler {
-	return &ControlHandler{cmdPublisher: cmdPublisher}
+func NewControlHandler(cmdPublisher *mqttservice.CommandPublisher, commandLogRepo *repository.CommandLogRepository, vehicleRepo *repository.VehicleRepository) *ControlHandler {
+	return &ControlHandler{
+		cmdPublisher:  cmdPublisher,
+		commandLogRepo: commandLogRepo,
+		vehicleRepo:    vehicleRepo,
+	}
 }
 
 // SendCommandRequest is the request body for control commands
@@ -43,12 +54,6 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 	}
 
 	// If MQTT not configured, return 503
-	if h.cmdPublisher == nil {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-			"error": "MQTT broker not configured — control commands unavailable",
-		})
-	}
-
 	var req SendCommandRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -56,8 +61,15 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 		})
 	}
 
+	command := strings.TrimSpace(req.Command)
+	if command == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "command is required",
+		})
+	}
+
 	// Validate supported command
-	switch req.Command {
+	switch command {
 	case "ARM", "FORCE_ARM", "DISARM", "FORCE_DISARM", "AUTO", "MANUAL", "HOLD", "LOITER", "RTL":
 		// valid
 	default:
@@ -66,12 +78,60 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 		})
 	}
 
-	// Send command and wait for hardware ACK
-	ack, err := h.cmdPublisher.SendCommand(vehicleCode, mqttservice.CommandType(req.Command))
+	if h.commandLogRepo == nil || h.vehicleRepo == nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error": "Command storage not configured",
+		})
+	}
+
+	vehicle, err := h.vehicleRepo.GetVehicleByCode(vehicleCode)
 	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Vehicle not found",
+		})
+	}
+
+	initiatedAt := time.Now()
+	entry := &model.CommandLog{
+		VehicleID:   vehicle.ID,
+		VehicleCode: vehicle.Code,
+		Command:     command,
+		Status:      "pending",
+		Message:     "queued",
+		InitiatedAt: initiatedAt,
+	}
+
+	if err := h.commandLogRepo.CreateCommandLog(entry); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create command log",
+		})
+	}
+
+	// If MQTT not configured, queue command for USV polling
+	if h.cmdPublisher == nil {
+		return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+			"status":        "queued",
+			"command_log_id": entry.ID,
+			"vehicle_code":  entry.VehicleCode,
+			"command":       entry.Command,
+			"initiated_at":  entry.InitiatedAt.Format(time.RFC3339),
+		})
+	}
+
+	// Send command and wait for hardware ACK
+	ack, err := h.cmdPublisher.SendCommand(vehicleCode, mqttservice.CommandType(command))
+	if err != nil {
+		status := "failed"
+		if strings.Contains(strings.ToLower(err.Error()), "timeout") {
+			status = "timeout"
+		}
+		resolvedAt := time.Now()
+		_ = h.commandLogRepo.UpdateCommandLogStatusByID(entry.ID, status, err.Error(), resolvedAt)
+
 		return c.Status(fiber.StatusGatewayTimeout).JSON(fiber.Map{
 			"error":   err.Error(),
-			"command": req.Command,
+			"command": command,
+			"command_log_id": entry.ID,
 		})
 	}
 
@@ -80,6 +140,7 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"error":   ack.Message,
 			"command": ack.Command,
+			"command_log_id": entry.ID,
 		})
 	}
 
@@ -88,5 +149,6 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 		"status":  "ok",
 		"message": ack.Message,
 		"command": ack.Command,
+		"command_log_id": entry.ID,
 	})
 }

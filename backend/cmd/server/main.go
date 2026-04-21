@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -37,16 +38,40 @@ import (
 // @name Authorization
 // @description Enter your JWT token (Bearer prefix will be added automatically)
 func main() {
+	saveRawLogsToDB := getEnvBool("RAW_LOG_SAVE_TO_DB", false)
+
 	db, err := config.ConnectDB()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err := config.MigrateDB(db, &model.User{}, &model.Role{}, &model.Permission{}, &model.SensorType{}, &model.Sensor{}, &model.Vehicle{}, &model.VehicleBattery{}, &model.VehicleSensor{}, &model.SensorLog{}, &model.VehicleLog{}, &model.RawLog{}, &model.Alert{}, &model.Mission{}); err != nil {
+	models := []interface{}{
+		&model.User{},
+		&model.Role{},
+		&model.Permission{},
+		&model.SensorType{},
+		&model.Sensor{},
+		&model.Vehicle{},
+		&model.VehicleBattery{},
+		&model.VehicleSensor{},
+		&model.SensorLog{},
+		&model.VehicleLog{},
+		&model.Alert{},
+		&model.Mission{},
+		&model.CommandLog{},
+		&model.WaypointLog{},
+		&model.ThrusterCommand{},
+	}
+
+	if saveRawLogsToDB {
+		models = append(models, &model.RawLog{})
+	}
+
+	if err := config.MigrateDB(db, models...); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
-	if err := config.SetupHypertables(db); err != nil {
+	if err := config.SetupHypertables(db, saveRawLogsToDB); err != nil {
 		log.Printf("Warning: Failed to setup hypertables: %v", err)
 	}
 
@@ -67,27 +92,32 @@ func main() {
 	sensorLogRepo := repository.NewSensorLogRepository(db)
 	vehicleLogRepo := repository.NewVehicleLogRepository(db)
 	rawLogRepo := repository.NewRawLogRepository(db)
+	alertRepo := repository.NewAlertRepository(db)
 	vehicleSensorRepo := repository.NewVehicleSensorRepository(db)
 	vehicleRepo := repository.NewVehicleRepository(db)
 	sensorRepo := repository.NewSensorRepository(db)
 	missionRepo := repository.NewMissionRepository(db)
-	
+	commandLogRepo := repository.NewCommandLogRepository(db)
+
 	// MIDAS 3000 handler (legacy)
 	midas3000Handler := midas3000.NewDataHandler(sensorLogRepo, vehicleSensorRepo, wsHub)
+
+	realtimeMode := strings.TrimSpace(strings.ToLower(getEnv("REALTIME_MODE", "mqtt")))
+	mqttEnabled := realtimeMode != "api"
 
 	mqttBroker := getEnv("MQTT_BROKER", "")
 	mqttPort := getEnv("MQTT_PORT", "1883")
 	mqttUseTLS := getEnv("MQTT_USE_TLS", "false")
-	
+
 	var brokerURL string
-	if mqttBroker != "" {
+	if mqttEnabled && mqttBroker != "" {
 		if mqttUseTLS == "true" {
 			brokerURL = "ssl://" + mqttBroker + ":" + mqttPort
 		} else {
 			brokerURL = "tcp://" + mqttBroker + ":" + mqttPort
 		}
 	}
-	
+
 	mqttConfig := midas3000.MQTTConfig{
 		BrokerURL:   brokerURL,
 		ClientID:    getEnv("MQTT_CLIENT_ID", "go-fiber-server"),
@@ -95,7 +125,7 @@ func main() {
 		Password:    getEnv("MQTT_PASSWORD", ""),
 		TopicPrefix: getEnv("MQTT_TOPIC_PREFIX", "seano"),
 	}
-	
+
 	var cmdPublisher *mqttservice.CommandPublisher
 
 	if brokerURL != "" {
@@ -112,34 +142,45 @@ func main() {
 				} else {
 					log.Println("MQTT Listener started and subscribed to topics")
 				}
-				
+
 				// Get shared MQTT client for all listeners
 				mqttClient := mqttListener.GetClient()
-				
+
 				// Create all listeners (they will auto-resubscribe on reconnect via paho library)
-				
+
 				// Vehicle Log Listener
 				vehicleLogListener := mqttservice.NewVehicleLogListener(mqttClient, vehicleLogRepo, vehicleRepo, missionRepo, wsHub)
 				if err := vehicleLogListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start vehicle log listener: %v", err)
 				}
-				
+
 				// Sensor Log Listener
 				sensorLogListener := mqttservice.NewSensorLogListener(mqttClient, sensorLogRepo, vehicleRepo, sensorRepo, wsHub)
 				if err := sensorLogListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start sensor log listener: %v", err)
 				}
-				
+
 				// Raw Log Listener
-				rawLogListener := mqttservice.NewRawLogListener(mqttClient, rawLogRepo, vehicleRepo, wsHub)
+				rawLogListener := mqttservice.NewRawLogListener(mqttClient, rawLogRepo, vehicleRepo, wsHub, saveRawLogsToDB)
 				if err := rawLogListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start raw log listener: %v", err)
 				}
-				
+				if saveRawLogsToDB {
+					log.Println("✓ Raw log persistence to DB: ENABLED")
+				} else {
+					log.Println("✓ Raw log persistence to DB: DISABLED")
+				}
+
 				// Battery Listener
 				batteryListener := mqttservice.NewBatteryListener(mqttClient, vehicleRepo, wsHub)
 				if err := batteryListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start battery listener: %v", err)
+				}
+
+				// Alert Listener (anti-theft/failsafe)
+				alertListener := mqttservice.NewAlertListener(mqttClient, alertRepo, vehicleRepo, wsHub)
+				if err := alertListener.Start(); err != nil {
+					log.Printf("Warning: Failed to start alert listener: %v", err)
 				}
 
 				// Status Listener (MQTT LWT for online/offline)
@@ -149,12 +190,20 @@ func main() {
 				}
 
 				// Command Publisher (for control commands arm/disarm/mode)
-				cmdPublisher = mqttservice.NewCommandPublisher(mqttClient)
+				cmdPublisher = mqttservice.NewCommandPublisher(mqttClient, commandLogRepo, vehicleRepo, wsHub)
 				log.Println("✓ Command Publisher ready")
+
+				// Waypoint Listener (mission progress from USV)
+				waypointListener := mqttservice.NewWaypointListener(mqttClient, vehicleRepo, missionRepo, wsHub)
+				if err := waypointListener.Start(); err != nil {
+					log.Printf("Warning: Failed to start waypoint listener: %v", err)
+				}
 
 				log.Println("✓ All MQTT listeners started successfully")
 			}
 		}
+	} else if !mqttEnabled {
+		log.Println("MQTT disabled by REALTIME_MODE=api")
 	} else {
 		log.Println("MQTT not configured, skipping MQTT listener")
 	}
@@ -168,7 +217,7 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	route.SetupRoutes(app, db, wsHub, cmdPublisher)
+	route.SetupRoutes(app, db, wsHub, cmdPublisher, saveRawLogsToDB)
 	app.Listen(":3000")
 }
 
@@ -178,4 +227,13 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	value := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
+	if value == "" {
+		return defaultValue
+	}
+
+	return value == "1" || value == "true" || value == "yes" || value == "on"
 }

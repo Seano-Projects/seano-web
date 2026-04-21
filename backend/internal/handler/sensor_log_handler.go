@@ -15,13 +15,15 @@ import (
 type SensorLogHandler struct {
 	sensorLogRepo *repository.SensorLogRepository
 	vehicleRepo   *repository.VehicleRepository
+	sensorRepo    *repository.SensorRepository
 	db            *gorm.DB
 }
 
-func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB) *SensorLogHandler {
+func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, db *gorm.DB) *SensorLogHandler {
 	return &SensorLogHandler{
 		sensorLogRepo: sensorLogRepo,
 		vehicleRepo:   vehicleRepo,
+		sensorRepo:    sensorRepo,
 		db:            db,
 	}
 }
@@ -59,7 +61,7 @@ func (h *SensorLogHandler) GetSensorLogs(c *fiber.Ctx) error {
 	}
 
 	// Check permission: if not admin, filter by user's vehicles only
-	if !middleware.HasPermission(h.db, userID, "sensor_logs.read") {
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
 		// Get user's vehicle IDs
 		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
 		if err != nil || len(userVehicleIDs) == 0 {
@@ -84,9 +86,8 @@ func (h *SensorLogHandler) GetSensorLogs(c *fiber.Ctx) error {
 				})
 			}
 		} else {
-			// No specific vehicle requested, filter to first user's vehicle for query
-			// Note: Repository needs to be updated to support IN clause for multiple vehicles
-			query.VehicleID = userVehicleIDs[0]
+			// No specific vehicle, filter to all user's vehicles
+			query.VehicleIDs = userVehicleIDs
 		}
 	}
 
@@ -205,9 +206,41 @@ func (h *SensorLogHandler) CreateSensorLog(c *fiber.Ctx) error {
 		})
 	}
 
+	vehicleID := req.VehicleID
+	if vehicleID == 0 && req.VehicleCode != "" {
+		vehicle, err := h.vehicleRepo.GetVehicleByCode(req.VehicleCode)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid vehicle_code",
+			})
+		}
+		vehicleID = vehicle.ID
+	}
+	if vehicleID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "vehicle_id or vehicle_code is required",
+		})
+	}
+
+	sensorID := req.SensorID
+	if sensorID == 0 && req.SensorCode != "" {
+		sensor, err := h.sensorRepo.GetSensorByCode(req.SensorCode)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid sensor_code",
+			})
+		}
+		sensorID = sensor.ID
+	}
+	if sensorID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "sensor_id or sensor_code is required",
+		})
+	}
+
 	log := &model.SensorLog{
-		VehicleID: req.VehicleID,
-		SensorID:  req.SensorID,
+		VehicleID: vehicleID,
+		SensorID:  sensorID,
 		Data:      req.Data,
 	}
 

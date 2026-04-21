@@ -19,6 +19,8 @@ func main() {
 	// Drop tabel yang sudah ada (in reverse order to avoid FK issues)
 	log.Println("Dropping existing tables...")
 	dropOrder := []interface{}{
+		&model.CommandLog{},
+		&model.WaypointLog{},
 		&model.RawLog{},
 		&model.VehicleLog{},
 		&model.SensorLog{},
@@ -65,6 +67,8 @@ func main() {
 		&model.SensorLog{},
 		&model.VehicleLog{},
 		&model.RawLog{},
+		&model.CommandLog{},
+		&model.WaypointLog{},
 	); err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}

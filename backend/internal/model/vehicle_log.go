@@ -65,8 +65,10 @@ type VehicleLog struct {
 	Roll              *float64  `json:"roll" gorm:"type:numeric"`
 	Pitch             *float64  `json:"pitch" gorm:"type:numeric"`
 	Yaw               *float64  `json:"yaw" gorm:"type:numeric"`
-	TemperatureSystem *string   `json:"temperature_system" gorm:"type:varchar(50)"` // Type field from schema
-	CreatedAt         time.Time `json:"created_at" gorm:"autoCreateTime;index"`
+	TemperatureSystem  *string    `json:"temperature_system" gorm:"type:varchar(50)"` // Type field from schema
+	UsvTimestamp       *time.Time `json:"usv_timestamp,omitempty" gorm:"type:timestamptz;index"` // timestamp from USV payload
+	MqttReceivedAt     *time.Time `json:"mqtt_received_at,omitempty" gorm:"type:timestamptz;index"` // when backend received MQTT
+	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime;index"`
 }
 
 func (VehicleLog) TableName() string {
@@ -75,18 +77,20 @@ func (VehicleLog) TableName() string {
 
 // VehicleLogQuery for filtering logs
 type VehicleLogQuery struct {
-	VehicleID uint      `query:"vehicle_id"`
-	MissionID uint      `query:"mission_id"`
-	MissionCode string  `query:"mission_code"`
-	StartTime time.Time `query:"start_time"`
-	EndTime   time.Time `query:"end_time"`
-	Limit     int       `query:"limit"`
-	Offset    int       `query:"offset"`
+	VehicleID  uint      `query:"vehicle_id"`
+	VehicleIDs []uint    // filter by multiple vehicle IDs (user-scoped)
+	MissionID  uint      `query:"mission_id"`
+	MissionCode string   `query:"mission_code"`
+	StartTime  time.Time `query:"start_time"`
+	EndTime    time.Time `query:"end_time"`
+	Limit      int       `query:"limit"`
+	Offset     int       `query:"offset"`
 }
 
 // Request/Response Models for VehicleLog
 type CreateVehicleLogRequest struct {
 	VehicleID         uint             `json:"vehicle_id" example:"1"`
+	VehicleCode       string           `json:"vehicle_code,omitempty" example:"USV-01"`
 	MissionID         *uint            `json:"mission_id,omitempty" example:"12"`
 	MissionCode       *string          `json:"mission_code,omitempty" example:"MSN-a1b2c3d4"`
 	BatteryVoltage    *float64         `json:"battery_voltage,omitempty" example:"12.5"`

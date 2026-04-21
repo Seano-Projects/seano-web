@@ -26,7 +26,9 @@ func (r *VehicleLogRepository) GetVehicleLogs(query model.VehicleLogQuery) ([]mo
 	
 	db := r.db.Model(&model.VehicleLog{}).Preload("Vehicle")
 	
-	if query.VehicleID != 0 {
+	if len(query.VehicleIDs) > 0 {
+		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
+	} else if query.VehicleID != 0 {
 		db = db.Where("vehicle_id = ?", query.VehicleID)
 	}
 
@@ -37,23 +39,23 @@ func (r *VehicleLogRepository) GetVehicleLogs(query model.VehicleLogQuery) ([]mo
 	if query.MissionCode != "" {
 		db = db.Where("mission_code = ?", query.MissionCode)
 	}
-	
+
 	if !query.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", query.StartTime)
 	}
-	
+
 	if !query.EndTime.IsZero() {
 		db = db.Where("created_at <= ?", query.EndTime)
 	}
-	
+
 	if query.Limit > 0 {
 		db = db.Limit(query.Limit)
 	}
-	
+
 	if query.Offset > 0 {
 		db = db.Offset(query.Offset)
 	}
-	
+
 	err := db.Order("created_at DESC").Find(&logs).Error
 	return logs, err
 }
@@ -89,7 +91,9 @@ func (r *VehicleLogRepository) CountLogs(query model.VehicleLogQuery) (int64, er
 	
 	db := r.db.Model(&model.VehicleLog{})
 	
-	if query.VehicleID != 0 {
+	if len(query.VehicleIDs) > 0 {
+		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
+	} else if query.VehicleID != 0 {
 		db = db.Where("vehicle_id = ?", query.VehicleID)
 	}
 

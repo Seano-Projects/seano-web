@@ -52,7 +52,8 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 		{Name: "permissions.manage", Description: "Create, update, and delete permissions"},
 
 		// Vehicle Management
-		{Name: "vehicles.read", Description: "View all vehicles"},
+		{Name: "vehicles.read", Description: "View own vehicles"},
+		{Name: "vehicles.read_all", Description: "View all vehicles (admin only)"},
 		{Name: "vehicles.create", Description: "Create new vehicles"},
 		{Name: "vehicles.update", Description: "Update any vehicle"},
 		{Name: "vehicles.delete", Description: "Delete any vehicle"},
@@ -71,7 +72,8 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 		{Name: "cam.read", Description: "View live camera feed"},
 
 		// Mission Management
-		{Name: "missions.read", Description: "View missions and mission planning"},
+		{Name: "missions.read", Description: "View own missions"},
+		{Name: "missions.read_all", Description: "View all missions (admin only)"},
 		{Name: "missions.create", Description: "Create new missions"},
 		{Name: "missions.update", Description: "Update missions"},
 		{Name: "missions.delete", Description: "Delete missions"},

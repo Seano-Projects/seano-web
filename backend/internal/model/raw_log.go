@@ -17,16 +17,19 @@ func (RawLog) TableName() string {
 
 // RawLogQuery for filtering logs
 type RawLogQuery struct {
-	VehicleID uint      `query:"vehicle_id"`
-	Search    string    `query:"search"`
-	StartTime time.Time `query:"start_time"`
-	EndTime   time.Time `query:"end_time"`
-	Limit     int       `query:"limit"`
-	Offset    int       `query:"offset"`
+	VehicleID  uint      `query:"vehicle_id"`
+	VehicleIDs []uint    // filter by multiple vehicle IDs (user-scoped)
+	Search     string    `query:"search"`
+	StartTime  time.Time `query:"start_time"`
+	EndTime    time.Time `query:"end_time"`
+	Limit      int       `query:"limit"`
+	Offset     int       `query:"offset"`
 }
 
 // Request/Response Models for RawLog
 type CreateRawLogRequest struct {
-	Logs string `json:"logs" example:"System started successfully"`
+	VehicleID   uint   `json:"vehicle_id,omitempty" example:"1"`
+	VehicleCode string `json:"vehicle_code,omitempty" example:"USV-001"`
+	Logs        string `json:"logs" example:"System started successfully"`
 }
 

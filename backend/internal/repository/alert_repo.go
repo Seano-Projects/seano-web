@@ -26,7 +26,9 @@ func (r *AlertRepository) GetAlerts(query model.AlertQuery) ([]model.AlertRespon
 
 	db := r.db.Model(&model.Alert{}).Preload("Vehicle").Preload("Sensor")
 
-	if query.VehicleID != nil {
+	if len(query.VehicleIDs) > 0 {
+		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
+	} else if query.VehicleID != nil {
 		db = db.Where("vehicle_id = ?", *query.VehicleID)
 	}
 
@@ -142,28 +144,44 @@ func (r *AlertRepository) ClearAllAlerts(acknowledgedOnly bool) error {
 }
 
 // GetAlertStats returns statistics about alerts
-func (r *AlertRepository) GetAlertStats() (*model.AlertStats, error) {
+func (r *AlertRepository) GetAlertStats(query model.AlertQuery) (*model.AlertStats, error) {
 	var stats model.AlertStats
+	baseQuery := query
+	baseQuery.Severity = ""
 
 	// Total alerts
-	if err := r.db.Model(&model.Alert{}).Count(&stats.Total).Error; err != nil {
+	total, err := r.CountAlerts(baseQuery)
+	if err != nil {
 		return nil, err
 	}
+	stats.Total = total
 
 	// Critical alerts
-	if err := r.db.Model(&model.Alert{}).Where("severity = ?", "critical").Count(&stats.Critical).Error; err != nil {
+	criticalQuery := baseQuery
+	criticalQuery.Severity = "critical"
+	criticalCount, err := r.CountAlerts(criticalQuery)
+	if err != nil {
 		return nil, err
 	}
+	stats.Critical = criticalCount
 
 	// Warning alerts
-	if err := r.db.Model(&model.Alert{}).Where("severity = ?", "warning").Count(&stats.Warning).Error; err != nil {
+	warningQuery := baseQuery
+	warningQuery.Severity = "warning"
+	warningCount, err := r.CountAlerts(warningQuery)
+	if err != nil {
 		return nil, err
 	}
+	stats.Warning = warningCount
 
 	// Info alerts
-	if err := r.db.Model(&model.Alert{}).Where("severity = ?", "info").Count(&stats.Info).Error; err != nil {
+	infoQuery := baseQuery
+	infoQuery.Severity = "info"
+	infoCount, err := r.CountAlerts(infoQuery)
+	if err != nil {
 		return nil, err
 	}
+	stats.Info = infoCount
 
 	return &stats, nil
 }
@@ -174,7 +192,9 @@ func (r *AlertRepository) CountAlerts(query model.AlertQuery) (int64, error) {
 
 	db := r.db.Model(&model.Alert{})
 
-	if query.VehicleID != nil {
+	if len(query.VehicleIDs) > 0 {
+		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
+	} else if query.VehicleID != nil {
 		db = db.Where("vehicle_id = ?", *query.VehicleID)
 	}
 

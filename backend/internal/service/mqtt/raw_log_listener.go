@@ -20,15 +20,17 @@ type RawLogListener struct {
 	rawLogRepo  *repository.RawLogRepository
 	vehicleRepo *repository.VehicleRepository
 	wsHub       *wsocket.Hub
+	saveToDB    bool
 }
 
 // NewRawLogListener creates a new raw log listener
-func NewRawLogListener(client mqtt.Client, rawLogRepo *repository.RawLogRepository, vehicleRepo *repository.VehicleRepository, wsHub *wsocket.Hub) *RawLogListener {
+func NewRawLogListener(client mqtt.Client, rawLogRepo *repository.RawLogRepository, vehicleRepo *repository.VehicleRepository, wsHub *wsocket.Hub, saveToDB bool) *RawLogListener {
 	return &RawLogListener{
 		client:      client,
 		rawLogRepo:  rawLogRepo,
 		vehicleRepo: vehicleRepo,
 		wsHub:       wsHub,
+		saveToDB:    saveToDB,
 	}
 }
 
@@ -121,29 +123,39 @@ func (l *RawLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) {
 		log.Printf("Warning: Vehicle not found for code %s (log will still be saved): %v", vehicleCode, err)
 	}
 	
-	// Create raw log with vehicle prefix and vehicle ID
-	rawLog := &model.RawLog{
-		Logs: fmt.Sprintf("[%s] %s", vehicleCode, logText),
+	formattedLog := fmt.Sprintf("[%s] %s", vehicleCode, logText)
+	broadcastTime := time.Now().UTC()
+	var rawLogID uint = 0
+
+	if l.saveToDB {
+		// Create raw log with vehicle prefix and vehicle ID
+		rawLog := &model.RawLog{
+			Logs: formattedLog,
+		}
+
+		// Set VehicleID if vehicle found
+		if vehicle != nil {
+			rawLog.VehicleID = &vehicle.ID
+		}
+
+		if err := l.rawLogRepo.CreateRawLog(rawLog); err != nil {
+			log.Printf("Failed to save raw log: %v", err)
+			return
+		}
+
+		rawLogID = rawLog.ID
+		broadcastTime = rawLog.CreatedAt
+		log.Printf("✓ Raw log saved: vehicle=%s, id=%d", vehicleCode, rawLog.ID)
+	} else {
+		// Realtime-only mode: skip DB write and avoid per-message log spam.
 	}
-	
-	// Set VehicleID if vehicle found
-	if vehicle != nil {
-		rawLog.VehicleID = &vehicle.ID
-	}
-	
-	if err := l.rawLogRepo.CreateRawLog(rawLog); err != nil {
-		log.Printf("Failed to save raw log: %v", err)
-		return
-	}
-	
-	log.Printf("✓ Raw log saved: vehicle=%s, id=%d", vehicleCode, rawLog.ID)
-	
+
 	// Broadcast via WebSocket
 	if l.wsHub != nil {
 		wsData := wsocket.RawLogData{
-			ID:        rawLog.ID,
-			Logs:      rawLog.Logs,
-			CreatedAt: rawLog.CreatedAt.Format(time.RFC3339),
+			ID:        rawLogID,
+			Logs:      formattedLog,
+			CreatedAt: broadcastTime.Format(time.RFC3339),
 		}
 		
 		// Add vehicle info if available
@@ -154,7 +166,7 @@ func (l *RawLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) {
 			}
 		}
 		
-		l.wsHub.BroadcastRawLog(wsData, rawLog.CreatedAt.Format("2006-01-02T15:04:05Z07:00"))
+		l.wsHub.BroadcastRawLog(wsData, broadcastTime.Format("2006-01-02T15:04:05Z07:00"))
 	}
 }
 

@@ -67,7 +67,7 @@ func (h *AlertHandler) GetAlerts(c *fiber.Ctx) error {
 	}
 
 	// Check permission: if not admin, filter by user's vehicles only
-	if !middleware.HasPermission(h.db, userID, "alerts.read") {
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
 		// Get user's vehicle IDs
 		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
 		if err != nil || len(userVehicleIDs) == 0 {
@@ -92,9 +92,8 @@ func (h *AlertHandler) GetAlerts(c *fiber.Ctx) error {
 				})
 			}
 		} else {
-			// No specific vehicle requested, use first vehicle
-			vid := userVehicleIDs[0]
-			query.VehicleID = &vid
+			// No specific vehicle requested, filter to all user's vehicles
+			query.VehicleIDs = userVehicleIDs
 		}
 	}
 
@@ -228,8 +227,24 @@ func (h *AlertHandler) CreateAlert(c *fiber.Ctx) error {
 		req.Source = "USV"
 	}
 
+	vehicleID := req.VehicleID
+	if vehicleID == 0 && req.VehicleCode != "" {
+		vehicle, err := h.vehicleRepo.GetVehicleByCode(req.VehicleCode)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid vehicle_code",
+			})
+		}
+		vehicleID = vehicle.ID
+	}
+	if vehicleID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "vehicle_id or vehicle_code is required",
+		})
+	}
+
 	alert := &model.Alert{
-		VehicleID: req.VehicleID,
+		VehicleID: vehicleID,
 		SensorID:  req.SensorID,
 		Severity:  req.Severity,
 		AlertType: req.AlertType,
@@ -421,12 +436,59 @@ func (h *AlertHandler) ClearAllAlerts(c *fiber.Ctx) error {
 // @Tags Alerts
 // @Accept json
 // @Produce json
+// @Param vehicle_id query int false "Vehicle ID"
+// @Param acknowledged query bool false "Acknowledged status"
 // @Success 200 {object} model.AlertStats
 // @Failure 500 {object} map[string]string
 // @Security BearerAuth
 // @Router /api/alerts/stats [get]
 func (h *AlertHandler) GetAlertStats(c *fiber.Ctx) error {
-	stats, err := h.alertRepo.GetAlertStats()
+	userID := c.Locals("user_id").(uint)
+	var query model.AlertQuery
+
+	if vehicleID := c.Query("vehicle_id"); vehicleID != "" {
+		id, err := strconv.ParseUint(vehicleID, 10, 32)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid vehicle_id",
+			})
+		}
+		vid := uint(id)
+		query.VehicleID = &vid
+	}
+
+	// Check permission: if not admin, filter by user's vehicles only
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil || len(userVehicleIDs) == 0 {
+			return c.JSON(model.AlertStats{})
+		}
+
+		if query.VehicleID != nil {
+			found := false
+			for _, vid := range userVehicleIDs {
+				if vid == *query.VehicleID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"error": "You don't have permission to view this vehicle's alerts",
+				})
+			}
+		} else {
+			// No specific vehicle, filter to all user's vehicles
+			query.VehicleIDs = userVehicleIDs
+		}
+	}
+
+	if acknowledged := c.Query("acknowledged"); acknowledged != "" {
+		ack := acknowledged == "true"
+		query.Acknowledged = &ack
+	}
+
+	stats, err := h.alertRepo.GetAlertStats(query)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch alert statistics",
@@ -448,6 +510,7 @@ func (h *AlertHandler) GetAlertStats(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /api/alerts/recent [get]
 func (h *AlertHandler) GetRecentAlerts(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
 	limit := 10
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil {
@@ -455,7 +518,20 @@ func (h *AlertHandler) GetRecentAlerts(c *fiber.Ctx) error {
 		}
 	}
 
-	alerts, err := h.alertRepo.GetRecentAlerts(limit)
+	query := model.AlertQuery{
+		StartTime: time.Now().Add(-24 * time.Hour),
+		Limit:     limit,
+	}
+
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil || len(userVehicleIDs) == 0 {
+			return c.JSON(fiber.Map{"data": []model.AlertResponse{}})
+		}
+		query.VehicleIDs = userVehicleIDs
+	}
+
+	alerts, err := h.alertRepo.GetAlerts(query)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch recent alerts",
@@ -478,7 +554,22 @@ func (h *AlertHandler) GetRecentAlerts(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /api/alerts/unacknowledged [get]
 func (h *AlertHandler) GetUnacknowledgedAlerts(c *fiber.Ctx) error {
-	alerts, err := h.alertRepo.GetUnacknowledgedAlerts()
+	userID := c.Locals("user_id").(uint)
+	acknowledged := false
+	query := model.AlertQuery{
+		Acknowledged: &acknowledged,
+		Limit:        100,
+	}
+
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil || len(userVehicleIDs) == 0 {
+			return c.JSON(fiber.Map{"data": []model.AlertResponse{}})
+		}
+		query.VehicleIDs = userVehicleIDs
+	}
+
+	alerts, err := h.alertRepo.GetAlerts(query)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch unacknowledged alerts",

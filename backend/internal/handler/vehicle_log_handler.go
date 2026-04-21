@@ -74,7 +74,7 @@ func (h *VehicleLogHandler) GetVehicleLogs(c *fiber.Ctx) error {
 	}
 
 	// Check permission: if not admin, filter by user's vehicles only
-	if !middleware.HasPermission(h.db, userID, "telemetry.read") {
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
 		// Get user's vehicle IDs
 		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
 		if err != nil || len(userVehicleIDs) == 0 {
@@ -99,8 +99,8 @@ func (h *VehicleLogHandler) GetVehicleLogs(c *fiber.Ctx) error {
 				})
 			}
 		} else {
-			// No specific vehicle requested, use first vehicle
-			query.VehicleID = userVehicleIDs[0]
+			// No specific vehicle requested, filter to all user's vehicles
+			query.VehicleIDs = userVehicleIDs
 		}
 	}
 
@@ -239,6 +239,22 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 		})
 	}
 
+	vehicleID := req.VehicleID
+	if vehicleID == 0 && req.VehicleCode != "" {
+		vehicle, err := h.vehicleRepo.GetVehicleByCode(req.VehicleCode)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid vehicle_code",
+			})
+		}
+		vehicleID = vehicle.ID
+	}
+	if vehicleID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "vehicle_id or vehicle_code is required",
+		})
+	}
+
 	// Convert FlexibleString to *string for database
 	var tempSystem *string
 	if req.TemperatureSystem != nil {
@@ -260,7 +276,7 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 	}
 	
 	log := &model.VehicleLog{
-		VehicleID:         req.VehicleID,
+		VehicleID:         vehicleID,
 		MissionID:         req.MissionID,
 		MissionCode:       req.MissionCode,
 		BatteryVoltage:    req.BatteryVoltage,

@@ -1,28 +1,37 @@
 package handler
 
 import (
-	"go-fiber-pgsql/internal/middleware"
-	"go-fiber-pgsql/internal/model"
-	"go-fiber-pgsql/internal/repository"
-	"go-fiber-pgsql/internal/util"
+	"fmt"
+	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
+
+	"go-fiber-pgsql/internal/middleware"
+	"go-fiber-pgsql/internal/model"
+	"go-fiber-pgsql/internal/repository"
+	"go-fiber-pgsql/internal/util"
+	wsocket "go-fiber-pgsql/internal/websocket"
 )
 
 type RawLogHandler struct {
 	rawLogRepo  *repository.RawLogRepository
 	vehicleRepo *repository.VehicleRepository
 	db          *gorm.DB
+	enabled     bool
+	wsHub       *wsocket.Hub
 }
 
-func NewRawLogHandler(rawLogRepo *repository.RawLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB) *RawLogHandler {
+func NewRawLogHandler(rawLogRepo *repository.RawLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB, enabled bool, wsHub *wsocket.Hub) *RawLogHandler {
 	return &RawLogHandler{
 		rawLogRepo:  rawLogRepo,
 		vehicleRepo: vehicleRepo,
 		db:          db,
+		enabled:     enabled,
+		wsHub:       wsHub,
 	}
 }
 
@@ -43,6 +52,13 @@ func NewRawLogHandler(rawLogRepo *repository.RawLogRepository, vehicleRepo *repo
 // @Security BearerAuth
 // @Router /raw-logs [get]
 func (h *RawLogHandler) GetRawLogs(c *fiber.Ctx) error {
+	if !h.enabled {
+		return c.JSON(fiber.Map{
+			"data":  []model.RawLog{},
+			"count": 0,
+		})
+	}
+
 	userID := c.Locals("user_id").(uint)
 	var query model.RawLogQuery
 
@@ -58,7 +74,7 @@ func (h *RawLogHandler) GetRawLogs(c *fiber.Ctx) error {
 	}
 
 	// Check permission: if not admin, filter by user's vehicles only
-	if !middleware.HasPermission(h.db, userID, "raw_logs.read") {
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
 		// Get user's vehicle IDs
 		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
 		if err != nil || len(userVehicleIDs) == 0 {
@@ -83,8 +99,8 @@ func (h *RawLogHandler) GetRawLogs(c *fiber.Ctx) error {
 				})
 			}
 		} else {
-			// No specific vehicle requested, use first vehicle
-			query.VehicleID = userVehicleIDs[0]
+			// No specific vehicle, filter to all user's vehicles
+			query.VehicleIDs = userVehicleIDs
 		}
 	}
 
@@ -158,6 +174,12 @@ func (h *RawLogHandler) GetRawLogs(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /raw-logs/{id} [get]
 func (h *RawLogHandler) GetRawLogByID(c *fiber.Ctx) error {
+	if !h.enabled {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Raw log persistence is disabled",
+		})
+	}
+
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -186,6 +208,20 @@ func (h *RawLogHandler) GetRawLogByID(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /raw-logs/stats [get]
 func (h *RawLogHandler) GetRawLogStats(c *fiber.Ctx) error {
+	if !h.enabled {
+		return c.JSON(fiber.Map{
+			"total_records":      0,
+			"today_records":      0,
+			"storage_size":       "0 B",
+			"last_updated":       nil,
+			"data_quality":       100,
+			"percentage_increase": 0,
+			"storage_percentage": 0,
+			"remaining_size":     0,
+			"max_storage_size":   0,
+		})
+	}
+
 	stats, err := h.rawLogRepo.GetStats()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -209,6 +245,12 @@ func (h *RawLogHandler) GetRawLogStats(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /raw-logs [post]
 func (h *RawLogHandler) CreateRawLog(c *fiber.Ctx) error {
+	if !h.enabled {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error": "Raw log persistence is disabled",
+		})
+	}
+
 	var req model.CreateRawLogRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -216,17 +258,67 @@ func (h *RawLogHandler) CreateRawLog(c *fiber.Ctx) error {
 		})
 	}
 
-	log := &model.RawLog{
-		Logs: req.Logs,
+	vehicleID := req.VehicleID
+	vehicleCode := strings.TrimSpace(req.VehicleCode)
+	var vehicle *model.Vehicle
+
+	if vehicleID != 0 {
+		found, err := h.vehicleRepo.GetVehicleByID(vehicleID)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid vehicle_id",
+			})
+		}
+		vehicle = found
+		vehicleCode = found.Code
+	} else if vehicleCode != "" {
+		found, err := h.vehicleRepo.GetVehicleByCode(vehicleCode)
+		if err != nil {
+			log.Printf("Warning: Vehicle not found for code %s (raw log still saved)", vehicleCode)
+		} else {
+			vehicle = found
+			vehicleID = found.ID
+			vehicleCode = found.Code
+		}
 	}
 
-	if err := h.rawLogRepo.CreateRawLog(log); err != nil {
+	logText := req.Logs
+	if len(logText) > 255 {
+		logText = logText[:252] + "..."
+	}
+	if vehicleCode != "" {
+		logText = fmt.Sprintf("[%s] %s", vehicleCode, logText)
+	}
+
+	entry := &model.RawLog{
+		Logs: logText,
+	}
+	if vehicle != nil {
+		entry.VehicleID = &vehicleID
+	}
+
+	if err := h.rawLogRepo.CreateRawLog(entry); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create raw log",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(log)
+	if h.wsHub != nil {
+		wsData := wsocket.RawLogData{
+			ID:        entry.ID,
+			Logs:      logText,
+			CreatedAt: entry.CreatedAt.Format(time.RFC3339),
+		}
+		if vehicle != nil {
+			wsData.Vehicle = &wsocket.VehicleInfo{
+				Code: vehicle.Code,
+				Name: vehicle.Name,
+			}
+		}
+		h.wsHub.BroadcastRawLog(wsData, entry.CreatedAt.Format(time.RFC3339))
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(entry)
 }
 
 // DeleteRawLog godoc
@@ -242,6 +334,12 @@ func (h *RawLogHandler) CreateRawLog(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /raw-logs/{id} [delete]
 func (h *RawLogHandler) DeleteRawLog(c *fiber.Ctx) error {
+	if !h.enabled {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Raw log persistence is disabled",
+		})
+	}
+
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -275,6 +373,12 @@ func (h *RawLogHandler) DeleteRawLog(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /raw-logs/export [get]
 func (h *RawLogHandler) ExportRawLogs(c *fiber.Ctx) error {
+	if !h.enabled {
+		c.Set("Content-Type", "text/csv")
+		c.Set("Content-Disposition", "attachment; filename=raw_logs_disabled.csv")
+		return c.SendString("ID,Vehicle ID,Vehicle Code,Logs,Created At\n")
+	}
+
 	var query model.RawLogQuery
 
 	// Parse query parameters
@@ -352,6 +456,12 @@ func (h *RawLogHandler) ExportRawLogs(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /raw-logs/import [post]
 func (h *RawLogHandler) ImportRawLogs(c *fiber.Ctx) error {
+	if !h.enabled {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error": "Raw log persistence is disabled",
+		})
+	}
+
 	// Get uploaded file
 	file, err := c.FormFile("file")
 	if err != nil {
