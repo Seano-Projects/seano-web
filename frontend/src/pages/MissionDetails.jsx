@@ -263,6 +263,9 @@ const MissionJourneyMap = ({ mission, journeyPoints }) => {
         <TileLayer
           attribution="&copy; Esri"
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          noWrap={true}
+          maxZoom={20}
+          maxNativeZoom={18}
         />
         <FitMapBounds points={combinedPoints} />
 
@@ -481,8 +484,8 @@ const MissionDetails = () => {
         samples: 0,
         firstPing: "-",
         lastPing: "-",
-        avgSpeed: "0 knot",
-        maxSpeed: "0 knot",
+        avgSpeed: "0 m/s",
+        maxSpeed: "0 m/s",
       };
     }
 
@@ -492,11 +495,11 @@ const MissionDetails = () => {
 
     const averageSpeed =
       speeds.length > 0
-        ? `${(speeds.reduce((sum, value) => sum + value, 0) / speeds.length).toFixed(2)} knot`
-        : "0 knot";
+        ? `${(speeds.reduce((sum, value) => sum + value, 0) / speeds.length).toFixed(2)} m/s`
+        : "0 m/s";
 
     const maxSpeed =
-      speeds.length > 0 ? `${Math.max(...speeds).toFixed(2)} knot` : "0 knot";
+      speeds.length > 0 ? `${Math.max(...speeds).toFixed(2)} m/s` : "0 m/s";
 
     return {
       samples: journeyLogs.length,
@@ -633,7 +636,7 @@ const MissionDetails = () => {
       "Latitude",
       "Longitude",
       "Mode",
-      "Speed (knot)",
+      "Speed (m/s)",
       "Battery (%)",
       "System Status",
     ];
@@ -992,7 +995,7 @@ const MissionDetails = () => {
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                       {Number.isFinite(Number(log.speed))
-                        ? `${Number(log.speed).toFixed(2)} knot`
+                        ? `${Number(log.speed).toFixed(2)} m/s`
                         : "-"}
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">

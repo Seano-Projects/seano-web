@@ -18,8 +18,33 @@ import {
   FiFileText,
   FiShield,
   FiAlertTriangle,
+  FiTerminal,
+  FiNavigation,
+  FiPause,
+  FiPlay,
 } from "react-icons/fi";
 import useTranslation from "../hooks/useTranslation";
+import { FaColumns } from "react-icons/fa";
+
+const VEHICLE_COL_KEYS = ["timestamp", "vehicle_code", "battery_voltage", "mode", "location", "speed", "roll", "rssi", "armed", "temperature_system", "system_status"];
+const VEHICLE_COL_LABELS = { timestamp: "Time", vehicle_code: "Vehicle", battery_voltage: "Battery", mode: "Mode", location: "Location", speed: "Speed / Heading", roll: "Orientation", rssi: "RSSI", armed: "Flags", temperature_system: "Temp", system_status: "Status" };
+const VEHICLE_COL_DEFAULT = new Set(["timestamp", "vehicle_code", "mode", "location", "system_status"]);
+const VEHICLE_MAX = 5;
+
+const SENSOR_COL_KEYS = ["timestamp", "vehicle_code", "sensor_code", "data"];
+const SENSOR_COL_LABELS = { timestamp: "Time", vehicle_code: "Vehicle", sensor_code: "Sensor", data: "Data" };
+const SENSOR_COL_DEFAULT = new Set(["timestamp", "vehicle_code", "sensor_code", "data"]);
+const SENSOR_MAX = 4;
+
+const COMMAND_COL_KEYS = ["initiated_at", "vehicle_code", "command", "status", "message"];
+const COMMAND_COL_LABELS = { initiated_at: "Time", vehicle_code: "Vehicle", command: "Command", status: "Status", message: "Message" };
+const COMMAND_COL_DEFAULT = new Set(["initiated_at", "vehicle_code", "command", "status", "message"]);
+const COMMAND_MAX = 5;
+
+const WAYPOINT_COL_KEYS = ["initiated_at", "vehicle_code", "mission_name", "waypoint_count", "status", "message"];
+const WAYPOINT_COL_LABELS = { initiated_at: "Time", vehicle_code: "Vehicle", mission_name: "Mission", waypoint_count: "Waypoints", status: "Status", message: "Message" };
+const WAYPOINT_COL_DEFAULT = new Set(["initiated_at", "vehicle_code", "mission_name", "status", "message"]);
+const WAYPOINT_MAX = 5;
 
 const Log = () => {
   const { t } = useTranslation();
@@ -31,11 +56,31 @@ const Log = () => {
     return text;
   };
 
-  const { stats, vehicleLogs, sensorLogs, rawLogs, loading } = useLogData();
+  const [isRealtimePaused, setIsRealtimePaused] = useState(false);
+  const { stats, vehicleLogs, sensorLogs, rawLogs, commandLogs, waypointLogs, loading } = useLogData({
+    enableRealtime: true,
+    pauseRealtime: isRealtimePaused,
+  });
   const { alerts } = useAlertData();
   const { vehicles, loading: vehicleLoading } = useVehicleData();
   const [activeTab, setActiveTab] = useState("vehicle");
   const hasInitializedVehicleSelection = useRef(false);
+
+  const [vehicleVisibleKeys, setVehicleVisibleKeys] = useState(VEHICLE_COL_DEFAULT);
+  const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
+  const vehicleDropdownRef = useRef(null);
+
+  const [sensorVisibleKeys, setSensorVisibleKeys] = useState(SENSOR_COL_DEFAULT);
+  const [sensorDropdownOpen, setSensorDropdownOpen] = useState(false);
+  const sensorDropdownRef = useRef(null);
+
+  const [commandVisibleKeys, setCommandVisibleKeys] = useState(COMMAND_COL_DEFAULT);
+  const [commandDropdownOpen, setCommandDropdownOpen] = useState(false);
+  const commandDropdownRef = useRef(null);
+
+  const [waypointVisibleKeys, setWaypointVisibleKeys] = useState(WAYPOINT_COL_DEFAULT);
+  const [waypointDropdownOpen, setWaypointDropdownOpen] = useState(false);
+  const waypointDropdownRef = useRef(null);
 
   // Get Anti Theft and Failsafe logs from alerts
   const antiTheftLogs = useMemo(() => {
@@ -84,6 +129,17 @@ const Log = () => {
     }
   }, [vehicleLoading, vehicles, selectedVehicle]);
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(e.target)) setVehicleDropdownOpen(false);
+      if (sensorDropdownRef.current && !sensorDropdownRef.current.contains(e.target)) setSensorDropdownOpen(false);
+      if (commandDropdownRef.current && !commandDropdownRef.current.contains(e.target)) setCommandDropdownOpen(false);
+      if (waypointDropdownRef.current && !waypointDropdownRef.current.contains(e.target)) setWaypointDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Use loading timeout to prevent infinite skeleton loading
   const { loading: timeoutLoading } = useLoadingTimeout(loading, 5000);
   const shouldShowSkeleton =
@@ -130,6 +186,37 @@ const Log = () => {
   const filteredRawLogs = filterLogs(rawLogs);
   const filteredAntiTheftLogs = filterLogs(antiTheftLogs);
   const filteredFailsafeLogs = filterLogs(failsafeLogs);
+
+  // Filter command/waypoint logs (use initiated_at and vehicle_code directly)
+  const filterActionLogs = (logs) => {
+    let filtered = logs;
+    if (selectedVehicle) {
+      filtered = filtered.filter(
+        (log) =>
+          log.vehicle?.code === selectedVehicle.code ||
+          log.vehicle_code === selectedVehicle.code ||
+          log.vehicle_id === selectedVehicle.id,
+      );
+    }
+    if (startDate || endDate || startTime || endTime) {
+      filtered = filtered.filter((log) => {
+        const logDate = new Date(log.initiated_at || log.created_at);
+        const startDateTime = startDate
+          ? new Date(startDate + "T" + (startTime || "00:00:00"))
+          : null;
+        const endDateTime = endDate
+          ? new Date(endDate + "T" + (endTime || "23:59:59"))
+          : null;
+        if (startDateTime && logDate < startDateTime) return false;
+        if (endDateTime && logDate > endDateTime) return false;
+        return true;
+      });
+    }
+    return filtered;
+  };
+
+  const filteredCommandLogs = filterActionLogs(commandLogs);
+  const filteredWaypointLogs = filterActionLogs(waypointLogs);
 
   const widgets = [
     {
@@ -223,15 +310,120 @@ const Log = () => {
   ];
 
   const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+    const d = new Date(timestamp);
+    return (
+      d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }) +
+      "." +
+      String(d.getMilliseconds()).padStart(3, "0")
+    );
   };
+
+  const formatTimestampMs = (timestamp) => {
+    const d = new Date(timestamp);
+    return (
+      d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }) +
+      "." +
+      String(d.getMilliseconds()).padStart(3, "0")
+    );
+  };
+
+  const buildColumnToggle = (allKeys, labels, visibleKeys, setFn, defaultVisible, maxCols, dropdownOpen, setDropdownOpen, dropdownRef) => (
+    <div className="flex justify-end mb-3">
+      <div className="relative" ref={dropdownRef}>
+        <button
+          type="button"
+          onClick={() => setDropdownOpen((prev) => !prev)}
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-transparent px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-slate-700"
+        >
+          <FaColumns className="text-gray-500 dark:text-gray-400" />
+          Columns
+          <span
+            className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+              visibleKeys.size >= maxCols
+                ? "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
+                : "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+            }`}
+          >
+            {visibleKeys.size}/{maxCols}
+          </span>
+        </button>
+        {dropdownOpen && (
+          <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg">
+            <div className="border-b border-gray-200 dark:border-slate-600 px-3 py-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Toggle Columns
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFn(new Set(defaultVisible))}
+                  className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
+                >
+                  Reset
+                </button>
+              </div>
+              {visibleKeys.size >= maxCols && (
+                <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
+                  Maksimum {maxCols} kolom tercapai
+                </p>
+              )}
+            </div>
+            <div className="max-h-72 overflow-y-auto py-1">
+              {allKeys.map((key) => {
+                const isChecked = visibleKeys.has(key);
+                const isDisabled = !isChecked && visibleKeys.size >= maxCols;
+                return (
+                  <label
+                    key={key}
+                    className={`flex items-center gap-3 px-3 py-2 text-sm ${
+                      isDisabled
+                        ? "cursor-not-allowed opacity-40"
+                        : "cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700"
+                    } text-gray-700 dark:text-gray-200`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      disabled={isDisabled}
+                      onChange={() => {
+                        setFn((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(key)) {
+                            if (next.size === 1) return prev;
+                            next.delete(key);
+                          } else {
+                            if (next.size >= maxCols) return prev;
+                            next.add(key);
+                          }
+                          return next;
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
+                    />
+                    {labels[key]}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   // Vehicle Logs Columns
   const vehicleLogColumns = [
@@ -240,8 +432,8 @@ const Log = () => {
       accessorKey: "timestamp",
       sortable: true,
       cell: (row) => (
-        <span className="text-sm text-gray-900 dark:text-gray-300">
-          {formatTimestamp(row.created_at)}
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          {row.created_at ? formatTimestampMs(row.created_at) : "—"}
         </span>
       ),
     },
@@ -344,16 +536,28 @@ const Log = () => {
       accessorKey: "armed",
       sortable: false,
       cell: (row) => (
-        <div className="text-xs">
+        <div className="flex flex-wrap gap-1">
           {row.armed !== null && (
-            <div className={row.armed ? "text-red-500" : "text-green-500"}>
-              {row.armed ? "⚠ Armed" : "✓ Safe"}
-            </div>
+            <span
+              className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
+                row.armed
+                  ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                  : "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
+              }`}
+            >
+              {row.armed ? "Armed" : "Disarmed"}
+            </span>
           )}
           {row.gps_ok !== null && (
-            <div className={row.gps_ok ? "text-green-500" : "text-red-500"}>
-              {row.gps_ok ? "✓ GPS" : "✗ GPS"}
-            </div>
+            <span
+              className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
+                row.gps_ok
+                  ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700"
+                  : "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
+              }`}
+            >
+              {row.gps_ok ? "GPS OK" : "GPS Lost"}
+            </span>
           )}
         </div>
       ),
@@ -387,14 +591,13 @@ const Log = () => {
   ];
 
   // Sensor Logs Columns
-  const sensorLogColumns = [
-    {
+  const sensorLogColumns = [    {
       header: "Time",
       accessorKey: "timestamp",
       sortable: true,
       cell: (row) => (
-        <span className="text-sm text-gray-900 dark:text-gray-300">
-          {formatTimestamp(row.created_at)}
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          {row.created_at ? formatTimestampMs(row.created_at) : "—"}
         </span>
       ),
     },
@@ -430,8 +633,157 @@ const Log = () => {
     },
   ];
 
+  // Command Log Columns
+  const commandLogColumns = [
+    {
+      header: t("pages.logs.columns.time"),
+      accessorKey: "initiated_at",
+      sortable: true,
+      cell: (row) => (
+        <div className="text-sm text-gray-900 dark:text-gray-300">
+          <div>{formatTimestamp(row.initiated_at)}</div>
+          {row.resolved_at && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {t("pages.logs.columns.resolved")}: {formatTimestamp(row.resolved_at)}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: t("pages.logs.columns.vehicle"),
+      accessorKey: "vehicle_code",
+      sortable: true,
+      cell: (row) => (
+        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+          {row.vehicle?.code || row.vehicle_code || "N/A"}
+        </span>
+      ),
+    },
+    {
+      header: t("pages.logs.columns.command"),
+      accessorKey: "command",
+      sortable: true,
+      cell: (row) => (
+        <span className="text-sm font-mono font-semibold text-yellow-600 dark:text-yellow-400 uppercase">
+          {row.command || "N/A"}
+        </span>
+      ),
+    },
+    {
+      header: t("pages.logs.columns.status"),
+      accessorKey: "status",
+      sortable: true,
+      cell: (row) => {
+        const colorMap = {
+          success: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+          failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+          timeout: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+          pending: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+        };
+        return (
+          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${colorMap[row.status] || "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}>
+            {row.status || "unknown"}
+          </span>
+        );
+      },
+    },
+    {
+      header: t("pages.logs.columns.message"),
+      accessorKey: "message",
+      sortable: false,
+      cell: (row) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {row.message || "-"}
+        </span>
+      ),
+    },
+  ];
+
+  // Waypoint Log Columns
+  const waypointLogColumns = [
+    {
+      header: t("pages.logs.columns.time"),
+      accessorKey: "initiated_at",
+      sortable: true,
+      cell: (row) => (
+        <div className="text-sm text-gray-900 dark:text-gray-300">
+          <div>{formatTimestamp(row.initiated_at)}</div>
+          {row.resolved_at && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              {t("pages.logs.columns.resolved")}: {formatTimestamp(row.resolved_at)}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: t("pages.logs.columns.vehicle"),
+      accessorKey: "vehicle_code",
+      sortable: true,
+      cell: (row) => (
+        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+          {row.vehicle?.code || row.vehicle_code || "N/A"}
+        </span>
+      ),
+    },
+    {
+      header: t("pages.logs.columns.mission"),
+      accessorKey: "mission_name",
+      sortable: true,
+      cell: (row) => (
+        <div className="text-sm text-gray-900 dark:text-gray-300">
+          <div>{row.mission_name || "-"}</div>
+          {row.mission_id && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              ID: {row.mission_id}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: t("pages.logs.columns.waypointCount"),
+      accessorKey: "waypoint_count",
+      sortable: true,
+      cell: (row) => (
+        <span className="text-sm text-gray-900 dark:text-gray-300">
+          {row.waypoint_count ?? "-"}
+        </span>
+      ),
+    },
+    {
+      header: t("pages.logs.columns.status"),
+      accessorKey: "status",
+      sortable: true,
+      cell: (row) => {
+        const colorMap = {
+          success: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+          failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+          timeout: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+          pending: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+        };
+        return (
+          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${colorMap[row.status] || "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}>
+            {row.status || "unknown"}
+          </span>
+        );
+      },
+    },
+    {
+      header: t("pages.logs.columns.message"),
+      accessorKey: "message",
+      sortable: false,
+      cell: (row) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {row.message || "-"}
+        </span>
+      ),
+    },
+  ];
+
   return (
-    <div className="p-4">
+    <div className="p-4" key={`logs-root-${isRealtimePaused ? "paused" : "live"}`}>
       {/* Header with Title and Filters */}
       <div className="flex items-center justify-between mb-4">
         <Title
@@ -538,6 +890,19 @@ const Log = () => {
               {t("pages.logs.clear")}
             </button>
           )}
+
+          <button
+            onClick={() => setIsRealtimePaused((prev) => !prev)}
+            className={`px-3 py-3 text-sm rounded-xl transition-all flex items-center gap-2 font-medium border ${
+              isRealtimePaused
+                ? "bg-green-100 hover:bg-green-200 text-green-700 border-green-300 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-300 dark:border-green-700"
+                : "bg-amber-100 hover:bg-amber-200 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700"
+            }`}
+            title={isRealtimePaused ? "Resume realtime logs" : "Pause realtime logs"}
+          >
+            {isRealtimePaused ? <FiPlay size={16} /> : <FiPause size={16} />}
+            {isRealtimePaused ? "Resume Live" : "Pause Live"}
+          </button>
         </div>
       </div>
 
@@ -545,16 +910,18 @@ const Log = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pb-4">
         {shouldShowSkeleton
           ? Array.from({ length: 3 }).map((_, idx) => (
-              <WidgetCardSkeleton key={idx} />
+              <WidgetCardSkeleton key={`widget-skeleton-${idx}`} />
             ))
-          : widgets.map((widget, idx) => <WidgetCard key={idx} {...widget} />)}
+          : widgets.map((widget, idx) => (
+              <WidgetCard key={widget.title || `widget-${idx}`} {...widget} />
+            ))}
       </div>
 
       {/* Tabs */}
       <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl my-4">
         <div className="border-b border-gray-200 dark:border-slate-600">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
-            {["vehicle", "sensor", "raw", "antitheft", "failsafe"].map(
+            {["vehicle", "sensor", "raw", "antitheft", "failsafe", "command", "waypoint"].map(
               (tab) => (
                 <button
                   key={tab}
@@ -574,9 +941,11 @@ const Log = () => {
 
         {/* Vehicle Logs */}
         {activeTab === "vehicle" && (
-          <div className="p-6">
+          <div className="p-6" key={`vehicle-${isRealtimePaused ? "paused" : "live"}`}>
+            {buildColumnToggle(VEHICLE_COL_KEYS, VEHICLE_COL_LABELS, vehicleVisibleKeys, setVehicleVisibleKeys, VEHICLE_COL_DEFAULT, VEHICLE_MAX, vehicleDropdownOpen, setVehicleDropdownOpen, vehicleDropdownRef)}
             <DataTable
-              columns={vehicleLogColumns}
+              key={`vehicle-table-${isRealtimePaused ? "paused" : "live"}`}
+              columns={vehicleLogColumns.filter((col) => vehicleVisibleKeys.has(col.accessorKey))}
               data={filteredVehicleLogs}
               searchPlaceholder={t("pages.logs.searchVehicle")}
               searchKeys={["vehicle_code", "system_status"]}
@@ -588,9 +957,11 @@ const Log = () => {
 
         {/* Sensor Logs */}
         {activeTab === "sensor" && (
-          <div className="p-6">
+          <div className="p-6" key={`sensor-${isRealtimePaused ? "paused" : "live"}`}>
+            {buildColumnToggle(SENSOR_COL_KEYS, SENSOR_COL_LABELS, sensorVisibleKeys, setSensorVisibleKeys, SENSOR_COL_DEFAULT, SENSOR_MAX, sensorDropdownOpen, setSensorDropdownOpen, sensorDropdownRef)}
             <DataTable
-              columns={sensorLogColumns}
+              key={`sensor-table-${isRealtimePaused ? "paused" : "live"}`}
+              columns={sensorLogColumns.filter((col) => sensorVisibleKeys.has(col.accessorKey))}
               data={filteredSensorLogs}
               searchPlaceholder={t("pages.logs.searchSensor")}
               searchKeys={["vehicle_code", "sensor_code"]}
@@ -602,39 +973,49 @@ const Log = () => {
 
         {/* Raw Logs */}
         {activeTab === "raw" && (
-          <div className="p-6">
-            <div className="space-y-3">
+          <div className="p-6" key={`raw-${isRealtimePaused ? "paused" : "live"}`}>
+            <div className="max-h-[65vh] overflow-y-auto pr-1 custom-scrollbar">
+              <div className="space-y-3">
               {filteredRawLogs.length === 0 ? (
                 <p className="text-center text-gray-500 dark:text-gray-400 py-8">
                   {t("pages.logs.emptyRaw")}
                 </p>
               ) : (
-                filteredRawLogs.map((log) => (
+                filteredRawLogs.map((log, index) => (
                   <div
-                    key={log.id}
-                    className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-4 border border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500 transition-colors"
+                    key={
+                      log._client_id ||
+                      log.id ||
+                      `${log.created_at || log._received_at || "raw"}-${
+                        String(log.logs || "").slice(0, 24)
+                      }-${index}`
+                    }
+                    className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-4 border border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500 transition-colors overflow-hidden min-w-0"
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                        {formatTimestamp(log.created_at)}
-                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {log.created_at ? formatTimestampMs(log.created_at) : "—"}
+                        </span>
+                      </div>
                       <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
                         {log.vehicle?.code || "N/A"}
                       </span>
                     </div>
-                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap wrap-break-word">
+                    <pre className="text-sm text-gray-900 dark:text-gray-300 whitespace-pre-wrap break-all overflow-x-hidden">
                       {log.logs}
                     </pre>
                   </div>
                 ))
               )}
+              </div>
             </div>
           </div>
         )}
 
         {/* Anti Theft Logs */}
         {activeTab === "antitheft" && (
-          <div className="p-6">
+          <div className="p-6" key={`antitheft-${isRealtimePaused ? "paused" : "live"}`}>
             <div className="space-y-3">
               {filteredAntiTheftLogs.length === 0 ? (
                 <div className="text-center py-12">
@@ -650,9 +1031,15 @@ const Log = () => {
                   </p>
                 </div>
               ) : (
-                filteredAntiTheftLogs.map((log) => (
+                filteredAntiTheftLogs.map((log, index) => (
                   <div
-                    key={log.id}
+                    key={
+                      log._client_id ||
+                      log.id ||
+                      `${log.timestamp || log.created_at || "antitheft"}-${
+                        log.vehicle_id || log.vehicle_name || "vehicle"
+                      }-${String(log.message || "").slice(0, 24)}-${index}`
+                    }
                     className={`bg-orange-50 dark:bg-orange-900/10 rounded-lg p-4 border border-orange-200 dark:border-orange-800 hover:border-orange-300 dark:hover:border-orange-700 transition-colors ${
                       log.acknowledged ? "opacity-60" : ""
                     }`}
@@ -705,7 +1092,7 @@ const Log = () => {
 
         {/* Failsafe Logs */}
         {activeTab === "failsafe" && (
-          <div className="p-6">
+          <div className="p-6" key={`failsafe-${isRealtimePaused ? "paused" : "live"}`}>
             <div className="space-y-3">
               {filteredFailsafeLogs.length === 0 ? (
                 <div className="text-center py-12">
@@ -721,9 +1108,15 @@ const Log = () => {
                   </p>
                 </div>
               ) : (
-                filteredFailsafeLogs.map((log) => (
+                filteredFailsafeLogs.map((log, index) => (
                   <div
-                    key={log.id}
+                    key={
+                      log._client_id ||
+                      log.id ||
+                      `${log.timestamp || log.created_at || "failsafe"}-${
+                        log.vehicle_id || log.vehicle_name || "vehicle"
+                      }-${String(log.message || "").slice(0, 24)}-${index}`
+                    }
                     className={`bg-red-50 dark:bg-red-900/10 rounded-lg p-4 border border-red-200 dark:border-red-800 hover:border-red-300 dark:hover:border-red-700 transition-colors ${
                       log.acknowledged ? "opacity-60" : ""
                     }`}
@@ -771,6 +1164,38 @@ const Log = () => {
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {/* Command Logs */}
+        {activeTab === "command" && (
+          <div className="p-6" key={`command-${isRealtimePaused ? "paused" : "live"}`}>
+            {buildColumnToggle(COMMAND_COL_KEYS, COMMAND_COL_LABELS, commandVisibleKeys, setCommandVisibleKeys, COMMAND_COL_DEFAULT, COMMAND_MAX, commandDropdownOpen, setCommandDropdownOpen, commandDropdownRef)}
+            <DataTable
+              key={`command-table-${isRealtimePaused ? "paused" : "live"}`}
+              columns={commandLogColumns.filter((col) => commandVisibleKeys.has(col.accessorKey))}
+              data={filteredCommandLogs}
+              searchPlaceholder={t("pages.logs.searchCommand")}
+              searchKeys={["vehicle_code", "command", "status"]}
+              pageSize={10}
+              emptyMessage={t("pages.logs.emptyCommand")}
+            />
+          </div>
+        )}
+
+        {/* Waypoint Logs */}
+        {activeTab === "waypoint" && (
+          <div className="p-6" key={`waypoint-${isRealtimePaused ? "paused" : "live"}`}>
+            {buildColumnToggle(WAYPOINT_COL_KEYS, WAYPOINT_COL_LABELS, waypointVisibleKeys, setWaypointVisibleKeys, WAYPOINT_COL_DEFAULT, WAYPOINT_MAX, waypointDropdownOpen, setWaypointDropdownOpen, waypointDropdownRef)}
+            <DataTable
+              key={`waypoint-table-${isRealtimePaused ? "paused" : "live"}`}
+              columns={waypointLogColumns.filter((col) => waypointVisibleKeys.has(col.accessorKey))}
+              data={filteredWaypointLogs}
+              searchPlaceholder={t("pages.logs.searchWaypoint")}
+              searchKeys={["vehicle_code", "mission_name", "status"]}
+              pageSize={10}
+              emptyMessage={t("pages.logs.emptyWaypoint")}
+            />
           </div>
         )}
       </div>

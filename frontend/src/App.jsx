@@ -27,7 +27,7 @@ const queryClient = new QueryClient({
 });
 
 // Layout Components
-import { Header, Sidebar } from "./components/Layout";
+import { Header, Sidebar, Footbar } from "./components/Layout";
 import { Content, Main } from "./components/ui";
 
 // Direct imports - load semua pages into main bundle
@@ -55,6 +55,13 @@ import CTD from "./pages/SensorMonitoring/CTD";
 import ADCP from "./pages/SensorMonitoring/ADCP";
 import SBES from "./pages/SensorMonitoring/SBES";
 import MBES from "./pages/SensorMonitoring/MBES";
+import Weather from "./pages/Weather";
+import GettingStarted from "./pages/docs/GettingStarted";
+import MqttDocs from "./pages/docs/MqttDocs";
+import ApiDocs from "./pages/docs/ApiDocs";
+import DocsIndex from "./pages/docs/DocsIndex";
+import MissionPlannerDocs from "./pages/docs/MissionPlannerDocs";
+import ControlDocs from "./pages/docs/ControlDocs";
 
 // Auth Pages - EAGER LOAD untuk avoid chunking issues
 import Login from "./pages/auth/Login";
@@ -71,6 +78,7 @@ function App() {
   const location = useLocation();
   const [darkMode, setDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const { vehicles } = useVehicleData();
   const initializedRef = useRef(false);
@@ -171,6 +179,8 @@ function App() {
     "/user",
     "/role",
     "/permission",
+    "/docs",
+    "/weather",
   ];
 
   const isPublicRoute = publicRoutes.includes(location.pathname);
@@ -272,13 +282,12 @@ function App() {
       <a href="#main-content" className="skip-to-main">
         Skip to main content
       </a>
-      <Sidebar isSidebarOpen={isSidebarOpen} />
+      <Sidebar isSidebarOpen={isSidebarOpen} onHoverChange={setIsSidebarHovered} />
+      <Footbar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <div className="flex-1 flex flex-col min-h-screen">
         <Header
           toggleDarkMode={toggleDarkMode}
           darkMode={darkMode}
-          toggleSidebar={toggleSidebar}
-          isSidebarOpen={isSidebarOpen}
         />
         <Main
           isSidebarOpen={isSidebarOpen}
@@ -342,7 +351,7 @@ function App() {
                   <ProtectedRoute>
                     <MissionsPlanner
                       darkMode={darkMode}
-                      isSidebarOpen={isSidebarOpen}
+                      isSidebarOpen={isSidebarOpen || isSidebarHovered}
                     />
                   </ProtectedRoute>
                 }
@@ -406,6 +415,14 @@ function App() {
                       darkMode={darkMode}
                       isSidebarOpen={isSidebarOpen}
                     />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/weather"
+                element={
+                  <ProtectedRoute>
+                    <Weather darkMode={darkMode} />
                   </ProtectedRoute>
                 }
               />
@@ -502,6 +519,54 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Permission darkMode={darkMode} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/docs"
+                element={
+                  <ProtectedRoute>
+                    <DocsIndex />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/docs/getting-started"
+                element={
+                  <ProtectedRoute>
+                    <GettingStarted />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/docs/mqtt"
+                element={
+                  <ProtectedRoute>
+                    <MqttDocs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/docs/api"
+                element={
+                  <ProtectedRoute>
+                    <ApiDocs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/docs/mission-planner"
+                element={
+                  <ProtectedRoute>
+                    <MissionPlannerDocs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/docs/control"
+                element={
+                  <ProtectedRoute>
+                    <ControlDocs />
                   </ProtectedRoute>
                 }
               />

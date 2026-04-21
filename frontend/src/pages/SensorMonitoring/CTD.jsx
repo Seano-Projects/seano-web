@@ -81,18 +81,18 @@ const CTD = () => {
   });
 
   return (
-    <div className="p-4">
+    <div className="w-full max-w-full overflow-x-hidden p-4">
       {/* Header with Title and Filters */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
         <Title
           title={t("pages.ctd.title")}
           subtitle={t("pages.ctd.subtitle")}
         />
 
         {/* Filters Section */}
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-2 2xl:w-auto 2xl:justify-end">
           {/* Date Range Filter */}
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 2xl:w-auto">
             {/* Start Date */}
             <DatePickerField
               value={startDate}
@@ -104,7 +104,7 @@ const CTD = () => {
               }}
               placeholder={t("pages.ctd.startDate")}
               maxDate={endDate || new Date().toISOString().split("T")[0]}
-              className="w-40"
+              className="w-36"
             />
 
             {/* Start Time */}
@@ -112,7 +112,7 @@ const CTD = () => {
               value={startTime}
               onChange={setStartTime}
               placeholder="00:00"
-              className="w-32"
+              className="w-28"
             />
 
             {/* Separator */}
@@ -126,7 +126,7 @@ const CTD = () => {
               onChange={setEndDate}
               placeholder={t("pages.ctd.endDate")}
               minDate={startDate || undefined}
-              className="w-40"
+              className="w-36"
             />
 
             {/* End Time */}
@@ -134,12 +134,12 @@ const CTD = () => {
               value={endTime}
               onChange={setEndTime}
               placeholder="23:59"
-              className="w-32"
+              className="w-28"
             />
           </div>
 
           {/* Vehicle Filter */}
-          <div className="w-52">
+          <div className="w-full sm:w-48">
             <VehicleDropdown
               vehicles={vehicles}
               selectedVehicle={selectedVehicle}
@@ -170,7 +170,7 @@ const CTD = () => {
                 setStartTime("");
                 setEndTime("");
               }}
-              className="px-3 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 text-sm rounded-xl transition-all flex items-center gap-2 font-medium"
+              className="shrink-0 px-3 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 text-sm rounded-xl transition-all flex items-center gap-2 font-medium"
               title={t("pages.ctd.clearAllFilters")}
             >
               <svg
@@ -196,14 +196,22 @@ const CTD = () => {
       <div className="space-y-4 mb-4">
         {/* Row 1: Time Series and Depth Profile */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <TimeSeriesChart ctdData={filteredData} />
-          <DepthProfile ctdData={filteredData} />
+          <div className="min-w-0">
+            <TimeSeriesChart ctdData={filteredData} />
+          </div>
+          <div className="min-w-0">
+            <DepthProfile ctdData={filteredData} />
+          </div>
         </div>
 
         {/* Row 2: T-S Diagram and Sound Speed Profile */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <TSDiagram ctdData={filteredData} />
-          <SoundSpeedProfile ctdData={filteredData} />
+          <div className="min-w-0">
+            <TSDiagram ctdData={filteredData} />
+          </div>
+          <div className="min-w-0">
+            <SoundSpeedProfile ctdData={filteredData} />
+          </div>
         </div>
       </div>
 

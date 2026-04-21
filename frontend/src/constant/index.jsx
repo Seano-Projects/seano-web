@@ -25,6 +25,7 @@ import {
   TbPhotoSensor,
   TbCategory,
   TbNotification,
+  TbSunWind,
 } from "react-icons/tb";
 import {
   FaArrowTrendDown,
@@ -63,6 +64,7 @@ export const dashboardLink = {
 export const menuGroups = [
   {
     title: "nav.dataOperations",
+    icon: MdOutlineRadar,
     userOnly: true,
     items: [
       {
@@ -71,6 +73,12 @@ export const menuGroups = [
         text: "nav.tracking",
         size: sizeIcon,
         requiredPermission: "tracking.read",
+      },
+      {
+        href: "/weather",
+        icon: TbSunWind,
+        text: "nav.weather",
+        size: sizeIcon,
       },
       {
         href: "/control",
@@ -90,6 +98,7 @@ export const menuGroups = [
   },
   {
     title: "nav.dataMission",
+    icon: TbGps,
     userOnly: true,
     items: [
       {
@@ -110,6 +119,7 @@ export const menuGroups = [
   },
   {
     title: "nav.dataMonitoring",
+    icon: FaBell,
     userOnly: true,
     items: [
       {
@@ -144,6 +154,7 @@ export const menuGroups = [
   },
   {
     title: "nav.sensorMonitoring",
+    icon: MdOutlineSensors,
     userOnly: true,
     items: [
       {
@@ -178,6 +189,7 @@ export const menuGroups = [
   },
   {
     title: "nav.dataManagement",
+    icon: GoDatabase,
     requiredPermission: "vehicles.read",
     items: [
       {
@@ -213,6 +225,7 @@ export const menuGroups = [
   },
   {
     title: "nav.userManagement",
+    icon: RiUser3Line,
     requiredPermission: "users.read",
     adminOnly: true,
     items: [

@@ -98,6 +98,7 @@ export const API_ENDPOINTS = {
     CREATE: `${API_BASE_URL}/vehicles/`,
     UPDATE: id => `${API_BASE_URL}/vehicles/${id}`,
     DELETE: id => `${API_BASE_URL}/vehicles/${id}`,
+    GENERATE_API_KEY: id => `${API_BASE_URL}/vehicles/${id}/api-key`,
     ALERTS: id => `${API_BASE_URL}/vehicles/${id}/alerts`,
     RAW_LOGS: vehicleId => `${API_BASE_URL}/raw-logs/?vehicle_id=${vehicleId}`,
     LOGS: vehicleId => `${API_BASE_URL}/vehicle-logs/?vehicle_id=${vehicleId}`,
@@ -144,7 +145,10 @@ export const API_ENDPOINTS = {
 
   // Notifications endpoints (if exists)
   NOTIFICATIONS: {
-    LIST: `${API_BASE_URL}/api/notifications`
+    LIST: `${API_BASE_URL}/notifications`,
+    MARK_READ: id => `${API_BASE_URL}/notifications/${id}/read`,
+    READ_ALL: `${API_BASE_URL}/notifications/read-all`,
+    CLEAR_READ: `${API_BASE_URL}/notifications/clear-read`
   },
 
   // Missions endpoints
@@ -182,6 +186,28 @@ export const API_ENDPOINTS = {
   // Vehicle control commands (ARM/DISARM/MODE via MQTT)
   CONTROL: {
     COMMAND: vehicleCode => `${API_BASE_URL}/control/${vehicleCode}/command`
+  },
+
+  // Thruster commands (API mode)
+  THRUSTER: {
+    CREATE: `${API_BASE_URL}/thruster-commands/`,
+    PENDING: `${API_BASE_URL}/thruster-commands/pending`
+  },
+
+  // Command Logs endpoints
+  COMMAND_LOGS: {
+    LIST: `${API_BASE_URL}/command-logs/`,
+    BY_ID: id => `${API_BASE_URL}/command-logs/${id}`,
+    CREATE: `${API_BASE_URL}/command-logs/`,
+    DELETE: id => `${API_BASE_URL}/command-logs/${id}`
+  },
+
+  // Waypoint Logs endpoints
+  WAYPOINT_LOGS: {
+    LIST: `${API_BASE_URL}/waypoint-logs/`,
+    BY_ID: id => `${API_BASE_URL}/waypoint-logs/${id}`,
+    CREATE: `${API_BASE_URL}/waypoint-logs/`,
+    DELETE: id => `${API_BASE_URL}/waypoint-logs/${id}`
   }
 }
 

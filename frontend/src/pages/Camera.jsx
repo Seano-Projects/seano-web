@@ -5,16 +5,12 @@ import {
   FaExpand,
   FaCompress,
   FaPlug,
-  FaCircleQuestion,
-  FaChevronLeft,
-  FaChevronRight,
 } from "react-icons/fa6";
 import useTitle from "../hooks/useTitle";
 import useTranslation from "../hooks/useTranslation";
 import useVehicleData from "../hooks/useVehicleData";
 import { toast } from "../components/ui";
 import Dropdown from "../components/Widgets/Dropdown";
-import WizardModal from "../components/ui/WizardModal";
 
 const normalizeStreamName = (rawValue = "") => {
   const normalized = rawValue
@@ -39,8 +35,6 @@ const Camera = () => {
   const [cameraConnected, setCameraConnected] = useState(false);
   const [cameraConnecting, setCameraConnecting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
-  const [guideStep, setGuideStep] = useState(1);
   const videoRef = useRef(null);
   const pcRef = useRef(null);
   const containerRef = useRef(null);
@@ -243,17 +237,6 @@ const Camera = () => {
                 />
               );
             })()}
-          <button
-            onClick={() => {
-              setGuideStep(1);
-              setShowGuide(true);
-            }}
-            className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-white transition-colors text-sm font-medium whitespace-nowrap"
-            title={t("control.camera.userGuide")}
-          >
-            <FaCircleQuestion className="text-blue-500" />
-            {t("control.camera.userGuide")}
-          </button>
         </div>
       </div>
 
@@ -336,120 +319,6 @@ const Camera = () => {
               : t("control.camera.connect")}
         </button>
       </div>
-
-      {/* User Guide WizardModal */}
-      <WizardModal
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        title={t("control.camera.guideTitle")}
-        currentStep={guideStep}
-        totalSteps={4}
-        footer={
-          <div className="flex items-center justify-between w-full">
-            <button
-              onClick={() => setGuideStep((s) => Math.max(1, s - 1))}
-              disabled={guideStep === 1}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-transparent hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-white transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <FaChevronLeft className="text-xs" /> {t("control.camera.prev")}
-            </button>
-            {guideStep < 4 ? (
-              <button
-                onClick={() => setGuideStep((s) => Math.min(4, s + 1))}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors text-sm font-semibold"
-              >
-                {t("control.camera.next")}{" "}
-                <FaChevronRight className="text-xs" />
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowGuide(false)}
-                className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white transition-colors text-sm font-semibold"
-              >
-                {t("control.camera.done")}
-              </button>
-            )}
-          </div>
-        }
-      >
-        {guideStep === 1 && (
-          <div className="space-y-3">
-            <h3 className="font-semibold text-gray-900 dark:text-white text-base">
-              {t("control.camera.step1Title")}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {t("control.camera.step1Desc")}
-            </p>
-            <div className="bg-gray-100 dark:bg-slate-800 rounded-xl p-4 text-xs space-y-1">
-              <p>
-                <span className="text-gray-500">
-                  {t("control.camera.urlLabel")}
-                </span>{" "}
-                <span className="text-blue-500">
-                  rtmp://72.61.141.126:1935/live
-                </span>
-              </p>
-              <p>
-                <span className="text-gray-500">
-                  {t("control.camera.streamKeyLabel")}
-                </span>{" "}
-                <span className="text-green-400">&lt;vehicle-code&gt;</span>{" "}
-                (e.g. <span className="text-green-400">usv-001</span>)
-              </p>
-            </div>
-            <p className="text-xs text-gray-400">
-              {t("control.camera.step1PathHint")}{" "}
-              <code className="bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                live/usv-001
-              </code>
-            </p>
-          </div>
-        )}
-        {guideStep === 2 && (
-          <div className="space-y-3">
-            <h3 className="font-semibold text-gray-900 dark:text-white text-base">
-              {t("control.camera.step2Title")}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {t("control.camera.step2Desc")}
-            </p>
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-3 text-sm text-blue-700 dark:text-blue-300">
-              {t("control.camera.step2Hint")}{" "}
-              <code className="bg-blue-100 dark:bg-blue-800/40 px-1 rounded">
-                live/
-              </code>
-            </div>
-          </div>
-        )}
-        {guideStep === 3 && (
-          <div className="space-y-3">
-            <h3 className="font-semibold text-gray-900 dark:text-white text-base">
-              {t("control.camera.step3Title")}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {t("control.camera.step3Desc")}
-            </p>
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-3 text-sm text-yellow-700 dark:text-yellow-300">
-              {t("control.camera.step3Warning")}
-            </div>
-          </div>
-        )}
-        {guideStep === 4 && (
-          <div className="space-y-3">
-            <h3 className="font-semibold text-gray-900 dark:text-white text-base">
-              {t("control.camera.step4Title")}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {t("control.camera.step4Desc")}
-            </p>
-            <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-1.5 list-none">
-              <li>📺 {t("control.camera.step4Item1")}</li>
-              <li>🔌 {t("control.camera.step4Item2")}</li>
-              <li>🔄 {t("control.camera.step4Item3")}</li>
-            </ul>
-          </div>
-        )}
-      </WizardModal>
     </div>
   );
 };

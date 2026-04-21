@@ -13,6 +13,8 @@ import {
   FaCheckCircle,
   FaEnvelope,
   FaEnvelopeOpen,
+  FaCheck,
+  FaTrash,
 } from "react-icons/fa";
 import useTranslation from "../hooks/useTranslation";
 
@@ -28,7 +30,14 @@ const Notification = () => {
     return text;
   };
 
-  const { notifications, loading, stats, refreshData } = useNotificationData();
+  const {
+    notifications,
+    loading,
+    stats,
+    markAsRead,
+    markAllAsRead,
+    clearRead,
+  } = useNotificationData();
   const { loading: timeoutLoading } = useLoadingTimeout(loading, 5000);
   const shouldShowSkeleton =
     timeoutLoading && loading && notifications.length === 0;
@@ -231,7 +240,35 @@ const Notification = () => {
         </span>
       ),
     },
+    {
+      accessorKey: "action",
+      header: "Action",
+      sortable: false,
+      cell: (row) => (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={row.read}
+            onClick={(event) => {
+              event.stopPropagation();
+              markAsRead(row.id);
+            }}
+            className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${
+              row.read
+                ? "bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed"
+                : "bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300"
+            }`}
+            title={row.read ? "Read" : "Mark as read"}
+          >
+            <FaCheck className="text-xs" />
+            {row.read ? "Read" : "Check"}
+          </button>
+        </div>
+      ),
+    },
   ];
+
+  const hasReadNotifications = notifications.some((item) => item.read);
 
   return (
     <div className="p-4">
@@ -258,11 +295,32 @@ const Notification = () => {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {t("pages.notifications.history")}
           </h2>
-          {stats.unread > 0 && (
-            <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium">
-              {stats.unread} {t("pages.notifications.unread")}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {stats.unread > 0 && (
+              <button
+                type="button"
+                onClick={markAllAsRead}
+                className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+              >
+                {t("pages.notifications.dropdown.markAllRead")}
+              </button>
+            )}
+            {hasReadNotifications && (
+              <button
+                type="button"
+                onClick={clearRead}
+                className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-full text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors"
+              >
+                <FaTrash className="text-xs" />
+                {t("pages.notifications.dropdown.clearRead")}
+              </button>
+            )}
+            {stats.unread > 0 && (
+              <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium">
+                {stats.unread} {t("pages.notifications.unread")}
+              </span>
+            )}
+          </div>
         </div>
 
         <DataTable

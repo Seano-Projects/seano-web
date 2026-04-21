@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 const Modal = ({
   isOpen,
@@ -24,27 +25,31 @@ const Modal = ({
   if (!isVisible) return null;
 
   const sizeClasses = {
-    sm: "w-80 max-w-sm",
-    md: "w-96 max-w-md",
-    lg: "w-[32rem] max-w-lg",
-    xl: "w-[48rem] max-w-4xl",
+    sm: "w-full max-w-sm sm:w-80",
+    md: "w-full max-w-md sm:w-96",
+    lg: "w-full max-w-lg sm:w-[32rem]",
+    xl: "w-full max-w-4xl sm:w-[48rem]",
   };
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? "modal-title" : undefined}
-      className={`fixed inset-0 bg-transparent backdrop-blur-sm bg-opacity-50 flex items-center justify-center transition-opacity duration-300 ease-out ${
+      className={`fixed inset-0 flex items-end justify-center bg-black/50 p-3 backdrop-blur-sm transition-opacity duration-300 ease-out sm:items-center sm:p-4 font-openSans ${
         isAnimating ? "opacity-100" : "opacity-0"
       }`}
       style={{ zIndex: 99999 }}
-      onClick={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
     >
       <div
-        className={`bg-white dark:bg-black border-2 border-gray-300 dark:border-slate-600 rounded-2xl p-6 ${
+        className={`max-h-[min(100dvh-1.5rem,44rem)] overflow-y-auto bg-white dark:bg-black border-2 border-gray-300 dark:border-slate-600 rounded-2xl p-5 sm:p-6 ${
           sizeClasses[size]
-        } mx-4 shadow-2xl ${className} transition-all duration-300 ease-out transform ${
+        } shadow-2xl ${className} transition-all duration-300 ease-out transform ${
           isAnimating
             ? "opacity-100 scale-100 translate-y-0"
             : "opacity-0 scale-95 translate-y-4"
@@ -88,6 +93,12 @@ const Modal = ({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(modalContent, document.body);
 };
 
 export default Modal;

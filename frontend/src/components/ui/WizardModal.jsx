@@ -13,12 +13,12 @@ const WizardModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-black border-2 border-gray-300 dark:border-slate-600 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+    <div className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/50 p-3 backdrop-blur-sm font-openSans sm:items-center sm:p-4">
+      <div className="max-h-[min(100dvh-1.5rem,90vh)] w-full max-w-2xl overflow-hidden rounded-2xl border-2 border-gray-300 bg-white shadow-2xl dark:border-slate-600 dark:bg-black">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-600 flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
               {title}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -42,7 +42,7 @@ const WizardModal = ({
         </div>
 
         {/* Content */}
-        <div className="p-6">{children}</div>
+        <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto p-5 sm:max-h-none sm:p-6">{children}</div>
 
         {/* Footer */}
         {footer && (

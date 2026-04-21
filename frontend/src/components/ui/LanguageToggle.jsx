@@ -7,11 +7,11 @@ export default function LanguageToggle({ className = "" }) {
     <button
       onClick={toggleLanguage}
       aria-label={`Switch to ${language === "en" ? "Indonesian" : "English"}`}
-      className={`p-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-gray-100 dark:hover:bg-gray-800 ${className}`}
+      className={`w-9 h-9 rounded-full flex items-center justify-center transition-all focus:outline-none hover:bg-gray-100 dark:hover:bg-gray-800 overflow-hidden ${className}`}
       title={language === "en" ? "Switch to Indonesian" : "Switch to English"}
     >
       <span
-        className={`fi fi-${language === "en" ? "id" : "gb"} text-2xl`}
+        className={`fi fi-${language === "en" ? "id" : "gb"} text-xl`}
       ></span>
     </button>
   );

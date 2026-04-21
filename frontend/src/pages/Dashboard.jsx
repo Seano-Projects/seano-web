@@ -81,7 +81,7 @@ function Dashboard({ darkMode }) {
       <Title title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
 
       {/* Widget Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pb-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pb-4">
         {shouldShowSkeleton
           ? // Skeleton Loading with timeout
             Array.from({ length: 5 }).map((_, idx) => (
@@ -91,7 +91,7 @@ function Dashboard({ darkMode }) {
       </div>
 
       {/* Vehicle and Map Quick View */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <VehicleQuickView
           vehicles={vehicles}
           selectedVehicleId={selectedVehicleId}
@@ -113,7 +113,7 @@ function Dashboard({ darkMode }) {
       </div>
 
       {/* Mission Analytic and Mission Progress */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 my-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
         <RecentMissions />
         <MissionSuccessRate />
       </div>

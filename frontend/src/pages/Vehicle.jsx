@@ -268,30 +268,19 @@ const Vehicle = () => {
         });
       } else {
         // Create new vehicle
-        console.log("🎯 STEP 1: About to POST vehicle");
-
         const response = await axios.post(
           API_ENDPOINTS.VEHICLES.CREATE,
           vehicleData,
         );
 
-        console.log("🎯 STEP 2: POST completed, response:", response);
-        console.log("🎯 STEP 3: Response data:", response.data);
-        console.log("🎯 STEP 4: Vehicle ID:", response.data?.id);
-
         // Extract vehicle ID from response (backend returns vehicle directly)
         const newVehicleId = response.data?.id;
-
-        console.log("🎯 STEP 5: Extracted vehicle ID:", newVehicleId);
-        console.log("🎯 STEP 6: Calling notify.success...");
 
         await notify.success("Vehicle created successfully!", {
           title: "Vehicle Created",
           action: notify.ACTIONS.VEHICLE_CREATED,
           vehicleId: newVehicleId,
         });
-
-        console.log("🎯 STEP 7: notify.success completed!");
       }
 
       // Close modal first
@@ -327,6 +316,7 @@ const Vehicle = () => {
         action: vehicleId
           ? notify.ACTIONS.VEHICLE_UPDATED
           : notify.ACTIONS.VEHICLE_CREATED,
+        persist: false,
       });
     }
   };
@@ -459,9 +449,11 @@ const Vehicle = () => {
         {shouldShowSkeleton
           ? // Skeleton Loading with timeout
             Array.from({ length: 5 }).map((_, idx) => (
-              <WidgetCardSkeleton key={idx} />
+              <WidgetCardSkeleton key={`vehicle-widget-skeleton-${idx}`} />
             ))
-          : widgetData.map((item, idx) => <WidgetCard key={idx} {...item} />)}
+          : widgetData.map((item, idx) => (
+              <WidgetCard key={item.title || `vehicle-widget-${idx}`} {...item} />
+            ))}
       </div>
 
       <VehicleTable

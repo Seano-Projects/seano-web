@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -20,6 +21,26 @@
   outline-offset: 2px;
 }
 
+/* Remove list bullets from sidebar items */
+aside li {
+  list-style: none;
+}
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Quick search input: no focus outline */
+input.focus\:outline-none:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 /* Skip to main content link for screen readers */
 .skip-to-main {
   position: absolute;
@@ -39,6 +60,11 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+body,
+#root {
+  font-family: var(--font-openSans);
 }
 
 /* Custom Scrollbar Styling */

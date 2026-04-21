@@ -197,9 +197,11 @@ const DataTable = ({
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-transparent">
             <tr>
-              {columns.map((column, index) => (
-                <th
-                  key={index}
+              {columns.map((column, index) => {
+                const headerKey = column.accessorKey || column.header || index
+                return (
+                  <th
+                    key={headerKey}
                   className={`px-6 py-3 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider align-middle ${
                     column.className || ""
                   } ${
@@ -222,7 +224,8 @@ const DataTable = ({
                     )}
                   </div>
                 </th>
-              ))}
+                )
+              })}
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-transparent divide-y divide-gray-200 dark:divide-gray-700">
@@ -238,24 +241,53 @@ const DataTable = ({
                 </td>
               </tr>
             ) : (
-              paginatedData.map((row, rowIndex) => (
-                <tr
-                  key={rowIndex}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                >
-                  {columns.map((column, colIndex) => (
-                    <td
-                      key={colIndex}
-                      className={`px-6 py-4 text-gray-900 dark:text-gray-100 ${
-                        column.cellClassName || ""
-                      }`}
-                      style={{ verticalAlign: "middle" }}
-                    >
-                      {column.cell ? column.cell(row) : row[column.accessorKey]}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              paginatedData.map((row, rowIndex) => {
+                const rowKey =
+                  row?._client_id ||
+                  row?.id ||
+                  row?.created_at ||
+                  row?.initiated_at ||
+                  row?.timestamp ||
+                  (row
+                    ? `${
+                        row.vehicle_id ||
+                        row.vehicle_code ||
+                        row.sensor_id ||
+                        row.sensor_code ||
+                        "row"
+                      }-${
+                        row.message ||
+                        row.logs ||
+                        row.data ||
+                        row.status ||
+                        ""
+                      }`
+                    : rowIndex)
+
+                return (
+                  <tr
+                    key={rowKey}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                  >
+                    {columns.map((column, colIndex) => {
+                      const columnKey = column.accessorKey || column.header || colIndex
+                      return (
+                        <td
+                          key={columnKey}
+                          className={`px-6 py-4 text-gray-900 dark:text-gray-100 ${
+                            column.cellClassName || ""
+                          }`}
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          {column.cell
+                            ? column.cell(row)
+                            : row[column.accessorKey]}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
