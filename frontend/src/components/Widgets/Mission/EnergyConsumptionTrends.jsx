@@ -75,7 +75,7 @@ const EnergyConsumptionTrends = () => {
 
   return (
     <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
           <h3 className="text-xl font-semibold text-black dark:text-white">
             Energy Consumption Trends

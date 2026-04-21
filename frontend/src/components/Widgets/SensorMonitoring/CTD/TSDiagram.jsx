@@ -26,6 +26,8 @@ const BASEMAPS = {
     label: "Satellite",
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles &copy; Esri",
+    maxZoom: 20,
+    maxNativeZoom: 18,
   },
 };
 
@@ -282,6 +284,8 @@ const TSDiagram = ({ ctdData }) => {
             <TileLayer
               attribution={BASEMAPS[basemap].attribution}
               url={BASEMAPS[basemap].url}
+              maxZoom={BASEMAPS[basemap].maxZoom ?? 19}
+              maxNativeZoom={BASEMAPS[basemap].maxNativeZoom ?? 18}
             />
 
             <FitBounds points={displayedData} />

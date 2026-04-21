@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Modal } from "../../ui";
 import { Dropdown } from "../";
 import { useAuthContext } from "../../../hooks/useAuthContext";
+import axiosInstance from "../../../utils/axiosConfig";
+import { API_ENDPOINTS } from "../../../config";
 
 const parseCapacity = (rawValue) => {
   if (rawValue === null || rawValue === undefined) {
@@ -23,6 +25,10 @@ const parseCapacity = (rawValue) => {
 const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
   const { user } = useAuthContext();
   const [loading, setLoading] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState("");
+  const [apiKeyCopied, setApiKeyCopied] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     code: "",
@@ -85,6 +91,10 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
         status: "idle",
       });
     }
+
+    setApiKey("");
+    setApiKeyError("");
+    setApiKeyCopied(false);
   }, [editData, isOpen]);
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -131,15 +141,55 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
     });
     onClose();
   };
+
+  const handleGenerateApiKey = async () => {
+    if (!editData?.id) return;
+
+    setApiKeyLoading(true);
+    setApiKeyError("");
+    setApiKeyCopied(false);
+
+    try {
+      const response = await axiosInstance.post(
+        API_ENDPOINTS.VEHICLES.GENERATE_API_KEY(editData.id),
+      );
+      const generatedKey = response.data?.api_key;
+      if (!generatedKey) {
+        throw new Error("API key not returned");
+      }
+      setApiKey(generatedKey);
+    } catch (error) {
+      const message =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to generate API key";
+      setApiKeyError(message);
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
+
+  const handleCopyApiKey = async () => {
+    if (!apiKey) return;
+
+    try {
+      await navigator.clipboard.writeText(apiKey);
+      setApiKeyCopied(true);
+      setTimeout(() => setApiKeyCopied(false), 2000);
+    } catch (error) {
+      setApiKeyCopied(false);
+    }
+  };
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
       title={editData ? "Edit Vehicle" : "Add New Vehicle"}
-      size="md"
+      size="lg"
     >
       <form onSubmit={handleSubmit}>
-        <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           {/* Vehicle Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
@@ -182,8 +232,53 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
             )}
           </div>
 
+          {editData && (
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                Vehicle API Key
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGenerateApiKey}
+                  disabled={apiKeyLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-fourth hover:bg-blue-700 transition-colors rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {apiKeyLoading ? "Generating..." : "Generate API Key"}
+                </button>
+                {apiKey && (
+                  <button
+                    type="button"
+                    onClick={handleCopyApiKey}
+                    className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    {apiKeyCopied ? "Copied" : "Copy"}
+                  </button>
+                )}
+              </div>
+              {apiKey && (
+                <div className="mt-2 w-full px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-slate-600">
+                  <span className="block text-xs text-gray-700 dark:text-gray-300 font-mono break-all">
+                    {apiKey}
+                  </span>
+                </div>
+              )}
+              {apiKeyError && (
+                <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                  {apiKeyError}
+                </p>
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                API key only appears after generation. Save it on the USV.
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Generating a new key replaces the previous one.
+              </p>
+            </div>
+          )}
+
           {/* Description */}
-          <div>
+          <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
               Description
             </label>

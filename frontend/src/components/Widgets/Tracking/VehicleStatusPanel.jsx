@@ -59,25 +59,27 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
   }, [loading]);
 
   const currentVehicle =
-    vehicles.find((v) => v.id === selectedVehicle?.id) || {};
+    vehicles.find((v) => v?.id === selectedVehicle?.id) || {};
 
-  const mergedData = { ...currentVehicle, ...vehicleLog };
+  const mergedData = selectedVehicle ? { ...currentVehicle, ...vehicleLog } : {};
+  // When offline, clear all stale telemetry so every field shows N/A
+  const telemetryData = isConnected ? mergedData : {};
 
   const vehicleStates = {
     connected: isConnected,
-    armed: mergedData.armed !== undefined ? mergedData.armed : null,
-    guided: mergedData.guided !== undefined ? mergedData.guided : null,
+    armed: telemetryData.armed !== undefined ? telemetryData.armed : null,
+    guided: telemetryData.guided !== undefined ? telemetryData.guided : null,
     manual_input:
-      mergedData.manual_input !== undefined ? mergedData.manual_input : null,
-    mode: mergedData.mode || null,
+      telemetryData.manual_input !== undefined ? telemetryData.manual_input : null,
+    mode: telemetryData.mode || null,
     gps_fix:
-      mergedData.gps_ok !== undefined
-        ? mergedData.gps_ok
-        : mergedData.gps_fix !== undefined
-          ? mergedData.gps_fix
+      telemetryData.gps_ok !== undefined
+        ? telemetryData.gps_ok
+        : telemetryData.gps_fix !== undefined
+          ? telemetryData.gps_fix
           : null,
     system_status:
-      mergedData.system_status !== undefined ? mergedData.system_status : null,
+      telemetryData.system_status !== undefined ? telemetryData.system_status : null,
   };
 
   const getModeColor = (mode) => {
@@ -88,6 +90,8 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
         return "text-blue-600 bg-blue-100 dark:bg-blue-900/30";
       case "MANUAL":
         return "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30";
+      case "HOLD":
+        return "text-orange-700 bg-orange-100 dark:bg-orange-900/30";
       case "RTL":
         return "text-purple-600 bg-purple-100 dark:bg-purple-900/30";
       default:
@@ -195,6 +199,20 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
   };
 
   const systemStatus = getSystemStatusText(vehicleStates.system_status);
+
+  const normalizeGpsFix = (value) => {
+    if (value === true) return 3;
+    if (value === false) return 0;
+    if (value === null || value === undefined) return null;
+    if (typeof value === "string") {
+      const num = parseInt(value, 10);
+      return Number.isNaN(num) ? null : num;
+    }
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : null;
+    }
+    return null;
+  };
 
   // Helper functions for formatting
   const formatCoordinate = (value) => {
@@ -333,10 +351,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
         <div className="flex items-center gap-3 text-sm">
           <div className="flex items-center gap-2">
             {(() => {
-              const gpsNum =
-                typeof vehicleStates.gps_fix === "string"
-                  ? parseInt(vehicleStates.gps_fix)
-                  : vehicleStates.gps_fix;
+              const gpsNum = normalizeGpsFix(vehicleStates.gps_fix);
               return gpsNum === null || gpsNum === 0 ? (
                 <MdGpsNotFixed className="text-gray-400" />
               ) : gpsNum >= 3 ? (
@@ -346,24 +361,18 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
               );
             })()}
             <span
-              className={(() => {
-                const gpsNum =
-                  typeof vehicleStates.gps_fix === "string"
-                    ? parseInt(vehicleStates.gps_fix)
-                    : vehicleStates.gps_fix;
+              className={`${(() => {
+                const gpsNum = normalizeGpsFix(vehicleStates.gps_fix);
                 return gpsNum === null || gpsNum === 0
                   ? "text-gray-500"
                   : gpsNum >= 3
                     ? "text-green-600 dark:text-green-400"
                     : "text-yellow-600 dark:text-yellow-400";
-              })()}
+              })()} text-base md:text-lg font-semibold`}
             >
               {t("tracking.vehicleStatus.gps")}{" "}
               {(() => {
-                const gpsNum =
-                  typeof vehicleStates.gps_fix === "string"
-                    ? parseInt(vehicleStates.gps_fix)
-                    : vehicleStates.gps_fix;
+                const gpsNum = normalizeGpsFix(vehicleStates.gps_fix);
                 return gpsNum === null
                   ? t("tracking.vehicleStatus.na")
                   : gpsNum === 0
@@ -381,24 +390,6 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
         </div>
       </div>
 
-      {/* System Status */}
-      <div className="mb-4 md:mb-6 p-3 md:p-4 bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-700 flex-shrink-0">
-        <div className="flex items-center gap-2 mb-1.5 md:mb-2">
-          <FaExclamationTriangle className={systemStatus.color} size={16} />
-          <span className="text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300">
-            {t("tracking.vehicleStatus.systemStatus")}
-          </span>
-        </div>
-        <p className="text-base md:text-lg font-bold text-gray-900 dark:text-gray-100">
-          {systemStatus.text}
-        </p>
-        {mergedData.system_status && (
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-            {t("tracking.vehicleStatus.statusCode")}
-          </p>
-        )}
-      </div>
-
       {/* Position Data */}
       <div className="mb-3 md:mb-4 p-3 md:p-4 bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-700 flex-shrink-0">
         <div className="flex items-center gap-2 mb-2 md:mb-3">
@@ -413,7 +404,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
               {t("tracking.vehicleStatus.latitude")}:
             </span>
             <span className="font-medium text-gray-900 dark:text-gray-100">
-              {formatCoordinate(mergedData.latitude)}
+              {formatCoordinate(telemetryData.latitude)}
             </span>
           </div>
           <div className="flex justify-between">
@@ -421,7 +412,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
               {t("tracking.vehicleStatus.longitude")}:
             </span>
             <span className="font-medium text-gray-900 dark:text-gray-100">
-              {formatCoordinate(mergedData.longitude)}
+              {formatCoordinate(telemetryData.longitude)}
             </span>
           </div>
           <div className="flex justify-between">
@@ -429,7 +420,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
               {t("tracking.vehicleStatus.altitude")}:
             </span>
             <span className="font-medium text-gray-900 dark:text-gray-100">
-              {formatValue(mergedData.altitude, " m")}
+              {formatValue(telemetryData.altitude, " m")}
             </span>
           </div>
         </div>
@@ -439,7 +430,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
       <div className="grid grid-cols-2 gap-2 md:gap-3 flex-shrink-0">
         <div className="p-2.5 md:p-3 bg-white dark:bg-black rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 mb-1.5 md:mb-2">
-            <FaWifi className={getRSSIColor(mergedData.rssi)} />
+            <FaWifi className={getRSSIColor(telemetryData.rssi)} />
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
               {t("tracking.vehicleStatus.signal")}
             </span>
@@ -450,18 +441,18 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
                 <div
                   key={i}
                   className={`w-1 h-3 rounded ${
-                    i < getSignalBars(mergedData.rssi)
-                      ? getRSSIColor(mergedData.rssi).replace("text-", "bg-")
+                    i < getSignalBars(telemetryData.rssi)
+                      ? getRSSIColor(telemetryData.rssi).replace("text-", "bg-")
                       : "bg-gray-300 dark:bg-gray-600"
                   }`}
                 />
               ))}
             </div>
             <span
-              className={`text-xs font-medium ${getRSSIColor(mergedData.rssi)}`}
+              className={`text-xs font-medium ${getRSSIColor(telemetryData.rssi)}`}
             >
-              {mergedData.rssi !== null && mergedData.rssi !== undefined
-                ? `${mergedData.rssi} dBm`
+              {telemetryData.rssi !== null && telemetryData.rssi !== undefined
+                ? `${telemetryData.rssi} dBm`
                 : t("tracking.vehicleStatus.na")}
             </span>
           </div>
@@ -476,7 +467,7 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
           </div>
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             {formatTemperature(
-              mergedData.temperature_system || mergedData.temperature,
+              telemetryData.temperature_system || telemetryData.temperature,
             )}
           </p>
         </div>

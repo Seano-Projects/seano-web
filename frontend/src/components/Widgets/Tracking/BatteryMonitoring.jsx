@@ -11,11 +11,13 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 import { useLogData } from "../../../hooks/useLogData";
+import useVehicleConnectionStatus from "../../../hooks/useVehicleConnectionStatus";
 import useTranslation from "../../../hooks/useTranslation";
 
 const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
   const { t } = useTranslation();
   const { batteryData, ws } = useLogData();
+  const { isVehicleOnline } = useVehicleConnectionStatus();
   const [showTimeout, setShowTimeout] = useState(false);
 
   // Set timeout to show default values after 5 seconds
@@ -29,11 +31,11 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
 
   const batteryCount = Number(selectedVehicle?.battery_count) === 1 ? 1 : 2;
 
-  // Get battery data for selected vehicle
-  const vehicleBatteries = batteryData[selectedVehicle?.id] || {
-    1: null,
-    2: null,
-  };
+  // Get battery data for selected vehicle — clear when offline
+  const isOnline = isVehicleOnline(selectedVehicle?.code);
+  const vehicleBatteries = isOnline
+    ? batteryData[selectedVehicle?.id] || { 1: null, 2: null }
+    : { 1: null, 2: null };
 
   // Build display batteries based on configured battery count.
   const displayBatteries = Array.from({ length: batteryCount }, (_, index) => {
@@ -148,8 +150,14 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
     const BatteryIcon = getBatteryIcon(battery.percentage);
     const healthStatus = getHealthStatus(battery);
     const HealthIcon = healthStatus.icon;
+    const rawPercentage =
+      battery.percentage !== null && battery.percentage !== undefined
+        ? Number(battery.percentage)
+        : null;
     const batteryPercentage =
-      battery.percentage !== null ? battery.percentage : 0;
+      rawPercentage !== null && !Number.isNaN(rawPercentage)
+        ? rawPercentage
+        : 0;
 
     return (
       <div key={index} className="flex flex-col items-center">
@@ -182,8 +190,8 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
             {/* Percentage Text */}
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-xs md:text-sm font-bold text-white drop-shadow-lg">
-                {battery.percentage !== null
-                  ? `${battery.percentage}%`
+                {rawPercentage !== null && !Number.isNaN(rawPercentage)
+                  ? `${rawPercentage.toFixed(1)}%`
                   : t("tracking.battery.na")}
               </span>
             </div>
@@ -221,7 +229,7 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
         <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
           {selectedVehicle?.registration_code ||
             selectedVehicle?.name ||
-            "USV 001"}
+            "-"}
         </span>
       </div>
 
@@ -238,11 +246,15 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
         {/* Right Side - Battery Stats */}
         <div className="lg:col-span-3 flex flex-col space-y-3 md:space-y-5 order-1 lg:order-2">
           {/* Individual Battery Details */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
+          <div
+            className={`grid grid-cols-1 gap-2 md:gap-3 ${
+              batteryCount === 2 ? "sm:grid-cols-2" : ""
+            }`}
+          >
             {displayBatteries.map((battery, index) => (
               <div
                 key={index}
-                className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 md:p-3"
+                className="w-full bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 md:p-3"
               >
                 <div className="text-[10px] md:text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">
                   {t("tracking.battery.batteryLabel")} {index + 1}

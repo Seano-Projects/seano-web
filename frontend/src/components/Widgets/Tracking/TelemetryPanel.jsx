@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { AttitudeIndicator, HeadingIndicator } from "react-flight-indicators";
 import { useLogData } from "../../../hooks/useLogData";
+import useVehicleConnectionStatus from "../../../hooks/useVehicleConnectionStatus";
 import useTranslation from "../../../hooks/useTranslation";
 
 const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
   const { t } = useTranslation();
-  const { vehicleLogs, ws } = useLogData(); // Get vehicle logs from WebSocket
+  const { vehicleLogs, ws } = useLogData();
+  const { isVehicleOnline } = useVehicleConnectionStatus();
   const [loading, setLoading] = useState(true);
   const [showTimeout, setShowTimeout] = useState(false);
   const [indicatorSize, setIndicatorSize] = useState(280);
@@ -71,10 +73,12 @@ const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
     );
   }
 
-  // Get values from vehicleLog
-  const roll = vehicleLog?.roll || 0;
-  const pitch = vehicleLog?.pitch || 0;
-  const heading = vehicleLog?.heading || vehicleLog?.yaw || 0;
+  // Get values from vehicleLog — cleared when vehicle is offline
+  const isOnline = isVehicleOnline(selectedVehicle?.code);
+  const effectiveLog = isOnline ? vehicleLog : null;
+  const roll = effectiveLog?.roll || 0;
+  const pitch = effectiveLog?.pitch || 0;
+  const heading = effectiveLog?.heading || effectiveLog?.yaw || 0;
 
   return (
     <div className="h-full p-3 md:p-6 flex flex-col items-center justify-center">

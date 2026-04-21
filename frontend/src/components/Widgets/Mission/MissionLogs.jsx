@@ -215,13 +215,13 @@ const MissionLogs = ({
     <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
       <div ref={filterPopoverRef}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h3 className="text-xl font-semibold text-black dark:text-white">
             Mission Logs
           </h3>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Filter Tabs */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {statusOptions.slice(0, 2).map((filter) => (
                 <button
                   key={filter.value}
@@ -407,7 +407,7 @@ const MissionLogs = ({
                   </div>
 
                   {/* Time Elapsed */}
-                  <div className="col-span-12 md:col-span-2">
+                  <div className="col-span-6 md:col-span-2">
                     <div className="text-sm font-medium text-black dark:text-white">
                       {mission.timeElapsed}
                     </div>

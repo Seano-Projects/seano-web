@@ -138,7 +138,7 @@ const SensorDataLog = ({ selectedVehicle }) => {
 
           return (
             <div
-              key={log.id || index}
+              key={log._client_id || log.id || `${log.created_at || log._received_at || "sensor"}-${index}`}
               className={`p-2 md:p-3 rounded-md border-l-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
                 sensorTypeName === "Environmental"
                   ? "border-green-500"

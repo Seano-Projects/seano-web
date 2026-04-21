@@ -64,7 +64,7 @@ const MissionSuccessRate = () => {
 
       <div className="flex flex-col items-center justify-center">
         {/* Donut Chart - diameter diperbesar, ring dipertipis */}
-        <div className="relative w-80 h-80 mb-6" style={{ minHeight: "320px" }}>
+        <div className="relative w-full max-w-xs h-72 sm:h-80 mb-6 mx-auto">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie

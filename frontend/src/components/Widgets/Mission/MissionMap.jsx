@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -8,6 +8,7 @@ import {
   useMapEvents,
   Polyline,
   useMap,
+  ZoomControl,
 } from "react-leaflet";
 import { EditControl } from "react-leaflet-draw";
 import "leaflet/dist/leaflet.css";
@@ -18,10 +19,7 @@ import {
   FaHome,
   FaEdit,
   FaSearch,
-  FaQuestionCircle,
-  FaTimes,
 } from "react-icons/fa";
-import { motion, AnimatePresence } from "framer-motion";
 import { FaX } from "react-icons/fa6";
 import { toast } from "../../ui";
 import { useVehicleData } from "../../../hooks";
@@ -117,6 +115,105 @@ const AutoCenterController = ({
   return null;
 };
 
+// Dynamically enforce minimum zoom so tile layer always fills the container.
+// Prevents empty gray areas when zooming out too far.
+const MinZoomController = () => {
+  const map = useMap();
+
+  useEffect(() => {
+    const updateMinZoom = () => {
+      const size = map.getSize();
+      // 256px = standard tile size. World width in pixels = 256 * 2^zoom.
+      // Minimum zoom needed to fill container: zoom >= log2(containerPx / 256)
+      const minZ = Math.ceil(
+        Math.log2(Math.max(size.x, size.y) / 256),
+      );
+      const clamped = Math.max(minZ, 3); // never below 3
+      map.setMinZoom(clamped);
+      if (map.getZoom() < clamped) {
+        map.setZoom(clamped, { animate: false });
+      }
+    };
+
+    updateMinZoom();
+    map.on('resize', updateMinZoom);
+    return () => map.off('resize', updateMinZoom);
+  }, [map]);
+
+  return null;
+};
+
+// Force a visible crosshair while draw mode is active.
+const DrawCursorController = ({ onDrawStateChange }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+
+    const handleDrawStart = () => {
+      container.classList.add("is-drawing");
+      container.style.cursor = "crosshair";
+      onDrawStateChange?.(true);
+    };
+
+    const handleDrawStop = () => {
+      container.classList.remove("is-drawing");
+      container.style.cursor = "";
+      onDrawStateChange?.(false);
+    };
+
+    map.on("draw:drawstart", handleDrawStart);
+    map.on("draw:drawstop", handleDrawStop);
+    map.on("draw:created", handleDrawStop);
+
+    return () => {
+      map.off("draw:drawstart", handleDrawStart);
+      map.off("draw:drawstop", handleDrawStop);
+      map.off("draw:created", handleDrawStop);
+      handleDrawStop();
+    };
+  }, [map, onDrawStateChange]);
+
+  return null;
+};
+
+const DrawingFeatureGroup = React.memo(function DrawingFeatureGroup({
+  activeMission,
+  featureGroupRef,
+  setFeatureGroupRef,
+  editControlKey,
+  onDrawCreated,
+  onDrawDeleted,
+  onDrawEdited,
+  drawOptions,
+  editOptions,
+}) {
+  if (!activeMission) {
+    return null;
+  }
+
+  return (
+    <FeatureGroup
+      key={`mission-${activeMission.id || "default"}`}
+      ref={(featureGroupInstance) => {
+        if (featureGroupInstance && featureGroupInstance !== featureGroupRef) {
+          setFeatureGroupRef(featureGroupInstance);
+        }
+      }}
+    >
+      <EditControl
+        key={editControlKey}
+        position="topright"
+        onCreated={onDrawCreated}
+        onDeleted={onDrawDeleted}
+        onEdited={onDrawEdited}
+        draw={drawOptions}
+        edit={editOptions}
+      />
+    </FeatureGroup>
+  );
+});
+
 const MissionMap = ({
   darkMode,
   activeMission,
@@ -146,9 +243,7 @@ const MissionMap = ({
   const [mapCenter, setMapCenter] = useState(null);
   const [mapZoom, setMapZoom] = useState(null);
   const [showSearchInput, setShowSearchInput] = useState(false);
-
-  // Guide state
-  const [showGuide, setShowGuide] = useState(false);
+  const [isDrawActive, setIsDrawActive] = useState(false);
 
   // Get vehicle data
   const { vehicles } = useVehicleData();
@@ -160,6 +255,11 @@ const MissionMap = ({
   const selectedVehicle = selectedVehicleId
     ? vehicles.find((v) => v.id === parseInt(selectedVehicleId))
     : null;
+
+  const hasPathWaypoints = React.useMemo(
+    () => waypoints.some((wp) => wp.type === "path"),
+    [waypoints],
+  );
 
   // Get the latest vehicle log for selected vehicle
   const selectedVehicleLog = React.useMemo(() => {
@@ -183,6 +283,124 @@ const MissionMap = ({
         : latest;
     }, null);
   }, [selectedVehicleId, vehicleLogs]);
+
+  // Keep draw/edit options stable across unrelated rerenders (e.g. live log updates)
+  // so active drawing mode is not reset unexpectedly.
+  const drawOptions = React.useMemo(
+    () => ({
+      // Path Planning Mode - hanya polyline (requires home location)
+      polyline:
+        planningMode === "path" &&
+        homeLocation &&
+        !hasGeneratedWaypoints &&
+        !hasPathWaypoints &&
+        activeMission
+          ? {
+              shapeOptions: {
+                color: "#018190",
+                weight: 3,
+              },
+              allowIntersection: false,
+              repeatMode: false,
+              drawError: {
+                color: "#e74c3c",
+                timeout: 1000,
+              },
+            }
+          : false,
+
+      // Zone Planning Mode - polygon & rectangle (requires home location)
+      polygon:
+        planningMode === "zone" &&
+        homeLocation &&
+        !hasGeneratedWaypoints &&
+        !hasPathWaypoints &&
+        activeMission
+          ? {
+              shapeOptions: {
+                color: "#f59e0b",
+                weight: 2,
+                fillColor: "#fbbf24",
+                fillOpacity: 0.2,
+              },
+              allowIntersection: false,
+              repeatMode: false,
+              drawError: {
+                color: "#e74c3c",
+                timeout: 1000,
+              },
+            }
+          : false,
+      rectangle:
+        planningMode === "zone" &&
+        homeLocation &&
+        !hasGeneratedWaypoints &&
+        !hasPathWaypoints &&
+        activeMission
+          ? {
+              shapeOptions: {
+                color: "#10b981",
+                weight: 2,
+                fillColor: "#34d399",
+                fillOpacity: 0.2,
+              },
+              repeatMode: false,
+            }
+          : false,
+
+      // Always disabled tools
+      marker: false,
+      circle: false,
+      circlemarker: false,
+    }),
+    [
+      planningMode,
+      homeLocation,
+      hasGeneratedWaypoints,
+      hasPathWaypoints,
+      activeMission,
+    ],
+  );
+
+  const editOptions = React.useMemo(
+    () => ({
+      featureGroup: featureGroupRef,
+      // Enable editing if featureGroup exists
+      edit: featureGroupRef
+        ? {
+            selectedPathOptions: {
+              maintainColor: false,
+              opacity: 0.6,
+              dashArray: "10, 10",
+            },
+          }
+        : false,
+      // Control remove/delete based on waypoint state
+      remove:
+        featureGroupRef &&
+        !(hasGeneratedWaypoints || hasPathWaypoints)
+          ? {
+              selectedPathOptions: {
+                opacity: 0.6,
+                dashArray: "10, 10",
+              },
+            }
+          : false,
+    }),
+    [featureGroupRef, hasGeneratedWaypoints, hasPathWaypoints],
+  );
+
+  const editControlKey = React.useMemo(
+    () =>
+      `${activeMission?.id || "none"}-${planningMode}-${Boolean(homeLocation)}-${hasGeneratedWaypoints}-${hasPathWaypoints}`,
+    [
+      activeMission?.id,
+      planningMode,
+      homeLocation,
+      hasGeneratedWaypoints,
+      hasPathWaypoints,
+    ],
+  );
 
   // Restore polygon/zone shapes when waypoints are loaded
   React.useEffect(() => {
@@ -353,7 +571,7 @@ const MissionMap = ({
   }, [selectedVehicle, selectedVehicleLog]);
 
   // Drawing event handlers
-  const onDrawCreated = (e) => {
+  const onDrawCreated = useCallback((e) => {
     const { layerType, layer } = e;
 
     // PATH PLANNING - Handle polyline (sequential waypoint navigation)
@@ -478,9 +696,21 @@ const MissionMap = ({
         }));
       }
     }
-  };
+  }, [
+    activeMission,
+    featureGroupRef,
+    getActualWaypointCount,
+    missionParams.action,
+    missionParams.delay,
+    missionParams.loiter,
+    missionParams.radius,
+    missionParams.speed,
+    setActiveMission,
+    setWaypoints,
+    waypoints,
+  ]);
 
-  const onDrawDeleted = (e) => {
+  const onDrawDeleted = useCallback((e) => {
     // Get deleted layers
     const deletedLayers = e.layers;
 
@@ -498,10 +728,16 @@ const MissionMap = ({
         }));
       }
     }
-  };
+  }, [
+    activeMission,
+    setActiveMission,
+    setGeneratedPaths,
+    setHasGeneratedWaypoints,
+    setWaypoints,
+  ]);
 
   // Handle when shapes are edited (resized, moved, etc.)
-  const onDrawEdited = (e) => {
+  const onDrawEdited = useCallback((e) => {
     const layers = e.layers;
 
     layers.eachLayer((layer) => {
@@ -644,7 +880,7 @@ const MissionMap = ({
         setHasGeneratedWaypoints(false);
       }
     });
-  };
+  }, [setGeneratedPaths, setHasGeneratedWaypoints, setWaypoints]);
 
   // Update waypoint position when dragged
   const handleWaypointDrag = (waypointId, newPosition) => {
@@ -705,6 +941,10 @@ const MissionMap = ({
   const MapClickHandler = () => {
     useMapEvents({
       click: (e) => {
+        if (isDrawActive) {
+          return;
+        }
+
         if (isSettingHome && activeMission) {
           setHomeLocation(e.latlng);
           setIsSettingHome(false);
@@ -802,149 +1042,59 @@ const MissionMap = ({
           color: #333 !important;
           border: 1px solid #ccc !important;
         }
+        .leaflet-container.leaflet-draw-draw-polyline,
+        .leaflet-container.leaflet-draw-draw-polygon,
+        .leaflet-container.leaflet-draw-draw-rectangle,
+        .leaflet-container.is-drawing,
+        .leaflet-container .leaflet-mouse-marker,
+        .leaflet-container .leaflet-interactive.leaflet-clickable {
+          cursor: crosshair !important;
+        }
       `}</style>
       <MapContainer
         center={[-6.86, 108.103]}
         zoom={13}
         style={{ height: "100%", width: "100%" }}
+        zoomControl={false}
         scrollWheelZoom={true}
         worldCopyJump={false}
         maxBounds={[
           [-85, -180],
           [85, 180],
         ]}
-        maxBoundsViscosity={1.5}
-        minZoom={2}
-        maxZoom={19}
+        maxBoundsViscosity={1}
+        minZoom={3}
+        maxZoom={20}
       >
+        <MinZoomController />
         <MapController center={mapCenter} zoom={mapZoom} />
         <AutoCenterController
           selectedVehicle={selectedVehicle}
           selectedVehicleLog={selectedVehicleLog}
           isEnabled={true}
         />
+        <DrawCursorController onDrawStateChange={setIsDrawActive} />
         <TileLayer
           attribution="&copy; Esri"
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           noWrap={true}
-          minZoom={2}
-          maxZoom={19}
-          maxNativeZoom={19}
+          minZoom={3}
+          maxZoom={20}
+          maxNativeZoom={18}
         />
+        <ZoomControl position="topright" />
 
-        {activeMission && (
-          <FeatureGroup
-            key={`mission-${activeMission.id || "default"}`}
-            ref={(featureGroupInstance) => {
-              if (
-                featureGroupInstance &&
-                featureGroupInstance !== featureGroupRef
-              ) {
-                setFeatureGroupRef(featureGroupInstance);
-              }
-            }}
-          >
-            <EditControl
-              position="topright"
-              onCreated={onDrawCreated}
-              onDeleted={onDrawDeleted}
-              onEdited={onDrawEdited}
-              draw={{
-                // Path Planning Mode - hanya polyline (requires home location)
-                polyline:
-                  planningMode === "path" &&
-                  homeLocation &&
-                  !hasGeneratedWaypoints &&
-                  !waypoints.some((wp) => wp.type === "path") &&
-                  activeMission
-                    ? {
-                        shapeOptions: {
-                          color: "#018190",
-                          weight: 3,
-                        },
-                        allowIntersection: false,
-                        repeatMode: false,
-                        drawError: {
-                          color: "#e74c3c",
-                          timeout: 1000,
-                        },
-                      }
-                    : false,
-
-                // Zone Planning Mode - polygon & rectangle (requires home location)
-                polygon:
-                  planningMode === "zone" &&
-                  homeLocation &&
-                  !hasGeneratedWaypoints &&
-                  !waypoints.some((wp) => wp.type === "path") &&
-                  activeMission
-                    ? {
-                        shapeOptions: {
-                          color: "#f59e0b",
-                          weight: 2,
-                          fillColor: "#fbbf24",
-                          fillOpacity: 0.2,
-                        },
-                        allowIntersection: false,
-                        repeatMode: false,
-                        drawError: {
-                          color: "#e74c3c",
-                          timeout: 1000,
-                        },
-                      }
-                    : false,
-                rectangle:
-                  planningMode === "zone" &&
-                  homeLocation &&
-                  !hasGeneratedWaypoints &&
-                  !waypoints.some((wp) => wp.type === "path") &&
-                  activeMission
-                    ? {
-                        shapeOptions: {
-                          color: "#10b981",
-                          weight: 2,
-                          fillColor: "#34d399",
-                          fillOpacity: 0.2,
-                        },
-                        repeatMode: false,
-                      }
-                    : false,
-
-                // Always disabled tools
-                marker: false,
-                circle: false,
-                circlemarker: false,
-              }}
-              edit={{
-                featureGroup: featureGroupRef,
-                // Enable editing if featureGroup exists
-                edit: featureGroupRef
-                  ? {
-                      selectedPathOptions: {
-                        maintainColor: false,
-                        opacity: 0.6,
-                        dashArray: "10, 10",
-                      },
-                    }
-                  : false,
-                // Control remove/delete based on waypoint state
-                remove:
-                  featureGroupRef &&
-                  !(
-                    hasGeneratedWaypoints ||
-                    waypoints.some((wp) => wp.type === "path")
-                  )
-                    ? {
-                        selectedPathOptions: {
-                          opacity: 0.6,
-                          dashArray: "10, 10",
-                        },
-                      }
-                    : false,
-              }}
-            />
-          </FeatureGroup>
-        )}
+        <DrawingFeatureGroup
+          activeMission={activeMission}
+          featureGroupRef={featureGroupRef}
+          setFeatureGroupRef={setFeatureGroupRef}
+          editControlKey={editControlKey}
+          onDrawCreated={onDrawCreated}
+          onDrawDeleted={onDrawDeleted}
+          onDrawEdited={onDrawEdited}
+          drawOptions={drawOptions}
+          editOptions={editOptions}
+        />
 
         {/* Generated Paths Visualization */}
         {generatedPaths.map((path) => (
@@ -1342,179 +1492,6 @@ const MissionMap = ({
           </Marker>
         )}
       </MapContainer>
-
-      {/* Floating Guide Button */}
-      <div className="absolute bottom-16 right-6 z-1000 pointer-events-auto">
-        <AnimatePresence>
-          {showGuide && (
-            <>
-              {/* Backdrop untuk close saat klik di luar */}
-              <div
-                className="fixed inset-0 z-999"
-                onClick={() => setShowGuide(false)}
-              />
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.2 }}
-                className="absolute bottom-16 right-0 w-80 bg-white dark:bg-black rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[calc(100vh-200px)] z-1000"
-              >
-                {/* Guide Header */}
-                <div className="bg-blue-500 dark:bg-blue-600 text-white p-3 rounded-t-lg flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FaQuestionCircle className="text-base" />
-                    <h3 className="font-semibold">Mission Planner Guide</h3>
-                  </div>
-                  <button
-                    onClick={() => setShowGuide(false)}
-                    className="p-1 hover:bg-white/10 rounded transition-colors"
-                  >
-                    <FaTimes className="text-sm" />
-                  </button>
-                </div>
-
-                {/* Guide Content - Scrollable */}
-                <div className="overflow-y-auto p-4 space-y-3 text-sm custom-scrollbar">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold">
-                        1
-                      </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                        Create New Mission
-                      </h4>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300 ml-7 text-xs">
-                      Click "+ New Mission" button to start planning.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold">
-                        2
-                      </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                        Set Home Location
-                      </h4>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300 ml-7 text-xs">
-                      Click the <FaHome className="inline" /> button, then click
-                      on map to set starting point.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold">
-                        3
-                      </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                        Draw Waypoints
-                      </h4>
-                    </div>
-                    <div className="text-gray-600 dark:text-gray-300 ml-7 text-xs space-y-1">
-                      <p>Use drawing tools on the left:</p>
-                      <ul className="list-disc list-inside space-y-0.5 text-xs">
-                        <li>Polyline - Sequential path</li>
-                        <li>Polygon - Area coverage</li>
-                        <li>Rectangle - Quick area mapping</li>
-                        <li>Circle - Circular patrol zone</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold">
-                        4
-                      </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                        Edit Waypoints
-                      </h4>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300 ml-7 text-xs">
-                      Click on waypoint markers to edit altitude, speed, and
-                      other parameters. Enable Edit Mode to drag waypoints.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold">
-                        5
-                      </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                        Search Location
-                      </h4>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300 ml-7 text-xs">
-                      Use the <FaSearch className="inline" /> search button at
-                      the top to find coordinates.
-                      <br />
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Format: -6.2088, 106.8456
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold">
-                        6
-                      </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                        Mission Parameters
-                      </h4>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300 ml-7 text-xs">
-                      Adjust speed, delay, loiter time, and radius in the left
-                      sidebar.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-semibold">
-                        7
-                      </div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                        Save & Upload
-                      </h4>
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300 ml-7 text-xs">
-                      Click "Save Mission" to save, then "Upload to Vehicle" to
-                      deploy.
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-
-        {/* Guide Toggle Button */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowGuide(!showGuide)}
-          className={`${
-            showGuide
-              ? "bg-blue-500 hover:bg-blue-600"
-              : "bg-white dark:bg-black hover:bg-gray-50 dark:hover:bg-gray-700"
-          } ${
-            showGuide ? "text-white" : "text-gray-700 dark:text-gray-200"
-          } p-3 rounded-full shadow-lg transition-all border ${
-            showGuide
-              ? "border-blue-500"
-              : "border-gray-200 dark:border-gray-600"
-          } flex items-center justify-center`}
-          title="Mission Planner Guide"
-        >
-          <FaQuestionCircle className="text-xl" />
-        </motion.button>
-      </div>
     </div>
   );
 };

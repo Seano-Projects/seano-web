@@ -78,8 +78,8 @@ const IndividualCellVoltages = ({ selectedVehicle, batteryData = {} }) => {
   };
 
   return (
-    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-      <div className="flex items-center gap-2 mb-6">
+    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-3">
         <FaTh className="text-gray-500 dark:text-gray-400" />
         <h3 className="text-lg font-semibold text-black dark:text-white">
           Monitoring Cell
@@ -87,7 +87,7 @@ const IndividualCellVoltages = ({ selectedVehicle, batteryData = {} }) => {
       </div>
 
       {!batteries.some((item) => item.cells) ? (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+        <div className="text-center py-3 text-gray-500 dark:text-gray-400">
           No cell voltage data available.
         </div>
       ) : (

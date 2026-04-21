@@ -1,8 +1,10 @@
-import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import useTitle from "../../../hooks/useTitle";
 import useMissionData from "../../../hooks/useMissionData";
 import useNotify from "../../../hooks/useNotify";
+import { useVehicleData } from "../../../hooks";
+import { useLogData } from "../../../hooks/useLogData";
 import { LoadingDots } from "../../ui";
 import {
   calculateTotalDistance,
@@ -22,6 +24,14 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
   const { createMission, updateMission, missionData } = useMissionData();
   const notify = useNotify();
   const [searchParams] = useSearchParams();
+
+  // Mission sidebar toggle (mobile/tablet)
+  const [showMissionSidebar, setShowMissionSidebar] = useState(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+    return window.innerWidth >= 1024;
+  });
 
   // Main mission state
   const [homeLocation, setHomeLocation] = useState(null);
@@ -50,6 +60,45 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
   // FeatureGroup ref for programmatic layer management
   const [featureGroupRef, setFeatureGroupRef] = useState(null);
   const hasLoadedMissionRef = useRef(false);
+  const hasAutoSetHomeRef = useRef(false);
+
+  // Get vehicle position for auto-home
+  const { vehicles } = useVehicleData();
+  const { vehicleLogs } = useLogData();
+
+  // Auto-set home location to selected vehicle position when vehicle is selected
+  // Only applies when: vehicle just selected, no home set yet (or mission just created)
+  useEffect(() => {
+    if (!selectedVehicleId) {
+      hasAutoSetHomeRef.current = false;
+      return;
+    }
+
+    // Don't override if home was manually set already
+    if (homeLocation && hasAutoSetHomeRef.current) return;
+
+    const vehicleId = parseInt(selectedVehicleId);
+    const latestLog =
+      vehicleLogs &&
+      vehicleLogs
+        .filter((l) => l.vehicle_id === vehicleId)
+        .reduce((latest, l) =>
+          !latest ||
+          new Date(l.created_at) > new Date(latest.created_at)
+            ? l
+            : latest,
+        null);
+
+    const vehicle = vehicles.find((v) => v.id === vehicleId);
+    const lat = latestLog?.latitude ?? vehicle?.latitude;
+    const lng = latestLog?.longitude ?? vehicle?.longitude;
+
+    if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+      setHomeLocation({ lat: parseFloat(lat), lng: parseFloat(lng) });
+      hasAutoSetHomeRef.current = true;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVehicleId, vehicles, vehicleLogs]);
 
   // Mission Parameters state
   const [missionParams, setMissionParams] = useState({
@@ -97,10 +146,23 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, missionData]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setShowMissionSidebar(true);
+      } else {
+        setShowMissionSidebar(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Helper functions
-  const getActualWaypointCount = (waypointsList) => {
+  const getActualWaypointCount = useCallback((waypointsList) => {
     return waypointsList.filter((wp) => wp.type !== "zone").length;
-  };
+  }, []);
 
   const isPointInPolygon = (point, vertices) => {
     const x = point.lng,
@@ -185,6 +247,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
     setWaypoints([]);
     setHomeLocation(null);
     setHasGeneratedWaypoints(false);
+    hasAutoSetHomeRef.current = false;
 
     // Set vehicle if mission has one
     if (mission.vehicle_id) {
@@ -307,9 +370,18 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
           return baseData;
         });
 
+      // Count path waypoints (exclude zone waypoints) + home + RTH
+      const pathWaypointCount = waypointData.filter(
+        (wp) => wp.type !== "zone",
+      ).length;
+      const totalWaypoints = pathWaypointCount + (homeLocation ? 2 : 1);
+
       const updateData = {
         waypoints: waypointData,
         status: activeMission.status || "Draft",
+        total_waypoints: totalWaypoints,
+        total_distance: missionStats.distance,
+        estimated_time: missionStats.time,
       };
 
       // Include home location if set
@@ -348,6 +420,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
     setHasGeneratedWaypoints(false);
     setWaypoints([]);
     setGeneratedPaths([]);
+    hasAutoSetHomeRef.current = false;
     if (featureGroupRef) {
       featureGroupRef.clearLayers();
     }
@@ -408,13 +481,27 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
     // UI props
     isSidebarOpen,
     darkMode,
+    showMissionSidebar,
+    setShowMissionSidebar,
   };
 
   return (
-    <div className="-mt-4 -mr-4 h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="relative -mx-4 -mt-4 h-[calc(100vh-3.5rem)] overflow-hidden">
+      {/* Overlay for mobile when sidebar open */}
+      {showMissionSidebar && (
+        <div
+          className="fixed inset-0 z-[10010] bg-black/40 lg:hidden"
+          onClick={() => setShowMissionSidebar(false)}
+        />
+      )}
+
       <MissionSidebar {...sharedProps} />
 
-      <div className={`${isSidebarOpen ? "md:ml-68" : "ml-68"} h-full`}>
+      <div
+        className={`h-full transition-all duration-300 ${
+          showMissionSidebar ? "md:ml-72 ml-0" : "ml-0"
+        }`}
+      >
         <Suspense
           fallback={
             <div className="flex items-center justify-center h-full bg-white dark:bg-black">
@@ -424,6 +511,28 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
         >
           <MissionMap {...sharedProps} />
         </Suspense>
+
+        {!showMissionSidebar && (
+          <button
+            onClick={() => setShowMissionSidebar(true)}
+            className="absolute left-3 top-3 z-[10020] flex items-center justify-center rounded-full border border-gray-200 bg-white p-3 shadow-lg transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-black dark:hover:bg-gray-900 lg:hidden"
+            title="Open Mission Panel"
+          >
+            <svg
+              className="h-5 w-5 text-gray-700 dark:text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+        )}
       </div>
 
       <MissionModals {...sharedProps} />

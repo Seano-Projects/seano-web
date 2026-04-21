@@ -22,7 +22,9 @@ const VehicleQuickView = ({
   const { getVehicleStatus, isVehicleOnline } = useVehicleConnectionStatus();
 
   // Find selected vehicle from vehicles array
-  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+  const selectedVehicle = vehicles.find(
+    (v) => String(v.id) === String(selectedVehicleId),
+  );
 
   // Get latest log for selected vehicle (real-time from WebSocket)
   const latestLog = useMemo(() => {
@@ -30,7 +32,7 @@ const VehicleQuickView = ({
 
     // Filter logs for selected vehicle and get the most recent one
     const vehicleSpecificLogs = vehicleLogs.filter(
-      (log) => log.vehicle_id === selectedVehicleId,
+      (log) => String(log.vehicle_id) === String(selectedVehicleId),
     );
 
     return vehicleSpecificLogs.length > 0 ? vehicleSpecificLogs[0] : null;
@@ -78,12 +80,47 @@ const VehicleQuickView = ({
 
   // Use real-time data from WebSocket if available, fallback to vehicle data
   const vehicleDetails = useMemo(() => {
+    const resolveGpsStatus = log => {
+      if (!log) {
+        return t("dashboard.vehicleQuickView.noGPS")
+      }
+
+      if (typeof log.gps_ok === "boolean") {
+        return log.gps_ok ? "GPS Fix" : t("dashboard.vehicleQuickView.noGPS")
+      }
+
+      if (typeof log.gps_ok === "string") {
+        const normalized = log.gps_ok.toLowerCase()
+        if (normalized === "true") {
+          return "GPS Fix"
+        }
+        if (normalized === "false") {
+          return t("dashboard.vehicleQuickView.noGPS")
+        }
+      }
+
+      if (typeof log.gps_ok === "number") {
+        return log.gps_ok > 0 ? "GPS Fix" : t("dashboard.vehicleQuickView.noGPS")
+      }
+
+      const gpsNum =
+        typeof log.gps_fix === "string"
+          ? Number.parseInt(log.gps_fix, 10)
+          : log.gps_fix
+
+      if (Number.isFinite(gpsNum)) {
+        return gpsNum >= 3 ? "GPS Fix" : t("dashboard.vehicleQuickView.noGPS")
+      }
+
+      return t("dashboard.vehicleQuickView.noGPS")
+    }
+
     if (!selectedVehicle) {
       return {
         status: t("dashboard.vehicleQuickView.noVehicleSelected"),
         lastUpdate: "N/A",
         battery: 0,
-        speed: "0 kts",
+        speed: "0 m/s",
         heading: "N/A",
         gps: t("dashboard.vehicleQuickView.noGPS"),
         armed: "N/A",
@@ -98,11 +135,9 @@ const VehicleQuickView = ({
         status: connectionStatus.text,
         lastUpdate: formatTimeAgo(latestLog.timestamp || latestLog.created_at),
         battery: latestLog.battery_percentage || latestLog.battery_level || 0,
-        speed: latestLog.speed ? `${latestLog.speed.toFixed(1)} kts` : "0 kts",
+        speed: latestLog.speed ? `${latestLog.speed.toFixed(1)} m/s` : "0 m/s",
         heading: latestLog.heading ? `${latestLog.heading.toFixed(0)}°` : "N/A",
-        gps: latestLog.gps_fix
-          ? "GPS Fix"
-          : t("dashboard.vehicleQuickView.noGPS"),
+        gps: resolveGpsStatus(latestLog),
         armed: latestLog.armed ? "Armed" : "Disarmed",
         mode: latestLog.mode || latestLog.flight_mode || "Manual",
         coordinates:
@@ -117,7 +152,7 @@ const VehicleQuickView = ({
       status: selectedVehicle.status || t("dashboard.vehicleQuickView.unknown"),
       lastUpdate: formatTimeAgo(selectedVehicle.updated_at),
       battery: selectedVehicle.battery_level || 0,
-      speed: selectedVehicle.speed || "0 kts",
+      speed: selectedVehicle.speed ? `${selectedVehicle.speed} m/s` : "0 m/s",
       heading: selectedVehicle.heading || "N/A",
       gps: selectedVehicle.gps_status || t("dashboard.vehicleQuickView.noGPS"),
       armed:

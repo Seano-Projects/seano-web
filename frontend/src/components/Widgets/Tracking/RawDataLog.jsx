@@ -140,7 +140,7 @@ const RawDataLog = ({ selectedVehicle }) => {
           const level = getLogLevel(log.logs);
           return (
             <div
-              key={log.id || index}
+              key={log._client_id || log.id || `${log.created_at || log._received_at || "raw"}-${index}`}
               className={`p-2 md:p-2.5 rounded-md border-l-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
                 level === "ERROR"
                   ? "border-red-500"

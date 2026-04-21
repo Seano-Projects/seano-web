@@ -4,6 +4,7 @@ const DataCard = ({
   title,
   children,
   action,
+  headerExtra,
   className = "",
   showHeader = true,
   headerContent,
@@ -22,11 +23,14 @@ const DataCard = ({
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {title}
               </h2>
-              {action && (
-                <div className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                  {action}
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {headerExtra && headerExtra}
+                {action && (
+                  <div className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                    {action}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>

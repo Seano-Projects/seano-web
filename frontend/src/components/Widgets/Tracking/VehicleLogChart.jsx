@@ -78,31 +78,31 @@ const VehicleLogChart = ({ className = "", selectedVehicle }) => {
     fetchVehicleLogData();
   }, [selectedVehicle]);
 
-  // Current values for display cards
+  // Current values for display cards - with defensive defaults
   const currentValues = {
     battery: {
-      value: "N/A",
+      value: chartData.length > 0 && chartData[chartData.length - 1]?.battery !== "N/A" ? chartData[chartData.length - 1].battery : "N/A",
       unit: "%",
       icon: FaBatteryFull,
       color: "#22c55e",
       label: "Battery Level",
     },
     speed: {
-      value: "N/A",
+      value: chartData.length > 0 && chartData[chartData.length - 1]?.speed !== "N/A" ? chartData[chartData.length - 1].speed : "N/A",
       unit: "m/s",
       icon: FaTachometerAlt,
       color: "#8b5cf6",
       label: "Vehicle Speed",
     },
     heading: {
-      value: "N/A",
+      value: chartData.length > 0 && chartData[chartData.length - 1]?.heading !== "N/A" ? chartData[chartData.length - 1].heading : "N/A",
       unit: "°",
       icon: FaCompass,
       color: "#6366f1",
       label: "Heading",
     },
     temperature: {
-      value: "N/A",
+      value: chartData.length > 0 && chartData[chartData.length - 1]?.temperature !== "N/A" ? chartData[chartData.length - 1].temperature : "N/A",
       unit: "°C",
       icon: FaThermometerHalf,
       color: "#f59e0b",

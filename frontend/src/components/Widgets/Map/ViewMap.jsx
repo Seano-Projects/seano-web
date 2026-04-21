@@ -75,6 +75,29 @@ const VehicleMarker = memo(
 
 VehicleMarker.displayName = "VehicleMarker";
 
+// Dynamically enforce min zoom so the tile layer always fills the container.
+const MinZoomController = () => {
+  const map = useMap();
+
+  useEffect(() => {
+    const updateMinZoom = () => {
+      const size = map.getSize();
+      const minZ = Math.ceil(Math.log2(Math.max(size.x, size.y) / 256));
+      const clamped = Math.max(minZ, 3);
+      map.setMinZoom(clamped);
+      if (map.getZoom() < clamped) {
+        map.setZoom(clamped, { animate: false });
+      }
+    };
+
+    updateMinZoom();
+    map.on('resize', updateMinZoom);
+    return () => map.off('resize', updateMinZoom);
+  }, [map]);
+
+  return null;
+};
+
 // Component to get map instance and trigger ready callback
 const MapInstanceGetter = ({ onMapReady, onMapIdle, onUserInteraction }) => {
   const map = useMap();
@@ -227,8 +250,14 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
       const lat = vehicleLog?.latitude ?? vehicle?.latitude;
       const lng = vehicleLog?.longitude ?? vehicle?.longitude;
 
-      // Validate lat/lng are numbers
-      if (lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+      // Validate lat/lng are meaningful numbers (treat 0,0 as invalid — no GPS)
+      if (
+        lat != null &&
+        lng != null &&
+        !isNaN(lat) &&
+        !isNaN(lng) &&
+        !(Number(lat) === 0 && Number(lng) === 0)
+      ) {
         const position = [Number(lat), Number(lng)];
         return position;
       }
@@ -585,9 +614,11 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
           [-85, -180],
           [85, 180],
         ]}
-        maxBoundsViscosity={1.0}
-        minZoom={2}
+        maxBoundsViscosity={1}
+        minZoom={3}
+        maxZoom={20}
       >
+        <MinZoomController />
         <MapInstanceGetter
           onMapReady={handleMapReady}
           onMapIdle={handleMapIdle}
@@ -601,6 +632,8 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
           updateWhenIdle
           updateWhenZooming={false}
           keepBuffer={2}
+          maxZoom={20}
+          maxNativeZoom={18}
         />
 
         {/* Vehicle Trail/History Lines */}

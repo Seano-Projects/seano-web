@@ -121,8 +121,6 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
     const parsedBatteryCount = Number(formData.battery_count) === 1 ? 1 : 2;
 
     try {
-      console.log("🎯 WIZARD: Creating vehicle with data:", formData);
-
       const vehicleResponse = await axiosInstance.post(
         API_ENDPOINTS.VEHICLES.CREATE,
         {
@@ -134,12 +132,7 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
         },
       );
 
-      console.log(
-        "🎯 WIZARD: Vehicle created, response:",
-        vehicleResponse.data,
-      );
       const newVehicleId = vehicleResponse.data.id;
-      console.log("🎯 WIZARD: Extracted vehicle ID:", newVehicleId);
 
       if (formData.selectedSensors.length > 0) {
         const assignPromises = formData.selectedSensors.map((sensorId) =>
@@ -153,26 +146,23 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
         await Promise.all(assignPromises);
       }
 
-      console.log(
-        "🎯 WIZARD: Calling notify.success with vehicleId:",
-        newVehicleId,
-      );
-
       await notify.success("Vehicle created successfully!", {
         title: "Vehicle Created",
         action: notify.ACTIONS.VEHICLE_CREATED,
         vehicleId: newVehicleId,
       });
 
-      console.log("🎯 WIZARD: Notification sent successfully");
-
       onSuccess();
       onClose();
     } catch (error) {
-      const msg = error.response?.data?.detail || "Failed to create vehicle";
+      const msg =
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        "Failed to create vehicle";
       await notify.error(msg, {
         title: "Vehicle Creation Failed",
         action: notify.ACTIONS.VEHICLE_CREATED,
+        persist: false,
       });
     } finally {
       setIsLoading(false);

@@ -16,15 +16,6 @@ const BatteryLog = ({ selectedVehicle }) => {
   const { getVehicleLogs } = useBatteryData();
   const [filterBattery, setFilterBattery] = useState(null); // null = all, 1 = A, 2 = B
 
-  // Detect anomaly based on battery data
-  const detectAnomaly = (log) => {
-    if (log.percentage < 20) return "Critical Low";
-    if (log.temperature > 40) return "High Temperature";
-    if (log.current && Math.abs(log.current) > 10) return "High Current";
-    if (log.voltage < 10) return "Low Voltage";
-    return "None";
-  };
-
   // Get real-time logs from WebSocket
   const logs = useMemo(() => {
     if (!selectedVehicle?.id) return [];
@@ -43,28 +34,32 @@ const BatteryLog = ({ selectedVehicle }) => {
         ? log.status.charAt(0).toUpperCase() + log.status.slice(1)
         : "Unknown",
       level: `${formatPercentage(log.percentage)}%`,
-      anomaly: detectAnomaly(log),
       statusType: log.status?.toLowerCase() || "unknown",
     }));
   }, [selectedVehicle, getVehicleLogs, filterBattery]);
 
   const getStatusColor = (statusType) => {
-    if (statusType === "charging" || statusType === "full")
+    const normalized = statusType?.toLowerCase();
+
+    if (normalized === "charging" || normalized === "full")
       return "bg-blue-500";
-    if (statusType === "discharging" || statusType === "normal")
+    if (normalized === "discharging" || normalized === "normal")
       return "bg-green-500";
-    if (statusType === "low") return "bg-red-500";
+    if (normalized === "high") return "bg-green-500";
+    if (normalized === "medium" || normalized === "warning")
+      return "bg-yellow-500";
+    if (normalized === "low" || normalized === "critical")
+      return "bg-red-500";
     return "bg-gray-500";
   };
 
   const exportCSV = () => {
-    const headers = ["TIMESTAMP", "UNIT", "STATUS", "LEVEL", "ANOMALY"];
+    const headers = ["TIMESTAMP", "UNIT", "STATUS", "LEVEL"];
     const rows = logs.map((log) => [
       log.timestamp,
       log.unit,
       log.status,
       log.level,
-      log.anomaly,
     ]);
 
     const csvContent = [headers, ...rows]
@@ -117,16 +112,13 @@ const BatteryLog = ({ selectedVehicle }) => {
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">
                   LEVEL
                 </th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">
-                  ANOMALY
-                </th>
               </tr>
             </thead>
             <tbody>
               {logs.length === 0 ? (
                 <tr>
                   <td
-                    colSpan="5"
+                    colSpan="4"
                     className="py-8 text-center text-gray-500 dark:text-gray-400"
                   >
                     No logs available.
@@ -156,17 +148,6 @@ const BatteryLog = ({ selectedVehicle }) => {
                     </td>
                     <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">
                       {log.level}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`text-sm ${
-                          log.anomaly === "None"
-                            ? "text-gray-500 dark:text-gray-400"
-                            : "text-red-500 font-medium"
-                        }`}
-                      >
-                        {log.anomaly}
-                      </span>
                     </td>
                   </tr>
                 ))

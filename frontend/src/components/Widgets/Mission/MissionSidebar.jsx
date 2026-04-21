@@ -50,6 +50,8 @@ const MissionSidebar = ({
   selectedVehicleId,
   setSelectedVehicleId,
   isSavingMission,
+  showMissionSidebar,
+  setShowMissionSidebar,
 }) => {
   const [showClearModal, setShowClearModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -58,8 +60,6 @@ const MissionSidebar = ({
   // Upload hooks
   const {
     uploadState,
-    vehicleState,
-    checkVehicleReadiness,
     uploadMissionToVehicle,
     resetUploadState,
   } = useMissionUpload();
@@ -135,6 +135,40 @@ const MissionSidebar = ({
     setEditingWaypoint(null);
   };
 
+  const buildUploadWaypoints = () => {
+    const missionWaypoints = waypoints
+      .filter((wp) => wp.type === "path")
+      .map((wp) => ({
+        lat: wp.lat,
+        lng: wp.lng,
+        altitude: wp.altitude || 0,
+        speed: wp.speed || missionParams.speed,
+        radius: wp.radius || missionParams.radius,
+      }));
+
+    if (!homeLocation) {
+      return missionWaypoints;
+    }
+
+    const homeWaypoint = {
+      lat: homeLocation.lat,
+      lng: homeLocation.lng,
+      altitude: 0,
+      speed: missionParams.speed,
+      radius: missionParams.radius,
+    };
+
+    const firstWaypoint = missionWaypoints[0];
+    const firstIsHome =
+      !!firstWaypoint &&
+      Math.abs(firstWaypoint.lat - homeWaypoint.lat) < 0.000001 &&
+      Math.abs(firstWaypoint.lng - homeWaypoint.lng) < 0.000001;
+
+    return firstIsHome
+      ? missionWaypoints
+      : [homeWaypoint, ...missionWaypoints];
+  };
+
   // Handle upload to vehicle button click
   const handleUploadToVehicle = async () => {
     if (!activeMission) {
@@ -167,7 +201,6 @@ const MissionSidebar = ({
 
     // Use the selected vehicle from the sidebar
     setUploadVehicleId(selectedVehicleId);
-    checkVehicleReadiness(parseInt(selectedVehicleId));
 
     // Open modal
     setShowUploadModal(true);
@@ -177,7 +210,6 @@ const MissionSidebar = ({
   const handleVehicleSelect = async (vehicleId) => {
     setUploadVehicleId(vehicleId);
     if (vehicleId) {
-      await checkVehicleReadiness(parseInt(vehicleId));
     }
   };
 
@@ -196,6 +228,8 @@ const MissionSidebar = ({
     const selectedUploadVehicle = vehicles.find((v) => v.id === vehicleId);
 
     // Prepare mission data for upload
+    const uploadWaypoints = buildUploadWaypoints();
+
     const missionData = {
       name: activeMission.name,
       vehicle_code:
@@ -203,15 +237,7 @@ const MissionSidebar = ({
         selectedUploadVehicle?.vehicle_code ||
         null,
       set_home_from_first_waypoint: true,
-      waypoints: waypoints
-        .filter((wp) => wp.type === "path")
-        .map((wp) => ({
-          lat: wp.lat,
-          lng: wp.lng,
-          altitude: wp.altitude || 0,
-          speed: wp.speed || missionParams.speed,
-          radius: wp.radius || missionParams.radius,
-        })),
+      waypoints: uploadWaypoints,
       home_location: homeLocation,
       speed: missionParams.speed,
       altitude: missionParams.altitude || 0,
@@ -526,10 +552,34 @@ const MissionSidebar = ({
 
   return (
     <aside
-      className={`fixed top-14 z-30 h-[calc(100vh-3.5rem)] w-72 bg-white border-r border-gray-200 dark:border-gray-700 duration-300 dark:bg-black p-4 overflow-y-auto scrollbar-hide ${
-        isSidebarOpen ? "md:left-64 left-16" : "left-16"
+      className={`fixed top-0 z-[10020] h-screen w-full border-r border-gray-200 bg-white px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] shadow-xl duration-300 transition-transform dark:border-gray-700 dark:bg-black overflow-y-auto scrollbar-hide sm:w-[22rem] md:top-14 md:z-[10000] md:h-[calc(100vh-3.5rem)] md:w-72 md:p-4 md:pt-4 md:shadow-none ${
+        showMissionSidebar
+          ? isSidebarOpen
+            ? "left-0 translate-x-0 lg:left-64"
+            : "left-0 translate-x-0 lg:left-16"
+          : "left-0 -translate-x-full"
       }`}
     >
+      {/* Close button — visible on mobile/tablet only */}
+      <button
+        onClick={() => setShowMissionSidebar(false)}
+        className="absolute top-3 right-3 lg:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+        title="Close panel"
+      >
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
       {/* Mission Header */}
       <div className="mb-6">
         <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-3">
@@ -1036,10 +1086,9 @@ const MissionSidebar = ({
         onConfirm={handleConfirmUpload}
         missionData={{
           name: activeMission?.name,
-          waypoints: waypoints.filter((wp) => wp.type === "path"),
+          waypoints: buildUploadWaypoints(),
           home_location: homeLocation,
         }}
-        vehicleState={vehicleState}
         uploadState={uploadState}
         vehicleInfo={uploadVehicle}
         vehicles={vehicles}
