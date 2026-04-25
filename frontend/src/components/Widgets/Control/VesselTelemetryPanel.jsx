@@ -172,8 +172,21 @@ const VesselTelemetryPanel = ({
               return missionVehicle === selectedVehicle?.name || missionVehicle === selectedVehicle?.code;
             });
             if (!vehicleMission) return null;
-            const currentWaypoint = vehicleMission.current_waypoint || 0;
-            const totalWaypoints = vehicleMission.total_waypoints || 0;
+            const completedWaypoint = Math.max(
+              0,
+              Number(vehicleMission.completed_waypoint) || 0,
+            );
+            const currentWaypoint = Math.max(
+              0,
+              Number(vehicleMission.current_waypoint) || 0,
+            );
+            const missionWaypointCount = Array.isArray(vehicleMission.waypoints)
+              ? vehicleMission.waypoints.length
+              : 0;
+            const totalWaypoints = Math.max(
+              missionWaypointCount,
+              Number(vehicleMission.total_waypoints) || 0,
+            );
             const progress = Math.round(vehicleMission.progress || 0);
             const currentWaypointData = vehicleMission.waypoints?.[currentWaypoint];
             const waypointName = currentWaypointData?.name || `Waypoint ${currentWaypoint + 1}`;
@@ -200,7 +213,7 @@ const VesselTelemetryPanel = ({
                         <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${progress}%` }} />
                       </div>
                       <p className={`text-xs ${muteCls} mt-1`}>
-                        {currentWaypoint} {t("control.missionControl.waypointsOf")} {totalWaypoints} {t("control.missionControl.waypointsLabel")}
+                        {completedWaypoint} {t("control.missionControl.waypointsOf")} {totalWaypoints} {t("control.missionControl.waypointsLabel")}
                       </p>
                     </div>
                   </div>

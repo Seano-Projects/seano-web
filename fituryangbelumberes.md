@@ -8,4 +8,3 @@ Fitur Web yang belum
 Optimasi Web
 1. Realtime Processing
 2. Scalability Programming
-3. 

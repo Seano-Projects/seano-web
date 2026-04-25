@@ -51,6 +51,7 @@ import Role from "./pages/Role";
 import Permission from "./pages/Permission";
 import MissionsPlanner from "./pages/MissionPlanner";
 import MissionDetails from "./pages/MissionDetails";
+import MissionReport from "./pages/MissionReport";
 import CTD from "./pages/SensorMonitoring/CTD";
 import ADCP from "./pages/SensorMonitoring/ADCP";
 import SBES from "./pages/SensorMonitoring/SBES";
@@ -339,6 +340,17 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <MissionDetails
+                      darkMode={darkMode}
+                      isSidebarOpen={isSidebarOpen}
+                    />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/missions/:missionId/report"
+                element={
+                  <ProtectedRoute>
+                    <MissionReport
                       darkMode={darkMode}
                       isSidebarOpen={isSidebarOpen}
                     />

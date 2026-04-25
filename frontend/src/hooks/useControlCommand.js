@@ -127,7 +127,7 @@ const publishThrusterToMqtt = async (vehicleCode, throttle, steering) => {
   })
 }
 
-const publishCommandToMqtt = async (vehicleCode, command) => {
+const publishCommandToMqtt = async (vehicleCode, command, topicSuffix = 'command') => {
   const timeout = (ms, message) =>
     new Promise((_, reject) => {
       setTimeout(() => reject(new Error(message)), ms)
@@ -139,7 +139,7 @@ const publishCommandToMqtt = async (vehicleCode, command) => {
   ])
 
   const topicVehicleCode = String(vehicleCode || '').trim()
-  const topic = `seano/${topicVehicleCode}/command`
+  const topic = `seano/${topicVehicleCode}/${topicSuffix}`
   const payload = JSON.stringify({ command })
 
   await Promise.race([
@@ -161,6 +161,9 @@ const normalizeText = value =>
   String(value || '')
     .trim()
     .toUpperCase()
+
+const isCalibrationCommand = value =>
+  /^k\d+(\.\d+)?$/i.test(String(value || '').trim())
 
 const isNegativeStatus = value => {
   const normalized = normalizeText(value)
@@ -280,24 +283,41 @@ const useControlCommand = () => {
 
     const rawCommand = String(command || '').trim()
     const normalizedCommand = rawCommand.toUpperCase()
-    const finalCommand = SUPPORTED_COMMANDS.has(normalizedCommand)
+    const calibrationCommand = isCalibrationCommand(rawCommand)
+    const isSupportedModeCommand = SUPPORTED_COMMANDS.has(normalizedCommand)
+    const mqttCommand = calibrationCommand ? rawCommand : normalizedCommand
+    const finalCommand = isSupportedModeCommand
       ? normalizedCommand
       : rawCommand
 
     const useMqttForCommand =
-      SUPPORTED_COMMANDS.has(normalizedCommand) && !isPollingMode
+      (isSupportedModeCommand || calibrationCommand) && !isPollingMode
 
     try {
       if (useMqttForCommand) {
         setIsLoading(true)
         const initiatedAt = new Date().toISOString()
-        await publishCommandToMqtt(vehicleCode, normalizedCommand)
+        const topicSuffix = calibrationCommand ? 'battery/cmd' : 'command'
+        await publishCommandToMqtt(vehicleCode, mqttCommand, topicSuffix)
+        const shouldWaitAck = isSupportedModeCommand
+        if (!shouldWaitAck) {
+          const resolvedAt = new Date().toISOString()
+          postCommandLog(
+            vehicleCode,
+            mqttCommand,
+            'success',
+            'Command sent via MQTT',
+            initiatedAt,
+            resolvedAt
+          )
+          return { success: true, message: 'Command sent via MQTT' }
+        }
         const client = await getMqttClient()
-        const result = await waitForCommandAck(client, vehicleCode, normalizedCommand)
+        const result = await waitForCommandAck(client, vehicleCode, mqttCommand)
         const resolvedAt = new Date().toISOString()
         postCommandLog(
           vehicleCode,
-          normalizedCommand,
+          mqttCommand,
           result.success ? 'success' : (result.error || 'failed'),
           result.message || '',
           initiatedAt,
@@ -343,12 +363,12 @@ const useControlCommand = () => {
           msg.includes('connect timeout')
         ) {
           if (useMqttForCommand) {
-            postCommandLog(vehicleCode, rawCommand, 'timeout', errMsg, new Date().toISOString(), new Date().toISOString())
+            postCommandLog(vehicleCode, mqttCommand, 'timeout', errMsg, new Date().toISOString(), new Date().toISOString())
           }
           return { success: false, error: 'timeout', message: errMsg }
         }
         if (useMqttForCommand) {
-          postCommandLog(vehicleCode, rawCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
+          postCommandLog(vehicleCode, mqttCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
         }
         return { success: false, error: 'mqtt_unavailable', message: errMsg }
       }
@@ -356,26 +376,26 @@ const useControlCommand = () => {
       // 503 = MQTT not configured (dev mode without broker)
       if (status === 503) {
         if (useMqttForCommand) {
-          postCommandLog(vehicleCode, rawCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
+          postCommandLog(vehicleCode, mqttCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
         }
         return { success: false, error: 'mqtt_unavailable', message: errMsg }
       }
       // 504 = hardware timeout
       if (status === 504) {
         if (useMqttForCommand) {
-          postCommandLog(vehicleCode, rawCommand, 'timeout', errMsg, new Date().toISOString(), new Date().toISOString())
+          postCommandLog(vehicleCode, mqttCommand, 'timeout', errMsg, new Date().toISOString(), new Date().toISOString())
         }
         return { success: false, error: 'timeout', message: errMsg }
       }
       // 422 = hardware replied with error
       if (status === 422) {
         if (useMqttForCommand) {
-          postCommandLog(vehicleCode, rawCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
+          postCommandLog(vehicleCode, mqttCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
         }
         return { success: false, error: 'hardware_error', message: errMsg }
       }
       if (useMqttForCommand) {
-        postCommandLog(vehicleCode, rawCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
+        postCommandLog(vehicleCode, mqttCommand, 'failed', errMsg, new Date().toISOString(), new Date().toISOString())
       }
       return { success: false, error: 'unknown', message: errMsg }
     } finally {

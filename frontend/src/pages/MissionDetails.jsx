@@ -14,6 +14,7 @@ import {
   FaArrowLeft,
   FaBatteryHalf,
   FaCalendarAlt,
+  FaChartBar,
   FaCheckCircle,
   FaClock,
   FaDownload,
@@ -384,13 +385,17 @@ const MissionJourneyMap = ({ mission, journeyPoints }) => {
   );
 };
 
-const DetailItem = ({ icon, label, value }) => (
-  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-900/40">
-    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-      <span className="text-sm">{icon}</span>
-      <span>{label}</span>
+const DetailItem = ({ icon, label, value, iconColor = "text-slate-400", iconBg = "bg-slate-100 dark:bg-slate-800" }) => (
+  <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-transparent">
+    <div className="mb-3 flex items-center gap-2.5">
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm ${iconBg} ${iconColor}`}>
+        {icon}
+      </span>
+      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+        {label}
+      </span>
     </div>
-    <div className="text-sm font-medium text-slate-900 dark:text-white">
+    <div className="text-sm font-semibold text-slate-900 dark:text-white">
       {value}
     </div>
   </div>
@@ -467,6 +472,36 @@ const MissionDetails = () => {
     };
 
     void loadMissionDetails();
+  }, [missionId]);
+
+  // Keep mission progress fresh while detail page is open.
+  useEffect(() => {
+    if (!missionId) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const missionResponse = await axios.get(
+          API_ENDPOINTS.MISSIONS.BY_ID(missionId),
+        );
+        const missionData = normalizeMission(missionResponse.data);
+        setMission((prevMission) => {
+          // Keep existing object when no meaningful progress change to avoid noisy rerenders.
+          if (!prevMission) return missionData;
+          const noProgressChange =
+            Number(prevMission.progress || 0) === Number(missionData.progress || 0) &&
+            Number(prevMission.completed_waypoint || 0) ===
+              Number(missionData.completed_waypoint || 0) &&
+            Number(prevMission.current_waypoint || 0) ===
+              Number(missionData.current_waypoint || 0) &&
+            String(prevMission.status || "") === String(missionData.status || "");
+          return noProgressChange ? prevMission : missionData;
+        });
+      } catch {
+        // Ignore polling errors; initial load handles visible error state.
+      }
+    }, 3000);
+
+    return () => clearInterval(intervalId);
   }, [missionId]);
 
   const journeyPoints = useMemo(
@@ -766,6 +801,13 @@ const MissionDetails = () => {
             {t("pages.missionDetails.exportCsv")}
           </button>
           <Link
+            to={`/missions/${missionId}/report`}
+            className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600"
+          >
+            <FaChartBar size={12} />
+            Laporan Sensor
+          </Link>
+          <Link
             to="/missions"
             className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
@@ -778,6 +820,7 @@ const MissionDetails = () => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DetailItem
           icon={<FaShip />}
+          iconColor="text-sky-500" iconBg="bg-sky-50 dark:bg-sky-950/40"
           label={t("pages.missionDetails.vehicle")}
           value={
             mission.vehicle?.name ||
@@ -787,16 +830,19 @@ const MissionDetails = () => {
         />
         <DetailItem
           icon={<FaRoute />}
+          iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-950/40"
           label={t("pages.missionDetails.waypointProgress")}
           value={`${mission.completed_waypoint || 0}/${executionWaypointCount} ${t("pages.missionDetails.waypointUnit")}`}
         />
         <DetailItem
           icon={<FaCheckCircle />}
+          iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-950/40"
           label={t("pages.missionDetails.progress")}
           value={`${progressPercent}%`}
         />
         <DetailItem
           icon={<FaClock />}
+          iconColor="text-violet-500" iconBg="bg-violet-50 dark:bg-violet-950/40"
           label={t("pages.missionDetails.duration")}
           value={formatDuration(mission.time_elapsed || 0)}
         />
@@ -808,21 +854,25 @@ const MissionDetails = () => {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
               <DetailItem
                 icon={<FaSatelliteDish />}
+                iconColor="text-cyan-500" iconBg="bg-cyan-50 dark:bg-cyan-950/40"
                 label={t("pages.missionDetails.telemetrySamples")}
                 value={String(telemetryStats.samples)}
               />
               <DetailItem
                 icon={<FaPlayCircle />}
+                iconColor="text-green-500" iconBg="bg-green-50 dark:bg-green-950/40"
                 label={t("pages.missionDetails.firstPing")}
                 value={telemetryStats.firstPing}
               />
               <DetailItem
                 icon={<FaClock />}
+                iconColor="text-orange-500" iconBg="bg-orange-50 dark:bg-orange-950/40"
                 label={t("pages.missionDetails.lastPing")}
                 value={telemetryStats.lastPing}
               />
               <DetailItem
                 icon={<FaRoute />}
+                iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-950/40"
                 label={t("pages.missionDetails.avgSpeed")}
                 value={telemetryStats.avgSpeed}
               />
@@ -841,26 +891,31 @@ const MissionDetails = () => {
           <div className="space-y-3">
             <DetailItem
               icon={<FaUser />}
+              iconColor="text-indigo-500" iconBg="bg-indigo-50 dark:bg-indigo-950/40"
               label={t("pages.missionDetails.createdBy")}
               value={mission.creator?.name || mission.creator?.email || "-"}
             />
             <DetailItem
               icon={<FaCalendarAlt />}
+              iconColor="text-rose-500" iconBg="bg-rose-50 dark:bg-rose-950/40"
               label={t("pages.missionDetails.createdAt")}
               value={formatDateTime(mission.created_at)}
             />
             <DetailItem
               icon={<FaPlayCircle />}
+              iconColor="text-green-500" iconBg="bg-green-50 dark:bg-green-950/40"
               label={t("pages.missionDetails.startTime")}
               value={formatDateTime(mission.start_time)}
             />
             <DetailItem
               icon={<FaCheckCircle />}
+              iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-950/40"
               label={t("pages.missionDetails.endTime")}
               value={formatDateTime(mission.end_time)}
             />
             <DetailItem
               icon={<FaBatteryHalf />}
+              iconColor="text-yellow-500" iconBg="bg-yellow-50 dark:bg-yellow-950/40"
               label={t("pages.missionDetails.energy")}
               value={
                 mission.energy_budget
@@ -870,8 +925,9 @@ const MissionDetails = () => {
             />
             <DetailItem
               icon={<FaMapMarkerAlt />}
+              iconColor="text-pink-500" iconBg="bg-pink-50 dark:bg-pink-950/40"
               label={t("pages.missionDetails.currentWaypoint")}
-              value={String(mission.current_waypoint || 0)}
+              value={`${mission.current_waypoint || 0}/${executionWaypointCount}`}
             />
           </div>
         </DataCard>

@@ -25,6 +25,8 @@ const useMissionData = () => {
   })
   const wsRef = useRef(null)
 
+  const activeMissionStatuses = ['active', 'running', 'in_progress', 'ongoing']
+
   const fetchMissionData = async () => {
     try {
       setLoading(true)
@@ -86,6 +88,7 @@ const useMissionData = () => {
       case 'active':
       case 'running':
       case 'in_progress':
+      case 'ongoing':
         return 'green'
       case 'completed':
       case 'finished':
@@ -154,7 +157,8 @@ const useMissionData = () => {
 
     // Setup WebSocket untuk real-time updates
     const connectWebSocket = () => {
-      const token = localStorage.getItem('token')
+      const token =
+        localStorage.getItem('access_token') || localStorage.getItem('token')
       if (!token) return
 
       const wsUrl = `${
@@ -170,26 +174,52 @@ const useMissionData = () => {
           const data = JSON.parse(event.data)
 
           if (data.message_type === 'mission_progress') {
-            // Update mission in the list
+            // Update mission in the list (robust matching: mission id and vehicle code)
+            let matchedMission = false
             setMissionData(prevMissions =>
-              prevMissions.map(mission =>
-                mission.id === data.mission_id
-                  ? {
-                      ...mission,
-                      progress: data.progress,
-                      energy_consumed: data.energy_consumed,
-                      time_elapsed: data.time_elapsed,
-                      current_waypoint: data.current_waypoint,
-                      completed_waypoint: data.completed_waypoint,
-                      status: data.status,
-                      last_update_time: data.timestamp
-                    }
-                  : mission
-              )
+              prevMissions.map(mission => {
+                const sameMissionId =
+                  String(mission.id) === String(data.mission_id)
+                const missionVehicleCode =
+                  mission.vehicle_code ||
+                  mission.vehicle?.code ||
+                  (typeof mission.vehicle === 'string' ? mission.vehicle : '')
+                const sameVehicle =
+                  String(missionVehicleCode || '').toLowerCase() ===
+                  String(data.vehicle_code || '').toLowerCase()
+                const isLikelyActiveMission = activeMissionStatuses.includes(
+                  String(mission.status || '').toLowerCase()
+                )
+
+                const shouldUpdate =
+                  sameMissionId || (sameVehicle && isLikelyActiveMission)
+                if (!shouldUpdate) return mission
+
+                matchedMission = true
+                return {
+                  ...mission,
+                  progress: data.progress,
+                  energy_consumed: data.energy_consumed,
+                  time_elapsed: data.time_elapsed,
+                  current_waypoint: data.current_waypoint,
+                  completed_waypoint: data.completed_waypoint,
+                  status: data.status,
+                  statusColor: getStatusColor(data.status),
+                  last_update_time: data.timestamp
+                }
+              })
             )
 
+            // If no mission matched locally (e.g. stale tab), refresh once from API.
+            if (!matchedMission) {
+              fetchMissionData()
+            }
+
             // Refresh stats if status changed
-            if (data.status === 'Completed' || data.status === 'Failed') {
+            if (
+              String(data.status).toLowerCase() === 'completed' ||
+              String(data.status).toLowerCase() === 'failed'
+            ) {
               fetchMissionStats()
             }
           }
@@ -320,7 +350,7 @@ const useMissionData = () => {
   // Function untuk mendapatkan active missions
   const getActiveMissions = () => {
     return missionData.filter(mission =>
-      ['active', 'running', 'in_progress'].includes(
+      ['active', 'running', 'in_progress', 'ongoing'].includes(
         mission.status.toLowerCase()
       )
     )
@@ -369,7 +399,7 @@ const useMissionData = () => {
         vehicleStats[vehicle].completed++
       } else if (['failed', 'error', 'cancelled'].includes(status)) {
         vehicleStats[vehicle].failed++
-      } else if (['active', 'running', 'in_progress'].includes(status)) {
+      } else if (activeMissionStatuses.includes(status)) {
         vehicleStats[vehicle].active++
       }
     })

@@ -23,7 +23,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const [location, setLocation] = useState(t("tracking.topbar.waitingGps"));
   const { vehicles, loading } = useVehicleData();
   const { getActiveMissions } = useMissionData();
-  const { vehicleLogs, ws } = useLogData();
+  const { vehicleLogs } = useLogData();
   const { getVehicleStatus } = useVehicleConnectionStatus();
   const { batteryData = {} } = useBatteryData() || {};
 
@@ -98,6 +98,49 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   };
 
   const currentMission = getCurrentMission();
+
+  const currentWaypointProgress = useMemo(() => {
+    if (!currentMission) return null;
+
+    const current = Math.max(
+      0,
+      Number(currentMission.current_waypoint) || 0,
+    );
+
+    if (Array.isArray(currentMission.waypoints)) {
+      const totalFromArray = currentMission.waypoints.filter((waypoint) => {
+        if (!waypoint) return false;
+        return !(
+          waypoint.type === "zone" ||
+          waypoint.shape ||
+          waypoint.bounds ||
+          Array.isArray(waypoint.vertices)
+        );
+      }).length;
+
+      return {
+        current,
+        total: totalFromArray,
+      };
+    }
+
+    const totalFromField = Number(currentMission.total_waypoints);
+    if (Number.isFinite(totalFromField) && totalFromField >= 0) {
+      return {
+        current,
+        total: totalFromField,
+      };
+    }
+
+    const totalFallback = Number(currentMission.waypoints);
+    return {
+      current,
+      total:
+        Number.isFinite(totalFallback) && totalFallback >= 0
+          ? totalFallback
+          : 0,
+    };
+  }, [currentMission]);
 
   const renderRssiIcon = () => {
     if (rssiLevel === null) {
@@ -282,11 +325,9 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
                 : "text-gray-500 dark:text-gray-400"
             }`}
           >
-            {currentMission
-              ? `WP ${currentMission.current_waypoint || 0}/${
-                  currentMission.waypoints || 0
-                }`
-              : "WP -- / --"}
+            {currentWaypointProgress
+              ? `WP ${currentWaypointProgress.current}/${currentWaypointProgress.total}`
+              : "WP --/--"}
           </span>
           <span
             className={`font-medium inline xs:hidden ${
@@ -295,8 +336,8 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
                 : "text-gray-500 dark:text-gray-400"
             }`}
           >
-            {currentMission
-              ? `${currentMission.current_waypoint || 0}/${currentMission.waypoints || 0}`
+            {currentWaypointProgress
+              ? `${currentWaypointProgress.current}/${currentWaypointProgress.total}`
               : "--/--"}
           </span>
         </div>

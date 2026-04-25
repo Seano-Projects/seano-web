@@ -404,7 +404,7 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
           display: flex;
           align-items: center;
           justify-content: center;
-          transform: rotate(${heading}deg);
+          transform: rotate(${90 - heading}deg);
           filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
           opacity: ${opacity};
         ">

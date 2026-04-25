@@ -32,6 +32,131 @@ const normalizeStreamName = (rawValue = "") => {
   return `live/${normalized}`;
 };
 
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const buildIdentifierSet = (values) =>
+  new Set(values.map(normalizeText).filter(Boolean));
+
+const getVehicleIdentifiers = (vehicle) => {
+  if (!vehicle) return new Set();
+  return buildIdentifierSet([
+    vehicle.code,
+    vehicle.vehicle_code,
+    vehicle.registration_code,
+    vehicle.vehicle_name,
+    vehicle.name,
+  ]);
+};
+
+const getMissionIdentifiers = (mission) => {
+  if (!mission) return new Set();
+  const missionVehicle = mission.vehicle;
+  return buildIdentifierSet([
+    mission.vehicle_code,
+    mission.vehicle_name,
+    mission.vehicleCode,
+    typeof missionVehicle === "string" ? missionVehicle : null,
+    missionVehicle?.code,
+    missionVehicle?.name,
+  ]);
+};
+
+const isMissionForVehicle = (mission, vehicle) => {
+  if (!mission || !vehicle) return false;
+  const missionVehicleId =
+    mission.vehicle_id || mission.vehicle?.id || mission.vehicleId;
+  if (missionVehicleId != null && vehicle?.id != null) {
+    if (String(missionVehicleId) === String(vehicle.id)) {
+      return true;
+    }
+  }
+  const vehicleIdentifiers = getVehicleIdentifiers(vehicle);
+  const missionIdentifiers = getMissionIdentifiers(mission);
+  for (const id of missionIdentifiers) {
+    if (vehicleIdentifiers.has(id)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const isActiveMissionStatus = (status) => {
+  const normalized = normalizeText(status);
+  return ["ongoing", "active", "running", "in_progress"].includes(
+    normalized,
+  );
+};
+
+const inferWaypointType = (waypoint) => {
+  if (!waypoint) return "path";
+  if (waypoint.type) return waypoint.type;
+  return waypoint.shape || waypoint.bounds || Array.isArray(waypoint.vertices)
+    ? "zone"
+    : "path";
+};
+
+const toNumberOrNull = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toLatLng = (lat, lng) => {
+  const latNum = toNumberOrNull(lat);
+  const lngNum = toNumberOrNull(lng);
+  if (latNum == null || lngNum == null) return null;
+  if (latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+    return null;
+  }
+  return [latNum, lngNum];
+};
+
+const toRadians = (value) => (value * Math.PI) / 180;
+
+const calculateDistanceMeters = (pointA, pointB) => {
+  if (
+    !Array.isArray(pointA) ||
+    !Array.isArray(pointB) ||
+    pointA.length < 2 ||
+    pointB.length < 2
+  ) {
+    return null;
+  }
+
+  const [lat1, lon1] = pointA.map(Number);
+  const [lat2, lon2] = pointB.map(Number);
+
+  if (
+    !Number.isFinite(lat1) ||
+    !Number.isFinite(lon1) ||
+    !Number.isFinite(lat2) ||
+    !Number.isFinite(lon2)
+  ) {
+    return null;
+  }
+
+  const earthRadius = 6371000;
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadius * c;
+};
+
+const getMissionSortTime = (mission) => {
+  const timeValue =
+    mission?.updated_at ||
+    mission?.last_update_time ||
+    mission?.created_at ||
+    0;
+  const time = new Date(timeValue).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
 const Control = () => {
   const { t } = useTranslation();
   useTitle(t("nav.control"));
@@ -96,6 +221,122 @@ const Control = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [mapCenter, setMapCenter] = useState(MAP_CENTER);
   const [mapZoom, setMapZoom] = useState(MAP_ZOOM);
+
+  const currentMission = useMemo(() => {
+    if (!selectedVehicle) return null;
+    const matching = missionData.filter((mission) =>
+      isMissionForVehicle(mission, selectedVehicle),
+    );
+    if (matching.length === 0) return null;
+    const active = matching.filter((mission) =>
+      isActiveMissionStatus(mission.status),
+    );
+    const candidates = active.length > 0 ? active : matching;
+    return [...candidates].sort(
+      (a, b) => getMissionSortTime(b) - getMissionSortTime(a),
+    )[0];
+  }, [missionData, selectedVehicle]);
+
+  const missionPathData = useMemo(() => {
+    if (!currentMission) {
+      return { path: [], markers: [] };
+    }
+
+    const path = [];
+    const markers = [];
+
+    const homePos = toLatLng(
+      currentMission?.home_location?.lat,
+      currentMission?.home_location?.lng,
+    );
+    if (homePos) {
+      path.push(homePos);
+      markers.push({ position: homePos, type: "home" });
+    }
+
+    const missionWaypoints = Array.isArray(currentMission?.waypoints)
+      ? currentMission.waypoints
+      : [];
+    const waypointCount = missionWaypoints.length;
+    const completedWaypointRaw = Math.max(
+      0,
+      Number(currentMission?.completed_waypoint) || 0,
+    );
+    const progressValue = Number(currentMission?.progress) || 0;
+    const completedFromProgress =
+      waypointCount > 0
+        ? Math.round((Math.max(0, Math.min(100, progressValue)) / 100) * waypointCount)
+        : 0;
+    const completedWaypoint = Math.max(
+      completedWaypointRaw,
+      completedFromProgress,
+    );
+    const currentWaypointRaw = Number(currentMission?.current_waypoint);
+    const currentWaypoint = Number.isFinite(currentWaypointRaw)
+      ? Math.max(0, currentWaypointRaw)
+      : completedWaypoint;
+    // Use completed count as source of truth for "next target" to avoid 0-based vs 1-based mismatch.
+    const currentTargetIndex =
+      completedWaypoint < waypointCount ? completedWaypoint : currentWaypoint;
+
+    missionWaypoints.forEach((waypoint, index) => {
+      if (inferWaypointType(waypoint) === "zone") return;
+      const position = toLatLng(waypoint?.lat, waypoint?.lng);
+      if (!position) return;
+      path.push(position);
+      let state = "pending";
+      if (index < completedWaypoint) {
+        state = "completed";
+      } else if (index === currentTargetIndex) {
+        state = "current";
+      }
+      markers.push({
+        position,
+        type: "waypoint",
+        index,
+        state,
+      });
+    });
+
+    return { path, markers };
+  }, [currentMission]);
+
+  const completedMissionHomePosition = useMemo(
+    () =>
+      toLatLng(
+        currentMission?.home_location?.lat,
+        currentMission?.home_location?.lng,
+      ),
+    [currentMission],
+  );
+
+  const isMissionCompleted = useMemo(() => {
+    const status = String(currentMission?.status || "").trim().toLowerCase();
+    return ["completed", "finished", "success"].includes(status);
+  }, [currentMission?.status]);
+
+  const isVehicleAtHomeAfterMission = useMemo(() => {
+    if (!isMissionCompleted || !vehiclePosition || !completedMissionHomePosition) {
+      return false;
+    }
+    const distanceToHome = calculateDistanceMeters(
+      vehiclePosition,
+      completedMissionHomePosition,
+    );
+    // Consider mission reset when vehicle is very close to home point.
+    return Number.isFinite(distanceToHome) && distanceToHome <= 10;
+  }, [isMissionCompleted, vehiclePosition, completedMissionHomePosition]);
+
+  const shouldHideCompletedMissionPath =
+    isMissionCompleted && isVehicleAtHomeAfterMission;
+
+  const missionStatusBannerText = useMemo(() => {
+    if (!isMissionCompleted) return "";
+    if (isVehicleAtHomeAfterMission) {
+      return t("control.missionControl.rtlArrived");
+    }
+    return t("control.missionControl.rtlInProgress");
+  }, [isMissionCompleted, isVehicleAtHomeAfterMission, t]);
 
   useEffect(() => {
     if (!vehicles || vehicles.length === 0) {
@@ -649,10 +890,28 @@ const Control = () => {
         selectedVehicle={selectedVehicle}
         vehiclePosition={vehiclePosition}
         heading={telemetryData.heading}
+        missionPath={shouldHideCompletedMissionPath ? [] : missionPathData.path}
+        missionMarkers={
+          shouldHideCompletedMissionPath ? [] : missionPathData.markers
+        }
       />
 
       {/* ——— FLOATING PANELS (over map) ——— */}
       <div className="absolute inset-0 z-10 pointer-events-none">
+        {missionStatusBannerText && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none">
+            <div
+              className={`px-4 py-2 rounded-lg border text-xs md:text-sm font-medium shadow-lg backdrop-blur-sm ${
+                isVehicleAtHomeAfterMission
+                  ? "bg-emerald-500/20 border-emerald-400 text-emerald-100"
+                  : "bg-blue-500/20 border-blue-400 text-blue-100"
+              }`}
+            >
+              {missionStatusBannerText}
+            </div>
+          </div>
+        )}
+
         <VesselTelemetryPanel
           isExpanded={isVesselTelemetryExpanded}
           onExpand={() => openPanel("vessel")}

@@ -177,7 +177,7 @@ body,
 /* Waypoint Marker Styles */
 .custom-waypoint-marker.edit-mode .waypoint-marker:hover {
   transform: scale(1.1) !important;
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.6) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45) !important;
 }
 
 .custom-waypoint-marker .waypoint-marker.editable {
@@ -187,10 +187,10 @@ body,
 @keyframes pulse-edit {
   0%,
   100% {
-    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.4);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
   }
   50% {
-    box-shadow: 0 2px 12px rgba(255, 107, 53, 0.7);
+    box-shadow: 0 2px 12px rgba(37, 99, 235, 0.45);
   }
 }
 

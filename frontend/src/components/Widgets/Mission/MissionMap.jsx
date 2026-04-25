@@ -244,6 +244,8 @@ const MissionMap = ({
   const [mapZoom, setMapZoom] = useState(null);
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [isDrawActive, setIsDrawActive] = useState(false);
+  const waypointNormalColor = "#64748b";
+  const waypointEditColor = "#2563eb";
 
   // Get vehicle data
   const { vehicles } = useVehicleData();
@@ -554,7 +556,7 @@ const MissionMap = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          transform: rotate(${heading}deg);
+          transform: rotate(${90 - heading}deg);
           filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
         ">
           <img 
@@ -1227,7 +1229,7 @@ const MissionMap = ({
               }}
               icon={L.divIcon({
                 html: `<div style="
-                  background: ${isEditingWaypoints ? "#ff6b35" : "#018190"}; 
+                  background: ${isEditingWaypoints ? waypointEditColor : waypointNormalColor}; 
                   color: white; 
                   width: 24px; 
                   height: 24px; 
@@ -1241,7 +1243,7 @@ const MissionMap = ({
                   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
                   ${
                     isEditingWaypoints
-                      ? "cursor: move; transition: all 0.2s; box-shadow: 0 2px 8px rgba(255, 107, 53, 0.4);"
+                      ? "cursor: move; transition: all 0.2s; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);"
                       : ""
                   }
                 " class="waypoint-marker ${

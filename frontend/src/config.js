@@ -161,7 +161,9 @@ export const API_ENDPOINTS = {
     STATS: `${API_BASE_URL}/missions/stats`,
     ONGOING: `${API_BASE_URL}/missions/ongoing`,
     UPDATE_PROGRESS: id => `${API_BASE_URL}/missions/${id}/progress`,
-    UPLOAD_TO_VEHICLE: id => `${API_BASE_URL}/missions/${id}/upload-to-vehicle`
+    UPLOAD_TO_VEHICLE: id => `${API_BASE_URL}/missions/${id}/upload-to-vehicle`,
+    SENSOR_LOGS: (missionId, limit = 2000) => `${API_BASE_URL}/sensor-logs/?mission_id=${missionId}&limit=${limit}`,
+    VEHICLE_LOGS: (missionId, limit = 500) => `${API_BASE_URL}/vehicle-logs/?mission_id=${missionId}&limit=${limit}`
   },
 
   // Alerts endpoints
