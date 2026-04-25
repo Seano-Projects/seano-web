@@ -9,6 +9,8 @@ type SensorLog struct {
 	Vehicle        *Vehicle   `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:CASCADE"`
 	SensorID       uint       `json:"sensor_id" gorm:"not null;index"`
 	Sensor         *Sensor    `json:"sensor,omitempty" gorm:"foreignKey:SensorID;constraint:OnDelete:CASCADE"`
+	MissionID      *uint      `json:"mission_id,omitempty" gorm:"index"`
+	MissionCode    *string    `json:"mission_code,omitempty" gorm:"type:varchar(64);index"`
 	Data           string     `json:"data" gorm:"type:jsonb;not null"` // JSON data from sensor
 	UsvTimestamp   *time.Time `json:"usv_timestamp,omitempty" gorm:"type:timestamptz;index"` // timestamp from USV payload
 	MqttReceivedAt *time.Time `json:"mqtt_received_at,omitempty" gorm:"type:timestamptz;index"` // when backend received MQTT
@@ -24,6 +26,7 @@ type SensorLogQuery struct {
 	VehicleID  uint      `query:"vehicle_id"`
 	VehicleIDs []uint    // filter by multiple vehicle IDs (user-scoped)
 	SensorID   uint      `query:"sensor_id"`
+	MissionID  uint      `query:"mission_id"`
 	StartTime  time.Time `query:"start_time"`
 	EndTime    time.Time `query:"end_time"`
 	Limit      int       `query:"limit"`

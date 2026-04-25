@@ -2,6 +2,7 @@ package repository
 
 import (
 	"go-fiber-pgsql/internal/model"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -42,7 +43,8 @@ func (r *VehicleRepository) GetVehicleByID(id uint) (*model.Vehicle, error) {
 
 func (r *VehicleRepository) GetVehicleByCode(code string) (*model.Vehicle, error) {
 	var vehicle model.Vehicle
-	err := r.db.Preload("User").Where("code = ?", code).First(&vehicle).Error
+	normalizedCode := strings.TrimSpace(code)
+	err := r.db.Preload("User").Where("LOWER(code) = LOWER(?)", normalizedCode).First(&vehicle).Error
 	if err != nil {
 		return nil, err
 	}
@@ -89,15 +91,15 @@ func (r *VehicleRepository) CreateBatteryStatus(battery *model.VehicleBattery) e
 func (r *VehicleRepository) GetBatteryLogsByVehicleID(vehicleID uint, batteryID *int, limit int) ([]model.VehicleBattery, error) {
 	var batteries []model.VehicleBattery
 	query := r.db.Where("vehicle_id = ?", vehicleID)
-	
+
 	if batteryID != nil {
 		query = query.Where("battery_id = ?", *batteryID)
 	}
-	
+
 	if limit <= 0 {
 		limit = 100
 	}
-	
+
 	err := query.Order("created_at DESC").Limit(limit).Find(&batteries).Error
 	return batteries, err
 }
@@ -115,12 +117,11 @@ func (r *VehicleRepository) UpdateConnectionStatus(vehicleCode string, status st
 	updates := map[string]interface{}{
 		"connection_status": status,
 	}
-	
+
 	// Only update last_connected when going online
 	if status == "online" {
 		updates["last_connected"] = now
 	}
-	
-	return r.db.Model(&model.Vehicle{}).Where("code = ?", vehicleCode).Updates(updates).Error
-}
 
+	return r.db.Model(&model.Vehicle{}).Where("LOWER(code) = LOWER(?)", strings.TrimSpace(vehicleCode)).Updates(updates).Error
+}

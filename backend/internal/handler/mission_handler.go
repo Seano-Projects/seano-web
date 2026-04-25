@@ -18,42 +18,42 @@ import (
 )
 
 type MissionHandler struct {
-	missionRepo *repository.MissionRepository
-	vehicleRepo *repository.VehicleRepository
+	missionRepo     *repository.MissionRepository
+	vehicleRepo     *repository.VehicleRepository
 	waypointLogRepo *repository.WaypointLogRepository
-	cmdPublisher *mqttservice.CommandPublisher
-	db          *gorm.DB
-	wsHub       *wsocket.Hub
+	cmdPublisher    *mqttservice.CommandPublisher
+	db              *gorm.DB
+	wsHub           *wsocket.Hub
 }
 
 func NewMissionHandler(missionRepo *repository.MissionRepository, vehicleRepo *repository.VehicleRepository, waypointLogRepo *repository.WaypointLogRepository, cmdPublisher *mqttservice.CommandPublisher, db *gorm.DB, wsHub *wsocket.Hub) *MissionHandler {
 	return &MissionHandler{
-		missionRepo: missionRepo,
-		vehicleRepo: vehicleRepo,
+		missionRepo:     missionRepo,
+		vehicleRepo:     vehicleRepo,
 		waypointLogRepo: waypointLogRepo,
-		cmdPublisher: cmdPublisher,
-		db:          db,
-		wsHub:       wsHub,
+		cmdPublisher:    cmdPublisher,
+		db:              db,
+		wsHub:           wsHub,
 	}
 }
 
 type UploadMissionRequest struct {
-	VehicleID    uint                   `json:"vehicle_id"`
-	MissionName  string                 `json:"mission_name,omitempty"`
-	Waypoints    []model.Waypoint       `json:"waypoints,omitempty"`
-	HomeLocation *model.Waypoint        `json:"home_location,omitempty"`
+	VehicleID    uint                           `json:"vehicle_id"`
+	MissionName  string                         `json:"mission_name,omitempty"`
+	Waypoints    []model.Waypoint               `json:"waypoints,omitempty"`
+	HomeLocation *model.Waypoint                `json:"home_location,omitempty"`
 	Parameters   *model.UploadMissionParameters `json:"parameters,omitempty"`
 }
 
 type MissionMQTTPayload struct {
-	MissionID    uint                   `json:"mission_id"`
-	MissionCode  string                 `json:"mission_code"`
-	MissionName  string                 `json:"mission_name"`
-	VehicleID    uint                   `json:"vehicle_id"`
-	Waypoints    []model.Waypoint       `json:"waypoints,omitempty"`
-	HomeLocation *model.Waypoint        `json:"home_location,omitempty"`
+	MissionID    uint                           `json:"mission_id"`
+	MissionCode  string                         `json:"mission_code"`
+	MissionName  string                         `json:"mission_name"`
+	VehicleID    uint                           `json:"vehicle_id"`
+	Waypoints    []model.Waypoint               `json:"waypoints,omitempty"`
+	HomeLocation *model.Waypoint                `json:"home_location,omitempty"`
 	Parameters   *model.UploadMissionParameters `json:"parameters,omitempty"`
-	UploadedAt   time.Time              `json:"uploaded_at"`
+	UploadedAt   time.Time                      `json:"uploaded_at"`
 }
 
 // CreateMission godoc
@@ -73,6 +73,12 @@ func (h *MissionHandler) CreateMission(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request data",
+		})
+	}
+
+	if strings.TrimSpace(req.Name) == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "name is required",
 		})
 	}
 
@@ -697,9 +703,12 @@ func (h *MissionHandler) UpdateMissionProgressFromWaypoint(c *fiber.Ctx) error {
 
 	mission, err := h.missionRepo.GetLatestActiveMissionByVehicleID(vehicle.ID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "No active mission for vehicle",
-		})
+		mission, err = h.missionRepo.GetLatestMissionByVehicleIDAndStatuses(vehicle.ID, []string{"Draft"})
+		if err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "No active mission for vehicle",
+			})
+		}
 	}
 
 	total := req.Total
@@ -719,6 +728,9 @@ func (h *MissionHandler) UpdateMissionProgressFromWaypoint(c *fiber.Ctx) error {
 
 	status := mission.Status
 	now := time.Now()
+	if status == "Draft" {
+		status = "Ongoing"
+	}
 	if ts := strings.TrimSpace(req.Timestamp); ts != "" {
 		parsed, err := time.Parse(time.RFC3339, ts)
 		if err != nil {
@@ -790,13 +802,13 @@ func (h *MissionHandler) UpdateMissionProgressFromWaypoint(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"mission_id":       mission.ID,
-		"vehicle_code":     vehicleCode,
-		"progress":         progress,
-		"current_waypoint": req.WpSeq,
+		"mission_id":         mission.ID,
+		"vehicle_code":       vehicleCode,
+		"progress":           progress,
+		"current_waypoint":   req.WpSeq,
 		"completed_waypoint": req.WpSeq,
-		"status":           status,
-		"timestamp":        now.Format(time.RFC3339),
+		"status":             status,
+		"timestamp":          now.Format(time.RFC3339),
 	})
 }
 
@@ -819,4 +831,3 @@ func (h *MissionHandler) GetOngoingMissions(c *fiber.Ctx) error {
 
 	return c.JSON(missions)
 }
-

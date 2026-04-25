@@ -18,10 +18,10 @@ import (
 // Topic: seano/{vehicle_code}/mission/waypoint_reached
 type WaypointReachedMessage struct {
 	VehicleID string `json:"vehicle_id"` // vehicle code, e.g. "USV-001"
-	Event     string `json:"event"`       // "waypoint_reached"
-	WpSeq     int    `json:"wp_seq"`      // sequence number of reached waypoint (1-based)
-	Total     int    `json:"total"`       // total waypoints in mission
-	Remaining int    `json:"remaining"`   // remaining waypoints
+	Event     string `json:"event"`      // "waypoint_reached"
+	WpSeq     int    `json:"wp_seq"`     // sequence number of reached waypoint (1-based)
+	Total     int    `json:"total"`      // total waypoints in mission
+	Remaining int    `json:"remaining"`  // remaining waypoints
 }
 
 // WaypointListener subscribes to seano/+/mission/waypoint_reached and updates
@@ -91,11 +91,15 @@ func (l *WaypointListener) handleMessage(_ mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	// Find the active (Ongoing) mission for this vehicle
+	// Find active mission first; fallback to latest draft for easier recovery/testing
 	mission, err := l.missionRepo.GetLatestActiveMissionByVehicleID(vehicle.ID)
 	if err != nil {
-		log.Printf("⚠️  No active (Ongoing) mission for vehicle %s: %v", vehicleCode, err)
-		return
+		mission, err = l.missionRepo.GetLatestMissionByVehicleIDAndStatuses(vehicle.ID, []string{"Draft"})
+		if err != nil {
+			log.Printf("⚠️  No active/draft mission for vehicle %s: %v", vehicleCode, err)
+			return
+		}
+		log.Printf("ℹ️  Using latest Draft mission %d for vehicle %s", mission.ID, vehicleCode)
 	}
 
 	// Defensive: total must be > 0
@@ -116,6 +120,9 @@ func (l *WaypointListener) handleMessage(_ mqtt.Client, msg mqtt.Message) {
 
 	status := mission.Status
 	now := time.Now()
+	if status == "Draft" {
+		status = "Ongoing"
+	}
 
 	var endTime *time.Time
 	if payload.Remaining <= 0 {
@@ -170,8 +177,8 @@ func (l *WaypointListener) handleMessage(_ mqtt.Client, msg mqtt.Message) {
 	updatedMission.Status = status
 
 	type missionUpdateMsg struct {
-		Type    string        `json:"type"`
-		Data    model.Mission `json:"data"`
+		Type string        `json:"type"`
+		Data model.Mission `json:"data"`
 	}
 	updatePayload, _ := json.Marshal(missionUpdateMsg{
 		Type: "mission_update",

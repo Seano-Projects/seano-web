@@ -91,6 +91,16 @@ func (h *SensorLogHandler) GetSensorLogs(c *fiber.Ctx) error {
 		}
 	}
 
+	if missionID := c.Query("mission_id"); missionID != "" {
+		id, err := strconv.ParseUint(missionID, 10, 32)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid mission_id",
+			})
+		}
+		query.MissionID = uint(id)
+	}
+
 	if sensorID := c.Query("sensor_id"); sensorID != "" {
 		id, err := strconv.ParseUint(sensorID, 10, 32)
 		if err != nil {

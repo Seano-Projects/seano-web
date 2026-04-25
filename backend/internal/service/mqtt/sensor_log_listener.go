@@ -20,16 +20,18 @@ type SensorLogListener struct {
 	sensorLogRepo *repository.SensorLogRepository
 	vehicleRepo   *repository.VehicleRepository
 	sensorRepo    *repository.SensorRepository
+	missionRepo   *repository.MissionRepository
 	wsHub         *wsocket.Hub
 }
 
 // NewSensorLogListener creates a new sensor log listener
-func NewSensorLogListener(client mqtt.Client, sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, wsHub *wsocket.Hub) *SensorLogListener {
+func NewSensorLogListener(client mqtt.Client, sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, missionRepo *repository.MissionRepository, wsHub *wsocket.Hub) *SensorLogListener {
 	return &SensorLogListener{
 		client:        client,
 		sensorLogRepo: sensorLogRepo,
 		vehicleRepo:   vehicleRepo,
 		sensorRepo:    sensorRepo,
+		missionRepo:   missionRepo,
 		wsHub:         wsHub,
 	}
 }
@@ -112,7 +114,15 @@ func (l *SensorLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) 
 		Data:      dataJSON,
 		CreatedAt: createdAt,
 	}
-	
+
+	// Auto-detect active mission for this vehicle
+	if l.missionRepo != nil {
+		if activeMission, err := l.missionRepo.GetLatestActiveMissionByVehicleID(vehicle.ID); err == nil {
+			sensorLog.MissionID = &activeMission.ID
+			sensorLog.MissionCode = &activeMission.MissionCode
+		}
+	}
+
 	if err := l.sensorLogRepo.CreateSensorLog(sensorLog); err != nil {
 		log.Printf("Failed to save sensor log: %v", err)
 		return

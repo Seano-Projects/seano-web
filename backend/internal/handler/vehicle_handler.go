@@ -64,9 +64,12 @@ func (h *VehicleHandler) CreateVehicle(c *fiber.Ctx) error {
 		status = req.Status
 	}
 
-	apiKey := ""
+	var apiKey *string
 	if req.ApiKey != nil {
-		apiKey = strings.TrimSpace(*req.ApiKey)
+		trimmed := strings.TrimSpace(*req.ApiKey)
+		if trimmed != "" {
+			apiKey = &trimmed
+		}
 	}
 
 	batteryCount := 2

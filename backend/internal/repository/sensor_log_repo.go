@@ -35,7 +35,11 @@ func (r *SensorLogRepository) GetSensorLogs(query model.SensorLogQuery) ([]model
 	if query.SensorID != 0 {
 		db = db.Where("sensor_id = ?", query.SensorID)
 	}
-	
+
+	if query.MissionID != 0 {
+		db = db.Where("mission_id = ?", query.MissionID)
+	}
+
 	if !query.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", query.StartTime)
 	}
@@ -52,7 +56,7 @@ func (r *SensorLogRepository) GetSensorLogs(query model.SensorLogQuery) ([]model
 		db = db.Offset(query.Offset)
 	}
 	
-	err := db.Order("created_at DESC").Find(&logs).Error
+	err := db.Order("created_at ASC").Find(&logs).Error
 	return logs, err
 }
 
@@ -96,7 +100,11 @@ func (r *SensorLogRepository) CountLogs(query model.SensorLogQuery) (int64, erro
 	if query.SensorID != 0 {
 		db = db.Where("sensor_id = ?", query.SensorID)
 	}
-	
+
+	if query.MissionID != 0 {
+		db = db.Where("mission_id = ?", query.MissionID)
+	}
+
 	if !query.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", query.StartTime)
 	}

@@ -9,7 +9,7 @@ import (
 type Vehicle struct {
 	ID                     uint       `json:"id" gorm:"primaryKey"`
 	Code                   string     `json:"code" gorm:"type:varchar(50);uniqueIndex;not null"`                  // Registration code & MQTT topic
-	ApiKey                 string     `json:"-" gorm:"type:varchar(128);uniqueIndex"`                               // Per-vehicle API key for USV ingest
+	ApiKey                 *string    `json:"-" gorm:"type:varchar(128);uniqueIndex"`                               // Per-vehicle API key for USV ingest
 	Name                   string     `json:"name" gorm:"type:varchar(100);not null"`
 	Description            string     `json:"description" gorm:"type:text"`
 	BatteryCount           int        `json:"battery_count" gorm:"type:int;default:2"`                            // Number of battery units (1-2)

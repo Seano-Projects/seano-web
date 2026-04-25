@@ -155,7 +155,7 @@ func main() {
 				}
 
 				// Sensor Log Listener
-				sensorLogListener := mqttservice.NewSensorLogListener(mqttClient, sensorLogRepo, vehicleRepo, sensorRepo, wsHub)
+				sensorLogListener := mqttservice.NewSensorLogListener(mqttClient, sensorLogRepo, vehicleRepo, sensorRepo, missionRepo, wsHub)
 				if err := sensorLogListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start sensor log listener: %v", err)
 				}

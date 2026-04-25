@@ -37,7 +37,7 @@ func AuthOrVehicleAPIKey(vehicleRepo *repository.VehicleRepository) fiber.Handle
 			return err
 		}
 
-		if vehicle.ApiKey == "" || apiKey != vehicle.ApiKey {
+		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || apiKey != *vehicle.ApiKey {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid API key",
 			})
@@ -71,7 +71,7 @@ func AuthOrVehicleAPIKeyFromQuery(vehicleRepo *repository.VehicleRepository) fib
 			return err
 		}
 
-		if vehicle.ApiKey == "" || apiKey != vehicle.ApiKey {
+		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || apiKey != *vehicle.ApiKey {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid API key",
 			})
@@ -121,7 +121,7 @@ func AuthOrVehicleAPIKeyByMissionID(missionRepo *repository.MissionRepository, v
 			})
 		}
 
-		if vehicle.ApiKey == "" || apiKey != vehicle.ApiKey {
+		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || apiKey != *vehicle.ApiKey {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid API key",
 			})

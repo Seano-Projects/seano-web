@@ -52,7 +52,23 @@ func (r *MissionRepository) GetLatestActiveMissionByVehicleID(vehicleID uint) (*
 	var mission model.Mission
 	err := r.db.Preload("Vehicle").Preload("Creator").
 		Where("vehicle_id = ?", vehicleID).
-		Where("status = ?", "Ongoing").
+		Where("LOWER(status) IN ?", []string{"ongoing", "active", "running", "in_progress"}).
+		Order("last_update_time DESC NULLS LAST, updated_at DESC").
+		First(&mission).Error
+	if err != nil {
+		return nil, err
+	}
+	return &mission, nil
+}
+
+func (r *MissionRepository) GetLatestMissionByVehicleIDAndStatuses(vehicleID uint, statuses []string) (*model.Mission, error) {
+	var mission model.Mission
+	query := r.db.Preload("Vehicle").Preload("Creator").
+		Where("vehicle_id = ?", vehicleID)
+	if len(statuses) > 0 {
+		query = query.Where("status IN ?", statuses)
+	}
+	err := query.
 		Order("last_update_time DESC NULLS LAST, updated_at DESC").
 		First(&mission).Error
 	if err != nil {
@@ -71,22 +87,22 @@ func (r *MissionRepository) DeleteMission(id uint) error {
 
 func (r *MissionRepository) GetMissionStats() (*model.MissionStats, error) {
 	var stats model.MissionStats
-	
+
 	// Total missions
 	r.db.Model(&model.Mission{}).Count(&stats.TotalMissions)
-	
+
 	// Draft missions
 	r.db.Model(&model.Mission{}).Where("status = ?", "Draft").Count(&stats.DraftMissions)
-	
+
 	// Ongoing missions
 	r.db.Model(&model.Mission{}).Where("status = ?", "Ongoing").Count(&stats.OngoingMissions)
-	
+
 	// Completed missions
 	r.db.Model(&model.Mission{}).Where("status = ?", "Completed").Count(&stats.CompletedMissions)
-	
+
 	// Failed missions
 	r.db.Model(&model.Mission{}).Where("status = ?", "Failed").Count(&stats.FailedMissions)
-	
+
 	return &stats, nil
 }
 
@@ -120,4 +136,3 @@ func (r *MissionRepository) GetOngoingMissions() ([]model.Mission, error) {
 	err := r.db.Preload("Vehicle").Preload("Creator").Where("status = ?", "Ongoing").Order("last_update_time DESC").Find(&missions).Error
 	return missions, err
 }
-
