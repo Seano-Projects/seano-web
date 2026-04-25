@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import {
   FaBatteryFull,
   FaBolt,
-  FaThermometerHalf,
   FaInfoCircle,
 } from "react-icons/fa";
+import useTranslation from "../../../hooks/useTranslation";
 
 const formatPercentage = (value) => {
   const numeric = Number(value);
@@ -17,7 +17,8 @@ const formatPercentage = (value) => {
 };
 
 const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
-  const [filter, setFilter] = useState("All");
+  const { t } = useTranslation();
+  const [filter, setFilter] = useState("all");
   const nominalCapacity =
     Number(selectedVehicle?.battery_total_capacity_ah) > 0
       ? Number(selectedVehicle.battery_total_capacity_ah)
@@ -33,15 +34,15 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
   });
 
   useEffect(() => {
-    if (batteryCount === 1 && filter === "Battery B") {
-      setFilter("All");
+    if (batteryCount === 1 && filter === "battery_b") {
+      setFilter("all");
     }
   }, [batteryCount, filter]);
 
   // Calculate stats based on filter
   const getCombinedStats = () => {
     const selectedBatteryIndex =
-      filter === "Battery A" ? 0 : filter === "Battery B" ? 1 : null;
+      filter === "battery_a" ? 0 : filter === "battery_b" ? 1 : null;
 
     const batteriesForStats =
       selectedBatteryIndex === null
@@ -96,13 +97,6 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
 
   const stats = getCombinedStats();
 
-  // Format uptime
-  const formatUptime = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
-  };
-
   // Get status color based on SOC
   const getStatusColor = () => {
     if (!stats) return "text-gray-500";
@@ -118,11 +112,11 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
         <div className="flex items-center gap-2 mb-3">
           <FaInfoCircle className="text-gray-500 dark:text-gray-400" />
           <h3 className="text-lg font-semibold text-black dark:text-white">
-            Status Info
+            {t("pages.battery.widgets.statusInfo.title")}
           </h3>
         </div>
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          No battery data available.
+          {t("pages.battery.widgets.statusInfo.noData")}
         </div>
       </div>
     );
@@ -134,11 +128,11 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
         <div className="flex items-center gap-2 mr-auto">
           <FaInfoCircle className="text-gray-500 dark:text-gray-400" />
           <h3 className="text-lg font-semibold text-black dark:text-white">
-            Status Info
+            {t("pages.battery.widgets.statusInfo.title")}
           </h3>
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          {["All", ...["Battery A", "Battery B"].slice(0, batteryCount)].map(
+          {["all", ...["battery_a", "battery_b"].slice(0, batteryCount)].map(
             (f) => (
               <button
                 key={f}
@@ -149,7 +143,11 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
                     : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                 }`}
               >
-                {f === "Battery A" ? "A" : f === "Battery B" ? "B" : f}
+                {f === "battery_a"
+                  ? "A"
+                  : f === "battery_b"
+                    ? "B"
+                    : t("pages.battery.widgets.filters.all")}
               </button>
             ),
           )}
@@ -175,7 +173,7 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
           <div className="flex items-center gap-2 mb-2">
             <FaBolt className="text-yellow-500" />
             <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              Voltage
+              {t("pages.battery.widgets.metrics.voltage")}
             </span>
           </div>
           <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -188,7 +186,7 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
           <div className="flex items-center gap-2 mb-2">
             <FaBolt className="text-blue-500" />
             <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              Current
+              {t("pages.battery.widgets.metrics.current")}
             </span>
           </div>
           <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -200,7 +198,7 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
         <div className="bg-white dark:bg-black rounded-lg p-4 border border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              Capacity
+              {t("pages.battery.widgets.metrics.capacity")}
             </span>
           </div>
           <div className="text-xl font-semibold text-gray-900 dark:text-white">

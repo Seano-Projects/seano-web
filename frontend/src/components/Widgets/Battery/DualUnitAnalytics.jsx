@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import useBatteryData from "../../../hooks/useBatteryData";
+import useTranslation from "../../../hooks/useTranslation";
 
 const formatPercentage = (value) => {
   const numeric = Number(value);
@@ -30,13 +31,14 @@ const formatNumber = (value, digits = 1) => {
 };
 
 const DualUnitAnalytics = ({ selectedVehicle }) => {
-  const [filter, setFilter] = useState("Both");
+  const { t } = useTranslation();
+  const [filter, setFilter] = useState("both");
   const { getVehicleLogs } = useBatteryData();
   const batteryCount = Number(selectedVehicle?.battery_count) === 1 ? 1 : 2;
 
   useEffect(() => {
-    if (batteryCount === 1 && filter === "Unit B") {
-      setFilter("Both");
+    if (batteryCount === 1 && filter === "unit_b") {
+      setFilter("both");
     }
   }, [batteryCount, filter]);
 
@@ -98,7 +100,10 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
     return Object.values(timeGroups)
       .sort((a, b) => a.epoch - b.epoch)
       .slice(-10)
-      .map(({ epoch, ...item }) => item);
+      .map((item) => {
+        const { epoch: _epoch, ...rest } = item;
+        return rest;
+      });
   }, [getVehicleLogs, selectedVehicle]);
 
   const average = (values) => {
@@ -108,7 +113,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
   };
 
   const filteredData = chartData.map((item) => {
-    if (filter === "Unit A" || batteryCount === 1) {
+    if (filter === "unit_a" || batteryCount === 1) {
       return {
         time: item.time,
         soc: item.A_SOC,
@@ -117,7 +122,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
       };
     }
 
-    if (filter === "Unit B") {
+    if (filter === "unit_b") {
       return {
         time: item.time,
         soc: item.B_SOC,
@@ -156,11 +161,11 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
       <div className="flex flex-wrap items-start gap-2 mb-3">
         <div className="mr-auto">
           <h3 className="text-base font-semibold text-black dark:text-white">
-            Grafik Penggunaan Baterai
+            {t("pages.battery.widgets.analytics.title")}
           </h3>
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          {["Both", ...["Unit A", "Unit B"].slice(0, batteryCount)].map((f) => (
+          {["both", ...["unit_a", "unit_b"].slice(0, batteryCount)].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -170,7 +175,11 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
                   : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
               }`}
             >
-              {f === "Unit A" ? "A" : f === "Unit B" ? "B" : f}
+              {f === "unit_a"
+                ? "A"
+                : f === "unit_b"
+                  ? "B"
+                  : t("pages.battery.widgets.filters.both")}
             </button>
           ))}
         </div>
@@ -274,7 +283,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
               yAxisId="left"
               type="monotone"
               dataKey="soc"
-              name="SOC"
+              name={t("pages.battery.widgets.metrics.soc")}
               stroke="#3B82F6"
               strokeWidth={2}
               fill="url(#colorSoc)"
@@ -284,7 +293,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
               yAxisId="right"
               type="monotone"
               dataKey="voltage"
-              name="Voltage"
+              name={t("pages.battery.widgets.metrics.voltage")}
               stroke="#F59E0B"
               strokeWidth={2}
               fill="url(#colorVoltage)"
@@ -294,7 +303,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
               yAxisId="right"
               type="monotone"
               dataKey="current"
-              name="Current"
+              name={t("pages.battery.widgets.metrics.current")}
               stroke="#22D3EE"
               strokeWidth={2}
               fill="url(#colorCurrent)"

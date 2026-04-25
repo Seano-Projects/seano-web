@@ -1,4 +1,7 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
+import useControlCommand from "../../../hooks/useControlCommand";
+import { toast } from "../../ui";
+import useTranslation from "../../../hooks/useTranslation";
 
 const formatPercentage = (value) => {
   const numeric = Number(value);
@@ -10,10 +13,13 @@ const formatPercentage = (value) => {
   return Number.isInteger(numeric) ? numeric.toFixed(0) : numeric.toFixed(1);
 };
 
-const BatteryDisplay = ({ unit, battery, index, compact = false }) => {
+const BatteryDisplay = ({ unit, battery, vehicleCode, compact = false }) => {
+  const { t } = useTranslation();
   const percentage = battery?.percentage || 0;
   const voltage = battery?.voltage || 0;
   const status = battery?.status || "N/A";
+  const [calibrationInput, setCalibrationInput] = useState("");
+  const { sendCommand, isLoading } = useControlCommand();
 
   // Determine status color and text
   const getStatusColor = () => {
@@ -43,6 +49,35 @@ const BatteryDisplay = ({ unit, battery, index, compact = false }) => {
   const termH = compact ? "h-2" : "h-3";
   const pctSize = compact ? "text-base" : "text-2xl";
   const padding = compact ? "p-3" : "p-6";
+  const sanitizedCalibration = useMemo(() => {
+    const value = calibrationInput.trim().replace(",", ".");
+    if (!/^\d+(\.\d{1,2})?$/.test(value)) return null;
+    return value;
+  }, [calibrationInput]);
+
+  const canSendCalibration = Boolean(vehicleCode && sanitizedCalibration && !isLoading);
+
+  const handleSendCalibration = async () => {
+    if (!canSendCalibration) {
+      if (!vehicleCode) {
+        toast.error(t("pages.battery.widgets.calibration.selectVehicleFirst"));
+      } else {
+        toast.error(t("pages.battery.widgets.calibration.invalidFormat"));
+      }
+      return;
+    }
+
+    const command = `k${sanitizedCalibration}`;
+    toast.info(`${t("pages.battery.widgets.calibration.sendingPrefix")} ${command}...`);
+    const result = await sendCommand(vehicleCode, command);
+
+    if (result?.success) {
+      toast.success(`${t("pages.battery.widgets.calibration.sentPrefix")} ${command}`);
+      return;
+    }
+
+    toast.error(result?.message || t("pages.battery.widgets.calibration.sendFailed"));
+  };
 
   return (
     <div className={`dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl ${padding} h-full flex flex-col`}>
@@ -99,6 +134,32 @@ const BatteryDisplay = ({ unit, battery, index, compact = false }) => {
             className={`h-full ${getBarColor()} transition-all duration-1000`}
             style={{ width: `${Math.max(0, Math.min(100, percentage))}%` }}
           />
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        <label className="text-[11px] font-medium text-gray-600 dark:text-gray-400">
+          {t("pages.battery.widgets.calibration.label")}
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={calibrationInput}
+            onChange={(e) => setCalibrationInput(e.target.value)}
+            placeholder="12.7"
+            className="flex-1 h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400/60"
+          />
+          <button
+            type="button"
+            onClick={handleSendCalibration}
+            disabled={!canSendCalibration}
+            className="h-9 px-3 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:from-blue-500 hover:to-cyan-400 disabled:opacity-45 disabled:cursor-not-allowed shadow-sm shadow-blue-500/25 transition-all"
+          >
+            {isLoading
+              ? t("pages.battery.widgets.calibration.sending")
+              : t("common.submit")}
+          </button>
         </div>
       </div>
     </div>

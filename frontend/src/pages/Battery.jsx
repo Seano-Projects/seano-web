@@ -99,6 +99,7 @@ const Battery = () => {
               key={unit}
               unit={unit}
               battery={vehicleBatteries[index + 1] || null}
+              vehicleCode={selectedVehicle?.code || ""}
               index={index}
             />
           ))}

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { FaDownload } from "react-icons/fa";
 import useBatteryData from "../../../hooks/useBatteryData";
+import useTranslation from "../../../hooks/useTranslation";
 
 const formatPercentage = (value) => {
   const numeric = Number(value);
@@ -13,8 +14,9 @@ const formatPercentage = (value) => {
 };
 
 const BatteryLog = ({ selectedVehicle }) => {
+  const { t, language } = useTranslation();
   const { getVehicleLogs } = useBatteryData();
-  const [filterBattery, setFilterBattery] = useState(null); // null = all, 1 = A, 2 = B
+  const [filterBattery] = useState(null); // null = all, 1 = A, 2 = B
 
   // Get real-time logs from WebSocket
   const logs = useMemo(() => {
@@ -23,7 +25,9 @@ const BatteryLog = ({ selectedVehicle }) => {
     const rawLogs = getVehicleLogs(selectedVehicle.id, filterBattery, 50);
 
     return rawLogs.map((log) => ({
-      timestamp: new Date(log.timestamp).toLocaleTimeString("en-US", {
+      timestamp: new Date(log.timestamp).toLocaleTimeString(
+        language === "id" ? "id-ID" : "en-US",
+        {
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
@@ -32,11 +36,11 @@ const BatteryLog = ({ selectedVehicle }) => {
       unit: log.battery_id === 1 ? "A" : "B",
       status: log.status
         ? log.status.charAt(0).toUpperCase() + log.status.slice(1)
-        : "Unknown",
+        : t("pages.battery.widgets.log.unknownStatus"),
       level: `${formatPercentage(log.percentage)}%`,
       statusType: log.status?.toLowerCase() || "unknown",
     }));
-  }, [selectedVehicle, getVehicleLogs, filterBattery]);
+  }, [selectedVehicle, getVehicleLogs, filterBattery, language, t]);
 
   const getStatusColor = (statusType) => {
     const normalized = statusType?.toLowerCase();
@@ -54,7 +58,12 @@ const BatteryLog = ({ selectedVehicle }) => {
   };
 
   const exportCSV = () => {
-    const headers = ["TIMESTAMP", "UNIT", "STATUS", "LEVEL"];
+    const headers = [
+      t("pages.battery.widgets.log.columns.timestamp"),
+      t("pages.battery.widgets.log.columns.unit"),
+      t("pages.battery.widgets.log.columns.status"),
+      t("pages.battery.widgets.log.columns.level"),
+    ];
     const rows = logs.map((log) => [
       log.timestamp,
       log.unit,
@@ -84,14 +93,14 @@ const BatteryLog = ({ selectedVehicle }) => {
     <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-black dark:text-white">
-          Data Logs
+          {t("pages.battery.widgets.log.title")}
         </h3>
         <button
           onClick={exportCSV}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
         >
           <FaDownload />
-          Export CSV
+          {t("pages.battery.widgets.log.exportCsv")}
         </button>
       </div>
 
@@ -101,16 +110,16 @@ const BatteryLog = ({ selectedVehicle }) => {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-black">
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">
-                  TIMESTAMP
+                  {t("pages.battery.widgets.log.columns.timestamp")}
                 </th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">
-                  UNIT
+                  {t("pages.battery.widgets.log.columns.unit")}
                 </th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">
-                  STATUS
+                  {t("pages.battery.widgets.log.columns.status")}
                 </th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">
-                  LEVEL
+                  {t("pages.battery.widgets.log.columns.level")}
                 </th>
               </tr>
             </thead>
@@ -121,7 +130,7 @@ const BatteryLog = ({ selectedVehicle }) => {
                     colSpan="4"
                     className="py-8 text-center text-gray-500 dark:text-gray-400"
                   >
-                    No logs available.
+                    {t("pages.battery.widgets.log.noLogs")}
                   </td>
                 </tr>
               ) : (

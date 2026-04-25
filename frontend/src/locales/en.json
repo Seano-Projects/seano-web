@@ -385,7 +385,9 @@
       "mqttDisabled": "API mode is active — MQTT control is disabled",
       "mqttUnavailable": "MQTT not configured — check broker connection",
       "noVehicleSelected": "Please select a vehicle first",
-      "hardwareError": "Hardware reported an error"
+      "hardwareError": "Hardware reported an error",
+      "rtlInProgress": "Mission completed. Vehicle is returning to launch...",
+      "rtlArrived": "Mission completed. Vehicle has returned home, waypoints reset."
     },
     "modes": {
       "MANUAL": "Direct operator control",
@@ -462,7 +464,47 @@
       "subtitle": "System Batteries Monitoring",
       "loadingVehicles": "Loading vehicles...",
       "noVehicles": "No vehicles available",
-      "selectUsv": "Select USV"
+      "selectUsv": "Select USV",
+      "widgets": {
+        "filters": {
+          "all": "All",
+          "both": "Both"
+        },
+        "metrics": {
+          "soc": "SOC",
+          "voltage": "Voltage",
+          "current": "Current",
+          "capacity": "Capacity"
+        },
+        "statusInfo": {
+          "title": "Status Info",
+          "noData": "No battery data available."
+        },
+        "analytics": {
+          "title": "Battery Usage Chart"
+        },
+        "calibration": {
+          "label": "Battery calibration (example: 12.7)",
+          "selectVehicleFirst": "Please select a vehicle first",
+          "invalidFormat": "Calibration format must be numeric, for example 12.7",
+          "sendingPrefix": "Sending calibration",
+          "sentPrefix": "Calibration sent",
+          "sendFailed": "Failed to send calibration",
+          "sending": "Sending..."
+        },
+        "log": {
+          "title": "Data Logs",
+          "exportCsv": "Export CSV",
+          "unknownStatus": "Unknown",
+          "noLogs": "No logs available.",
+          "columns": {
+            "timestamp": "TIMESTAMP",
+            "unit": "UNIT",
+            "status": "STATUS",
+            "level": "LEVEL"
+          }
+        }
+      }
     },
     "data": {
       "errorLoadingPage": "Error Loading Page",

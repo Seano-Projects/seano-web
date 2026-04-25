@@ -385,7 +385,9 @@
       "mqttDisabled": "Mode API aktif — kontrol via MQTT dimatikan",
       "mqttUnavailable": "MQTT tidak terkonfigurasi — periksa koneksi broker",
       "noVehicleSelected": "Pilih kendaraan terlebih dahulu",
-      "hardwareError": "Hardware melaporkan kesalahan"
+      "hardwareError": "Hardware melaporkan kesalahan",
+      "rtlInProgress": "Misi selesai. Kendaraan sedang return to launch...",
+      "rtlArrived": "Misi selesai. Kendaraan sudah kembali ke home, waypoint direset."
     },
     "modes": {
       "MANUAL": "Kontrol operator langsung",
@@ -462,7 +464,47 @@
       "subtitle": "Monitoring Baterai Sistem",
       "loadingVehicles": "Memuat kendaraan...",
       "noVehicles": "Tidak ada kendaraan tersedia",
-      "selectUsv": "Pilih USV"
+      "selectUsv": "Pilih USV",
+      "widgets": {
+        "filters": {
+          "all": "Semua",
+          "both": "Keduanya"
+        },
+        "metrics": {
+          "soc": "SOC",
+          "voltage": "Tegangan",
+          "current": "Arus",
+          "capacity": "Kapasitas"
+        },
+        "statusInfo": {
+          "title": "Info Status",
+          "noData": "Data baterai belum tersedia."
+        },
+        "analytics": {
+          "title": "Grafik Penggunaan Baterai"
+        },
+        "calibration": {
+          "label": "Kalibrasi baterai (contoh: 12.7)",
+          "selectVehicleFirst": "Pilih vehicle terlebih dahulu",
+          "invalidFormat": "Format kalibrasi harus angka, contoh 12.7",
+          "sendingPrefix": "Mengirim kalibrasi",
+          "sentPrefix": "Kalibrasi terkirim",
+          "sendFailed": "Gagal kirim kalibrasi",
+          "sending": "Mengirim..."
+        },
+        "log": {
+          "title": "Log Data",
+          "exportCsv": "Ekspor CSV",
+          "unknownStatus": "Tidak Diketahui",
+          "noLogs": "Belum ada log.",
+          "columns": {
+            "timestamp": "WAKTU",
+            "unit": "UNIT",
+            "status": "STATUS",
+            "level": "LEVEL"
+          }
+        }
+      }
     },
     "data": {
       "errorLoadingPage": "Gagal Memuat Halaman",
