@@ -6,19 +6,26 @@ __pycache__/
 *.db
 *.sqlite3
 
-# Env
-.env
+# Environment files (keep only samples)
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
 venv/
 
-# VSCode
+# VS Code
 .vscode/
 
-# Docker
+# Logs
 *.log
 
+# Build artifacts
+backend/app
+
+# Local runtime data
 postgres_data/
+
+# Local notes / agent files
 README-MQTT.md
-
-.codex
-
+.codex/
 fituryangbelumberes.md
