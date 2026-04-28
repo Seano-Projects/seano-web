@@ -211,8 +211,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	alerts.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), alertHandler.CreateAlert)
 	alerts.Put("/:id", middleware.AuthRequired(), alertHandler.UpdateAlert)
 	alerts.Patch("/:id/acknowledge", middleware.AuthRequired(), alertHandler.AcknowledgeAlert)
-	alerts.Delete("/:id", middleware.AuthRequired(), alertHandler.DeleteAlert)
 	alerts.Delete("/clear", middleware.AuthRequired(), alertHandler.ClearAllAlerts)
+	alerts.Delete("/:id", middleware.AuthRequired(), alertHandler.DeleteAlert)
 
 	// Notification management routes (protected)
 	notifications := app.Group("/notifications", middleware.AuthRequired())

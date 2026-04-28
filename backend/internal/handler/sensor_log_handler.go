@@ -6,6 +6,7 @@ import (
 	"go-fiber-pgsql/internal/repository"
 	"go-fiber-pgsql/internal/util"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -36,6 +37,7 @@ func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository, vehicleR
 // @Produce json
 // @Param vehicle_id query int false "Vehicle ID"
 // @Param sensor_id query int false "Sensor ID"
+// @Param sensor_type query string false "Sensor type name (e.g. ctd, adcp, sbes, mbes)"
 // @Param start_time query string false "Start Time (ISO 8601)"
 // @Param end_time query string false "End Time (ISO 8601)"
 // @Param limit query int false "Limit" default(100)
@@ -109,6 +111,10 @@ func (h *SensorLogHandler) GetSensorLogs(c *fiber.Ctx) error {
 			})
 		}
 		query.SensorID = uint(id)
+	}
+
+	if sensorType := strings.TrimSpace(c.Query("sensor_type")); sensorType != "" {
+		query.SensorType = strings.ToLower(sensorType)
 	}
 
 	if startTime := c.Query("start_time"); startTime != "" {

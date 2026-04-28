@@ -610,11 +610,35 @@ func (h *MissionHandler) DeleteMission(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /missions/stats [get]
 func (h *MissionHandler) GetMissionStats(c *fiber.Ctx) error {
-	stats, err := h.missionRepo.GetMissionStats()
+	userID := c.Locals("user_id").(uint)
+
+	var missions []model.Mission
+	var err error
+
+	if middleware.HasPermission(h.db, userID, "missions.read_all") {
+		missions, err = h.missionRepo.GetAllMissions()
+	} else {
+		missions, err = h.missionRepo.GetMissionsByUserID(userID)
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch mission stats",
 		})
+	}
+
+	stats := &model.MissionStats{}
+	stats.TotalMissions = int64(len(missions))
+	for _, mission := range missions {
+		switch strings.ToLower(strings.TrimSpace(mission.Status)) {
+		case "draft":
+			stats.DraftMissions++
+		case "completed":
+			stats.CompletedMissions++
+		case "failed":
+			stats.FailedMissions++
+		case "ongoing", "active", "running", "in_progress":
+			stats.OngoingMissions++
+		}
 	}
 
 	return c.JSON(stats)

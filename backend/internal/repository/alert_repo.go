@@ -136,9 +136,11 @@ func (r *AlertRepository) DeleteAlert(id uint) error {
 
 // ClearAllAlerts deletes all alerts (or only acknowledged ones)
 func (r *AlertRepository) ClearAllAlerts(acknowledgedOnly bool) error {
-	db := r.db.Model(&model.Alert{})
+	db := r.db
 	if acknowledgedOnly {
 		db = db.Where("acknowledged = ?", true)
+	} else {
+		db = db.Where("1 = 1")
 	}
 	return db.Delete(&model.Alert{}).Error
 }

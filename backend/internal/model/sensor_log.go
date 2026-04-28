@@ -26,6 +26,7 @@ type SensorLogQuery struct {
 	VehicleID  uint      `query:"vehicle_id"`
 	VehicleIDs []uint    // filter by multiple vehicle IDs (user-scoped)
 	SensorID   uint      `query:"sensor_id"`
+	SensorType string    `query:"sensor_type"`
 	MissionID  uint      `query:"mission_id"`
 	StartTime  time.Time `query:"start_time"`
 	EndTime    time.Time `query:"end_time"`

@@ -36,6 +36,12 @@ func (r *SensorLogRepository) GetSensorLogs(query model.SensorLogQuery) ([]model
 		db = db.Where("sensor_id = ?", query.SensorID)
 	}
 
+	if query.SensorType != "" {
+		db = db.Joins("JOIN sensors ON sensors.id = sensor_logs.sensor_id").
+			Joins("JOIN sensor_types ON sensor_types.id = sensors.sensor_type_id").
+			Where("LOWER(sensor_types.name) = ?", query.SensorType)
+	}
+
 	if query.MissionID != 0 {
 		db = db.Where("mission_id = ?", query.MissionID)
 	}
@@ -99,6 +105,12 @@ func (r *SensorLogRepository) CountLogs(query model.SensorLogQuery) (int64, erro
 	
 	if query.SensorID != 0 {
 		db = db.Where("sensor_id = ?", query.SensorID)
+	}
+
+	if query.SensorType != "" {
+		db = db.Joins("JOIN sensors ON sensors.id = sensor_logs.sensor_id").
+			Joins("JOIN sensor_types ON sensor_types.id = sensors.sensor_type_id").
+			Where("LOWER(sensor_types.name) = ?", query.SensorType)
 	}
 
 	if query.MissionID != 0 {

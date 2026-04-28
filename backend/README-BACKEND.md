@@ -4,162 +4,271 @@ Complete API with JWT authentication, email verification, CRUD operations, and *
 
 ## Database Schema
 
-```
-users [icon: user, color: blue] {
-  id uint PK
-  username string
-  email string
-  password string
-  roleId uint FK
-  isVerified boolean
-  verificationToken string
-  verificationExpiry timestamp
-  refreshToken string
-  createdAt timestamp
-  updatedAt timestamp
-}
+```mermaid
+erDiagram
+  USERS {
+    uint id PK
+    string username
+    string email
+    string password
+    uint role_id FK
+    boolean is_verified
+    string verification_token
+    timestamp verification_expiry
+    string refresh_token
+    timestamp created_at
+    timestamp updated_at
+  }
 
-roles [icon: shield, color: purple] {
-  id uint PK
-  name string
-  description string
-  createdAt timestamp
-  updatedAt timestamp
-}
+  ROLES {
+    uint id PK
+    string name
+    string description
+    timestamp created_at
+    timestamp updated_at
+  }
 
-permissions [icon: key, color: orange] {
-  id uint PK
-  name string
-  description string
-  createdAt timestamp
-  updatedAt timestamp
-}
+  PERMISSIONS {
+    uint id PK
+    string name
+    string description
+    timestamp created_at
+    timestamp updated_at
+  }
 
-role_permissions [icon: link, color: gray] {
-  roleId uint FK
-  permissionId uint FK
-}
+  ROLE_PERMISSIONS {
+    uint role_id FK
+    uint permission_id FK
+  }
 
-vehicles [icon: anchor, color: cyan] {
-  id uint PK
-  code string
-  name string
-  description string
-  status string
-  userId uint FK
-  createdAt timestamp
-  updatedAt timestamp
-}
+  VEHICLES {
+    uint id PK
+    string code
+    string api_key
+    string name
+    text description
+    int battery_count
+    decimal battery_total_capacity_ah
+    string status
+    string connection_status
+    timestamp last_connected
+    uint user_id FK
+    timestamp created_at
+    timestamp updated_at
+  }
 
-vehicle_batteries [icon: battery-charging, color: green] {
-  id uint PK
-  vehicleId uint FK
-  batteryId int
-  percentage decimal
-  voltage decimal
-  current decimal
-  status string
-  temperature decimal
-  createdAt timestamp
-}
+  VEHICLE_BATTERIES {
+    uint id PK
+    uint vehicle_id FK
+    int battery_id
+    decimal percentage
+    decimal voltage
+    decimal current
+    string status
+    decimal temperature
+    jsonb cell_voltages
+    jsonb metadata
+    timestamp created_at
+  }
 
-sensor_types [icon: layers, color: indigo] {
-  id uint PK
-  name string
-  description string
-  createdAt timestamp
-  updatedAt timestamp
-}
+  SENSOR_TYPES {
+    uint id PK
+    string name
+    string description
+    timestamp created_at
+    timestamp updated_at
+  }
 
-sensors [icon: wifi, color: teal] {
-  id uint PK
-  brand string
-  model string
-  code string
-  sensorTypeId uint FK
-  description string
-  isActive boolean
-  createdAt timestamp
-  updatedAt timestamp
-}
+  SENSORS {
+    uint id PK
+    string brand
+    string model
+    string code
+    uint sensor_type_id FK
+    text description
+    boolean is_active
+    timestamp created_at
+    timestamp updated_at
+  }
 
-vehicle_sensors [icon: link-2, color: gray] {
-  id uint PK
-  vehicleId uint FK
-  sensorId uint FK
-  status string
-  lastReading string
-  lastReadingTime timestamp
-  createdAt timestamp
-  updatedAt timestamp
-}
+  VEHICLE_SENSORS {
+    uint id PK
+    uint vehicle_id FK
+    uint sensor_id FK
+    string status
+    text last_reading
+    timestamp last_reading_time
+    timestamp created_at
+    timestamp updated_at
+  }
 
-missions [icon: map-pin, color: red] {
-  id uint PK
-  name string
-  description string
-  status string
-  vehicleId uint FK
-  waypoints jsonb
-  homeLocation jsonb
-  startTime timestamp
-  endTime timestamp
-  createdBy uint FK
-  createdAt timestamp
-  updatedAt timestamp
-}
+  MISSIONS {
+    uint id PK
+    string mission_code
+    string name
+    text description
+    string status
+    uint vehicle_id FK
+    jsonb waypoints
+    jsonb home_location
+    jsonb upload_parameters
+    timestamp start_time
+    timestamp end_time
+    decimal progress
+    decimal energy_consumed
+    decimal energy_budget
+    bigint time_elapsed
+    int current_waypoint
+    int completed_waypoint
+    int total_waypoints
+    decimal total_distance
+    decimal estimated_time
+    timestamp last_update_time
+    uint created_by FK
+    timestamp created_at
+    timestamp updated_at
+  }
 
-sensor_logs [icon: activity, color: green] {
-  id uint PK
-  vehicleId uint FK
-  sensorId uint FK
-  data jsonb
-  createdAt timestamp
-}
+  ALERTS {
+    uint id PK
+    uint vehicle_id FK
+    uint sensor_id FK
+    string severity
+    string alert_type
+    text message
+    numeric latitude
+    numeric longitude
+    boolean acknowledged
+    string source
+    timestamp created_at
+    timestamp updated_at
+  }
 
-vehicle_logs [icon: compass, color: blue] {
-  id uint PK
-  vehicleId uint FK
-  batteryVoltage decimal
-  batteryCurrent decimal
-  rssi int
-  mode string
-  latitude decimal
-  longitude decimal
-  altitude decimal
-  heading decimal
-  armed boolean
-  gpsOk boolean
-  systemStatus string
-  speed decimal
-  roll decimal
-  pitch decimal
-  yaw decimal
-  temperatureSystem string
-  createdAt timestamp
-}
+  NOTIFICATIONS {
+    uint id PK
+    uint user_id FK
+    uint vehicle_id FK
+    string type
+    string title
+    text message
+    string action
+    boolean read
+    string source
+    timestamp created_at
+    timestamp updated_at
+  }
 
-raw_logs [icon: file-text, color: yellow] {
-  id uint PK
-  vehicleId uint FK
-  logs text
-  createdAt timestamp
-}
+  COMMAND_LOGS {
+    uint id PK
+    uint vehicle_id FK
+    string vehicle_code
+    string command
+    string status
+    text message
+    timestamp initiated_at
+    timestamp resolved_at
+    timestamp created_at
+  }
 
-# Relationships
-users.roleId > roles.id
-vehicles.userId > users.id
-vehicle_batteries.vehicleId > vehicles.id
-sensors.sensorTypeId > sensor_types.id
-vehicle_sensors.vehicleId > vehicles.id
-vehicle_sensors.sensorId > sensors.id
-missions.vehicleId > vehicles.id
-missions.createdBy > users.id
-sensor_logs.vehicleId > vehicles.id
-sensor_logs.sensorId > sensors.id
-vehicle_logs.vehicleId > vehicles.id
-raw_logs.vehicleId > vehicles.id
-roles.permissions <> permissions.roles
+  THRUSTER_COMMANDS {
+    uint id PK
+    uint vehicle_id FK
+    string vehicle_code
+    int throttle
+    int steering
+    timestamp initiated_at
+    timestamp expires_at
+    timestamp created_at
+  }
+
+  WAYPOINT_LOGS {
+    uint id PK
+    uint vehicle_id FK
+    string vehicle_code
+    uint mission_id FK
+    string mission_name
+    int waypoint_count
+    string status
+    text message
+    timestamp initiated_at
+    timestamp resolved_at
+    timestamp created_at
+  }
+
+  SENSOR_LOGS {
+    uint id PK
+    uint vehicle_id FK
+    uint sensor_id FK
+    uint mission_id FK
+    string mission_code
+    jsonb data
+    timestamptz usv_timestamp
+    timestamptz mqtt_received_at
+    timestamp created_at
+  }
+
+  VEHICLE_LOGS {
+    uint id PK
+    uint vehicle_id FK
+    uint mission_id FK
+    string mission_code
+    numeric battery_voltage
+    numeric battery_current
+    numeric battery_percentage
+    int rssi
+    string mode
+    numeric latitude
+    numeric longitude
+    numeric altitude
+    numeric heading
+    boolean armed
+    boolean gps_ok
+    string system_status
+    numeric speed
+    numeric roll
+    numeric pitch
+    numeric yaw
+    string temperature_system
+    timestamptz usv_timestamp
+    timestamptz mqtt_received_at
+    timestamp created_at
+  }
+
+  RAW_LOGS {
+    uint id PK
+    uint vehicle_id FK
+    text logs
+    timestamp created_at
+  }
+
+  ROLES ||--o{ USERS : has
+  ROLES ||--o{ ROLE_PERMISSIONS : assigns
+  PERMISSIONS ||--o{ ROLE_PERMISSIONS : grants
+
+  USERS ||--o{ VEHICLES : owns
+  USERS ||--o{ NOTIFICATIONS : receives
+  USERS ||--o{ MISSIONS : creates
+
+  VEHICLES ||--o{ VEHICLE_BATTERIES : has
+  VEHICLES ||--o{ VEHICLE_SENSORS : has
+  VEHICLES ||--o{ MISSIONS : runs
+  VEHICLES ||--o{ ALERTS : emits
+  VEHICLES ||--o{ NOTIFICATIONS : context
+  VEHICLES ||--o{ COMMAND_LOGS : logs
+  VEHICLES ||--o{ THRUSTER_COMMANDS : commands
+  VEHICLES ||--o{ WAYPOINT_LOGS : uploads
+  VEHICLES ||--o{ SENSOR_LOGS : reads
+  VEHICLES ||--o{ VEHICLE_LOGS : telemetry
+  VEHICLES ||--o{ RAW_LOGS : raw
+
+  SENSOR_TYPES ||--o{ SENSORS : classifies
+  SENSORS ||--o{ VEHICLE_SENSORS : installed
+  SENSORS ||--o{ ALERTS : source
+  SENSORS ||--o{ SENSOR_LOGS : measures
+
+  MISSIONS ||--o{ WAYPOINT_LOGS : includes
+  MISSIONS ||--o{ SENSOR_LOGS : tags
+  MISSIONS ||--o{ VEHICLE_LOGS : tags
 ```
 
 ## Features
