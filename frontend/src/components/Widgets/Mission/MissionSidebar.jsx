@@ -20,6 +20,7 @@ import {
   useVehicleConnectionStatus,
 } from "../../../hooks";
 import useNotify from "../../../hooks/useNotify";
+import useTranslation from "../../../hooks/useTranslation";
 import MissionUploadModal from "./MissionUploadModal";
 
 const MissionSidebar = ({
@@ -56,13 +57,11 @@ const MissionSidebar = ({
   const [showClearModal, setShowClearModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadVehicleId, setUploadVehicleId] = useState(null);
+  const { t } = useTranslation();
 
   // Upload hooks
-  const {
-    uploadState,
-    uploadMissionToVehicle,
-    resetUploadState,
-  } = useMissionUpload();
+  const { uploadState, uploadMissionToVehicle, resetUploadState } =
+    useMissionUpload();
 
   const { vehicles } = useVehicleData();
   const { getVehicleStatus } = useVehicleConnectionStatus();
@@ -164,9 +163,7 @@ const MissionSidebar = ({
       Math.abs(firstWaypoint.lat - homeWaypoint.lat) < 0.000001 &&
       Math.abs(firstWaypoint.lng - homeWaypoint.lng) < 0.000001;
 
-    return firstIsHome
-      ? missionWaypoints
-      : [homeWaypoint, ...missionWaypoints];
+    return firstIsHome ? missionWaypoints : [homeWaypoint, ...missionWaypoints];
   };
 
   // Handle upload to vehicle button click
@@ -583,13 +580,13 @@ const MissionSidebar = ({
       {/* Mission Header */}
       <div className="mb-6">
         <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-3">
-          Mission Planner
+          {t("missionComponents.sidebar.title")}
         </h2>
 
         {/* Vehicle Selection - Added at the top */}
         <div className="mb-4">
           <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
-            Select Vehicle
+            {t("missionComponents.sidebar.selectVehicle")}
           </label>
           <Dropdown
             items={vehicles.map((v) => ({
@@ -605,7 +602,7 @@ const MissionSidebar = ({
               setSelectedVehicleId(vehicle.id.toString());
               // Vehicle selected - no toast needed, UI shows selection
             }}
-            placeholder="Choose a vehicle"
+            placeholder={t("missionComponents.sidebar.chooseVehicle")}
             getItemKey={(item) => item.id}
             renderSelectedItem={(vehicle) => (
               <>
@@ -673,7 +670,7 @@ const MissionSidebar = ({
             }`}
           >
             <FaPlus size={12} />
-            New Mission
+            {t("missionComponents.sidebar.newMission")}
           </button>
           <button
             onClick={handleLoadMission}
@@ -692,12 +689,12 @@ const MissionSidebar = ({
       {/* Mission Info */}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-          Mission Info
+          {t("missionComponents.sidebar.missionInfo")}
         </h3>
         <div className="bg-white dark:bg-black p-4 rounded-2xl border border-gray-200 dark:border-slate-600 space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              Name
+              {t("missionComponents.sidebar.name")}
             </span>
             <span className="text-sm font-medium text-gray-800 dark:text-white">
               {activeMission ? activeMission.name : "--"}
@@ -705,7 +702,7 @@ const MissionSidebar = ({
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              Status
+              {t("missionComponents.sidebar.status")}
             </span>
             {activeMission ? (
               <span
@@ -728,13 +725,13 @@ const MissionSidebar = ({
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              Waypoints
+              {t("missionComponents.sidebar.waypoints")}
             </span>
             <span className="text-sm font-medium text-gray-800 dark:text-white flex items-center gap-1">
               <FaMapMarkerAlt size={10} className="text-[#018190]" />
               {activeMission
-                ? `${activeMission.waypoints || 0} points`
-                : "-- points"}
+                ? `${activeMission.waypoints || 0} ${t("missionComponents.sidebar.points")}`
+                : `-- ${t("missionComponents.sidebar.points")}`}
             </span>
           </div>
 
@@ -745,7 +742,7 @@ const MissionSidebar = ({
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                     <FaRoute size={10} className="text-[#018190]" />
-                    Total Distance
+                    {t("missionComponents.sidebar.totalDistance")}
                   </span>
                   <span className="text-sm font-medium text-gray-800 dark:text-white">
                     {missionStats.distanceFormatted || "-- km"}
@@ -754,7 +751,7 @@ const MissionSidebar = ({
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                     <FaPlay size={10} className="text-[#018190]" />
-                    Est. Time
+                    {t("missionComponents.sidebar.estTime")}
                   </span>
                   <span className="text-sm font-medium text-gray-800 dark:text-white">
                     {missionStats.timeFormatted || "-- min"}
@@ -763,7 +760,7 @@ const MissionSidebar = ({
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                     <FaCog size={10} className="text-[#018190]" />
-                    Battery Usage
+                    {t("missionComponents.sidebar.batteryUsage")}
                   </span>
                   <span className="text-sm font-medium text-gray-800 dark:text-white">
                     {missionStats.battery}%
@@ -783,13 +780,13 @@ const MissionSidebar = ({
                 size={12}
               />
               <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
-                Edit Mode Active
+                {t("missionComponents.sidebar.editModeActive")}
               </span>
             </div>
             <div className="text-xs text-orange-600 dark:text-orange-400 space-y-1">
-              <div>• Drag markers to move waypoints</div>
-              <div>• Click marker popup to edit parameters</div>
-              <div>• Click "Finish Editing" when done</div>
+              <div>• {t("missionComponents.sidebar.editModeHint1")}</div>
+              <div>• {t("missionComponents.sidebar.editModeHint2")}</div>
+              <div>• {t("missionComponents.sidebar.editModeHint3")}</div>
             </div>
           </div>
         )}
@@ -798,7 +795,7 @@ const MissionSidebar = ({
       {/* Home Location */}
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-          Home Location
+          {t("missionComponents.sidebar.homeLocation")}
         </h3>
         {homeLocation ? (
           <div className="bg-white dark:bg-black p-4 rounded-2xl border border-green-200 dark:border-green-800">
@@ -809,7 +806,7 @@ const MissionSidebar = ({
                   size={12}
                 />
                 <span className="text-xs font-medium text-green-600 dark:text-green-400">
-                  Location Set
+                  {t("missionComponents.sidebar.locationSet")}
                 </span>
               </div>
               <button
@@ -832,12 +829,12 @@ const MissionSidebar = ({
             <div className="flex items-center gap-2 mb-2">
               <FaHome className="text-red-600 dark:text-red-400" size={12} />
               <span className="text-xs font-medium text-red-600 dark:text-red-400">
-                Not Set
+                {t("missionComponents.sidebar.notSet")}
               </span>
             </div>
             <div className="text-sm text-red-700 dark:text-red-300">
-              Click <FaHome className="inline text-[#018190]" size={12} /> then
-              click on map
+              Click <FaHome className="inline text-[#018190]" size={12} />{" "}
+              {t("missionComponents.sidebar.homeClickHint")}
             </div>
           </div>
         )}
@@ -853,8 +850,16 @@ const MissionSidebar = ({
             <div className="w-40">
               <Dropdown
                 items={[
-                  { id: "path", name: "Path Planning", icon: "route" },
-                  { id: "zone", name: "Zone Planning", icon: "square" },
+                  {
+                    id: "path",
+                    name: t("missionComponents.sidebar.pathPlanning"),
+                    icon: "route",
+                  },
+                  {
+                    id: "zone",
+                    name: t("missionComponents.sidebar.zonePlanning"),
+                    icon: "square",
+                  },
                 ]}
                 selectedItem={planningMode}
                 onItemChange={(item) => setPlanningMode(item.id)}
@@ -944,21 +949,19 @@ const MissionSidebar = ({
                   size={32}
                 />
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                  No waypoints added
+                  {t("missionComponents.sidebar.noWaypoints")}
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">
                   {!activeMission
-                    ? "Create or load a mission first"
+                    ? t("missionComponents.sidebar.noMissionFirst")
                     : !homeLocation
-                      ? "Set home location first before planning"
+                      ? t("missionComponents.sidebar.setHomeFirst")
                       : hasGeneratedWaypoints ||
                           waypoints.some((wp) => wp.type === "path")
-                        ? "Waypoints generated. Drawing tools disabled. Use 'Clear All Waypoints' to restart planning."
-                        : `Draw ${
-                            planningMode === "path"
-                              ? "polyline for route"
-                              : "polygon/rectangle for area"
-                          } on map`}
+                        ? t("missionComponents.sidebar.waypointsGeneratedHint")
+                        : planningMode === "path"
+                          ? t("missionComponents.sidebar.drawPolyline")
+                          : t("missionComponents.sidebar.drawPolygon")}
                 </p>
               </div>
             </div>
@@ -986,11 +989,11 @@ const MissionSidebar = ({
           >
             <FaCog size={12} />
             {!homeLocation
-              ? "Set Home Location First"
+              ? t("missionComponents.sidebar.setHomeFirst2")
               : hasGeneratedWaypoints ||
                   waypoints.some((wp) => wp.type === "path")
-                ? "Waypoints Generated"
-                : "Generate Waypoints"}
+                ? t("missionComponents.sidebar.waypointsGenerated")
+                : t("missionComponents.sidebar.generateWaypoints")}
           </button>
         )}
 
@@ -1005,7 +1008,9 @@ const MissionSidebar = ({
             }`}
           >
             <FaEdit size={12} />
-            {isEditingWaypoints ? "Finish Editing" : "Edit Waypoints"}
+            {isEditingWaypoints
+              ? t("missionComponents.sidebar.finishEditing")
+              : t("missionComponents.sidebar.editWaypoints")}
           </button>
         )}
 
@@ -1018,7 +1023,7 @@ const MissionSidebar = ({
               className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               <FaTrash size={12} />
-              Clear All Waypoints
+              {t("missionComponents.sidebar.clearAllWaypoints")}
             </button>
           )}
 
@@ -1036,7 +1041,7 @@ const MissionSidebar = ({
           ) : (
             <>
               <FaSave size={12} />
-              Save Mission
+              {t("missionComponents.sidebar.saveMission")}
             </>
           )}
         </button>
@@ -1050,14 +1055,14 @@ const MissionSidebar = ({
           }`}
           title={
             !activeMission
-              ? "No active mission"
+              ? t("missionComponents.sidebar.noWaypoints")
               : !activeMission.id
-                ? "Save mission first"
-                : "Upload mission to vehicle"
+                ? t("missionComponents.sidebar.saveMission")
+                : t("missionComponents.sidebar.uploadToVehicle")
           }
         >
           <FaUpload size={12} />
-          Upload to Vehicle
+          {t("missionComponents.sidebar.uploadToVehicle")}
         </button>
       </div>
 
@@ -1070,10 +1075,10 @@ const MissionSidebar = ({
             handleClearWaypoints();
             setShowClearModal(false);
           }}
-          title="Clear All Waypoints"
-          message="Are you sure you want to clear all waypoints? This will allow you to start planning again."
-          confirmText="Clear"
-          cancelText="Cancel"
+          title={t("missionComponents.sidebar.clearConfirmTitle")}
+          message={t("missionComponents.sidebar.clearConfirmMessage")}
+          confirmText={t("missionComponents.sidebar.clear")}
+          cancelText={t("missionComponents.sidebar.cancel")}
           type="danger"
         />,
         document.body,

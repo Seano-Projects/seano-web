@@ -1,8 +1,9 @@
+import { useState } from "react";
 import useTitle from "../hooks/useTitle";
 import useNotificationData from "../hooks/useNotificationData";
 import { Title } from "../components/ui";
 import { WidgetCard } from "../components/Widgets";
-import { DataTable } from "../components/ui";
+import { DataTable, ConfirmModal } from "../components/ui";
 import { WidgetCardSkeleton } from "../components/Skeleton";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
 import {
@@ -16,6 +17,7 @@ import {
   FaCheck,
   FaTrash,
 } from "react-icons/fa";
+import { toast } from "../components/ui";
 import useTranslation from "../hooks/useTranslation";
 
 const Notification = () => {
@@ -29,6 +31,9 @@ const Notification = () => {
     });
     return text;
   };
+
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const {
     notifications,
@@ -278,6 +283,49 @@ const Notification = () => {
           title={t("pages.notifications.title")}
           subtitle={t("pages.notifications.subtitle")}
         />
+        <div className="flex items-center gap-3">
+          {stats.unread > 0 && (
+            <button
+              type="button"
+              onClick={markAllAsRead}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              <FaCheck />
+              {t("pages.notifications.dropdown.markAllRead")}
+            </button>
+          )}
+          {hasReadNotifications && (
+            <button
+              type="button"
+              onClick={() => setShowClearModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
+            >
+              <FaTrash />
+              {t("pages.notifications.dropdown.clearRead")}
+            </button>
+          )}
+          <ConfirmModal
+            isOpen={showClearModal}
+            onClose={() => setShowClearModal(false)}
+            onConfirm={async () => {
+              setIsClearing(true);
+              const result = await clearRead();
+              setIsClearing(false);
+              setShowClearModal(false);
+              if (result?.success) {
+                toast.success("Read notifications cleared successfully");
+              } else {
+                toast.error("Failed to clear read notifications");
+              }
+            }}
+            title={t("common.confirm")}
+            message="Delete all read notifications? This cannot be undone."
+            confirmText={t("pages.notifications.dropdown.clearRead")}
+            cancelText={t("common.cancel")}
+            type="danger"
+            isLoading={isClearing}
+          />
+        </div>
       </div>
 
       {/* Widget Cards */}
@@ -291,37 +339,9 @@ const Notification = () => {
 
       {/* Notifications Table */}
       <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {t("pages.notifications.history")}
-          </h2>
-          <div className="flex items-center gap-2">
-            {stats.unread > 0 && (
-              <button
-                type="button"
-                onClick={markAllAsRead}
-                className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
-              >
-                {t("pages.notifications.dropdown.markAllRead")}
-              </button>
-            )}
-            {hasReadNotifications && (
-              <button
-                type="button"
-                onClick={clearRead}
-                className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-full text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors"
-              >
-                <FaTrash className="text-xs" />
-                {t("pages.notifications.dropdown.clearRead")}
-              </button>
-            )}
-            {stats.unread > 0 && (
-              <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium">
-                {stats.unread} {t("pages.notifications.unread")}
-              </span>
-            )}
-          </div>
-        </div>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+          {t("pages.notifications.history")}
+        </h2>
 
         <DataTable
           columns={columns}

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useMissionData from "../../../hooks/useMissionData";
+import useTranslation from "../../../hooks/useTranslation";
 import { DataTable, ConfirmModal } from "../../ui";
 import DataCard from "../DataCard";
 import { FaColumns, FaEdit, FaEye, FaTrash } from "react-icons/fa";
@@ -27,17 +28,17 @@ const DEFAULT_VISIBLE = new Set([
   "created",
 ]);
 
-const COLUMN_LABELS = {
-  name: "Mission Name",
-  status: "Status",
-  vehicle: "Vehicle",
-  waypoints: "Waypoints",
-  progress: "Progress",
-  energy: "Energy",
-  totalDistance: "Distance",
-  estimatedTime: "Est. Time",
-  duration: "Duration",
-  created: "Created",
+const COLUMN_LABEL_KEYS = {
+  name: "missionComponents.table.colName",
+  status: "missionComponents.table.colStatus",
+  vehicle: "missionComponents.table.colVehicle",
+  waypoints: "missionComponents.table.colWaypoints",
+  progress: "missionComponents.table.colProgress",
+  energy: "missionComponents.table.colEnergy",
+  totalDistance: "missionComponents.table.colDistance",
+  estimatedTime: "missionComponents.table.colEstTime",
+  duration: "missionComponents.table.colDuration",
+  created: "missionComponents.table.colCreated",
 };
 
 const MAX_COLUMNS = 5;
@@ -45,6 +46,7 @@ const MAX_COLUMNS = 5;
 const MissionTable = () => {
   const { missionData, loading, formatTimeElapsed, deleteMission } =
     useMissionData();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState("All");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -183,7 +185,7 @@ const MissionTable = () => {
   // Define all columns for DataTable
   const allColumns = [
     {
-      header: "Mission Name",
+      header: t("missionComponents.table.colName"),
       accessorKey: "name",
       cell: (row) => (
         <div className="font-medium text-gray-900 dark:text-white">
@@ -192,12 +194,12 @@ const MissionTable = () => {
       ),
     },
     {
-      header: "Status",
+      header: t("missionComponents.table.colStatus"),
       accessorKey: "status",
       cell: (row) => getStatusBadge(row.status),
     },
     {
-      header: "Vehicle",
+      header: t("missionComponents.table.colVehicle"),
       accessorKey: "vehicle",
       cell: (row) => (
         <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -208,7 +210,7 @@ const MissionTable = () => {
       ),
     },
     {
-      header: "Waypoints",
+      header: t("missionComponents.table.colWaypoints"),
       accessorKey: "waypoints",
       className: "text-right",
       cellClassName: "text-right",
@@ -219,7 +221,7 @@ const MissionTable = () => {
       ),
     },
     {
-      header: "Progress",
+      header: t("missionComponents.table.colProgress"),
       accessorKey: "progress",
       className: "text-right",
       cellClassName: "text-right",
@@ -230,7 +232,7 @@ const MissionTable = () => {
       ),
     },
     {
-      header: "Energy",
+      header: t("missionComponents.table.colEnergy"),
       accessorKey: "energy",
       className: "text-right",
       cellClassName: "text-right",
@@ -241,7 +243,7 @@ const MissionTable = () => {
       ),
     },
     {
-      header: "Distance",
+      header: t("missionComponents.table.colDistance"),
       accessorKey: "totalDistance",
       className: "text-right",
       cellClassName: "text-right",
@@ -252,7 +254,7 @@ const MissionTable = () => {
       ),
     },
     {
-      header: "Est. Time",
+      header: t("missionComponents.table.colEstTime"),
       accessorKey: "estimatedTime",
       className: "text-right",
       cellClassName: "text-right",
@@ -263,7 +265,7 @@ const MissionTable = () => {
       ),
     },
     {
-      header: "Duration",
+      header: t("missionComponents.table.colDuration"),
       accessorKey: "duration",
       className: "text-right",
       cellClassName: "text-right",
@@ -274,7 +276,7 @@ const MissionTable = () => {
       ),
     },
     {
-      header: "Created",
+      header: t("missionComponents.table.colCreated"),
       accessorKey: "created",
       cell: (row) => (
         <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -285,7 +287,7 @@ const MissionTable = () => {
   ];
 
   const actionsColumn = {
-    header: "Actions",
+    header: t("missionComponents.table.colActions"),
     accessorKey: "actions",
     className: "text-center w-32",
     cellClassName: "text-center whitespace-nowrap",
@@ -323,7 +325,13 @@ const MissionTable = () => {
   ];
 
   // Get unique statuses for filter buttons
-  const statuses = ["All", "Draft", "Ongoing", "Completed", "Failed"];
+  const statuses = [
+    { key: "All", label: t("missionComponents.table.all") },
+    { key: "Draft", label: t("missionComponents.table.draft") },
+    { key: "Ongoing", label: t("missionComponents.table.ongoing") },
+    { key: "Completed", label: t("missionComponents.table.completed") },
+    { key: "Failed", label: t("missionComponents.table.failed") },
+  ];
 
   const columnToggle = (
     <div className="relative" ref={dropdownRef}>
@@ -333,7 +341,7 @@ const MissionTable = () => {
         className="inline-flex items-center gap-2 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-transparent px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-slate-700"
       >
         <FaColumns className="text-gray-500 dark:text-gray-400" />
-        Columns
+        {t("missionComponents.table.columns")}
         <span
           className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
             visibleKeys.size >= MAX_COLUMNS
@@ -350,19 +358,22 @@ const MissionTable = () => {
           <div className="border-b border-gray-200 dark:border-slate-600 px-3 py-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Toggle Columns
+                {t("missionComponents.table.toggleColumns")}
               </span>
               <button
                 type="button"
                 onClick={() => setVisibleKeys(new Set(DEFAULT_VISIBLE))}
                 className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
               >
-                Reset
+                {t("missionComponents.table.reset")}
               </button>
             </div>
             {visibleKeys.size >= MAX_COLUMNS && (
               <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
-                Maksimum {MAX_COLUMNS} kolom tercapai
+                {t("missionComponents.table.maxColumnsReached").replace(
+                  "{{max}}",
+                  MAX_COLUMNS,
+                )}
               </p>
             )}
           </div>
@@ -386,7 +397,7 @@ const MissionTable = () => {
                     onChange={() => toggleColumn(key)}
                     className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
                   />
-                  {COLUMN_LABELS[key]}
+                  {t(COLUMN_LABEL_KEYS[key])}
                 </label>
               );
             })}
@@ -397,20 +408,23 @@ const MissionTable = () => {
   );
 
   return (
-    <DataCard title="Mission Details" headerExtra={columnToggle}>
+    <DataCard
+      title={t("missionComponents.table.title")}
+      headerExtra={columnToggle}
+    >
       {/* Status Filter Buttons */}
       <div className="mb-4 flex flex-wrap gap-2">
-        {statuses.map((status) => (
+        {statuses.map((s) => (
           <button
-            key={status}
-            onClick={() => setFilterStatus(status)}
+            key={s.key}
+            onClick={() => setFilterStatus(s.key)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filterStatus === status
+              filterStatus === s.key
                 ? "bg-blue-600 text-white"
                 : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
             }`}
           >
-            {status}
+            {s.label}
           </button>
         ))}
       </div>
@@ -419,11 +433,11 @@ const MissionTable = () => {
       <DataTable
         columns={columns}
         data={filteredData}
-        searchPlaceholder="Search missions by name, vehicle, or status..."
+        searchPlaceholder={t("missionComponents.table.searchPlaceholder")}
         searchKeys={["name", "vehicle", "status"]}
         pageSize={10}
         showPagination={true}
-        emptyMessage="No missions found."
+        emptyMessage={t("missionComponents.table.noMissions")}
         loading={loading}
         skeletonRows={5}
       />
@@ -433,14 +447,17 @@ const MissionTable = () => {
         isOpen={showDeleteModal}
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
-        title="Delete Mission"
+        title={t("missionComponents.table.deleteTitle")}
         message={
           selectedMission
-            ? `Are you sure you want to delete mission "${selectedMission.name}"? This action cannot be undone.`
-            : "Are you sure you want to delete this mission?"
+            ? t("missionComponents.table.deleteConfirm").replace(
+                "{{name}}",
+                selectedMission.name,
+              )
+            : t("missionComponents.table.deleteConfirmGeneric")
         }
-        confirmText="Delete"
-        cancelText="Cancel"
+        confirmText={t("missionComponents.table.delete")}
+        cancelText={t("missionComponents.table.cancel")}
         type="danger"
         isLoading={isDeleting}
       />

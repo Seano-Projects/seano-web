@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import useMissionData from "../../../hooks/useMissionData";
+import useTranslation from "../../../hooks/useTranslation";
 import { LoadingDots, Modal } from "../../ui";
 
 const MissionModals = ({
@@ -12,6 +13,7 @@ const MissionModals = ({
   isCreatingMission,
 }) => {
   const { missionData, loading, fetchMissionData } = useMissionData();
+  const { t } = useTranslation();
 
   // Fetch mission data when Load Mission modal opens
   useEffect(() => {
@@ -26,7 +28,7 @@ const MissionModals = ({
       <Modal
         isOpen={showNewMissionModal}
         onClose={() => setShowNewMissionModal(false)}
-        title="Create New Mission"
+        title={t("missionComponents.modals.createTitle")}
         size="md"
       >
         <form
@@ -42,24 +44,26 @@ const MissionModals = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Mission Name *
+                {t("missionComponents.modals.missionNameRequired")}
               </label>
               <input
                 type="text"
                 name="name"
                 required
-                placeholder="Enter mission name"
+                placeholder={t("missionComponents.modals.namePlaceholder")}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#018190] focus:border-transparent"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Description
+                {t("missionComponents.modals.description")}
               </label>
               <textarea
                 name="description"
                 rows="3"
-                placeholder="Enter mission description"
+                placeholder={t(
+                  "missionComponents.modals.descriptionPlaceholder",
+                )}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#018190] focus:border-transparent resize-none"
               />
             </div>
@@ -71,7 +75,7 @@ const MissionModals = ({
               disabled={isCreatingMission}
               className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-slate-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Cancel
+              {t("missionComponents.modals.cancel")}
             </button>
             <button
               type="submit"
@@ -81,7 +85,7 @@ const MissionModals = ({
               {isCreatingMission ? (
                 <LoadingDots size="sm" color="white" />
               ) : (
-                "Create Mission"
+                t("missionComponents.modals.createButton")
               )}
             </button>
           </div>
@@ -92,7 +96,7 @@ const MissionModals = ({
       <Modal
         isOpen={showLoadMissionModal}
         onClose={() => setShowLoadMissionModal(false)}
-        title="Load Mission"
+        title={t("missionComponents.modals.loadTitle")}
         size="md"
       >
         {loading ? (
@@ -101,7 +105,7 @@ const MissionModals = ({
           </div>
         ) : missionData.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            No missions found. Create a new mission to get started.
+            {t("missionComponents.modals.noMissions")}
           </div>
         ) : (
           <div className="custom-scrollbar max-h-[55dvh] space-y-3 overflow-y-auto sm:max-h-64">
@@ -119,7 +123,7 @@ const MissionModals = ({
                     {Array.isArray(mission.waypoints)
                       ? mission.waypoints.length
                       : 0}{" "}
-                    pts
+                    {t("missionComponents.modals.pts")}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -129,7 +133,7 @@ const MissionModals = ({
                       : "N/A"}
                   </span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                    {mission.status || "Draft"}
+                    {mission.status || t("missionComponents.modals.draft")}
                   </span>
                 </div>
               </div>
@@ -141,7 +145,7 @@ const MissionModals = ({
             onClick={() => setShowLoadMissionModal(false)}
             className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-slate-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
           >
-            Cancel
+            {t("missionComponents.modals.cancel")}
           </button>
         </div>
       </Modal>

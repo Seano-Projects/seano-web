@@ -246,9 +246,15 @@ export const useAlertData = () => {
 
       setAlerts([])
       setStats({ critical: 0, warning: 0, info: 0, total: 0 })
-      return true
+      return { success: true }
     } catch (err) {
-      return false
+      console.error("Failed to clear alerts:", err?.response?.data || err.message || err)
+      const message =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Unknown error"
+      return { success: false, error: message }
     }
   }, [])
 

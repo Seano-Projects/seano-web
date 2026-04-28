@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { FaShip, FaFilter } from "react-icons/fa";
 import { VehicleDropdown, DatePickerField, Dropdown } from "../index";
 import useMissionData from "../../../hooks/useMissionData";
+import useTranslation from "../../../hooks/useTranslation";
 
 const normalizeStatus = (status) => {
   if (!status) return "";
@@ -33,6 +34,7 @@ const MissionLogs = ({
 }) => {
   const { missionData, loading, formatTimeElapsed, getEnergyStatus } =
     useMissionData();
+  const { t } = useTranslation();
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [currentPage, setCurrentPage] = useState(1);
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
@@ -101,12 +103,21 @@ const MissionLogs = ({
 
   const statusOptions = useMemo(
     () => [
-      { value: "All Status", label: "Semua Status" },
-      { value: "Ongoing", label: `Ongoing (${statusCounts.Ongoing})` },
-      { value: "Completed", label: `Completed (${statusCounts.Completed})` },
-      { value: "Failed", label: `Failed (${statusCounts.Failed})` },
+      { value: "All Status", label: t("missionComponents.logs.allStatus") },
+      {
+        value: "Ongoing",
+        label: `${t("missionComponents.stats.ongoing")} (${statusCounts.Ongoing})`,
+      },
+      {
+        value: "Completed",
+        label: `${t("missionComponents.stats.completed")} (${statusCounts.Completed})`,
+      },
+      {
+        value: "Failed",
+        label: `${t("missionComponents.stats.failed")} (${statusCounts.Failed})`,
+      },
     ],
-    [statusCounts],
+    [statusCounts, t],
   );
 
   const getStatusColor = (status) => {
@@ -217,7 +228,7 @@ const MissionLogs = ({
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h3 className="text-xl font-semibold text-black dark:text-white">
-            Mission Logs
+            {t("missionComponents.logs.title")}
           </h3>
           <div className="flex flex-wrap items-center gap-2">
             {/* Filter Tabs */}
@@ -241,7 +252,11 @@ const MissionLogs = ({
               <button
                 type="button"
                 onClick={() => setFilterPopoverOpen((o) => !o)}
-                title={filterPopoverOpen ? "Tutup filter" : "Buka filter"}
+                title={
+                  filterPopoverOpen
+                    ? t("missionComponents.logs.closeFilter")
+                    : t("missionComponents.logs.openFilter")
+                }
                 className={`p-2 rounded-lg transition-colors ${filterPopoverOpen ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"}`}
               >
                 <FaFilter className="text-lg" />
@@ -256,7 +271,7 @@ const MissionLogs = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                  Status
+                  {t("missionComponents.logs.status")}
                 </label>
                 <Dropdown
                   items={statusOptions}
@@ -264,7 +279,7 @@ const MissionLogs = ({
                     statusOptions.find((o) => o.value === statusFilter) || null
                   }
                   onItemChange={(item) => setStatusFilter(item.value)}
-                  placeholder="Pilih status"
+                  placeholder={t("missionComponents.logs.selectStatus")}
                   getItemKey={(item) => item.value}
                   renderItem={(item) => (
                     <span className="text-gray-900 dark:text-white">
@@ -281,19 +296,19 @@ const MissionLogs = ({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                  Vessel
+                  {t("missionComponents.logs.vessel")}
                 </label>
                 <VehicleDropdown
                   vehicles={vehicles}
                   selectedVehicle={selectedVessel}
                   onVehicleChange={(v) => onVesselChange?.(v)}
-                  placeholder="Semua vessel"
+                  placeholder={t("missionComponents.logs.allVessels")}
                   className="text-sm"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                  Tanggal mulai
+                  {t("missionComponents.logs.startDate")}
                 </label>
                 <DatePickerField
                   value={startDate}
@@ -304,7 +319,7 @@ const MissionLogs = ({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                  Tanggal selesai
+                  {t("missionComponents.logs.endDate")}
                 </label>
                 <DatePickerField
                   value={endDate}
@@ -320,7 +335,7 @@ const MissionLogs = ({
                 onClick={resetAllFilters}
                 className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
               >
-                Reset semua filter
+                {t("missionComponents.logs.resetFilters")}
               </button>
             </div>
           </div>
@@ -331,11 +346,11 @@ const MissionLogs = ({
       <div className="space-y-4">
         {loading ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            Loading missions...
+            {t("missionComponents.logs.loading")}
           </div>
         ) : paginatedMissions.length === 0 ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            No missions found
+            {t("missionComponents.logs.noMissions")}
           </div>
         ) : (
           <div className="overflow-y-auto max-h-150 custom-scrollbar pr-3 space-y-3">
@@ -351,7 +366,7 @@ const MissionLogs = ({
                       {mission.id}: {mission.name}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Created: {mission.created}
+                      {t("missionComponents.logs.created")} {mission.created}
                     </div>
                   </div>
 
@@ -386,10 +401,10 @@ const MissionLogs = ({
                         <span className="text-sm font-medium text-black dark:text-white">
                           {mission.progress}%{" "}
                           {mission.status === "Completed"
-                            ? "Complete"
+                            ? t("missionComponents.logs.complete")
                             : mission.status === "Failed"
-                              ? "Progress"
-                              : "Complete"}
+                              ? t("missionComponents.logs.progress")
+                              : t("missionComponents.logs.complete")}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2.5">
@@ -422,9 +437,11 @@ const MissionLogs = ({
       {/* Pagination */}
       <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
         <div className="text-sm text-gray-600 dark:text-gray-400">
-          SHOWING {totalMissions === 0 ? 0 : startIndex + 1}-
-          {Math.min(endIndex, filteredMissions.length)} OF {totalMissions}{" "}
-          MISSIONS
+          {t("missionComponents.logs.showing")}{" "}
+          {totalMissions === 0 ? 0 : startIndex + 1}-
+          {Math.min(endIndex, filteredMissions.length)}{" "}
+          {t("missionComponents.logs.of")} {totalMissions}{" "}
+          {t("missionComponents.logs.missions")}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -436,7 +453,7 @@ const MissionLogs = ({
                 : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
             }`}
           >
-            Previous
+            {t("missionComponents.logs.previous")}
           </button>
           <button
             onClick={() =>
@@ -449,7 +466,7 @@ const MissionLogs = ({
                 : "bg-blue-600 text-white hover:bg-blue-700"
             }`}
           >
-            Next
+            {t("missionComponents.logs.next")}
           </button>
         </div>
       </div>

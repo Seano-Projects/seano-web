@@ -4,22 +4,24 @@ import { Title, toast } from "../../ui";
 import { Dropdown } from "../";
 import axios from "../../../utils/axiosConfig";
 import { API_ENDPOINTS } from "../../../config";
+import useTranslation from "../../../hooks/useTranslation";
 
 // Data type options for import/export
 const DATA_TYPES = [
-  { value: "raw_logs", label: "Raw Data Logs", endpoint: "RAW_LOGS" },
-  { value: "vehicle_logs", label: "Vehicle Logs", endpoint: "VEHICLE_LOGS" },
-  { value: "sensor_logs", label: "Sensor Logs", endpoint: "SENSOR_LOGS" },
   {
-    value: "alerts",
-    label: "Alerts (Anti-theft & Failsafe)",
-    endpoint: "ALERTS",
+    value: "vehicle_logs",
+    labelKey: "pages.data.types.vehicleLogs",
+    endpoint: "VEHICLE_LOGS",
   },
   {
-    value: "ctd_logs",
-    label: "CTD Logs",
-    endpoint: "CTD_LOGS",
-    disabled: true,
+    value: "sensor_logs",
+    labelKey: "pages.data.types.sensorLogs",
+    endpoint: "SENSOR_LOGS",
+  },
+  {
+    value: "battery_logs",
+    labelKey: "pages.data.types.batteryLogs",
+    endpoint: "BATTERY_LOGS",
   },
 ];
 
@@ -27,12 +29,18 @@ const DataHeader = ({
   onRefreshData = () => {},
   isRefreshing = false,
   lastRefresh = new Date(),
-  selectedDataType = "raw_logs",
+  selectedDataType = "vehicle_logs",
   onDataTypeChange = () => {},
 }) => {
+  const { t } = useTranslation();
   const fileInputRef = useRef(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const translatedDataTypes = DATA_TYPES.map((item) => ({
+    ...item,
+    label: t(item.labelKey),
+  }));
 
   const handleImport = () => {
     // Trigger file input click
@@ -45,7 +53,7 @@ const DataHeader = ({
 
     // Validate file type
     if (!file.name.endsWith(".csv")) {
-      toast.error("Please upload a CSV file");
+      toast.error(t("pages.data.messages.csvOnly"));
       return;
     }
 
@@ -54,7 +62,7 @@ const DataHeader = ({
       (dt) => dt.value === selectedDataType,
     );
     if (!dataTypeConfig) {
-      toast.error("Invalid data type selected");
+      toast.error(t("pages.data.messages.invalidDataType"));
       return;
     }
 
@@ -87,7 +95,9 @@ const DataHeader = ({
       e.target.value = "";
     } catch (error) {
       console.error("Import error:", error);
-      toast.error(error.response?.data?.error || "Failed to import CSV file");
+      toast.error(
+        error.response?.data?.error || t("pages.data.messages.importFailed"),
+      );
     } finally {
       setIsImporting(false);
     }
@@ -99,7 +109,7 @@ const DataHeader = ({
       (dt) => dt.value === selectedDataType,
     );
     if (!dataTypeConfig) {
-      toast.error("Invalid data type selected");
+      toast.error(t("pages.data.messages.invalidDataType"));
       return;
     }
 
@@ -138,7 +148,12 @@ const DataHeader = ({
       toast.success(`${dataTypeConfig.label} exported successfully!`);
     } catch (error) {
       console.error("Export error:", error);
-      toast.error(`Failed to export ${dataTypeConfig.label}`);
+      toast.error(
+        t("pages.data.messages.exportFailed").replace(
+          "{{type}}",
+          dataTypeConfig.label,
+        ),
+      );
     } finally {
       setIsExporting(false);
     }
@@ -157,19 +172,19 @@ const DataHeader = ({
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4">
-        <Title title="Data Management" />
+        <Title title={t("nav.dataManagement")} />
 
         {/* Action Controls */}
         <div className="flex items-center gap-3">
           {/* Data Type Selector */}
           <div className="w-64">
             <Dropdown
-              items={DATA_TYPES.filter((type) => !type.disabled)}
-              selectedItem={DATA_TYPES.find(
+              items={translatedDataTypes.filter((type) => !type.disabled)}
+              selectedItem={translatedDataTypes.find(
                 (t) => t.value === selectedDataType,
               )}
               onItemChange={(item) => onDataTypeChange(item.value)}
-              placeholder="Select data type"
+              placeholder={t("pages.data.filters.selectDataType")}
               getItemKey={(item) => item.value}
               renderSelectedItem={(item) => (
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -197,8 +212,8 @@ const DataHeader = ({
               }`}
               title={
                 isRefreshing
-                  ? "Refreshing data..."
-                  : `Refresh Data (Last: ${lastRefresh.toLocaleTimeString()})`
+                  ? t("pages.data.actions.refreshing")
+                  : `${t("pages.data.actions.refreshData")} (${t("pages.data.actions.last")} ${lastRefresh.toLocaleTimeString()})`
               }
             >
               <FaSync
@@ -214,7 +229,7 @@ const DataHeader = ({
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-green-600 hover:bg-green-700"
               }`}
-              title="Import Data from CSV"
+              title={t("pages.data.actions.importCsv")}
             >
               <FaUpload
                 size={14}
@@ -229,7 +244,7 @@ const DataHeader = ({
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700"
               }`}
-              title="Export Data to CSV"
+              title={t("pages.data.actions.exportCsv")}
             >
               <FaDownload
                 size={14}

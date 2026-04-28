@@ -7,42 +7,44 @@ import {
   FaFileAlt,
 } from "react-icons/fa";
 import useMissionData from "../../../hooks/useMissionData";
+import useTranslation from "../../../hooks/useTranslation";
 
 const MissionStats = () => {
   const { stats, loading } = useMissionData();
+  const { t } = useTranslation();
 
   // Stats configuration dengan data dari API
   const statsConfig = [
     {
-      label: "Total Missions",
+      label: t("missionComponents.stats.totalMissions"),
       value: stats?.total || 0,
       icon: FaList,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
     },
     {
-      label: "Draft",
+      label: t("missionComponents.stats.draft"),
       value: stats?.draft || 0,
       icon: FaFileAlt,
       color: "text-gray-500",
       bgColor: "bg-gray-500/10",
     },
     {
-      label: "Completed",
+      label: t("missionComponents.stats.completed"),
       value: stats?.completed || 0,
       icon: FaCheckCircle,
       color: "text-green-500",
       bgColor: "bg-green-500/10",
     },
     {
-      label: "Ongoing",
+      label: t("missionComponents.stats.ongoing"),
       value: stats?.ongoing || 0,
       icon: FaClock,
       color: "text-orange-500",
       bgColor: "bg-orange-500/10",
     },
     {
-      label: "Failed",
+      label: t("missionComponents.stats.failed"),
       value: stats?.failed || 0,
       icon: FaTimesCircle,
       color: "text-red-500",

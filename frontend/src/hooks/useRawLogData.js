@@ -15,7 +15,6 @@ const useRawLogData = () => {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    let interval
     let loadingTimeout
 
     // Set maximum loading time of 5 seconds
@@ -87,16 +86,10 @@ const useRawLogData = () => {
     // Initial fetch
     fetchRawLogsStats()
 
-    // Set up polling every 30 seconds for real-time updates
-    interval = setInterval(() => {
-      fetchRawLogsStats()
-    }, 30000)
+    // No auto-polling on Data page — stats refresh on manual refresh only
 
     // Cleanup function
     return () => {
-      if (interval) {
-        clearInterval(interval)
-      }
       if (loadingTimeout) {
         clearTimeout(loadingTimeout)
       }

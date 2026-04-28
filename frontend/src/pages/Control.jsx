@@ -32,7 +32,10 @@ const normalizeStreamName = (rawValue = "") => {
   return `live/${normalized}`;
 };
 
-const normalizeText = (value) => String(value || "").trim().toLowerCase();
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 const buildIdentifierSet = (values) =>
   new Set(values.map(normalizeText).filter(Boolean));
@@ -82,9 +85,7 @@ const isMissionForVehicle = (mission, vehicle) => {
 
 const isActiveMissionStatus = (status) => {
   const normalized = normalizeText(status);
-  return ["ongoing", "active", "running", "in_progress"].includes(
-    normalized,
-  );
+  return ["ongoing", "active", "running", "in_progress"].includes(normalized);
 };
 
 const inferWaypointType = (waypoint) => {
@@ -265,7 +266,9 @@ const Control = () => {
     const progressValue = Number(currentMission?.progress) || 0;
     const completedFromProgress =
       waypointCount > 0
-        ? Math.round((Math.max(0, Math.min(100, progressValue)) / 100) * waypointCount)
+        ? Math.round(
+            (Math.max(0, Math.min(100, progressValue)) / 100) * waypointCount,
+          )
         : 0;
     const completedWaypoint = Math.max(
       completedWaypointRaw,
@@ -300,43 +303,6 @@ const Control = () => {
 
     return { path, markers };
   }, [currentMission]);
-
-  const completedMissionHomePosition = useMemo(
-    () =>
-      toLatLng(
-        currentMission?.home_location?.lat,
-        currentMission?.home_location?.lng,
-      ),
-    [currentMission],
-  );
-
-  const isMissionCompleted = useMemo(() => {
-    const status = String(currentMission?.status || "").trim().toLowerCase();
-    return ["completed", "finished", "success"].includes(status);
-  }, [currentMission?.status]);
-
-  const isVehicleAtHomeAfterMission = useMemo(() => {
-    if (!isMissionCompleted || !vehiclePosition || !completedMissionHomePosition) {
-      return false;
-    }
-    const distanceToHome = calculateDistanceMeters(
-      vehiclePosition,
-      completedMissionHomePosition,
-    );
-    // Consider mission reset when vehicle is very close to home point.
-    return Number.isFinite(distanceToHome) && distanceToHome <= 10;
-  }, [isMissionCompleted, vehiclePosition, completedMissionHomePosition]);
-
-  const shouldHideCompletedMissionPath =
-    isMissionCompleted && isVehicleAtHomeAfterMission;
-
-  const missionStatusBannerText = useMemo(() => {
-    if (!isMissionCompleted) return "";
-    if (isVehicleAtHomeAfterMission) {
-      return t("control.missionControl.rtlArrived");
-    }
-    return t("control.missionControl.rtlInProgress");
-  }, [isMissionCompleted, isVehicleAtHomeAfterMission, t]);
 
   useEffect(() => {
     if (!vehicles || vehicles.length === 0) {
@@ -469,6 +435,49 @@ const Control = () => {
 
     return null;
   }, [selectedVehicle, telemetryData]);
+
+  const completedMissionHomePosition = useMemo(
+    () =>
+      toLatLng(
+        currentMission?.home_location?.lat,
+        currentMission?.home_location?.lng,
+      ),
+    [currentMission],
+  );
+
+  const isMissionCompleted = useMemo(() => {
+    const status = String(currentMission?.status || "")
+      .trim()
+      .toLowerCase();
+    return ["completed", "finished", "success"].includes(status);
+  }, [currentMission?.status]);
+
+  const isVehicleAtHomeAfterMission = useMemo(() => {
+    if (
+      !isMissionCompleted ||
+      !vehiclePosition ||
+      !completedMissionHomePosition
+    ) {
+      return false;
+    }
+    const distanceToHome = calculateDistanceMeters(
+      vehiclePosition,
+      completedMissionHomePosition,
+    );
+    // Consider mission reset when vehicle is very close to home point.
+    return Number.isFinite(distanceToHome) && distanceToHome <= 10;
+  }, [isMissionCompleted, vehiclePosition, completedMissionHomePosition]);
+
+  const shouldHideCompletedMissionPath =
+    isMissionCompleted && isVehicleAtHomeAfterMission;
+
+  const missionStatusBannerText = useMemo(() => {
+    if (!isMissionCompleted) return "";
+    if (isVehicleAtHomeAfterMission) {
+      return t("control.missionControl.rtlArrived");
+    }
+    return t("control.missionControl.rtlInProgress");
+  }, [isMissionCompleted, isVehicleAtHomeAfterMission, t]);
 
   // Collapse/Expand states for menus with localStorage
   const [isVesselTelemetryExpanded, setIsVesselTelemetryExpanded] = useState(
@@ -977,7 +986,9 @@ const Control = () => {
           videoRef={videoRef}
           streamName={streamName}
           onStreamNameChange={(e) => setStreamName(e.target.value)}
-          onStreamNameBlur={(e) => setStreamName(normalizeStreamName(e.target.value))}
+          onStreamNameBlur={(e) =>
+            setStreamName(normalizeStreamName(e.target.value))
+          }
           cameraConnected={cameraConnected}
           cameraConnecting={cameraConnecting}
           onConnect={connectCamera}

@@ -1,8 +1,9 @@
+import { useState } from "react";
 import useTitle from "../hooks/useTitle";
 import { useAlertData } from "../hooks/useAlertData";
 import { Title } from "../components/ui";
 import { WidgetCard } from "../components/Widgets";
-import { DataTable } from "../components/ui";
+import { DataTable, ConfirmModal } from "../components/ui";
 import { WidgetCardSkeleton } from "../components/Skeleton";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
 import {
@@ -26,6 +27,9 @@ const Alerts = () => {
     });
     return text;
   };
+
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const {
     alerts = [],
@@ -84,13 +88,23 @@ const Alerts = () => {
 
   // Handle clear all
   const handleClearAll = async () => {
-    if (window.confirm(t("pages.alerts.confirmClearAll"))) {
-      const success = await clearAllAlerts();
-      if (success) {
-        toast.success(t("pages.alerts.clearSuccess"));
-      } else {
-        toast.error(t("pages.alerts.clearFailed"));
-      }
+    setShowClearModal(true);
+  };
+
+  const handleConfirmClearAll = async () => {
+    setIsClearing(true);
+    const result = await clearAllAlerts();
+    setIsClearing(false);
+    setShowClearModal(false);
+
+    if (result?.success) {
+      toast.success(t("pages.alerts.clearSuccess"));
+      window.dispatchEvent(new Event("alert-count-refresh"));
+    } else {
+      const errorMessage = result?.error
+        ? `${t("pages.alerts.clearFailed")}: ${result.error}`
+        : t("pages.alerts.clearFailed");
+      toast.error(errorMessage);
     }
   };
 
@@ -243,12 +257,23 @@ const Alerts = () => {
           {alerts.length > 0 && (
             <button
               onClick={handleClearAll}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
             >
               <FaTrash />
               {t("pages.alerts.clearAll")}
             </button>
           )}
+          <ConfirmModal
+            isOpen={showClearModal}
+            onClose={() => setShowClearModal(false)}
+            onConfirm={handleConfirmClearAll}
+            title={t("common.confirm")}
+            message={t("pages.alerts.confirmClearAll")}
+            confirmText={t("pages.alerts.clearAll")}
+            cancelText={t("common.cancel")}
+            type="danger"
+            isLoading={isClearing}
+          />
         </div>
       </div>
 
@@ -262,7 +287,7 @@ const Alerts = () => {
       </div>
 
       {/* Alerts Table */}
-      <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+      <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6 custom-scrollbar">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           {t("pages.alerts.history")}
         </h2>

@@ -185,6 +185,11 @@ export const API_ENDPOINTS = {
     IMPORT: null
   },
 
+  BATTERY_LOGS: {
+    LATEST: `${API_BASE_URL}/vehicle-batteries/latest`,
+    BY_VEHICLE: vehicleId => `${API_BASE_URL}/vehicles/${vehicleId}/battery-logs`
+  },
+
   // Vehicle control commands (ARM/DISARM/MODE via MQTT)
   CONTROL: {
     COMMAND: vehicleCode => `${API_BASE_URL}/control/${vehicleCode}/command`
@@ -209,7 +214,10 @@ export const API_ENDPOINTS = {
     LIST: `${API_BASE_URL}/waypoint-logs/`,
     BY_ID: id => `${API_BASE_URL}/waypoint-logs/${id}`,
     CREATE: `${API_BASE_URL}/waypoint-logs/`,
-    DELETE: id => `${API_BASE_URL}/waypoint-logs/${id}`
+    DELETE: id => `${API_BASE_URL}/waypoint-logs/${id}`,
+    EXPORT: `${API_BASE_URL}/waypoint-logs/export`,
+    BY_VEHICLE: vehicleId => `${API_BASE_URL}/waypoint-logs/?vehicle_id=${vehicleId}`,
+    BY_MISSION: missionId => `${API_BASE_URL}/waypoint-logs/?mission_id=${missionId}`
   }
 }
 

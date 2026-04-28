@@ -150,6 +150,13 @@ const Header = ({ darkMode, toggleDarkMode }) => {
     return () => clearInterval(interval);
   }, [fetchUnreadCount, fetchAlertCount]);
 
+  // Listen for global alert-count-refresh event (e.g. after clear all from Alerts page)
+  useEffect(() => {
+    const handler = () => fetchAlertCount();
+    window.addEventListener("alert-count-refresh", handler);
+    return () => window.removeEventListener("alert-count-refresh", handler);
+  }, [fetchAlertCount]);
+
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);

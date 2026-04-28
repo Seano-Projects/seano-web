@@ -46,16 +46,25 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
   const chartData = useMemo(() => {
     if (!selectedVehicle?.id) return [];
 
-    const logs = getVehicleLogs(selectedVehicle.id, null, 200).filter(
+    const allLogs = getVehicleLogs(selectedVehicle.id, null, 200).filter(
       (log) => log?.timestamp,
     );
 
-    if (logs.length === 0) return [];
+    if (allLogs.length === 0) return [];
+
+    // Only keep logs from the last 2 hours to avoid stale data stretching the X-axis
+    const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+    const logs = allLogs.filter(
+      (log) => new Date(log.timestamp).getTime() >= cutoff,
+    );
+
+    // Fallback: if nothing in last 2h, use the 20 most recent logs only
+    const recentLogs = logs.length > 0 ? logs : allLogs.slice(-20);
 
     // Group by minute and keep latest sample for each battery in each minute bucket.
     const timeGroups = {};
 
-    logs.forEach((log) => {
+    recentLogs.forEach((log) => {
       const time = new Date(log.timestamp);
       if (Number.isNaN(time.getTime())) {
         return;
@@ -197,23 +206,11 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
                 <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.35} />
                 <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
               </linearGradient>
-              <linearGradient
-                id="colorVoltage"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
+              <linearGradient id="colorVoltage" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
                 <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
               </linearGradient>
-              <linearGradient
-                id="colorCurrent"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
+              <linearGradient id="colorCurrent" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.3} />
                 <stop offset="95%" stopColor="#22D3EE" stopOpacity={0} />
               </linearGradient>
@@ -243,7 +240,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
               fontSize={12}
               tickLine={false}
               axisLine={false}
-              domain={['auto', 'auto']}
+              domain={["auto", "auto"]}
             />
             <Tooltip
               contentStyle={{
@@ -270,7 +267,8 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
                           className="text-sm font-medium"
                           style={{ color: entry.color }}
                         >
-                          {entry.name}: {formatMetricValue(entry.dataKey, entry.value)}
+                          {entry.name}:{" "}
+                          {formatMetricValue(entry.dataKey, entry.value)}
                         </p>
                       ))}
                     </div>

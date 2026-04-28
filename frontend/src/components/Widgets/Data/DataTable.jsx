@@ -1,15 +1,19 @@
-import { useState, useEffect } from "react";
-import { FaEdit, FaTrash, FaDownload } from "react-icons/fa";
+import { useState, useEffect, useCallback } from "react";
+import { FaTrash, FaDownload } from "react-icons/fa";
 import { DataTable as BaseDataTable } from "../../ui";
 import axios from "../../../utils/axiosConfig";
 import { API_ENDPOINTS } from "../../../config";
 import { toast, LoadingDots } from "../../ui";
+import useTranslation from "../../../hooks/useTranslation";
 
 const DataTable = ({
   hasActiveFilters,
   handleResetFilters,
-  selectedDataType = "raw_logs",
+  selectedDataType = "vehicle_logs",
+  filters = {},
+  onDataLoaded,
 }) => {
+  const { t } = useTranslation();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -17,63 +21,173 @@ const DataTable = ({
 
   // Data type configurations
   const DATA_TYPE_CONFIG = {
-    raw_logs: {
-      label: "Raw Data Logs",
-      endpoint: API_ENDPOINTS.RAW_LOGS,
-      searchKeys: ["id", "vehicle_id", "topic"],
-      searchPlaceholder: "Search logs by ID, vehicle, or topic...",
-    },
     vehicle_logs: {
-      label: "Vehicle Logs",
+      labelKey: "pages.data.types.vehicleLogs",
       endpoint: API_ENDPOINTS.VEHICLE_LOGS,
-      searchKeys: ["id", "vehicle_id"],
-      searchPlaceholder: "Search by ID or vehicle...",
+      searchKeys: ["id", "vehicle_id", "mode"],
+      searchPlaceholderKey: "pages.data.table.searchVehicle",
     },
     sensor_logs: {
-      label: "Sensor Logs",
+      labelKey: "pages.data.types.sensorLogs",
       endpoint: API_ENDPOINTS.SENSOR_LOGS,
       searchKeys: ["id", "vehicle_id", "sensor_id"],
-      searchPlaceholder: "Search by ID, vehicle, or sensor...",
+      searchPlaceholderKey: "pages.data.table.searchSensor",
     },
-    alerts: {
-      label: "Alerts",
-      endpoint: API_ENDPOINTS.ALERTS,
-      searchKeys: ["id", "vehicle_id", "severity", "alert_type", "message"],
-      searchPlaceholder: "Search by ID, vehicle, severity, or message...",
+    battery_logs: {
+      labelKey: "pages.data.types.batteryLogs",
+      endpoint: API_ENDPOINTS.BATTERY_LOGS,
+      searchKeys: ["id", "vehicle_id", "battery_id", "status"],
+      searchPlaceholderKey: "pages.data.table.searchBattery",
     },
   };
 
-  // Fetch data based on selected type
-  useEffect(() => {
-    fetchData();
-    setSelectedIds([]); // Clear selection when type changes
-  }, [selectedDataType]);
+  // Build query params from filters
+  const buildQueryParams = useCallback((type, f) => {
+    const params = new URLSearchParams();
+    if (f.vehicle?.id) params.append("vehicle_id", f.vehicle.id);
+    if (f.mission?.id) params.append("mission_id", f.mission.id);
 
-  const fetchData = async () => {
+    // Convert date strings to ISO 8601 (RFC3339) required by backend
+    const toISO = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr);
+      return isNaN(d) ? null : d.toISOString();
+    };
+    if (f.startDate) {
+      const iso = toISO(f.startDate);
+      if (iso) params.append("start_time", iso);
+    }
+    if (f.endDate) {
+      // End date: set to end of that day
+      const d = new Date(f.endDate);
+      if (!isNaN(d)) {
+        d.setHours(23, 59, 59, 999);
+        params.append("end_time", d.toISOString());
+      }
+    }
+
+    // date range shortcuts → convert to start_time
+    if (f.dateRange && f.dateRange !== "all" && !f.startDate) {
+      const now = new Date();
+      let from;
+      if (f.dateRange === "today") {
+        from = new Date(now);
+        from.setHours(0, 0, 0, 0);
+      } else if (f.dateRange === "week") {
+        from = new Date(now);
+        from.setDate(from.getDate() - 7);
+      } else if (f.dateRange === "month") {
+        from = new Date(now);
+        from.setMonth(from.getMonth() - 1);
+      } else if (f.dateRange === "quarter") {
+        from = new Date(now);
+        from.setMonth(from.getMonth() - 3);
+      }
+      if (from) params.append("start_time", from.toISOString());
+    }
+
+    if (f.dataScope && f.dataScope !== "all")
+      params.append("source", f.dataScope);
+    if (type === "sensor_logs" && f.sensorType && f.sensorType !== "all") {
+      params.append("sensor_type", f.sensorType);
+    }
+    params.append("limit", "500");
+    return params.toString();
+  }, []);
+
+  const formatJsonPayload = (payload) => {
+    if (payload === null || payload === undefined || payload === "")
+      return null;
+
+    if (typeof payload === "string") {
+      const trimmed = payload.trim();
+      if (!trimmed) return null;
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        return JSON.stringify(parsed);
+      } catch {
+        return trimmed;
+      }
+    }
+
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return String(payload);
+    }
+  };
+
+  // Normalise API response — most endpoints return { data: [], count: N }, waypoint_logs returns plain []
+  const extractData = (responseData) => {
+    if (Array.isArray(responseData)) return responseData;
+    if (responseData && Array.isArray(responseData.data))
+      return responseData.data;
+    return [];
+  };
+
+  // Fetch data based on selected type + filters
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
       const config = DATA_TYPE_CONFIG[selectedDataType];
-      if (!config || !config.endpoint?.LIST) {
+      const hasEndpoint =
+        selectedDataType === "battery_logs"
+          ? Boolean(config?.endpoint?.LATEST)
+          : Boolean(config?.endpoint?.LIST);
+
+      if (!config || !hasEndpoint) {
         setError("Invalid data type or endpoint not configured");
         setData([]);
         return;
       }
 
-      const response = await axios.get(config.endpoint.LIST);
-      const fetchedData = Array.isArray(response.data) ? response.data : [];
+      let fetchedData = [];
+
+      if (selectedDataType === "battery_logs") {
+        if (filters.vehicle?.id) {
+          const queryString = buildQueryParams(selectedDataType, filters);
+          const baseUrl = config.endpoint.BY_VEHICLE(filters.vehicle.id);
+          const response = await axios.get(
+            `${baseUrl}${queryString ? `?${queryString}` : ""}`,
+          );
+          fetchedData = extractData(response.data);
+        } else {
+          const latestResponse = await axios.get(config.endpoint.LATEST);
+          const latestRows = extractData(latestResponse.data);
+          fetchedData = latestRows.map((row) => ({
+            ...row,
+            id:
+              row.id || `${row.vehicle_id}-${row.battery_id}-${row.timestamp}`,
+          }));
+        }
+      } else {
+        const queryString = buildQueryParams(selectedDataType, filters);
+        const url = `${config.endpoint.LIST}${queryString ? "?" + queryString : ""}`;
+        const response = await axios.get(url);
+        fetchedData = extractData(response.data);
+      }
+
       setData(fetchedData);
-    } catch (error) {
+      if (onDataLoaded) onDataLoaded(fetchedData, selectedDataType);
+    } catch (err) {
       setError(
-        error.message ||
+        err.message ||
           `Failed to fetch ${DATA_TYPE_CONFIG[selectedDataType]?.label || "data"}`,
       );
       setData([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDataType, filters, buildQueryParams]);
+
+  // Fetch when type or filters change — no auto-polling
+  useEffect(() => {
+    fetchData();
+    setSelectedIds([]);
+  }, [selectedDataType, filters]);
 
   // Handle select all checkbox
   const handleSelectAll = (e) => {
@@ -97,7 +211,9 @@ const DataTable = ({
 
     const config = DATA_TYPE_CONFIG[selectedDataType];
     const confirmBulk = window.confirm(
-      `Are you sure you want to delete ${selectedIds.length} ${config.label.toLowerCase()}? This action cannot be undone.`,
+      t("pages.data.table.deleteBulkConfirm")
+        .replace("{{count}}", selectedIds.length)
+        .replace("{{type}}", t(config.labelKey).toLowerCase()),
     );
 
     if (!confirmBulk) return;
@@ -108,12 +224,19 @@ const DataTable = ({
       );
 
       toast.success(
-        `${selectedIds.length} ${config.label.toLowerCase()} deleted successfully!`,
+        t("pages.data.table.deleteBulkSuccess")
+          .replace("{{count}}", selectedIds.length)
+          .replace("{{type}}", t(config.labelKey).toLowerCase()),
       );
       setSelectedIds([]);
       fetchData();
-    } catch (error) {
-      toast.error(`Failed to delete some ${config.label.toLowerCase()}`);
+    } catch (err) {
+      toast.error(
+        t("pages.data.table.deleteBulkFailed").replace(
+          "{{type}}",
+          t(config.labelKey).toLowerCase(),
+        ),
+      );
     }
   };
 
@@ -122,23 +245,34 @@ const DataTable = ({
     const config = DATA_TYPE_CONFIG[selectedDataType];
     if (
       !window.confirm(
-        `Are you sure you want to delete this ${config.label.toLowerCase().replace(/s$/, "")}?`,
+        t("pages.data.table.deleteSingleConfirm").replace(
+          "{{type}}",
+          t(config.labelKey).toLowerCase().replace(/s$/, ""),
+        ),
       )
     )
       return;
 
     try {
       await axios.delete(config.endpoint.DELETE(id));
-      toast.success(`${config.label.replace(/s$/, "")} deleted successfully!`);
+      toast.success(
+        t("pages.data.table.deleteSingleSuccess").replace(
+          "{{type}}",
+          t(config.labelKey).replace(/s$/, ""),
+        ),
+      );
       fetchData();
-    } catch (error) {
+    } catch (err) {
       toast.error(
-        `Failed to delete ${config.label.toLowerCase().replace(/s$/, "")}`,
+        t("pages.data.table.deleteSingleFailed").replace(
+          "{{type}}",
+          t(config.labelKey).toLowerCase().replace(/s$/, ""),
+        ),
       );
     }
   };
 
-  // Handle export
+  // Handle export single row
   const handleExport = (row) => {
     const dataStr = JSON.stringify(row, null, 2);
     const dataBlob = new Blob([dataStr], { type: "application/json" });
@@ -150,7 +284,7 @@ const DataTable = ({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success("Data exported successfully!");
+    toast.success(t("pages.data.table.exportSuccess"));
   };
 
   // Get columns based on data type
@@ -222,13 +356,12 @@ const DataTable = ({
       ),
     };
 
-    // Define data-specific columns
     let dataColumns = [];
 
-    if (selectedDataType === "raw_logs") {
+    if (selectedDataType === "vehicle_logs") {
       dataColumns = [
         {
-          header: "ID",
+          header: t("pages.data.table.columns.id"),
           accessorKey: "id",
           cell: (row) => (
             <span className="font-medium text-gray-900 dark:text-white">
@@ -237,7 +370,7 @@ const DataTable = ({
           ),
         },
         {
-          header: "Vehicle",
+          header: t("pages.data.table.columns.vehicle"),
           accessorKey: "vehicle_id",
           cell: (row) => (
             <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -246,79 +379,55 @@ const DataTable = ({
           ),
         },
         {
-          header: "Topic",
-          accessorKey: "topic",
+          header: t("pages.data.table.columns.mission"),
+          accessorKey: "mission_id",
           cell: (row) => (
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              {row.topic || "N/A"}
+            <span className="text-xs px-2 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
+              {row.mission?.name ||
+                (row.mission_id ? `#${row.mission_id}` : "—")}
             </span>
           ),
         },
         {
-          header: "Timestamp",
-          accessorKey: "created_at",
-          cell: (row) => (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {row.created_at
-                ? new Date(row.created_at).toLocaleString()
-                : "Unknown"}
-            </span>
-          ),
-        },
-      ];
-    } else if (selectedDataType === "vehicle_logs") {
-      dataColumns = [
-        {
-          header: "ID",
-          accessorKey: "id",
-          cell: (row) => (
-            <span className="font-medium text-gray-900 dark:text-white">
-              #{row.id}
-            </span>
-          ),
-        },
-        {
-          header: "Vehicle",
-          accessorKey: "vehicle_id",
-          cell: (row) => (
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              {row.vehicle?.name || `Vehicle ${row.vehicle_id}`}
-            </span>
-          ),
-        },
-        {
-          header: "Location",
+          header: t("pages.data.table.columns.coordinates"),
           accessorKey: "latitude",
           cell: (row) => (
-            <span className="text-xs text-gray-600 dark:text-gray-400">
-              {row.latitude && row.longitude
-                ? `${row.latitude?.toFixed(4)}, ${row.longitude?.toFixed(4)}`
-                : "N/A"}
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+              {row.latitude != null && row.longitude != null
+                ? `${Number(row.latitude).toFixed(6)}, ${Number(row.longitude).toFixed(6)}`
+                : "—"}
             </span>
           ),
         },
         {
-          header: "Battery",
+          header: t("pages.data.table.columns.speed"),
+          accessorKey: "speed",
+          cell: (row) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.speed != null ? `${Number(row.speed).toFixed(1)} m/s` : "—"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.battery"),
           accessorKey: "battery_voltage",
           cell: (row) => (
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              {row.battery_voltage
-                ? `${row.battery_voltage.toFixed(1)}V`
-                : "N/A"}
+              {row.battery_voltage ? `${row.battery_voltage.toFixed(1)}V` : "—"}
             </span>
           ),
         },
         {
-          header: "Mode",
+          header: t("pages.data.table.columns.mode"),
           accessorKey: "mode",
           cell: (row) => (
             <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-              {row.mode || "N/A"}
+              {row.mode || "—"}
             </span>
           ),
         },
         {
-          header: "Timestamp",
+          header: t("pages.data.table.columns.timestamp"),
           accessorKey: "created_at",
           cell: (row) => (
             <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -332,43 +441,43 @@ const DataTable = ({
     } else if (selectedDataType === "sensor_logs") {
       dataColumns = [
         {
-          header: "ID",
-          accessorKey: "id",
-          cell: (row) => (
-            <span className="font-medium text-gray-900 dark:text-white">
-              #{row.id}
-            </span>
-          ),
-        },
-        {
-          header: "Vehicle",
+          header: t("pages.data.table.columns.vehicle"),
           accessorKey: "vehicle_id",
           cell: (row) => (
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              {row.vehicle?.name || `Vehicle ${row.vehicle_id}`}
+              {row.vehicle?.code || row.vehicle_code || `V${row.vehicle_id}`}
             </span>
           ),
         },
         {
-          header: "Sensor",
+          header: t("pages.data.table.columns.sensor"),
           accessorKey: "sensor_id",
           cell: (row) => (
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              {row.sensor?.name || `Sensor ${row.sensor_id}`}
+              {row.sensor?.code || row.sensor_code || `S${row.sensor_id}`}
             </span>
           ),
         },
         {
-          header: "Data",
+          header: t("pages.data.table.columns.dataJson"),
           accessorKey: "data",
           cell: (row) => (
-            <span className="text-xs text-gray-600 dark:text-gray-400 max-w-xs truncate">
-              {row.data || "N/A"}
+            <span className="text-xs text-gray-600 dark:text-gray-400 max-w-[280px] sm:max-w-[360px] md:max-w-[520px] whitespace-normal break-all font-mono inline-block">
+              {formatJsonPayload(row.data) || "N/A"}
             </span>
           ),
         },
         {
-          header: "Timestamp",
+          header: t("pages.data.table.columns.mission"),
+          accessorKey: "mission_id",
+          cell: (row) => (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {row.mission_id || "—"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.timestamp"),
           accessorKey: "created_at",
           cell: (row) => (
             <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -379,73 +488,64 @@ const DataTable = ({
           ),
         },
       ];
-    } else if (selectedDataType === "alerts") {
+    } else if (selectedDataType === "battery_logs") {
       dataColumns = [
         {
-          header: "ID",
-          accessorKey: "id",
-          cell: (row) => (
-            <span className="font-medium text-gray-900 dark:text-white">
-              #{row.id}
-            </span>
-          ),
+          header: t("pages.data.table.columns.batteryUnit"),
+          accessorKey: "battery_id",
+          cell: (row) => <span>#{row.battery_id || "—"}</span>,
         },
         {
-          header: "Vehicle",
-          accessorKey: "vehicle_id",
+          header: t("pages.data.table.columns.soc"),
+          accessorKey: "percentage",
           cell: (row) => (
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              {row.vehicle?.name ||
-                row.vehicle_name ||
-                `Vehicle ${row.vehicle_id}`}
+              {row.percentage != null
+                ? `${Number(row.percentage).toFixed(1)}%`
+                : "—"}
             </span>
           ),
         },
         {
-          header: "Severity",
-          accessorKey: "severity",
-          cell: (row) => {
-            const colors = {
-              critical:
-                "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
-              warning:
-                "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300",
-              info: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-            };
-            return (
-              <span
-                className={`text-xs px-2 py-1 rounded-full ${colors[row.severity] || colors.info}`}
-              >
-                {row.severity || "info"}
-              </span>
-            );
-          },
-        },
-        {
-          header: "Type",
-          accessorKey: "alert_type",
+          header: t("pages.data.table.columns.voltage"),
+          accessorKey: "voltage",
           cell: (row) => (
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              {row.alert_type || "N/A"}
+              {row.voltage != null
+                ? `${Number(row.voltage).toFixed(2)} V`
+                : "—"}
             </span>
           ),
         },
         {
-          header: "Message",
-          accessorKey: "message",
+          header: t("pages.data.table.columns.current"),
+          accessorKey: "current",
           cell: (row) => (
-            <span className="text-xs text-gray-600 dark:text-gray-400 max-w-xs truncate">
-              {row.message || "N/A"}
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.current != null
+                ? `${Number(row.current).toFixed(2)} A`
+                : "—"}
             </span>
           ),
         },
         {
-          header: "Timestamp",
-          accessorKey: "created_at",
+          header: t("pages.data.table.columns.temperature"),
+          accessorKey: "temperature",
+          cell: (row) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.temperature != null
+                ? `${Number(row.temperature).toFixed(1)} C`
+                : "—"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.timestamp"),
+          accessorKey: "timestamp",
           cell: (row) => (
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              {row.created_at
-                ? new Date(row.created_at).toLocaleString()
+              {row.timestamp
+                ? new Date(row.timestamp).toLocaleString()
                 : "Unknown"}
             </span>
           ),
@@ -457,15 +557,31 @@ const DataTable = ({
   };
 
   const columns = getColumns();
-
   const config = DATA_TYPE_CONFIG[selectedDataType];
 
   return (
     <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {config?.label || "Data Records"}
-        </h2>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {config ? t(config.labelKey) : t("pages.data.table.dataRecords")}
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            {data.length > 0
+              ? t("pages.data.table.recordsLoaded").replace(
+                  "{{count}}",
+                  data.length,
+                )
+              : ""}
+            {hasActiveFilters && ` · ${t("pages.data.table.filtersApplied")}`}
+          </p>
+        </div>
+        <button
+          onClick={fetchData}
+          className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+        >
+          {t("pages.data.actions.refresh")}
+        </button>
       </div>
 
       {selectedIds.length > 0 && (
@@ -474,7 +590,7 @@ const DataTable = ({
             <span className="font-semibold text-fourth">
               {selectedIds.length}
             </span>{" "}
-            item(s) selected
+            {t("pages.data.table.itemsSelected")}
           </span>
           <div className="flex gap-2">
             <button
@@ -482,13 +598,13 @@ const DataTable = ({
               className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2"
             >
               <FaTrash size={14} />
-              Delete Selected
+              {t("pages.data.table.deleteSelected")}
             </button>
             <button
               onClick={() => setSelectedIds([])}
               className="px-3 py-1.5 text-sm bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
             >
-              Clear Selection
+              {t("pages.data.table.clearSelection")}
             </button>
           </div>
         </div>
@@ -516,26 +632,38 @@ const DataTable = ({
             </svg>
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Failed to Load Data
+            {t("pages.data.table.failedLoad")}
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
           <button
             onClick={fetchData}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
-            Try Again
+            {t("pages.data.table.tryAgain")}
           </button>
         </div>
       ) : (
-        <BaseDataTable
-          columns={columns}
-          data={data}
-          searchPlaceholder={config?.searchPlaceholder || "Search..."}
-          searchKeys={config?.searchKeys || ["id"]}
-          pageSize={10}
-          showPagination={true}
-          emptyMessage={`No ${config?.label.toLowerCase() || "data"} available. Data will appear here when vehicles send information.`}
-        />
+        <div className="w-full overflow-x-auto">
+          <div className="inline-block min-w-full">
+            <BaseDataTable
+              columns={columns}
+              data={data}
+              searchPlaceholder={
+                config?.searchPlaceholderKey
+                  ? t(config.searchPlaceholderKey)
+                  : t("common.search")
+              }
+              searchKeys={config?.searchKeys || ["id"]}
+              pageSize={20}
+              showPagination={true}
+              emptyMessage={
+                hasActiveFilters
+                  ? t("pages.data.table.emptyWithFilters")
+                  : t("pages.data.table.empty")
+              }
+            />
+          </div>
+        </div>
       )}
     </div>
   );

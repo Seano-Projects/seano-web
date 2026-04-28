@@ -305,7 +305,10 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
       </div>
 
       {/* Alert List */}
-      <div className="overflow-y-auto" style={{ maxHeight: "400px" }}>
+      <div
+        className="overflow-y-auto custom-scrollbar"
+        style={{ maxHeight: "400px" }}
+      >
         {loading ? (
           <div className="p-8 text-center text-gray-500 dark:text-gray-400">
             <LoadingDots size="md" />

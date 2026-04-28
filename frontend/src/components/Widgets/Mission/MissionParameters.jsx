@@ -1,12 +1,14 @@
 import { FaRoute } from "react-icons/fa";
 import { Dropdown } from "../";
+import useTranslation from "../../../hooks/useTranslation";
 
 const MissionParameters = ({ missionParams, setMissionParams }) => {
+  const { t } = useTranslation();
   const actionOptions = [
-    { id: "waypoint", name: "Waypoint" },
-    { id: "loiter", name: "Loiter" },
-    { id: "rtl", name: "Return Home" },
-    { id: "land", name: "Land" },
+    { id: "waypoint", name: t("missionComponents.parameters.actionWaypoint") },
+    { id: "loiter", name: t("missionComponents.parameters.actionLoiter") },
+    { id: "rtl", name: t("missionComponents.parameters.actionRtl") },
+    { id: "land", name: t("missionComponents.parameters.actionLand") },
   ];
   return (
     <div
@@ -17,7 +19,7 @@ const MissionParameters = ({ missionParams, setMissionParams }) => {
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
           <FaRoute className="text-[#018190]" />
-          Mission Parameters
+          {t("missionComponents.parameters.title")}
         </h2>
       </div>
 
@@ -26,7 +28,7 @@ const MissionParameters = ({ missionParams, setMissionParams }) => {
         {/* Action Type */}
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-            Action
+            {t("missionComponents.parameters.action")}
           </label>
           <Dropdown
             items={actionOptions}
@@ -40,7 +42,7 @@ const MissionParameters = ({ missionParams, setMissionParams }) => {
                 action: action.id,
               }))
             }
-            placeholder="Select action"
+            placeholder={t("missionComponents.parameters.selectAction")}
             getItemKey={(item) => item.id}
             renderSelectedItem={(action) => (
               <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -75,7 +77,7 @@ const MissionParameters = ({ missionParams, setMissionParams }) => {
         {/* Speed Parameter */}
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-            Speed (m/s)
+            {t("missionComponents.parameters.speed")}
           </label>
           <input
             type="number"
@@ -96,7 +98,7 @@ const MissionParameters = ({ missionParams, setMissionParams }) => {
         {/* Altitude Parameter - Fixed at 0m for USV */}
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-            Altitude (m){" "}
+            {t("missionComponents.parameters.altitude")}{" "}
           </label>
           <input
             type="number"
@@ -110,7 +112,7 @@ const MissionParameters = ({ missionParams, setMissionParams }) => {
         {/* Delay Parameter */}
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-            Delay (s)
+            {t("missionComponents.parameters.delay")}
           </label>
           <input
             type="number"
@@ -131,7 +133,7 @@ const MissionParameters = ({ missionParams, setMissionParams }) => {
         {/* Loiter Time */}
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-            Loiter (s)
+            {t("missionComponents.parameters.loiter")}
           </label>
           <input
             type="number"
@@ -152,7 +154,7 @@ const MissionParameters = ({ missionParams, setMissionParams }) => {
         {/* Acceptance Radius */}
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-            Radius (m)
+            {t("missionComponents.parameters.radius")}
           </label>
           <input
             type="number"

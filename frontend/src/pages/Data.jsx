@@ -1,136 +1,270 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  FaDatabase,
+  FaHdd,
+  FaCalendarDay,
+  FaShieldAlt,
+  FaChartLine,
+} from "react-icons/fa";
 import useTitle from "../hooks/useTitle";
 import useVehicleData from "../hooks/useVehicleData";
-import useRawLogData from "../hooks/useRawLogData";
-import useLoadingTimeout from "../hooks/useLoadingTimeout";
-import { getDataManagementCards } from "../constant";
 import {
   DataHeader,
   DataStats,
   DataTable,
   DataFilters,
+  DataCharts,
 } from "../components/Widgets/Data";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import useTranslation from "../hooks/useTranslation";
+import axios from "../utils/axiosConfig";
+import { API_ENDPOINTS } from "../config";
+
+const FILTER_DEFAULTS = {
+  vehicle: null,
+  mission: null,
+  startDate: "",
+  endDate: "",
+  dateRange: "all",
+  dataScope: "all",
+  sensorType: "all",
+};
+
+const getTimestamp = (row) =>
+  row?.created_at || row?.timestamp || row?.reached_at || row?.usv_timestamp;
+
+const toStorageLabel = (bytes) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
+const getMissingRate = (records, selectedDataType) => {
+  if (!records.length) return 0;
+
+  const fieldsByType = {
+    vehicle_logs: ["vehicle_id", "latitude", "longitude", "mode", "created_at"],
+    sensor_logs: ["vehicle_id", "sensor_id", "data", "created_at"],
+    battery_logs: [
+      "vehicle_id",
+      "battery_id",
+      "percentage",
+      "voltage",
+      "current",
+      "timestamp",
+    ],
+  };
+
+  const requiredFields = fieldsByType[selectedDataType] || [];
+  if (!requiredFields.length) return 0;
+
+  let missing = 0;
+  let total = 0;
+
+  records.forEach((record) => {
+    requiredFields.forEach((field) => {
+      total += 1;
+      const value = record?.[field];
+      if (
+        value === null ||
+        value === undefined ||
+        value === "" ||
+        value === "N/A"
+      ) {
+        missing += 1;
+      }
+    });
+  });
+
+  return total ? (missing / total) * 100 : 0;
+};
+
+const getInsightValue = (records, selectedDataType, t) => {
+  if (!records.length) return t("pages.data.widgets.empty");
+
+  if (selectedDataType === "vehicle_logs") {
+    const speeds = records
+      .map((item) => Number(item?.speed))
+      .filter((value) => Number.isFinite(value));
+    if (!speeds.length) return t("pages.data.widgets.avgSpeedEmpty");
+    const avg = speeds.reduce((sum, value) => sum + value, 0) / speeds.length;
+    return t("pages.data.widgets.avgSpeed").replace(
+      "{{value}}",
+      avg.toFixed(2),
+    );
+  }
+
+  if (selectedDataType === "sensor_logs") {
+    const temperatures = records
+      .map((item) => {
+        try {
+          const parsed = JSON.parse(item?.data || "{}");
+          return Number(parsed?.temperature);
+        } catch {
+          return NaN;
+        }
+      })
+      .filter((value) => Number.isFinite(value));
+
+    if (!temperatures.length) return t("pages.data.widgets.avgTempEmpty");
+    const avg =
+      temperatures.reduce((sum, value) => sum + value, 0) / temperatures.length;
+    return t("pages.data.widgets.avgTemp").replace("{{value}}", avg.toFixed(2));
+  }
+
+  const socValues = records
+    .map((item) => Number(item?.percentage))
+    .filter((value) => Number.isFinite(value));
+  if (!socValues.length) return t("pages.data.widgets.avgSocEmpty");
+  const avgSoc =
+    socValues.reduce((sum, value) => sum + value, 0) / socValues.length;
+  return t("pages.data.widgets.avgSoc").replace("{{value}}", avgSoc.toFixed(1));
+};
 
 const Data = () => {
   const { t } = useTranslation();
   useTitle(t("nav.data"));
 
-  // State for filters
-  const [filters, setFilters] = useState({
-    vehicle: "",
-    mission: "",
-    startDate: "",
-    endDate: "",
-    dateRange: "all",
-    source: "all",
-    status: "all",
-    search: "",
-  });
-
-  // State for refresh functionality
+  const [filters, setFilters] = useState(FILTER_DEFAULTS);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [selectedDataType, setSelectedDataType] = useState("vehicle_logs");
+  const [chartData, setChartData] = useState([]);
+  const [chartDataType, setChartDataType] = useState("vehicle_logs");
+  const [missions, setMissions] = useState([]);
 
-  // State for selected data type
-  const [selectedDataType, setSelectedDataType] = useState("raw_logs");
-  const hasInitializedVehicleFilter = useRef(false);
-
-  // Get vehicle data
   const { vehicles, loading } = useVehicleData();
 
   useEffect(() => {
-    if (loading) return;
+    let ignore = false;
 
-    if (!vehicles || vehicles.length === 0) {
-      setFilters((prev) => (prev.vehicle ? { ...prev, vehicle: "" } : prev));
-      hasInitializedVehicleFilter.current = false;
-      return;
-    }
+    const loadMissions = async () => {
+      try {
+        const response = await axios.get(API_ENDPOINTS.MISSIONS.LIST);
+        const missionRows = Array.isArray(response.data)
+          ? response.data
+          : response.data?.data || [];
 
-    if (!hasInitializedVehicleFilter.current && !filters.vehicle) {
-      setFilters((prev) => ({ ...prev, vehicle: vehicles[0] }));
-      hasInitializedVehicleFilter.current = true;
-      return;
-    }
+        if (!ignore) {
+          setMissions(
+            missionRows.map((mission) => ({
+              id: mission.id,
+              name: mission.name || `Mission #${mission.id}`,
+              status: mission.status || "unknown",
+            })),
+          );
+        }
+      } catch {
+        if (!ignore) setMissions([]);
+      }
+    };
 
-    if (
-      filters.vehicle?.id &&
-      !vehicles.some((vehicle) => vehicle.id === filters.vehicle.id)
-    ) {
-      setFilters((prev) => ({ ...prev, vehicle: vehicles[0] }));
-    }
-  }, [loading, vehicles, filters.vehicle]);
+    loadMissions();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
-  // Get raw logs data
-  const {
-    rawLogsStats,
-    loading: rawLogsLoading,
-    error: rawLogsError,
-    refreshStats,
-  } = useRawLogData();
+  const handleDataLoaded = (data, type) => {
+    setChartData(data);
+    setChartDataType(type);
+  };
 
-  // Use loading timeout to prevent infinite skeleton loading
-  const { loading: timeoutLoading } = useLoadingTimeout(
-    loading || rawLogsLoading,
-    5000,
-  );
-
-  // Show skeleton only if still loading and within timeout
-  const shouldShowSkeleton = timeoutLoading && (loading || rawLogsLoading);
-
-  // TODO: Fetch mission data from API
-  const missions = [];
-
-  // Handler functions
   const handleFilterChange = (filterKey, value) => {
-    setFilters((prev) => ({
-      ...prev,
-      [filterKey]: value,
-    }));
+    setFilters((prev) => ({ ...prev, [filterKey]: value }));
   };
 
   const handleResetFilters = () => {
-    setFilters({
-      vehicle: "",
-      mission: "",
-      startDate: "",
-      endDate: "",
-      dateRange: "all",
-      source: "all",
-      status: "all",
-      search: "",
-    });
+    setFilters(FILTER_DEFAULTS);
+    setChartData([]);
   };
 
   const handleRefreshData = async () => {
     setIsRefreshing(true);
-    try {
-      // Refresh raw logs stats
-      await refreshStats();
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setLastRefresh(new Date());
-    } catch (error) {
-    } finally {
-      setIsRefreshing(false);
-    }
+    setLastRefresh(new Date());
+    setTimeout(() => setIsRefreshing(false), 300);
   };
 
-  // Check if any filter is active
-  const hasActiveFilters = Object.values(filters).some(
-    (value) => value && value !== "all" && value !== "",
-  );
+  const hasActiveFilters = useMemo(() => {
+    return Object.entries(filters).some(([key, value]) => {
+      if (key === "vehicle" || key === "mission") return Boolean(value?.id);
+      return value && value !== "all";
+    });
+  }, [filters]);
 
-  // Get data management cards with real raw logs data
-  const dataWidgetCards = getDataManagementCards(rawLogsStats);
+  const recordsToday = useMemo(() => {
+    const today = new Date();
+    return chartData.filter((row) => {
+      const ts = getTimestamp(row);
+      if (!ts) return false;
+      const dt = new Date(ts);
+      return (
+        dt.getFullYear() === today.getFullYear() &&
+        dt.getMonth() === today.getMonth() &&
+        dt.getDate() === today.getDate()
+      );
+    }).length;
+  }, [chartData]);
 
-  // Safe render to prevent crashes
+  const missionCount = useMemo(() => {
+    const missionIds = new Set(
+      chartData
+        .map((row) => row?.mission_id)
+        .filter((missionId) => missionId !== null && missionId !== undefined),
+    );
+    return missionIds.size;
+  }, [chartData]);
+
+  const dataWidgetCards = useMemo(() => {
+    const totalRecords = chartData.length;
+    const storageBytes = new Blob([JSON.stringify(chartData)]).size;
+    const missingRate = getMissingRate(chartData, chartDataType);
+    const qualityScore = Math.max(0, 100 - missingRate);
+
+    return [
+      {
+        title: t("pages.data.widgets.totalRawRecords"),
+        value: totalRecords,
+        icon: <FaDatabase className="text-blue-600" size={16} />,
+        trendText: t("pages.data.widgets.loadedFromFilters"),
+      },
+      {
+        title: t("pages.data.widgets.storageSize"),
+        value: toStorageLabel(storageBytes),
+        icon: <FaHdd className="text-cyan-600" size={16} />,
+        trendText: t("pages.data.widgets.approxPayload"),
+      },
+      {
+        title: t("pages.data.widgets.todayRecords"),
+        value: recordsToday,
+        icon: <FaCalendarDay className="text-green-600" size={16} />,
+        trendText: t("pages.data.widgets.createdToday"),
+      },
+      {
+        title: t("pages.data.widgets.dataQuality"),
+        value: `${qualityScore.toFixed(1)}%`,
+        icon: <FaShieldAlt className="text-orange-600" size={16} />,
+        trendText: t("pages.data.widgets.missingFields").replace(
+          "{{rate}}",
+          missingRate.toFixed(1),
+        ),
+      },
+      {
+        title: t("pages.data.widgets.missionAnalytics"),
+        value: missionCount,
+        icon: <FaChartLine className="text-indigo-600" size={16} />,
+        trendText: getInsightValue(chartData, chartDataType, t),
+      },
+    ];
+  }, [chartData, chartDataType, missionCount, recordsToday, t]);
+
   try {
     return (
       <ErrorBoundary>
         <div className="space-y-6">
-          {/* Header Section with Title and Action Buttons */}
           <DataHeader
             onRefreshData={handleRefreshData}
             isRefreshing={isRefreshing}
@@ -139,32 +273,34 @@ const Data = () => {
             onDataTypeChange={setSelectedDataType}
           />
 
-          {/* Data Statistics Cards */}
           <DataStats
-            cards={dataWidgetCards || []}
-            loading={shouldShowSkeleton}
+            cards={dataWidgetCards}
+            loading={loading}
             isRefreshing={isRefreshing}
           />
 
-          {/* Advanced Filters Section */}
           <div className="px-4">
             <DataFilters
               vehicles={vehicles || []}
-              missions={missions || []}
+              missions={missions}
               filters={filters}
+              selectedDataType={selectedDataType}
               onFilterChange={handleFilterChange}
               onResetFilters={handleResetFilters}
               hasActiveFilters={hasActiveFilters}
-              totalRecords={0}
+              totalRecords={chartData.length}
             />
           </div>
 
-          {/* Data Table/Records Section */}
+          <DataCharts data={chartData} selectedDataType={chartDataType} />
+
           <div className="px-4">
             <DataTable
               hasActiveFilters={hasActiveFilters}
               handleResetFilters={handleResetFilters}
               selectedDataType={selectedDataType}
+              filters={filters}
+              onDataLoaded={handleDataLoaded}
             />
           </div>
         </div>

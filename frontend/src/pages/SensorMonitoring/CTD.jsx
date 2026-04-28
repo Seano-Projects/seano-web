@@ -9,9 +9,7 @@ import {
 import {
   CTDTable,
   DepthProfile,
-  TSDiagram,
   TimeSeriesChart,
-  SoundSpeedProfile,
 } from "../../components/Widgets/SensorMonitoring/CTD";
 import { useVehicleData, useCTDData } from "../../hooks";
 import useTranslation from "../../hooks/useTranslation";
@@ -193,25 +191,12 @@ const CTD = () => {
       </div>
 
       {/* CTD Visualizations */}
-      <div className="space-y-4 mb-4">
-        {/* Row 1: Time Series and Depth Profile */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="min-w-0">
-            <TimeSeriesChart ctdData={filteredData} />
-          </div>
-          <div className="min-w-0">
-            <DepthProfile ctdData={filteredData} />
-          </div>
+      <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="min-w-0">
+          <TimeSeriesChart ctdData={filteredData} />
         </div>
-
-        {/* Row 2: T-S Diagram and Sound Speed Profile */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="min-w-0">
-            <TSDiagram ctdData={filteredData} />
-          </div>
-          <div className="min-w-0">
-            <SoundSpeedProfile ctdData={filteredData} />
-          </div>
+        <div className="min-w-0">
+          <DepthProfile ctdData={filteredData} />
         </div>
       </div>
 
