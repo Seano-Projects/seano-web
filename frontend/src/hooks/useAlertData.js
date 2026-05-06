@@ -6,13 +6,31 @@ import {
   REALTIME_POLL_INTERVAL_MS
 } from '../utils/realtimeConfig'
 
+const buildDateRangeParams = ({ startDate, endDate, startTime, endTime }) => {
+  const params = new URLSearchParams()
+
+  if (startDate) {
+    params.set('start_time', `${startDate}T${startTime || '00:00:00'}`)
+  }
+
+  if (endDate) {
+    params.set('end_time', `${endDate}T${endTime || '23:59:59'}`)
+  }
+
+  return params
+}
+
 /**
  * Custom hook untuk mengelola data alerts dari USV via WebSocket
  * Alert ini berbeda dengan notification - alert datang dari USV via MQTT -> WebSocket
  * Notification datang dari web application itu sendiri
  */
-export const useAlertData = () => {
+export const useAlertData = (options = {}) => {
   const isPollingMode = REALTIME_MODE === 'api'
+  const startDate = options.startDate ?? ''
+  const endDate = options.endDate ?? ''
+  const startTime = options.startTime ?? ''
+  const endTime = options.endTime ?? ''
   const [alerts, setAlerts] = useState([])
   const [stats, setStats] = useState({
     critical: 0,
@@ -53,9 +71,14 @@ export const useAlertData = () => {
     try {
       setLoading(true)
       const token = localStorage.getItem('access_token')
-      const response = await axios.get(`${API_BASE_URL}/alerts`, {
+      const params = buildDateRangeParams({ startDate, endDate, startTime, endTime })
+      const queryString = params.toString()
+      const response = await axios.get(
+        queryString ? `${API_BASE_URL}/alerts?${queryString}` : `${API_BASE_URL}/alerts`,
+        {
         headers: { Authorization: `Bearer ${token}` }
-      })
+        }
+      )
 
       const alertsData = Array.isArray(response.data)
         ? response.data
@@ -91,7 +114,7 @@ export const useAlertData = () => {
     } finally {
       setLoading(false)
     }
-  }, [calculateStats])
+  }, [calculateStats, startDate, endDate, startTime, endTime])
 
   // Setup WebSocket connection untuk real-time alerts
   useEffect(() => {
@@ -236,6 +259,22 @@ export const useAlertData = () => {
     }
   }, [])
 
+  // Acknowledge all alerts
+  const acknowledgeAllAlerts = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('access_token')
+      await axios.patch(
+        `${API_BASE_URL}/alerts/acknowledge-all`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setAlerts(prev => prev.map(alert => ({ ...alert, acknowledged: true })))
+      return { success: true }
+    } catch (err) {
+      return { success: false }
+    }
+  }, [])
+
   // Clear all alerts
   const clearAllAlerts = useCallback(async () => {
     try {
@@ -267,6 +306,7 @@ export const useAlertData = () => {
     connectionStatus,
     refreshData: fetchAlerts,
     acknowledgeAlert,
+    acknowledgeAllAlerts,
     clearAllAlerts
   }
 }

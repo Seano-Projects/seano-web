@@ -1,30 +1,18 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useContext } from 'react'
 import { API_BASE_URL } from '../config'
-
-const SELECTED_VEHICLE_KEY = 'selectedVehicleId'
+import { SelectedVehicleContext } from '../contexts/SelectedVehicleContext'
 
 const useVehicleData = () => {
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selectedVehicleId, setSelectedVehicleIdState] = useState(() => {
-    try {
-      return localStorage.getItem(SELECTED_VEHICLE_KEY) || ''
-    } catch {
-      return ''
-    }
-  })
 
-  const setSelectedVehicleId = useCallback((nextId) => {
-    const value = nextId ? String(nextId) : ''
-    setSelectedVehicleIdState(value)
-    try {
-      if (value) {
-        localStorage.setItem(SELECTED_VEHICLE_KEY, value)
-      } else {
-        localStorage.removeItem(SELECTED_VEHICLE_KEY)
-      }
-    } catch {}
-  }, [])
+  // Use shared context so ALL pages see the same selected vehicle
+  const { selectedVehicleId, setSelectedVehicleId: setSelectedVehicleIdCtx } = useContext(SelectedVehicleContext)
+
+  // Wrap setter to accept both string and numeric ids (legacy compat)
+  const setSelectedVehicleId = (nextId) => {
+    setSelectedVehicleIdCtx(nextId)
+  }
 
   useEffect(() => {
     let loadingTimeout

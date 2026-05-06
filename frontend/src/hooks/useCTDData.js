@@ -10,6 +10,9 @@ const toNumber = value => {
   return Number.isFinite(num) ? num : null
 }
 
+const sortLatestFirst = items =>
+  [...items].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+
 const normalizeCTDData = (payload, fallback = {}) => {
   const timestamp =
     payload?.timestamp || payload?.date_time || fallback.timestamp || null
@@ -93,7 +96,7 @@ export const useCTDData = (vehicle = null) => {
     const entryKey = makeKey(entry)
     const hasEntry = existing.some(item => makeKey(item) === entryKey)
     if (hasEntry) return existing
-    return [...existing, entry].slice(-1000)
+    return [entry, ...existing].slice(0, 1000)
   }
 
   useEffect(() => {
@@ -119,7 +122,7 @@ export const useCTDData = (vehicle = null) => {
 
     try {
       // Keep initial payload moderate to reduce filter-to-render latency on vehicle switch.
-      let url = `${API_BASE_URL}/sensor-logs/?limit=300`
+      let url = `${API_BASE_URL}/sensor-logs/?limit=10000`
       if (vehicleId) url += `&vehicle_id=${vehicleId}`
 
       const response = await fetch(url, {
@@ -158,12 +161,14 @@ export const useCTDData = (vehicle = null) => {
         })
         .filter(Boolean)
 
+      const sorted = sortLatestFirst(normalized)
+
       // Ignore stale responses from previous vehicle selections.
       if (requestId !== fetchRequestIdRef.current) return
 
-      vehicleCacheRef.current.set(cacheKey, normalized)
-      seenKeys.current = new Set(normalized.map(makeKey))
-      setCTDData(normalized)
+      vehicleCacheRef.current.set(cacheKey, sorted)
+      seenKeys.current = new Set(sorted.map(makeKey))
+      setCTDData(sorted)
     } catch {
       // Silently ignore; WebSocket will still stream live data
     }
@@ -257,8 +262,8 @@ export const useCTDData = (vehicle = null) => {
             if (!seenKeys.current.has(key)) {
               seenKeys.current.add(key)
               setCTDData(prevData => {
-                const newData = [...prevData, normalized]
-                return newData.slice(-1000)
+                const newData = [normalized, ...prevData]
+                return newData.slice(0, 1000)
               })
             }
           } else if (messageType === 'sensor_log' && data.data) {
@@ -313,8 +318,8 @@ export const useCTDData = (vehicle = null) => {
             if (!seenKeys.current.has(key)) {
               seenKeys.current.add(key)
               setCTDData(prevData => {
-                const newData = [...prevData, normalized]
-                return newData.slice(-1000)
+                const newData = [normalized, ...prevData]
+                return newData.slice(0, 1000)
               })
             }
           } else if (messageType === 'error') {

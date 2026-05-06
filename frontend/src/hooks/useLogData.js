@@ -4,10 +4,25 @@ import {
   REALTIME_MODE,
   REALTIME_POLL_INTERVAL_MS
 } from '../utils/realtimeConfig'
+import { API_BASE_URL, WS_URL as CONFIG_WS_URL } from '../config'
 
 const LOG_LIMIT = 200
 const WS_FLUSH_INTERVAL_MS = 250
 const MAX_RAW_LOG_CHARS = 512
+
+const buildDateRangeParams = ({ startDate, endDate, startTime, endTime }) => {
+  const params = new URLSearchParams()
+
+  if (startDate) {
+    params.set('start_time', `${startDate}T${startTime || '00:00:00'}`)
+  }
+
+  if (endDate) {
+    params.set('end_time', `${endDate}T${endTime || '23:59:59'}`)
+  }
+
+  return params
+}
 
 const parseNumber = value => {
   if (value === null || value === undefined || value === '') {
@@ -76,14 +91,17 @@ const normalizeBatteryRecord = battery => {
   }
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const API_URL = API_BASE_URL
 // Auto-detect WebSocket URL from API URL
 const getWsUrl = () => {
   if (import.meta.env.VITE_WS_URL) {
     return import.meta.env.VITE_WS_URL
   }
+  if (CONFIG_WS_URL) {
+    return CONFIG_WS_URL
+  }
   // Convert https:// to wss:// and http:// to ws://
-  const apiUrl = API_URL.replace('https://', 'wss://').replace(
+  const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace('https://', 'wss://').replace(
     'http://',
     'ws://'
   )
@@ -91,6 +109,21 @@ const getWsUrl = () => {
 }
 const WS_URL = getWsUrl()
 const BATTERY_STORAGE_KEY = 'batteryData'
+
+const ackWsReceipt = (endpoint, wsReceivedAt) => {
+  const token = localStorage.getItem('access_token')
+  if (!token) {
+    return
+  }
+
+  axios
+    .post(
+      `${API_URL}${endpoint}`,
+      { ws_received_at: wsReceivedAt },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    .catch(() => {})
+}
 
 const normalizeBatteryMap = rawBatteryMap => {
   if (!rawBatteryMap || typeof rawBatteryMap !== 'object') {
@@ -150,6 +183,11 @@ export const useLogData = (options = {}) => {
   const enableBatteryData = options.enableBatteryData ?? true
   const enableRealtime = options.enableRealtime ?? true
   const pauseRealtime = options.pauseRealtime ?? false
+  const startDate = options.startDate ?? ''
+  const endDate = options.endDate ?? ''
+  const startTime = options.startTime ?? ''
+  const endTime = options.endTime ?? ''
+  const selectedVehicleId = options.selectedVehicleId ?? 0
   const isPollingMode = REALTIME_MODE === 'api'
 
   const [stats, setStats] = useState({
@@ -303,8 +341,18 @@ export const useLogData = (options = {}) => {
 
     try {
       const token = localStorage.getItem('access_token')
+      const params = buildDateRangeParams({ startDate, endDate, startTime, endTime })
+
+      if (selectedVehicleId) {
+        params.set('vehicle_id', String(selectedVehicleId))
+      }
+
+      if (!startDate && !endDate) {
+        params.set('limit', String(limit))
+      }
+
       const response = await axios.get(
-        `${API_URL}/vehicle-logs?limit=${limit}`,
+        `${API_URL}/vehicle-logs?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -319,7 +367,7 @@ export const useLogData = (options = {}) => {
       }))
       setVehicleLogs(data)
     } catch (err) {}
-  }, [enableVehicleLogs])
+  }, [enableVehicleLogs, startDate, endDate, startTime, endTime, selectedVehicleId])
 
   // Fetch sensor logs
   const fetchSensorLogs = useCallback(async (limit = 200) => {
@@ -329,8 +377,18 @@ export const useLogData = (options = {}) => {
 
     try {
       const token = localStorage.getItem('access_token')
+      const params = buildDateRangeParams({ startDate, endDate, startTime, endTime })
+
+      if (selectedVehicleId) {
+        params.set('vehicle_id', String(selectedVehicleId))
+      }
+
+      if (!startDate && !endDate) {
+        params.set('limit', String(limit))
+      }
+
       const response = await axios.get(
-        `${API_URL}/sensor-logs?limit=${limit}`,
+        `${API_URL}/sensor-logs?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -345,7 +403,7 @@ export const useLogData = (options = {}) => {
       }))
       setSensorLogs(data)
     } catch (err) {}
-  }, [enableSensorLogs])
+  }, [enableSensorLogs, startDate, endDate, startTime, endTime, selectedVehicleId])
 
   // Fetch raw logs
   const fetchRawLogs = useCallback(async (limit = 200) => {
@@ -355,7 +413,17 @@ export const useLogData = (options = {}) => {
 
     try {
       const token = localStorage.getItem('access_token')
-      const response = await axios.get(`${API_URL}/raw-logs?limit=${limit}`, {
+      const params = buildDateRangeParams({ startDate, endDate, startTime, endTime })
+
+      if (selectedVehicleId) {
+        params.set('vehicle_id', String(selectedVehicleId))
+      }
+
+      if (!startDate && !endDate) {
+        params.set('limit', String(limit))
+      }
+
+      const response = await axios.get(`${API_URL}/raw-logs?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
 
@@ -382,12 +450,12 @@ export const useLogData = (options = {}) => {
               _client_id: normalized?._client_id || `raw-rest-${item?.id ?? fetchedAt}-${idx}`
             }
           })
-          .slice(0, LOG_LIMIT)
+          .slice(0, startDate || endDate ? undefined : LOG_LIMIT)
       )
     } catch (err) {
       setRawLogs([]) // Set empty array on error
     }
-  }, [enableRawLogs])
+  }, [enableRawLogs, startDate, endDate, startTime, endTime, selectedVehicleId])
 
   // Fetch command logs
   const fetchCommandLogs = useCallback(async (limit = 200) => {
@@ -397,7 +465,17 @@ export const useLogData = (options = {}) => {
 
     try {
       const token = localStorage.getItem('access_token')
-      const response = await axios.get(`${API_URL}/command-logs?limit=${limit}`, {
+      const params = buildDateRangeParams({ startDate, endDate, startTime, endTime })
+
+      if (selectedVehicleId) {
+        params.set('vehicle_id', String(selectedVehicleId))
+      }
+
+      if (!startDate && !endDate) {
+        params.set('limit', String(limit))
+      }
+
+      const response = await axios.get(`${API_URL}/command-logs?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = Array.isArray(response.data) ? response.data : (response.data?.data || [])
@@ -408,7 +486,7 @@ export const useLogData = (options = {}) => {
       }))
       setCommandLogs(normalized)
     } catch {}
-  }, [enableCommandLogs])
+  }, [enableCommandLogs, startDate, endDate, startTime, endTime, selectedVehicleId])
 
   // Fetch waypoint logs
   const fetchWaypointLogs = useCallback(async (limit = 200) => {
@@ -418,7 +496,17 @@ export const useLogData = (options = {}) => {
 
     try {
       const token = localStorage.getItem('access_token')
-      const response = await axios.get(`${API_URL}/waypoint-logs?limit=${limit}`, {
+      const params = buildDateRangeParams({ startDate, endDate, startTime, endTime })
+
+      if (selectedVehicleId) {
+        params.set('vehicle_id', String(selectedVehicleId))
+      }
+
+      if (!startDate && !endDate) {
+        params.set('limit', String(limit))
+      }
+
+      const response = await axios.get(`${API_URL}/waypoint-logs?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = Array.isArray(response.data) ? response.data : (response.data?.data || [])
@@ -429,7 +517,7 @@ export const useLogData = (options = {}) => {
       }))
       setWaypointLogs(normalized)
     } catch {}
-  }, [enableWaypointLogs])
+  }, [enableWaypointLogs, startDate, endDate, startTime, endTime, selectedVehicleId])
 
   // Recalculate stats from current data
   useEffect(() => {
@@ -525,7 +613,12 @@ export const useLogData = (options = {}) => {
     enableRawLogs,
     enableCommandLogs,
     enableWaypointLogs,
-    enableBatteryData
+    enableBatteryData,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    selectedVehicleId
   ])
 
   // Periodic token refresh check (every 5 minutes)
@@ -610,10 +703,16 @@ export const useLogData = (options = {}) => {
               wsClientSeqRef.current += 1
               vehicleQueueRef.current.push({
                 ...message.data,
+                ws_sent_at: message.ws_sent_at || '',
+                ws_received_at: receivedAt,
                 _received_at: receivedAt,
                 _source: 'ws',
                 _client_id: `vehicle-${receivedAt}-${wsClientSeqRef.current}`
               })
+
+              if (message.data.id) {
+                ackWsReceipt(`/vehicle-logs/${message.data.id}/ws-received`, receivedAt)
+              }
             }
           } else if (message.type === 'sensor_log' && enableSensorLogs) {
             const receivedAt = new Date().toISOString()
@@ -621,10 +720,16 @@ export const useLogData = (options = {}) => {
               wsClientSeqRef.current += 1
               sensorQueueRef.current.push({
                 ...message.data,
+                ws_sent_at: message.ws_sent_at || '',
+                ws_received_at: receivedAt,
                 _received_at: receivedAt,
                 _source: 'ws',
                 _client_id: `sensor-${receivedAt}-${wsClientSeqRef.current}`
               })
+
+              if (message.data.id) {
+                ackWsReceipt(`/sensor-logs/${message.data.id}/ws-received`, receivedAt)
+              }
             }
           } else if (message.type === 'raw_log' && enableRawLogs) {
             const receivedAt = new Date().toISOString()
@@ -640,12 +745,21 @@ export const useLogData = (options = {}) => {
               )
             }
           } else if (message.type === 'command_log' && enableCommandLogs) {
+            const receivedAt = new Date().toISOString()
             if (message.data) {
               wsClientSeqRef.current += 1
               commandQueueRef.current.push({
                 ...message.data,
-                _client_id: `command-${new Date().toISOString()}-${wsClientSeqRef.current}`
+                ws_sent_at: message.ws_sent_at || '',
+                ws_received_at: receivedAt,
+                _received_at: receivedAt,
+                _source: 'ws',
+                _client_id: `command-${receivedAt}-${wsClientSeqRef.current}`
               })
+
+              if (message.data.id) {
+                ackWsReceipt(`/command-logs/${message.data.id}/ws-received`, receivedAt)
+              }
             }
           } else if (message.type === 'waypoint_log' && enableWaypointLogs) {
             if (message.data) {
