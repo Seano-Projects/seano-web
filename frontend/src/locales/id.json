@@ -439,8 +439,8 @@
       "title": "Monitoring CTD",
       "subtitle": "Data Sensor CTD Real-time",
       "startDate": "Tanggal Mulai",
-      "endDate": "Tanggal Selesai",
-      "to": "sampai",
+      "endDate": "Tanggal Akhir",
+      "to": "s/d",
       "loadingVehicles": "Memuat kendaraan...",
       "noVehicles": "Tidak ada kendaraan tersedia",
       "allVehicles": "Semua Kendaraan",
@@ -451,13 +451,44 @@
         "allDataSubtitle": "Tren CTD dari waktu ke waktu",
         "customSelectTitle": "Grafik Pilihan",
         "customSelectSubtitle": "Pilih metrik CTD untuk melihat tren",
+        "sectionHeatmapTitle": "Heatmap Penampang",
+        "sectionHeatmapSubtitle": "Jarak vs kedalaman berdasarkan metrik terpilih",
+        "sectionHeatmapBinsLabel": "Bin",
+        "sectionHeatmapNoData": "Data belum tersedia untuk heatmap",
         "density": "Densitas",
         "soundVelocity": "Kecepatan Suara"
       }
     },
     "adcp": {
       "title": "Monitoring ADCP",
-      "subtitle": "Monitoring ADCP segera hadir"
+      "subtitle": "Data real-time Acoustic Doppler Current Profiler",
+      "live": "Langsung",
+      "offline": "Offline",
+      "startDate": "Tanggal Mulai",
+      "endDate": "Tanggal Akhir",
+      "to": "s/d",
+      "allVehicles": "Semua Kendaraan",
+      "loadingVehicles": "Memuat kendaraan...",
+      "noVehicles": "Tidak ada kendaraan",
+      "clear": "Hapus",
+      "currentSpeed": "Kecepatan Arus",
+      "currentDirection": "Arah Arus",
+      "waterDepth": "Kedalaman Air",
+      "speedHistory": "Riwayat Kecepatan Arus",
+      "speedHistorySubtitle": "Kecepatan arus seiring waktu (m/s)",
+      "temperatureHistory": "Riwayat Suhu",
+      "temperatureHistorySubtitle": "Suhu air seiring waktu (°C)",
+      "beamVelocity": "Kecepatan Beam (V1–V4)",
+      "beamVelocitySubtitle": "Pembacaan beam individual dari transduser ADCP",
+      "beamNote": "Negatif = menuju transduser, Positif = menjauhi transduser",
+      "latestReading": "Data Terbaru",
+      "heading": "Arah Kapal",
+      "ensembleNo": "No. Ensemble",
+      "temperature": "Suhu",
+      "position": "Posisi",
+      "totalRecords": "Total Data",
+      "tableTitle": "Log Data ADCP",
+      "records": "data"
     },
     "sbes": {
       "title": "Monitoring SBES",
@@ -518,7 +549,9 @@
       "types": {
         "vehicleLogs": "Riwayat Kendaraan",
         "sensorLogs": "Riwayat Sensor",
-        "batteryLogs": "Riwayat Baterai"
+        "batteryLogs": "Riwayat Baterai",
+        "waypointLogs": "Log Waypoint",
+        "commandLogs": "Log Perintah"
       },
       "actions": {
         "refresh": "Muat Ulang",
@@ -532,7 +565,10 @@
         "csvOnly": "Silakan unggah file CSV",
         "invalidDataType": "Tipe data yang dipilih tidak valid",
         "importFailed": "Gagal mengimpor file CSV",
-        "exportFailed": "Gagal mengekspor {{type}}"
+        "exportFailed": "Gagal mengekspor {{type}}",
+        "importUnavailable": "Impor belum tersedia untuk tipe data ini",
+        "noDataToExport": "Tidak ada data untuk diekspor",
+        "exportFromLoadedData": "Endpoint ekspor tidak tersedia, file dibuat dari data yang sedang dimuat"
       },
       "filters": {
         "title": "Filter Data",
@@ -546,7 +582,7 @@
         "dataScopeTitle": "Cakupan Data",
         "dateRangeTitle": "Rentang Waktu",
         "startDate": "Tanggal Mulai",
-        "endDate": "Tanggal Selesai",
+        "endDate": "Tanggal Akhir",
         "sensorTypeTitle": "Tipe Sensor",
         "selectDataType": "Pilih tipe data",
         "active": "Filter aktif sedang diterapkan.",
@@ -565,7 +601,7 @@
         "sensorType": {
           "all": "Semua Tipe Sensor",
           "ctd": "CTD",
-          "adcp": "ADCP (Segera Hadir)",
+          "adcp": "ADCP",
           "sbes": "SBES (Segera Hadir)",
           "mbes": "MBES (Segera Hadir)"
         }
@@ -598,9 +634,11 @@
         "failedLoad": "Gagal Memuat Data",
         "tryAgain": "Coba Lagi",
         "exportSuccess": "Data berhasil diekspor!",
-        "searchVehicle": "Cari berdasarkan ID, kendaraan, atau mode...",
-        "searchSensor": "Cari berdasarkan ID, kendaraan, atau sensor...",
-        "searchBattery": "Cari berdasarkan ID baterai, kendaraan, atau status...",
+        "searchVehicle": "Cari berdasarkan kendaraan atau mode...",
+        "searchSensor": "Cari berdasarkan kendaraan atau sensor...",
+        "searchBattery": "Cari berdasarkan baterai, kendaraan, atau status...",
+        "searchWaypoint": "Cari berdasarkan kendaraan, misi, atau status...",
+        "searchCommand": "Cari berdasarkan kendaraan, perintah, atau status...",
         "empty": "Tidak ada data. Data akan muncul saat kendaraan mengirimkan informasi.",
         "emptyWithFilters": "Tidak ada data untuk filter yang dipilih. Coba sesuaikan filter di atas.",
         "deleteBulkConfirm": "Yakin ingin menghapus {{count}} {{type}}? Tindakan ini tidak bisa dibatalkan.",
@@ -624,7 +662,12 @@
           "soc": "SOC",
           "voltage": "Tegangan",
           "current": "Arus",
-          "temperature": "Suhu"
+          "temperature": "Suhu",
+          "status": "Status",
+          "message": "Pesan",
+          "coordinates": "Koordinat",
+          "mission": "Misi",
+          "vehicle": "Kendaraan"
         }
       },
       "charts": {
@@ -657,6 +700,9 @@
       "confirmClearAll": "Yakin ingin menghapus semua peringatan?",
       "clearSuccess": "Semua peringatan dihapus",
       "clearFailed": "Gagal menghapus peringatan",
+      "ackAll": "Ack Semua",
+      "ackAllSuccess": "Semua peringatan ditandai",
+      "ackAllFailed": "Gagal menandai semua peringatan",
       "ackSuccess": "Peringatan ditandai",
       "ackFailed": "Gagal menandai peringatan",
       "history": "Riwayat Peringatan",
@@ -737,8 +783,8 @@
       "title": "Riwayat",
       "subtitle": "Pembaruan langsung",
       "startDate": "Tanggal Mulai",
-      "endDate": "Tanggal Selesai",
-      "to": "sampai",
+      "endDate": "Tanggal Akhir",
+      "to": "s/d",
       "loadingVehicles": "Memuat kendaraan...",
       "noVehicles": "Tidak ada kendaraan tersedia",
       "allVehicles": "Semua Kendaraan",
@@ -1089,8 +1135,8 @@
       "allStatus": "Semua Status",
       "status": "Status",
       "vessel": "Kapal",
-      "startDate": "Tanggal mulai",
-      "endDate": "Tanggal selesai",
+      "startDate": "Tanggal Mulai",
+      "endDate": "Tanggal Akhir",
       "resetFilters": "Reset semua filter",
       "selectStatus": "Pilih status",
       "allVessels": "Semua kapal",

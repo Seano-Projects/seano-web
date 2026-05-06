@@ -451,13 +451,44 @@
         "allDataSubtitle": "CTD trends over time",
         "customSelectTitle": "Selected Metric",
         "customSelectSubtitle": "Pick one CTD metric to view",
+        "sectionHeatmapTitle": "Section Heatmap",
+        "sectionHeatmapSubtitle": "Distance vs depth colored by selected metric",
+        "sectionHeatmapBinsLabel": "Bins",
+        "sectionHeatmapNoData": "No data available for heatmap",
         "density": "Density",
         "soundVelocity": "Sound Velocity"
       }
     },
     "adcp": {
       "title": "ADCP Monitoring",
-      "subtitle": "ADCP monitoring is coming soon"
+      "subtitle": "Acoustic Doppler Current Profiler real-time data",
+      "live": "Live",
+      "offline": "Offline",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "to": "to",
+      "allVehicles": "All Vehicles",
+      "loadingVehicles": "Loading vehicles...",
+      "noVehicles": "No vehicles",
+      "clear": "Clear",
+      "currentSpeed": "Current Speed",
+      "currentDirection": "Current Direction",
+      "waterDepth": "Water Depth",
+      "speedHistory": "Current Speed History",
+      "speedHistorySubtitle": "Real-time speed over time (m/s)",
+      "temperatureHistory": "Temperature History",
+      "temperatureHistorySubtitle": "Water temperature over time (°C)",
+      "beamVelocity": "Beam Velocities (V1–V4)",
+      "beamVelocitySubtitle": "Individual beam readings from the ADCP transducer",
+      "beamNote": "Negative = towards transducer, Positive = away from transducer",
+      "latestReading": "Latest Reading",
+      "heading": "Heading",
+      "ensembleNo": "Ensemble No.",
+      "temperature": "Temperature",
+      "position": "Position",
+      "totalRecords": "Total Records",
+      "tableTitle": "ADCP Data Log",
+      "records": "records"
     },
     "sbes": {
       "title": "SBES Monitoring",
@@ -518,7 +549,9 @@
       "types": {
         "vehicleLogs": "Vehicle History",
         "sensorLogs": "Sensor History",
-        "batteryLogs": "Battery History"
+        "batteryLogs": "Battery History",
+        "waypointLogs": "Waypoint Logs",
+        "commandLogs": "Command Logs"
       },
       "actions": {
         "refresh": "Refresh",
@@ -532,7 +565,10 @@
         "csvOnly": "Please upload a CSV file",
         "invalidDataType": "Invalid data type selected",
         "importFailed": "Failed to import CSV file",
-        "exportFailed": "Failed to export {{type}}"
+        "exportFailed": "Failed to export {{type}}",
+        "importUnavailable": "Import is not available for this data type",
+        "noDataToExport": "No data available to export",
+        "exportFromLoadedData": "Export endpoint is unavailable, file generated from currently loaded data"
       },
       "filters": {
         "title": "Data Filters",
@@ -565,14 +601,14 @@
         "sensorType": {
           "all": "All Sensor Types",
           "ctd": "CTD",
-          "adcp": "ADCP (Coming Soon)",
+          "adcp": "ADCP",
           "sbes": "SBES (Coming Soon)",
           "mbes": "MBES (Coming Soon)"
         }
       },
       "widgets": {
         "totalRawRecords": "Total Records",
-        "storageSize": "Storage Size",
+        "storageSize": "Data Size",
         "todayRecords": "Today Records",
         "dataQuality": "Data Quality",
         "missionAnalytics": "Mission Summary",
@@ -598,9 +634,11 @@
         "failedLoad": "Failed to Load Data",
         "tryAgain": "Try Again",
         "exportSuccess": "Data exported successfully!",
-        "searchVehicle": "Search by ID, vehicle, or mode...",
-        "searchSensor": "Search by ID, vehicle, or sensor...",
-        "searchBattery": "Search by battery ID, vehicle, or status...",
+        "searchVehicle": "Search by vehicle or mode...",
+        "searchSensor": "Search by vehicle or sensor...",
+        "searchBattery": "Search by battery, vehicle, or status...",
+        "searchWaypoint": "Search by vehicle, mission, or status...",
+        "searchCommand": "Search by vehicle, command, or status...",
         "empty": "No data found. Data will appear here when vehicles send information.",
         "emptyWithFilters": "No data found for the selected filters. Try adjusting the filters above.",
         "deleteBulkConfirm": "Are you sure you want to delete {{count}} {{type}}? This action cannot be undone.",
@@ -624,7 +662,12 @@
           "soc": "SOC",
           "voltage": "Voltage",
           "current": "Current",
-          "temperature": "Temperature"
+          "temperature": "Temperature",
+          "status": "Status",
+          "message": "Message",
+          "coordinates": "Coordinates",
+          "mission": "Mission",
+          "vehicle": "Vehicle"
         }
       },
       "charts": {
@@ -657,6 +700,9 @@
       "confirmClearAll": "Are you sure you want to clear all alerts?",
       "clearSuccess": "All alerts cleared",
       "clearFailed": "Failed to clear alerts",
+      "ackAll": "Ack All",
+      "ackAllSuccess": "All alerts acknowledged",
+      "ackAllFailed": "Failed to acknowledge all alerts",
       "ackSuccess": "Alert acknowledged",
       "ackFailed": "Failed to acknowledge alert",
       "history": "Alert History",
