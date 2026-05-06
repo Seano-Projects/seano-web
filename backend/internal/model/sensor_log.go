@@ -14,7 +14,9 @@ type SensorLog struct {
 	Data           string     `json:"data" gorm:"type:jsonb;not null"` // JSON data from sensor
 	UsvTimestamp   *time.Time `json:"usv_timestamp,omitempty" gorm:"type:timestamptz;index"` // timestamp from USV payload
 	MqttReceivedAt *time.Time `json:"mqtt_received_at,omitempty" gorm:"type:timestamptz;index"` // when backend received MQTT
-	CreatedAt      time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	WsSentAt       *time.Time `json:"ws_sent_at,omitempty" gorm:"type:timestamptz;index"` // when backend pushed to websocket
+	WsReceivedAt   *time.Time `json:"ws_received_at,omitempty" gorm:"type:timestamptz;index"` // when frontend reported websocket receive
+	CreatedAt      time.Time  `json:"created_at" gorm:"autoCreateTime;not null"`
 }
 
 func (SensorLog) TableName() string {
@@ -30,6 +32,7 @@ type SensorLogQuery struct {
 	MissionID  uint      `query:"mission_id"`
 	StartTime  time.Time `query:"start_time"`
 	EndTime    time.Time `query:"end_time"`
+	Order      string    `query:"order"`
 	Limit      int       `query:"limit"`
 	Offset     int       `query:"offset"`
 }

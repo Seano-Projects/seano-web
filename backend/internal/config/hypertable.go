@@ -11,6 +11,38 @@ func SetupHypertables(db *gorm.DB, includeRawLogs bool) error {
 		log.Printf("Warning: Could not create timescaledb extension (might already exist): %v", err)
 	}
 
+	// Ensure created_at is NOT NULL (required by TimescaleDB time dimension)
+	// and that the primary key is composite (id, created_at) — required for hypertable unique indexes.
+	pkFixQueries := []string{
+		`ALTER TABLE vehicle_logs ALTER COLUMN created_at SET NOT NULL;`,
+		`ALTER TABLE sensor_logs ALTER COLUMN created_at SET NOT NULL;`,
+		`DO $$ BEGIN
+			IF EXISTS (
+				SELECT 1 FROM pg_constraint
+				WHERE conname = 'vehicle_logs_pkey'
+				  AND array_length(conkey, 1) = 1
+			) THEN
+				ALTER TABLE vehicle_logs DROP CONSTRAINT vehicle_logs_pkey;
+				ALTER TABLE vehicle_logs ADD PRIMARY KEY (id, created_at);
+			END IF;
+		END $$;`,
+		`DO $$ BEGIN
+			IF EXISTS (
+				SELECT 1 FROM pg_constraint
+				WHERE conname = 'sensor_logs_pkey'
+				  AND array_length(conkey, 1) = 1
+			) THEN
+				ALTER TABLE sensor_logs DROP CONSTRAINT sensor_logs_pkey;
+				ALTER TABLE sensor_logs ADD PRIMARY KEY (id, created_at);
+			END IF;
+		END $$;`,
+	}
+	for _, q := range pkFixQueries {
+		if err := db.Exec(q).Error; err != nil {
+			log.Printf("Warning: PK/NOT NULL fix: %v", err)
+		}
+	}
+
 	if err := db.Exec(`
 		SELECT create_hypertable('sensor_logs', 'created_at', 
 			if_not_exists => TRUE,
