@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -7,12 +7,33 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
-import { MapContainer, Polyline, TileLayer, CircleMarker } from "react-leaflet";
+import {
+  MapContainer,
+  Polyline,
+  TileLayer,
+  CircleMarker,
+  useMap,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import useTranslation from "../../../hooks/useTranslation";
 import Dropdown from "../Dropdown";
 
 const MAX_SENSOR_POINTS = 10;
+
+// Auto-fit map to all route points
+const FitBounds = ({ positions }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (positions && positions.length >= 2) {
+      try {
+        const bounds = L.latLngBounds(positions);
+        map.fitBounds(bounds, { padding: [24, 24] });
+      } catch {}
+    }
+  }, [map, positions]);
+  return null;
+};
 
 const ChartCard = ({
   title,
@@ -48,21 +69,6 @@ const EmptyState = ({ message }) => (
   </div>
 );
 
-const buildPlannedPath = (actualPath) => {
-  if (actualPath.length < 2) return actualPath;
-  const first = actualPath[0];
-  const last = actualPath[actualPath.length - 1];
-  const steps = actualPath.length - 1;
-
-  return Array.from({ length: actualPath.length }).map((_, index) => {
-    const ratio = index / steps;
-    return {
-      lat: first.lat + (last.lat - first.lat) * ratio,
-      lng: first.lng + (last.lng - first.lng) * ratio,
-    };
-  });
-};
-
 const VehicleLogsCharts = ({ data }) => {
   const { t } = useTranslation();
 
@@ -70,30 +76,39 @@ const VehicleLogsCharts = ({ data }) => {
     return data
       .filter((row) => row.latitude != null && row.longitude != null)
       .map((row) => ({ lat: Number(row.latitude), lng: Number(row.longitude) }))
-      .filter((row) => Number.isFinite(row.lat) && Number.isFinite(row.lng));
+      .filter(
+        (row) =>
+          Number.isFinite(row.lat) &&
+          Number.isFinite(row.lng) &&
+          !(row.lat === 0 && row.lng === 0),
+      );
   }, [data]);
 
-  const plannedPath = useMemo(() => buildPlannedPath(actualPath), [actualPath]);
+  const positions = useMemo(
+    () => actualPath.map((p) => [p.lat, p.lng]),
+    [actualPath],
+  );
 
   const center = useMemo(() => {
     if (!actualPath.length) return [-6.2, 106.8166667];
-    return [actualPath[0].lat, actualPath[0].lng];
+    const midIdx = Math.floor(actualPath.length / 2);
+    return [actualPath[midIdx].lat, actualPath[midIdx].lng];
   }, [actualPath]);
 
   return (
-    <ChartCard
-      title={t("pages.data.charts.vehicleMapTitle")}
-      subtitle={t("pages.data.charts.vehicleMapSubtitle")}
-      bodyClassName="h-[420px]"
+    <div
+      className="w-full bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+      style={{ height: "480px" }}
     >
       {actualPath.length < 2 ? (
-        <EmptyState message={t("pages.data.charts.vehicleMapEmpty")} />
+        <div className="flex items-center justify-center h-full text-sm text-gray-500 dark:text-gray-400">
+          {t("pages.data.charts.vehicleMapEmpty")}
+        </div>
       ) : (
         <MapContainer
           center={center}
-          zoom={15}
+          zoom={13}
           scrollWheelZoom
-          className="h-full w-full rounded-lg overflow-hidden"
           style={{ height: "100%", width: "100%" }}
           worldCopyJump={false}
           maxBounds={[
@@ -114,45 +129,32 @@ const VehicleLogsCharts = ({ data }) => {
             maxZoom={20}
             maxNativeZoom={18}
           />
-
+          <FitBounds positions={positions} />
           <Polyline
-            positions={plannedPath.map((point) => [point.lat, point.lng])}
-            pathOptions={{
-              color: "#38bdf8",
-              weight: 3,
-              dashArray: "6 8",
-              opacity: 0.9,
-            }}
+            positions={positions}
+            pathOptions={{ color: "#ef4444", weight: 3, opacity: 0.9 }}
           />
-          <Polyline
-            positions={actualPath.map((point) => [point.lat, point.lng])}
-            pathOptions={{ color: "#0f766e", weight: 4, opacity: 0.95 }}
-          />
-
           <CircleMarker
-            center={[actualPath[0].lat, actualPath[0].lng]}
-            radius={6}
+            center={positions[0]}
+            radius={7}
             pathOptions={{
               color: "#22c55e",
               fillColor: "#22c55e",
-              fillOpacity: 0.9,
+              fillOpacity: 1,
             }}
           />
           <CircleMarker
-            center={[
-              actualPath[actualPath.length - 1].lat,
-              actualPath[actualPath.length - 1].lng,
-            ]}
-            radius={6}
+            center={positions[positions.length - 1]}
+            radius={7}
             pathOptions={{
               color: "#ef4444",
               fillColor: "#ef4444",
-              fillOpacity: 0.9,
+              fillOpacity: 1,
             }}
           />
         </MapContainer>
       )}
-    </ChartCard>
+    </div>
   );
 };
 
@@ -420,9 +422,9 @@ const BatteryLogsCharts = ({ data }) => {
 
   const chartRows = useMemo(() => {
     return data
-      .filter((row) => row.timestamp)
+      .filter((row) => row.created_at || row.timestamp)
       .map((row) => {
-        const time = new Date(row.timestamp);
+        const time = new Date(row.created_at || row.timestamp);
         return {
           time: `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`,
           soc: Number(row.percentage),
@@ -496,6 +498,11 @@ const BatteryLogsCharts = ({ data }) => {
 
 const DataCharts = ({ data, selectedDataType }) => {
   const { t } = useTranslation();
+
+  // waypoint_logs and command_logs don't have charts
+  if (selectedDataType === "waypoint_logs" || selectedDataType === "command_logs") {
+    return null;
+  }
 
   if (!data || data.length === 0) {
     return (

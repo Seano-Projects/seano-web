@@ -24,20 +24,32 @@ const DataTable = ({
     vehicle_logs: {
       labelKey: "pages.data.types.vehicleLogs",
       endpoint: API_ENDPOINTS.VEHICLE_LOGS,
-      searchKeys: ["id", "vehicle_id", "mode"],
+      searchKeys: ["vehicle_id", "mode"],
       searchPlaceholderKey: "pages.data.table.searchVehicle",
     },
     sensor_logs: {
       labelKey: "pages.data.types.sensorLogs",
       endpoint: API_ENDPOINTS.SENSOR_LOGS,
-      searchKeys: ["id", "vehicle_id", "sensor_id"],
+      searchKeys: ["vehicle_id", "sensor_id"],
       searchPlaceholderKey: "pages.data.table.searchSensor",
     },
     battery_logs: {
       labelKey: "pages.data.types.batteryLogs",
       endpoint: API_ENDPOINTS.BATTERY_LOGS,
-      searchKeys: ["id", "vehicle_id", "battery_id", "status"],
+      searchKeys: ["vehicle_id", "battery_id", "status"],
       searchPlaceholderKey: "pages.data.table.searchBattery",
+    },
+    waypoint_logs: {
+      labelKey: "pages.data.types.waypointLogs",
+      endpoint: API_ENDPOINTS.WAYPOINT_LOGS,
+      searchKeys: ["vehicle_id", "mission_name", "status"],
+      searchPlaceholderKey: "pages.data.table.searchWaypoint",
+    },
+    command_logs: {
+      labelKey: "pages.data.types.commandLogs",
+      endpoint: API_ENDPOINTS.COMMAND_LOGS,
+      searchKeys: ["vehicle_id", "command", "status"],
+      searchPlaceholderKey: "pages.data.table.searchCommand",
     },
   };
 
@@ -47,23 +59,15 @@ const DataTable = ({
     if (f.vehicle?.id) params.append("vehicle_id", f.vehicle.id);
     if (f.mission?.id) params.append("mission_id", f.mission.id);
 
-    // Convert date strings to ISO 8601 (RFC3339) required by backend
-    const toISO = (dateStr) => {
-      if (!dateStr) return null;
-      const d = new Date(dateStr);
-      return isNaN(d) ? null : d.toISOString();
-    };
     if (f.startDate) {
-      const iso = toISO(f.startDate);
-      if (iso) params.append("start_time", iso);
+      const time = f.startTime || "00:00:00";
+      const d = new Date(`${f.startDate}T${time}`);
+      if (!isNaN(d)) params.append("start_time", d.toISOString());
     }
     if (f.endDate) {
-      // End date: set to end of that day
-      const d = new Date(f.endDate);
-      if (!isNaN(d)) {
-        d.setHours(23, 59, 59, 999);
-        params.append("end_time", d.toISOString());
-      }
+      const time = f.endTime ? `${f.endTime}:59` : "23:59:59";
+      const d = new Date(`${f.endDate}T${time}`);
+      if (!isNaN(d)) params.append("end_time", d.toISOString());
     }
 
     // date range shortcuts → convert to start_time
@@ -88,8 +92,8 @@ const DataTable = ({
 
     if (f.dataScope && f.dataScope !== "all")
       params.append("source", f.dataScope);
-    if (type === "sensor_logs" && f.sensorType && f.sensorType !== "all") {
-      params.append("sensor_type", f.sensorType);
+    if (type === "sensor_logs" && f.sensor?.id) {
+      params.append("sensor_id", f.sensor.id);
     }
     params.append("limit", "500");
     return params.toString();
@@ -155,13 +159,11 @@ const DataTable = ({
           );
           fetchedData = extractData(response.data);
         } else {
-          const latestResponse = await axios.get(config.endpoint.LATEST);
-          const latestRows = extractData(latestResponse.data);
-          fetchedData = latestRows.map((row) => ({
-            ...row,
-            id:
-              row.id || `${row.vehicle_id}-${row.battery_id}-${row.timestamp}`,
-          }));
+          // No vehicle selected — return empty data with a prompt
+          setData([]);
+          setError(null);
+          if (onDataLoaded) onDataLoaded([], selectedDataType);
+          return;
         }
       } else {
         const queryString = buildQueryParams(selectedDataType, filters);
@@ -361,11 +363,13 @@ const DataTable = ({
     if (selectedDataType === "vehicle_logs") {
       dataColumns = [
         {
-          header: t("pages.data.table.columns.id"),
-          accessorKey: "id",
+          header: t("pages.data.table.columns.timestamp"),
+          accessorKey: "created_at",
           cell: (row) => (
-            <span className="font-medium text-gray-900 dark:text-white">
-              #{row.id}
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {row.created_at
+                ? new Date(row.created_at).toLocaleString()
+                : "Unknown"}
             </span>
           ),
         },
@@ -426,6 +430,9 @@ const DataTable = ({
             </span>
           ),
         },
+      ];
+    } else if (selectedDataType === "sensor_logs") {
+      dataColumns = [
         {
           header: t("pages.data.table.columns.timestamp"),
           accessorKey: "created_at",
@@ -437,9 +444,6 @@ const DataTable = ({
             </span>
           ),
         },
-      ];
-    } else if (selectedDataType === "sensor_logs") {
-      dataColumns = [
         {
           header: t("pages.data.table.columns.vehicle"),
           accessorKey: "vehicle_id",
@@ -476,6 +480,9 @@ const DataTable = ({
             </span>
           ),
         },
+      ];
+    } else if (selectedDataType === "battery_logs") {
+      dataColumns = [
         {
           header: t("pages.data.table.columns.timestamp"),
           accessorKey: "created_at",
@@ -487,9 +494,6 @@ const DataTable = ({
             </span>
           ),
         },
-      ];
-    } else if (selectedDataType === "battery_logs") {
-      dataColumns = [
         {
           header: t("pages.data.table.columns.batteryUnit"),
           accessorKey: "battery_id",
@@ -539,14 +543,139 @@ const DataTable = ({
             </span>
           ),
         },
+      ];
+    } else if (selectedDataType === "waypoint_logs") {
+      dataColumns = [
         {
           header: t("pages.data.table.columns.timestamp"),
-          accessorKey: "timestamp",
+          accessorKey: "created_at",
           cell: (row) => (
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              {row.timestamp
-                ? new Date(row.timestamp).toLocaleString()
+              {row.created_at
+                ? new Date(row.created_at).toLocaleString()
                 : "Unknown"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.vehicle"),
+          accessorKey: "vehicle_code",
+          cell: (row) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.vehicle?.code || row.vehicle_code || `V${row.vehicle_id}`}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.mission"),
+          accessorKey: "mission_name",
+          cell: (row) => (
+            <span className="text-xs px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+              {row.mission_name || (row.mission_id ? `#${row.mission_id}` : "—")}
+            </span>
+          ),
+        },
+        {
+          header: "Waypoint Count",
+          accessorKey: "waypoint_count",
+          cell: (row) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.waypoint_count || "—"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.status"),
+          accessorKey: "status",
+          cell: (row) => {
+            const statusColor =
+              row.status === "success"
+                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                : row.status === "failed"
+                  ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                  : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300";
+            return (
+              <span className={`text-xs px-2 py-1 rounded-full ${statusColor}`}>
+                {row.status || "—"}
+              </span>
+            );
+          },
+        },
+        {
+          header: t("pages.data.table.columns.message"),
+          accessorKey: "message",
+          cell: (row) => (
+            <span className="text-xs text-gray-600 dark:text-gray-400 max-w-xs truncate">
+              {row.message || "—"}
+            </span>
+          ),
+        },
+      ];
+    } else if (selectedDataType === "command_logs") {
+      dataColumns = [
+        {
+          header: t("pages.data.table.columns.timestamp"),
+          accessorKey: "created_at",
+          cell: (row) => (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {row.created_at
+                ? new Date(row.created_at).toLocaleString()
+                : "Unknown"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.vehicle"),
+          accessorKey: "vehicle_code",
+          cell: (row) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.vehicle?.code || row.vehicle_code || `V${row.vehicle_id}`}
+            </span>
+          ),
+        },
+        {
+          header: "Command",
+          accessorKey: "command",
+          cell: (row) => (
+            <span className="text-xs px-2 py-1 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300">
+              {row.command || "—"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.status"),
+          accessorKey: "status",
+          cell: (row) => {
+            const statusColor =
+              row.status === "success"
+                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                : row.status === "failed"
+                  ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                  : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300";
+            return (
+              <span className={`text-xs px-2 py-1 rounded-full ${statusColor}`}>
+                {row.status || "—"}
+              </span>
+            );
+          },
+        },
+        {
+          header: t("pages.data.table.columns.message"),
+          accessorKey: "message",
+          cell: (row) => (
+            <span className="text-xs text-gray-600 dark:text-gray-400 max-w-xs truncate">
+              {row.message || "—"}
+            </span>
+          ),
+        },
+        {
+          header: "Initiated",
+          accessorKey: "initiated_at",
+          cell: (row) => (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {row.initiated_at
+                ? new Date(row.initiated_at).toLocaleTimeString()
+                : "—"}
             </span>
           ),
         },
@@ -613,6 +742,13 @@ const DataTable = ({
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <LoadingDots size="lg" />
+        </div>
+      ) : selectedDataType === "battery_logs" && !filters.vehicle?.id ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <p className="text-gray-500 dark:text-gray-400">
+            {t("pages.data.table.selectVehicleForBattery") ||
+              "Please select a vehicle to view battery logs"}
+          </p>
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">

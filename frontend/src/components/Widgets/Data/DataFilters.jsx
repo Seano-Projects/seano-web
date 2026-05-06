@@ -1,5 +1,10 @@
 import React from "react";
-import { VehicleDropdown, Dropdown, DatePickerField } from "../index";
+import {
+  VehicleDropdown,
+  Dropdown,
+  DatePickerField,
+  TimePickerField,
+} from "../index";
 import useTranslation from "../../../hooks/useTranslation";
 
 const DATE_RANGE_OPTIONS = [
@@ -14,14 +19,6 @@ const DATA_SCOPE_OPTIONS = [
   { id: "all", name: "All Data" },
   { id: "mission", name: "Mission Data" },
   { id: "telemetry", name: "Telemetry Data" },
-];
-
-const SENSOR_TYPE_OPTIONS = [
-  { id: "all", name: "All Sensor Types" },
-  { id: "ctd", name: "CTD" },
-  { id: "adcp", name: "ADCP (Coming Soon)" },
-  { id: "sbes", name: "SBES (Coming Soon)" },
-  { id: "mbes", name: "MBES (Coming Soon)" },
 ];
 
 const getMissionStatusColor = (status) => {
@@ -41,6 +38,7 @@ const getMissionStatusColor = (status) => {
 const DataFilters = ({
   vehicles = [],
   missions = [],
+  sensors = [],
   filters = {},
   selectedDataType = "vehicle_logs",
   onFilterChange = () => {},
@@ -72,11 +70,6 @@ const DataFilters = ({
     name: t(`pages.data.filters.dataScope.${item.id}`),
   }));
 
-  const sensorTypeOptionsLocalized = SENSOR_TYPE_OPTIONS.map((item) => ({
-    ...item,
-    name: t(`pages.data.filters.sensorType.${item.id}`),
-  }));
-
   const selectedDateRangeLocalized =
     dateRangeOptionsLocalized.find(
       (item) => item.id === (filters.dateRange || "all"),
@@ -87,10 +80,20 @@ const DataFilters = ({
       (item) => item.id === (filters.dataScope || "all"),
     ) || dataScopeOptionsLocalized[0];
 
-  const selectedSensorTypeLocalized =
-    sensorTypeOptionsLocalized.find(
-      (item) => item.id === (filters.sensorType || "all"),
-    ) || sensorTypeOptionsLocalized[0];
+  // Build sensor items with "All Sensors" option
+  const allSensorOption = { id: null, name: "All Sensors", code: "" };
+  const sensorItems = [
+    allSensorOption,
+    ...sensors.map((s) => ({
+      id: s.id,
+      name: s.code || `Sensor #${s.id}`,
+      code: s.code,
+    })),
+  ];
+
+  const selectedSensor = filters.sensor?.id
+    ? sensorItems.find((s) => s.id === filters.sensor.id) || allSensorOption
+    : allSensorOption;
 
   return (
     <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
@@ -209,26 +212,42 @@ const DataFilters = ({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t("pages.data.filters.startDate")}
             </label>
-            <DatePickerField
-              value={filters.startDate || ""}
-              onChange={(value) => onFilterChange("startDate", value)}
-              placeholder={t("pages.data.filters.startDate")}
-              maxDate={filters.endDate || undefined}
-              className="w-full"
-            />
+            <div className="flex gap-2">
+              <DatePickerField
+                value={filters.startDate || ""}
+                onChange={(value) => onFilterChange("startDate", value)}
+                placeholder={t("pages.data.filters.startDate")}
+                maxDate={filters.endDate || undefined}
+                className="flex-1"
+              />
+              <TimePickerField
+                value={filters.startTime || ""}
+                onChange={(value) => onFilterChange("startTime", value)}
+                placeholder="00:00"
+                className="w-28"
+              />
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {t("pages.data.filters.endDate")}
             </label>
-            <DatePickerField
-              value={filters.endDate || ""}
-              onChange={(value) => onFilterChange("endDate", value)}
-              placeholder={t("pages.data.filters.endDate")}
-              minDate={filters.startDate || undefined}
-              className="w-full"
-            />
+            <div className="flex gap-2">
+              <DatePickerField
+                value={filters.endDate || ""}
+                onChange={(value) => onFilterChange("endDate", value)}
+                placeholder={t("pages.data.filters.endDate")}
+                minDate={filters.startDate || undefined}
+                className="flex-1"
+              />
+              <TimePickerField
+                value={filters.endTime || ""}
+                onChange={(value) => onFilterChange("endTime", value)}
+                placeholder="23:59"
+                className="w-28"
+              />
+            </div>
           </div>
 
           {selectedDataType === "sensor_logs" && (
@@ -237,10 +256,12 @@ const DataFilters = ({
                 {t("pages.data.filters.sensorTypeTitle")}
               </label>
               <Dropdown
-                items={sensorTypeOptionsLocalized}
-                selectedItem={selectedSensorTypeLocalized}
-                onItemChange={(item) => onFilterChange("sensorType", item.id)}
-                getItemKey={(item) => item.id}
+                items={sensorItems}
+                selectedItem={selectedSensor}
+                onItemChange={(item) =>
+                  onFilterChange("sensor", item.id ? item : null)
+                }
+                getItemKey={(item) => item.id ?? "all"}
                 className="text-sm"
               />
             </div>
