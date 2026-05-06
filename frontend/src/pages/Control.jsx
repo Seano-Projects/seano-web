@@ -166,7 +166,12 @@ const Control = () => {
     sendThruster,
     isLoading: commandLoading,
   } = useControlCommand();
-  const { vehicles } = useVehicleData();
+  const { vehicles, selectedVehicleId, setSelectedVehicleId } =
+    useVehicleData();
+  const selectedVehicle = useMemo(
+    () => vehicles.find((v) => v.id === selectedVehicleId) ?? null,
+    [vehicles, selectedVehicleId],
+  );
   const { vehicleLogs } = useLogData({
     enableStats: false,
     enableChartData: false,
@@ -176,9 +181,11 @@ const Control = () => {
     enableWaypointLogs: false,
     enableBatteryData: false,
   });
-  const { missionData, getActiveMissions } = useMissionData();
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const hasInitializedVehicleSelection = useRef(false);
+  const {
+    missionData,
+    getActiveMissions,
+    refreshData: refreshMissionData,
+  } = useMissionData();
   const [activeMode, setActiveMode] = useState("MANUAL");
   const [thrusterThrottle, setThrusterThrottle] = useState(0);
   const [thrusterSteering, setThrusterSteering] = useState(0);
@@ -229,11 +236,10 @@ const Control = () => {
       isMissionForVehicle(mission, selectedVehicle),
     );
     if (matching.length === 0) return null;
-    const active = matching.filter((mission) =>
-      isActiveMissionStatus(mission.status),
-    );
-    const candidates = active.length > 0 ? active : matching;
-    return [...candidates].sort(
+    // Always use the most recently updated mission so that a newly uploaded
+    // mission immediately replaces the old one on the map, even if the old
+    // one still has an "ongoing" status.
+    return [...matching].sort(
       (a, b) => getMissionSortTime(b) - getMissionSortTime(a),
     )[0];
   }, [missionData, selectedVehicle]);
@@ -259,11 +265,16 @@ const Control = () => {
       ? currentMission.waypoints
       : [];
     const waypointCount = missionWaypoints.length;
-    const completedWaypointRaw = Math.max(
-      0,
-      Number(currentMission?.completed_waypoint) || 0,
-    );
-    const progressValue = Number(currentMission?.progress) || 0;
+
+    // Only show waypoint progress when mission is actively running.
+    // If status is not active (e.g. just uploaded/Draft), treat all as pending.
+    const missionIsActive = isActiveMissionStatus(currentMission?.status);
+    const completedWaypointRaw = missionIsActive
+      ? Math.max(0, Number(currentMission?.completed_waypoint) || 0)
+      : 0;
+    const progressValue = missionIsActive
+      ? Number(currentMission?.progress) || 0
+      : 0;
     const completedFromProgress =
       waypointCount > 0
         ? Math.round(
@@ -274,7 +285,9 @@ const Control = () => {
       completedWaypointRaw,
       completedFromProgress,
     );
-    const currentWaypointRaw = Number(currentMission?.current_waypoint);
+    const currentWaypointRaw = missionIsActive
+      ? Number(currentMission?.current_waypoint)
+      : NaN;
     const currentWaypoint = Number.isFinite(currentWaypointRaw)
       ? Math.max(0, currentWaypointRaw)
       : completedWaypoint;
@@ -306,26 +319,9 @@ const Control = () => {
 
   useEffect(() => {
     if (!vehicles || vehicles.length === 0) {
-      setSelectedVehicle(null);
-      hasInitializedVehicleSelection.current = false;
-      setLastArmFailureMessage("");
-      return;
-    }
-
-    if (!hasInitializedVehicleSelection.current && !selectedVehicle) {
-      setSelectedVehicle(vehicles[0]);
-      hasInitializedVehicleSelection.current = true;
-      return;
-    }
-
-    if (
-      selectedVehicle?.id &&
-      !vehicles.some((vehicle) => vehicle.id === selectedVehicle.id)
-    ) {
-      setSelectedVehicle(vehicles[0]);
       setLastArmFailureMessage("");
     }
-  }, [vehicles, selectedVehicle]);
+  }, [vehicles]);
 
   // Get latest vehicle log for selected vehicle
   // Priority: real-time WebSocket logs > API-fetched initial log
@@ -681,6 +677,24 @@ const Control = () => {
     },
     [disconnectCamera],
   );
+  const handleClearMission = async (missionId) => {
+    if (!missionId) return;
+    try {
+      const token = localStorage.getItem("access_token");
+      await axios.patch(
+        `${API_BASE_URL}/missions/${missionId}/clear`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      toast.success(t("control.missionControl.clearMission") + " success");
+      refreshMissionData();
+    } catch (err) {
+      toast.error("Failed to clear mission");
+    }
+  };
+
   const handleSearchCoordinates = (e) => {
     if (e.key === "Enter" || e.type === "click") {
       const query = searchQuery.trim();
@@ -927,9 +941,10 @@ const Control = () => {
           onCollapse={() => setIsVesselTelemetryExpanded(false)}
           vehicles={vehicles}
           selectedVehicle={selectedVehicle}
-          onVehicleChange={setSelectedVehicle}
+          onVehicleChange={(v) => setSelectedVehicleId(v?.id)}
           telemetryData={telemetryData}
           getActiveMissions={getActiveMissions}
+          onClearMission={handleClearMission}
         />
 
         <SearchPanel

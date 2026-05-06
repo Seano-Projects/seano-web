@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import useTitle from "../../hooks/useTitle";
 import { Title } from "../../components/ui";
 import {
@@ -10,6 +10,7 @@ import {
   CTDTable,
   DepthProfile,
   TimeSeriesChart,
+  CTDSectionHeatmap,
 } from "../../components/Widgets/SensorMonitoring/CTD";
 import { useVehicleData, useCTDData } from "../../hooks";
 import useTranslation from "../../hooks/useTranslation";
@@ -18,36 +19,20 @@ const CTD = () => {
   const { t } = useTranslation();
   useTitle(t("pages.ctd.title"));
 
-  const { vehicles, loading: vehicleLoading } = useVehicleData();
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const hasInitializedVehicleSelection = useRef(false);
+  const {
+    vehicles,
+    loading: vehicleLoading,
+    selectedVehicleId,
+    setSelectedVehicleId,
+  } = useVehicleData();
+  const selectedVehicle = useMemo(
+    () => vehicles.find((v) => v.id === selectedVehicleId) ?? null,
+    [vehicles, selectedVehicleId],
+  );
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-
-  useEffect(() => {
-    if (vehicleLoading) return;
-
-    if (!vehicles || vehicles.length === 0) {
-      setSelectedVehicle(null);
-      hasInitializedVehicleSelection.current = false;
-      return;
-    }
-
-    if (!hasInitializedVehicleSelection.current) {
-      setSelectedVehicle(vehicles[0]);
-      hasInitializedVehicleSelection.current = true;
-      return;
-    }
-
-    if (
-      selectedVehicle &&
-      !vehicles.some((vehicle) => vehicle.id === selectedVehicle.id)
-    ) {
-      setSelectedVehicle(vehicles[0]);
-    }
-  }, [vehicleLoading, vehicles, selectedVehicle]);
 
   // Get CTD data from WebSocket + historical REST API
   const { ctdData, isConnected } = useCTDData(selectedVehicle);
@@ -141,7 +126,7 @@ const CTD = () => {
             <VehicleDropdown
               vehicles={vehicles}
               selectedVehicle={selectedVehicle}
-              onVehicleChange={setSelectedVehicle}
+              onVehicleChange={(v) => setSelectedVehicleId(v?.id)}
               placeholder={
                 vehicleLoading
                   ? t("pages.ctd.loadingVehicles")
@@ -162,7 +147,7 @@ const CTD = () => {
             endTime) && (
             <button
               onClick={() => {
-                setSelectedVehicle(null);
+                setSelectedVehicleId(null);
                 setStartDate("");
                 setEndDate("");
                 setStartTime("");
@@ -198,6 +183,10 @@ const CTD = () => {
         <div className="min-w-0">
           <DepthProfile ctdData={filteredData} />
         </div>
+      </div>
+
+      <div className="mb-4">
+        <CTDSectionHeatmap ctdData={filteredData} />
       </div>
 
       {/* CTD Table Component */}

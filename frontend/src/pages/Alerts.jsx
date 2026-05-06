@@ -11,6 +11,7 @@ import {
   FaInfoCircle,
   FaExclamationCircle,
   FaCheckCircle,
+  FaCheck,
   FaTrash,
 } from "react-icons/fa";
 import { toast } from "../components/ui";
@@ -37,6 +38,7 @@ const Alerts = () => {
     loading = false,
     connectionStatus = "disconnected",
     acknowledgeAlert,
+    acknowledgeAllAlerts,
     clearAllAlerts,
   } = useAlertData() || {};
 
@@ -60,10 +62,10 @@ const Alerts = () => {
   const getSeverityColor = (severity) => {
     const sev = severity?.toLowerCase() || "info";
     if (sev === "critical" || sev === "error")
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+      return "bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700";
     if (sev === "warning" || sev === "warn")
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
-    return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+      return "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700";
+    return "bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700";
   };
 
   // Get severity icon
@@ -253,6 +255,29 @@ const Alerts = () => {
           subtitle={t("pages.alerts.subtitle")}
         />
         <div className="flex items-center gap-4">
+          {/* Ack All Button */}
+          {alerts.some((a) => !a.acknowledged) && (
+            <button
+              onClick={async () => {
+                const result = await acknowledgeAllAlerts();
+                if (result?.success) {
+                  toast.success(
+                    t("pages.alerts.ackAllSuccess") ||
+                      "All alerts acknowledged",
+                  );
+                } else {
+                  toast.error(
+                    t("pages.alerts.ackAllFailed") ||
+                      "Failed to acknowledge all alerts",
+                  );
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              <FaCheck />
+              {t("pages.alerts.ackAll") || "Ack All"}
+            </button>
+          )}
           {/* Clear All Button */}
           {alerts.length > 0 && (
             <button

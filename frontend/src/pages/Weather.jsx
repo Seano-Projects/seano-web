@@ -28,6 +28,7 @@ import {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const Weather = () => {
   const { t } = useTranslation();
+  useTitle(t("weather.title"));
 
   const {
     vehicles,

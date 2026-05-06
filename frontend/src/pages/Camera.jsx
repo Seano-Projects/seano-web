@@ -28,7 +28,7 @@ const normalizeStreamName = (rawValue = "") => {
 
 const Camera = () => {
   const { t } = useTranslation();
-  useTitle(t("control.camera.title"));
+  useTitle(t("camera.title"));
 
   const { vehicles } = useVehicleData();
   const [streamName, setStreamName] = useState("");

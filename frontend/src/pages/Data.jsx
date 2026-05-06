@@ -8,6 +8,7 @@ import {
 } from "react-icons/fa";
 import useTitle from "../hooks/useTitle";
 import useVehicleData from "../hooks/useVehicleData";
+import useSensorsData from "../hooks/useSensorsData";
 import {
   DataHeader,
   DataStats,
@@ -20,15 +21,19 @@ import useTranslation from "../hooks/useTranslation";
 import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 
-const FILTER_DEFAULTS = {
+const getTodayStr = () => new Date().toISOString().split("T")[0];
+
+const getFilterDefaults = () => ({
   vehicle: null,
   mission: null,
-  startDate: "",
-  endDate: "",
+  startDate: getTodayStr(),
+  endDate: getTodayStr(),
+  startTime: "",
+  endTime: "",
   dateRange: "all",
   dataScope: "all",
-  sensorType: "all",
-};
+  sensor: null,
+});
 
 const getTimestamp = (row) =>
   row?.created_at || row?.timestamp || row?.reached_at || row?.usv_timestamp;
@@ -126,9 +131,9 @@ const getInsightValue = (records, selectedDataType, t) => {
 
 const Data = () => {
   const { t } = useTranslation();
-  useTitle(t("nav.data"));
+  useTitle(t("data"));
 
-  const [filters, setFilters] = useState(FILTER_DEFAULTS);
+  const [filters, setFilters] = useState(getFilterDefaults);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [selectedDataType, setSelectedDataType] = useState("vehicle_logs");
@@ -137,6 +142,14 @@ const Data = () => {
   const [missions, setMissions] = useState([]);
 
   const { vehicles, loading } = useVehicleData();
+  const { sensors } = useSensorsData();
+
+  // Auto-select first vehicle when vehicles load and no vehicle is selected
+  useEffect(() => {
+    if (vehicles && vehicles.length > 0 && !filters.vehicle) {
+      setFilters((prev) => ({ ...prev, vehicle: vehicles[0] }));
+    }
+  }, [vehicles]);
 
   useEffect(() => {
     let ignore = false;
@@ -178,7 +191,7 @@ const Data = () => {
   };
 
   const handleResetFilters = () => {
-    setFilters(FILTER_DEFAULTS);
+    setFilters(getFilterDefaults());
     setChartData([]);
   };
 
@@ -190,7 +203,8 @@ const Data = () => {
 
   const hasActiveFilters = useMemo(() => {
     return Object.entries(filters).some(([key, value]) => {
-      if (key === "vehicle" || key === "mission") return Boolean(value?.id);
+      if (key === "vehicle" || key === "mission" || key === "sensor")
+        return Boolean(value?.id);
       return value && value !== "all";
     });
   }, [filters]);
@@ -271,6 +285,11 @@ const Data = () => {
             lastRefresh={lastRefresh}
             selectedDataType={selectedDataType}
             onDataTypeChange={setSelectedDataType}
+            filters={filters}
+            exportData={chartData}
+            vehicles={vehicles || []}
+            sensors={sensors || []}
+            missions={missions}
           />
 
           <DataStats
@@ -283,6 +302,7 @@ const Data = () => {
             <DataFilters
               vehicles={vehicles || []}
               missions={missions}
+              sensors={sensors || []}
               filters={filters}
               selectedDataType={selectedDataType}
               onFilterChange={handleFilterChange}

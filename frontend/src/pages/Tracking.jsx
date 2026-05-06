@@ -24,7 +24,7 @@ const Tracking = memo(
             <VehicleStatusPanel selectedVehicle={selectedVehicle} />
           </div>
           {/* Center - Map */}
-          <div className="z-0 min-h-120 h-auto col-span-1 order-1 lg:order-2 md:col-span-2 lg:col-span-6 bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden">
+          <div className="z-0 min-h-120 h-full col-span-1 order-1 lg:order-2 md:col-span-2 lg:col-span-6 bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden flex flex-col">
             <ViewMap darkMode={darkMode} selectedVehicle={selectedVehicle} />
           </div>
           {/* Right Side - Telemetry Panel */}

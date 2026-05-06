@@ -80,20 +80,59 @@ const TOPICS = [
     color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   },
   {
-    topic: "seano/{vehicle_code}/{sensor_code}/data",
+    topic: "seano/{vehicle_code}/CTD-MIDAS-3000/data",
     direction: "SUB",
     qos: 1,
-    desc: "Data sensor spesifik. sensor_code: ctd, adcp, sbes, mbes, dll. Payload bebas (key-value JSON).",
+    desc: "Data sensor spesifik. Format topic: seano/{vehicle_code}/{sensor_code}/data. Payload bebas (key-value JSON). Contoh: CTD.",
     payload: `{
   "vehicle_code": "{vehicle_code}",
-  "sensor_code": "ctd",
+  "sensor_code": "CTD-MIDAS-3000",
   "date_time": "2026-04-27T14:00:00Z",
+  "latitude": -6.2088,
+  "longitude": 106.8456,
+  "altitude": 0.5,
+  "gps_ok": true,
   "temperature": 28.4,
   "salinity": 34.1,
   "depth": 5.2,
-  "conductivity": 50.1
+  "pressure": 5.3,
+  "conductivity": 50.1,
+  "density": 1024.5,
+  "sound_velocity": 1524.3
 }`,
     color: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+  },
+  {
+    topic: "seano/{vehicle_code}/ADCP-WORKHORSE/data",
+    direction: "SUB",
+    qos: 1,
+    desc: "Data ADCP (Acoustic Doppler Current Profiler). Sensor code wajib: ADCP-WORKHORSE. Data langsung disimpan ke sensor_logs dan di-broadcast via WebSocket ke halaman monitoring ADCP.",
+    payload: `{
+  "vehicle_code": "USV-001",
+  "sensor_code": "ADCP-WORKHORSE",
+  "date_time": "2026-04-27T14:00:00Z",
+  "latitude": -6.2088,
+  "longitude": 106.8456,
+  "gps_ok": true,
+  "heading_deg": 270.5,
+  "ensemble_no": 1042,
+  "current_speed_ms": 0.452,
+  "current_direction_deg": 185.3,
+  "water_depth_m": 24.7,
+  "temperature_c": 28.6,
+  "v1_ms": -0.052,
+  "v2_ms": 0.089,
+  "v3_ms": -0.031,
+  "v4_ms": 0.047
+}`,
+    color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+    notes: [
+      "vehicle_code & sensor_code wajib (bisa dari topic atau di dalam payload)",
+      "date_time format ISO 8601 — jika kosong, server pakai waktu penerimaan",
+      "v1_ms–v4_ms: kecepatan beam individual (negatif = menuju transduser)",
+      "current_direction_deg: 0–360° (0 = Utara, searah jarum jam)",
+      "Data otomatis muncul di halaman /sensor-monitoring/adcp",
+    ],
   },
   {
     topic: "seano/{vehicle_code}/mission/waypoint_reached",
@@ -184,6 +223,29 @@ const TOPICS = [
   "longitude": 106.8456
 }`,
     color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  },
+  {
+    topic: "seano/{vehicle_code}/alert",
+    direction: "SUB",
+    qos: 1,
+    desc: "General alert dari kendaraan — bebas dipakai untuk kondisi apapun (GPS no fix, sensor error, komunikasi terputus, dll). Field alert_type bebas diisi; jika kosong default 'general'. severity: critical / warning / info (default warning).",
+    payload: `{
+  "vehicle_code": "{vehicle_code}",
+  "alert_type": "GPS",
+  "severity": "warning",
+  "message": "GPS no fix",
+  "source": "USV",
+  "latitude": -6.2088,
+  "longitude": 106.8456
+}`,
+    color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    notes: [
+      "alert_type bebas: GPS, Battery, IMU, Sensor, Communication, System, dll — tidak harus failsafe/antitheft",
+      "Jika alert_type tidak diisi, default ke 'general'",
+      "severity: critical | warning | info (default warning)",
+      "latitude & longitude opsional",
+      "Alert masuk ke halaman /alerts dan di-broadcast via WebSocket ke semua client",
+    ],
   },
 ];
 
@@ -281,7 +343,7 @@ const CopyBtn = ({ text }) => {
   );
 };
 
-const TopicCard = ({ topic, direction, qos, desc, payload, color }) => {
+const TopicCard = ({ topic, direction, qos, desc, payload, color, notes }) => {
   const [open, setOpen] = useState(false);
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
@@ -320,12 +382,32 @@ const TopicCard = ({ topic, direction, qos, desc, payload, color }) => {
         </span>
       </button>
       {open && (
-        <div className="border-t border-gray-700 bg-black relative">
-          <pre className="text-xs font-mono px-4 py-3 overflow-x-auto leading-relaxed custom-scrollbar">
-            <JsonHighlight code={payload} />
-          </pre>
-          <CopyBtn text={payload} />
-        </div>
+        <>
+          <div className="border-t border-gray-700 bg-black relative">
+            <pre className="text-xs font-mono px-4 py-3 overflow-x-auto leading-relaxed custom-scrollbar">
+              <JsonHighlight code={payload} />
+            </pre>
+            <CopyBtn text={payload} />
+          </div>
+          {notes && notes.length > 0 && (
+            <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-4 py-3">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+                Catatan
+              </p>
+              <ul className="space-y-1">
+                {notes.map((note, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400"
+                  >
+                    <span className="text-cyan-500 mt-0.5 shrink-0">•</span>
+                    {note}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -30,6 +30,10 @@ const DataTable = ({
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
   const dropdownRef = useRef(null);
 
+  useEffect(() => {
+    setPageSize(initialPageSize);
+  }, [initialPageSize]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -111,6 +115,19 @@ const DataTable = ({
     return sortedData.slice(start, start + pageSize);
   }, [sortedData, currentPage, pageSize]);
 
+  useEffect(() => {
+    if (totalPages === 0) {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      }
+      return;
+    }
+
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   // Reset to first page when search changes
   const handleSearch = (value) => {
     setSearchQuery(value);
@@ -163,7 +180,7 @@ const DataTable = ({
 
             {/* Dropdown Menu */}
             {isPageSizeOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg shadow-lg z-50">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-lg shadow-lg z-50">
                 {[5, 10, 25, 50].map((size) => (
                   <button
                     key={size}
@@ -198,33 +215,33 @@ const DataTable = ({
           <thead className="bg-gray-50 dark:bg-transparent">
             <tr>
               {columns.map((column, index) => {
-                const headerKey = column.accessorKey || column.header || index
+                const headerKey = column.accessorKey || column.header || index;
                 return (
                   <th
                     key={headerKey}
-                  className={`px-6 py-3 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider align-middle ${
-                    column.className || ""
-                  } ${
-                    column.sortable !== false
-                      ? "cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      : ""
-                  }`}
-                  onClick={() => {
-                    if (column.sortable !== false && column.accessorKey) {
-                      handleSort(column.accessorKey);
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{column.header}</span>
-                    {column.sortable !== false && column.accessorKey && (
-                      <span className="text-sm">
-                        {getSortIcon(column.accessorKey)}
-                      </span>
-                    )}
-                  </div>
-                </th>
-                )
+                    className={`px-6 py-3 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider align-middle ${
+                      column.className || ""
+                    } ${
+                      column.sortable !== false
+                        ? "cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      if (column.sortable !== false && column.accessorKey) {
+                        handleSort(column.accessorKey);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>{column.header}</span>
+                      {column.sortable !== false && column.accessorKey && (
+                        <span className="text-sm">
+                          {getSortIcon(column.accessorKey)}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                );
               })}
             </tr>
           </thead>
@@ -256,13 +273,9 @@ const DataTable = ({
                         row.sensor_code ||
                         "row"
                       }-${
-                        row.message ||
-                        row.logs ||
-                        row.data ||
-                        row.status ||
-                        ""
+                        row.message || row.logs || row.data || row.status || ""
                       }`
-                    : rowIndex)
+                    : rowIndex);
 
                 return (
                   <tr
@@ -270,7 +283,8 @@ const DataTable = ({
                     className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                   >
                     {columns.map((column, colIndex) => {
-                      const columnKey = column.accessorKey || column.header || colIndex
+                      const columnKey =
+                        column.accessorKey || column.header || colIndex;
                       return (
                         <td
                           key={columnKey}
@@ -283,10 +297,10 @@ const DataTable = ({
                             ? column.cell(row)
                             : row[column.accessorKey]}
                         </td>
-                      )
+                      );
                     })}
                   </tr>
-                )
+                );
               })
             )}
           </tbody>
