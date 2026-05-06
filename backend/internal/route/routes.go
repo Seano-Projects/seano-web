@@ -156,6 +156,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	sensorLogs.Get("/:id", middleware.AuthRequired(), sensorLogHandler.GetSensorLogByID)
 	sensorLogs.Get("/export", middleware.AuthRequired(), sensorLogHandler.ExportSensorLogs) // Export to CSV
 	sensorLogs.Post("/import", middleware.AuthRequired(), sensorLogHandler.ImportSensorLogs) // Import from CSV
+	sensorLogs.Post("/:id/ws-received", middleware.AuthRequired(), sensorLogHandler.MarkWSReceivedAt)
 	sensorLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), sensorLogHandler.CreateSensorLog)
 	sensorLogs.Delete("/:id", middleware.AuthRequired(), sensorLogHandler.DeleteSensorLog)
 
@@ -167,6 +168,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	vehicleLogs.Post("/import", middleware.AuthRequired(), vehicleLogHandler.ImportVehicleLogs) // Import from CSV
 	vehicleLogs.Get("/:id", middleware.AuthRequired(), vehicleLogHandler.GetVehicleLogByID)
 	vehicleLogs.Get("/latest/:vehicle_id", middleware.AuthRequired(), vehicleLogHandler.GetLatestVehicleLog)
+	vehicleLogs.Post("/:id/ws-received", middleware.AuthRequired(), vehicleLogHandler.MarkWSReceivedAt)
 	vehicleLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), vehicleLogHandler.CreateVehicleLog)
 	vehicleLogs.Delete("/:id", middleware.AuthRequired(), vehicleLogHandler.DeleteVehicleLog)
 
@@ -194,6 +196,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	missions.Get("/:mission_id", middleware.AuthRequired(), missionHandler.GetMissionByID)       // Ownership check in handler
 	missions.Put("/:mission_id", middleware.AuthRequired(), missionHandler.UpdateMission)        // Ownership check in handler
 	missions.Post("/:mission_id/upload-to-vehicle", middleware.AuthRequired(), missionHandler.UploadMissionToVehicle)
+	missions.Patch("/:mission_id/clear", middleware.AuthRequired(), missionHandler.ClearMission)
 	missions.Get("/pending-upload", middleware.AuthOrVehicleAPIKeyFromQuery(vehicleRepo), missionHandler.GetPendingMissionUploads)
 	missions.Put("/:id/progress", middleware.AuthOrVehicleAPIKeyByMissionID(missionRepo, vehicleRepo), missionHandler.UpdateMissionProgress) // Update mission progress
 	missions.Post("/waypoint-reached", middleware.AuthOrVehicleAPIKey(vehicleRepo), missionHandler.UpdateMissionProgressFromWaypoint) // USV waypoint reached
@@ -210,6 +213,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	alerts.Get("/:id", middleware.AuthRequired(), alertHandler.GetAlertByID)
 	alerts.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), alertHandler.CreateAlert)
 	alerts.Put("/:id", middleware.AuthRequired(), alertHandler.UpdateAlert)
+	alerts.Patch("/acknowledge-all", middleware.AuthRequired(), alertHandler.AcknowledgeAllAlerts)
 	alerts.Patch("/:id/acknowledge", middleware.AuthRequired(), alertHandler.AcknowledgeAlert)
 	alerts.Delete("/clear", middleware.AuthRequired(), alertHandler.ClearAllAlerts)
 	alerts.Delete("/:id", middleware.AuthRequired(), alertHandler.DeleteAlert)
@@ -221,11 +225,11 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	notifications.Get("/:id", notificationHandler.GetNotificationByID)
 	notifications.Post("/", notificationHandler.CreateNotification)
 	notifications.Patch("/:id", notificationHandler.UpdateNotification)
-	notifications.Put("/:id/read", notificationHandler.MarkAsRead)
 	notifications.Put("/bulk-read", notificationHandler.BulkMarkAsRead)
 	notifications.Put("/read-all", notificationHandler.MarkAllAsRead)
-	notifications.Delete("/:id", notificationHandler.DeleteNotification)
+	notifications.Put("/:id/read", notificationHandler.MarkAsRead)
 	notifications.Delete("/clear-read", notificationHandler.DeleteAllRead)
+	notifications.Delete("/:id", notificationHandler.DeleteNotification)
 
 	// Vehicle control commands via MQTT (protected)
 	control := app.Group("/control", middleware.AuthRequired())
@@ -235,6 +239,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	commandLogs := app.Group("/command-logs")
 	commandLogs.Get("/", middleware.AuthRequired(), commandLogHandler.GetCommandLogs)
 	commandLogs.Get("/:id", middleware.AuthRequired(), commandLogHandler.GetCommandLogByID)
+	commandLogs.Get("/export", middleware.AuthRequired(), commandLogHandler.ExportCommandLogs)
+	commandLogs.Post("/:id/ws-received", middleware.AuthRequired(), commandLogHandler.MarkWSReceivedAt)
 	commandLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), commandLogHandler.CreateCommandLog)
 	commandLogs.Delete("/:id", middleware.AuthRequired(), commandLogHandler.DeleteCommandLog)
 
@@ -253,6 +259,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	waypointLogs := app.Group("/waypoint-logs")
 	waypointLogs.Get("/", middleware.AuthRequired(), waypointLogHandler.GetWaypointLogs)
 	waypointLogs.Get("/:id", middleware.AuthRequired(), waypointLogHandler.GetWaypointLogByID)
+	waypointLogs.Get("/export", middleware.AuthRequired(), waypointLogHandler.ExportWaypointLogs)
 	waypointLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), waypointLogHandler.CreateWaypointLog)
 	waypointLogs.Delete("/:id", middleware.AuthRequired(), waypointLogHandler.DeleteWaypointLog)
 

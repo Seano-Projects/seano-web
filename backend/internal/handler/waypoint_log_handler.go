@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/csv"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -266,4 +268,115 @@ func (h *WaypointLogHandler) DeleteWaypointLog(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ExportWaypointLogs godoc
+// @Summary Export waypoint logs to CSV
+// @Description Export waypoint logs to CSV file with optional filters
+// @Tags Waypoint Logs
+// @Accept json
+// @Produce text/csv
+// @Param vehicle_id query int false "Vehicle ID"
+// @Param start_time query string false "Start Time (ISO 8601)"
+// @Param end_time query string false "End Time (ISO 8601)"
+// @Success 200 {file} file "CSV file"
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /waypoint-logs/export [get]
+func (h *WaypointLogHandler) ExportWaypointLogs(c *fiber.Ctx) error {
+	var query model.WaypointLogQuery
+
+	// Parse query parameters
+	if vehicleID := c.Query("vehicle_id"); vehicleID != "" {
+		id, err := strconv.ParseUint(vehicleID, 10, 32)
+		if err == nil {
+			query.VehicleID = uint(id)
+		}
+	}
+
+	if startTime := c.Query("start_time"); startTime != "" {
+		t, err := time.Parse(time.RFC3339, startTime)
+		if err == nil {
+			query.StartTime = t
+		}
+	}
+
+	if endTime := c.Query("end_time"); endTime != "" {
+		t, err := time.Parse(time.RFC3339, endTime)
+		if err == nil {
+			query.EndTime = t
+		}
+	}
+
+	// No limit for export
+	query.Limit = 0
+	query.Order = "asc"
+
+	// Get all logs matching query
+	logs, err := h.repo.GetWaypointLogs(query)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch logs for export",
+		})
+	}
+
+	// Set CSV response headers
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=waypoint_logs.csv")
+
+	// Use CSV writer with proper formatting
+	writer := csv.NewWriter(c.Response().BodyWriter())
+	defer writer.Flush()
+
+	// Write header
+	header := []string{"Timestamp", "Vehicle", "VehicleCode", "Mission", "MissionName", "WaypointCount", "Status", "Message", "InitiatedAt", "ResolvedAt"}
+	if err := writer.Write(header); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV header"})
+	}
+
+	// Write data rows
+	for _, log := range logs {
+		ts := log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00")
+
+		vehicleDisp := ""
+		if log.Vehicle != nil {
+			if log.Vehicle.Name != "" {
+				vehicleDisp = log.Vehicle.Name
+			} else if log.Vehicle.Code != "" {
+				vehicleDisp = log.Vehicle.Code
+			}
+		} else if log.VehicleID != 0 {
+			vehicleDisp = strconv.Itoa(int(log.VehicleID))
+		}
+
+		missionIDStr := ""
+		if log.MissionID != nil {
+			missionIDStr = strconv.Itoa(int(*log.MissionID))
+		}
+
+		initiatedAtStr := log.InitiatedAt.Format("2006-01-02T15:04:05.000Z07:00")
+		resolvedAtStr := ""
+		if log.ResolvedAt != nil {
+			resolvedAtStr = log.ResolvedAt.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+
+		row := []string{
+			ts,
+			vehicleDisp,
+			log.VehicleCode,
+			missionIDStr,
+			log.MissionName,
+			strconv.Itoa(log.WaypointCount),
+			log.Status,
+			log.Message,
+			initiatedAtStr,
+			resolvedAtStr,
+		}
+
+		if err := writer.Write(row); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV row"})
+		}
+	}
+
+	return nil
 }

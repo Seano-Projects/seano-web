@@ -2,6 +2,7 @@ package repository
 
 import (
 	"go-fiber-pgsql/internal/model"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -17,6 +18,14 @@ func NewCommandLogRepository(db *gorm.DB) *CommandLogRepository {
 
 func (r *CommandLogRepository) CreateCommandLog(log *model.CommandLog) error {
 	return r.db.Create(log).Error
+}
+
+func (r *CommandLogRepository) UpdateCommandLogPublishedAtByRequestID(requestID string, publishedAt time.Time) error {
+	return r.db.Model(&model.CommandLog{}).
+		Where("request_id = ?", requestID).
+		Updates(map[string]interface{}{
+			"mqtt_published_at": publishedAt,
+		}).Error
 }
 
 func (r *CommandLogRepository) GetCommandLogs(query model.CommandLogQuery) ([]model.CommandLog, error) {
@@ -51,7 +60,12 @@ func (r *CommandLogRepository) GetCommandLogs(query model.CommandLogQuery) ([]mo
 		db = db.Offset(query.Offset)
 	}
 
-	err := db.Order("initiated_at DESC").Find(&logs).Error
+	orderClause := "initiated_at DESC"
+	if strings.ToLower(query.Order) == "asc" {
+		orderClause = "initiated_at ASC"
+	}
+
+	err := db.Order(orderClause).Find(&logs).Error
 	return logs, err
 }
 
@@ -118,9 +132,12 @@ func (r *CommandLogRepository) GetYesterdayCommandLogCount(vehicleID uint) (int6
 	return count, err
 }
 
-func (r *CommandLogRepository) UpdateLatestPendingCommandLog(vehicleCode, command, status, message string, resolvedAt time.Time) (*model.CommandLog, error) {
+func (r *CommandLogRepository) UpdateLatestPendingCommandLog(vehicleCode, requestID, command, status, message string, usvAckAt *time.Time, ackReceivedAt, resolvedAt time.Time) (*model.CommandLog, error) {
 	var log model.CommandLog
 	query := r.db.Model(&model.CommandLog{}).Where("vehicle_code = ? AND status = ?", vehicleCode, "pending")
+	if requestID != "" {
+		query = query.Where("request_id = ?", requestID)
+	}
 	if command != "" {
 		query = query.Where("command = ?", command)
 	}
@@ -130,9 +147,11 @@ func (r *CommandLogRepository) UpdateLatestPendingCommandLog(vehicleCode, comman
 	}
 
 	updates := map[string]interface{}{
-		"status":      status,
-		"message":     message,
-		"resolved_at": resolvedAt,
+		"status":          status,
+		"message":         message,
+		"usv_ack_at":      usvAckAt,
+		"ack_received_at": ackReceivedAt,
+		"resolved_at":     resolvedAt,
 	}
 
 	if err := r.db.Model(&model.CommandLog{}).Where("id = ?", log.ID).Updates(updates).Error; err != nil {
@@ -141,8 +160,22 @@ func (r *CommandLogRepository) UpdateLatestPendingCommandLog(vehicleCode, comman
 
 	log.Status = status
 	log.Message = message
+	log.UsvAckAt = usvAckAt
+	log.AckReceivedAt = &ackReceivedAt
 	log.ResolvedAt = &resolvedAt
 	return &log, nil
+}
+
+func (r *CommandLogRepository) UpdateCommandLogWSSentAt(id uint, wsSentAt time.Time) error {
+	return r.db.Model(&model.CommandLog{}).
+		Where("id = ?", id).
+		Update("ws_sent_at", wsSentAt).Error
+}
+
+func (r *CommandLogRepository) UpdateCommandLogWSReceivedAt(id uint, wsReceivedAt time.Time) error {
+	return r.db.Model(&model.CommandLog{}).
+		Where("id = ? AND (ws_received_at IS NULL OR ws_received_at > ?)", id, wsReceivedAt).
+		Update("ws_received_at", wsReceivedAt).Error
 }
 
 func (r *CommandLogRepository) UpdateCommandLogStatusByID(id uint, status, message string, resolvedAt time.Time) error {

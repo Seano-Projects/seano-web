@@ -2,6 +2,7 @@ package repository
 
 import (
 	"go-fiber-pgsql/internal/model"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -18,6 +19,21 @@ func NewVehicleLogRepository(db *gorm.DB) *VehicleLogRepository {
 // CreateVehicleLog saves a new vehicle log entry
 func (r *VehicleLogRepository) CreateVehicleLog(log *model.VehicleLog) error {
 	return r.db.Create(log).Error
+}
+
+// UpdateWSSentAt stores backend websocket send time for a vehicle log
+func (r *VehicleLogRepository) UpdateWSSentAt(id uint, wsSentAt time.Time) error {
+	return r.db.Model(&model.VehicleLog{}).
+		Where("id = ?", id).
+		Update("ws_sent_at", wsSentAt).Error
+}
+
+// UpdateWSReceivedAt stores frontend websocket receive time for a vehicle log.
+// Keeps the earliest receive timestamp when multiple clients report the same log.
+func (r *VehicleLogRepository) UpdateWSReceivedAt(id uint, wsReceivedAt time.Time) error {
+	return r.db.Model(&model.VehicleLog{}).
+		Where("id = ? AND (ws_received_at IS NULL OR ws_received_at > ?)", id, wsReceivedAt).
+		Update("ws_received_at", wsReceivedAt).Error
 }
 
 // GetVehicleLogs retrieves vehicle logs with filters
@@ -56,7 +72,12 @@ func (r *VehicleLogRepository) GetVehicleLogs(query model.VehicleLogQuery) ([]mo
 		db = db.Offset(query.Offset)
 	}
 
-	err := db.Order("created_at DESC").Find(&logs).Error
+	orderClause := "created_at DESC"
+	if strings.ToLower(query.Order) == "asc" {
+		orderClause = "created_at ASC"
+	}
+
+	err := db.Order(orderClause).Find(&logs).Error
 	return logs, err
 }
 

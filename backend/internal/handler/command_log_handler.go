@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/csv"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +26,33 @@ type CommandLogHandler struct {
 
 func NewCommandLogHandler(repo *repository.CommandLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB, wsHub *wsocket.Hub) *CommandLogHandler {
 	return &CommandLogHandler{repo: repo, vehicleRepo: vehicleRepo, db: db, wsHub: wsHub}
+}
+
+func toRFC3339NanoPtr(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.Format(time.RFC3339Nano)
+	return &s
+}
+
+func toCommandLogWSData(entry *model.CommandLog) wsocket.CommandLogData {
+	return wsocket.CommandLogData{
+		ID:              entry.ID,
+		VehicleID:       entry.VehicleID,
+		VehicleCode:     entry.VehicleCode,
+		RequestID:       entry.RequestID,
+		Command:         entry.Command,
+		Status:          entry.Status,
+		Message:         entry.Message,
+		InitiatedAt:     entry.InitiatedAt.Format(time.RFC3339Nano),
+		MqttPublishedAt: toRFC3339NanoPtr(entry.MqttPublishedAt),
+		UsvAckAt:        toRFC3339NanoPtr(entry.UsvAckAt),
+		AckReceivedAt:   toRFC3339NanoPtr(entry.AckReceivedAt),
+		ResolvedAt:      toRFC3339NanoPtr(entry.ResolvedAt),
+		WsReceivedAt:    toRFC3339NanoPtr(entry.WsReceivedAt),
+		CreatedAt:       entry.CreatedAt.Format(time.RFC3339Nano),
+	}
 }
 
 // GetCommandLogs returns a list of command logs with optional filters
@@ -184,13 +213,19 @@ func (h *CommandLogHandler) CreateCommandLog(c *fiber.Ctx) error {
 	}
 
 	entry := &model.CommandLog{
-		VehicleID:   req.VehicleID,
-		VehicleCode: req.VehicleCode,
-		Command:     req.Command,
-		Status:      req.Status,
-		Message:     req.Message,
-		InitiatedAt: req.InitiatedAt,
-		ResolvedAt:  req.ResolvedAt,
+		VehicleID:       req.VehicleID,
+		VehicleCode:     req.VehicleCode,
+		RequestID:       req.RequestID,
+		Command:         req.Command,
+		Status:          req.Status,
+		Message:         req.Message,
+		InitiatedAt:     req.InitiatedAt,
+		MqttPublishedAt: req.MqttPublishedAt,
+		UsvAckAt:        req.UsvAckAt,
+		AckReceivedAt:   req.AckReceivedAt,
+		ResolvedAt:      req.ResolvedAt,
+		WsSentAt:        req.WsSentAt,
+		WsReceivedAt:    req.WsReceivedAt,
 	}
 
 	if err := h.repo.CreateCommandLog(entry); err != nil {
@@ -199,22 +234,11 @@ func (h *CommandLogHandler) CreateCommandLog(c *fiber.Ctx) error {
 
 	// Broadcast to WebSocket clients
 	if h.wsHub != nil {
-		var resolvedAt *string
-		if entry.ResolvedAt != nil {
-			s := entry.ResolvedAt.Format(time.RFC3339)
-			resolvedAt = &s
+		wsSentAt := time.Now().UTC()
+		if err := h.repo.UpdateCommandLogWSSentAt(entry.ID, wsSentAt); err == nil {
+			entry.WsSentAt = &wsSentAt
 		}
-		_ = h.wsHub.BroadcastCommandLog(wsocket.CommandLogData{
-			ID:          entry.ID,
-			VehicleID:   entry.VehicleID,
-			VehicleCode: entry.VehicleCode,
-			Command:     entry.Command,
-			Status:      entry.Status,
-			Message:     entry.Message,
-			InitiatedAt: entry.InitiatedAt.Format(time.RFC3339),
-			ResolvedAt:  resolvedAt,
-			CreatedAt:   entry.CreatedAt.Format(time.RFC3339),
-		})
+		_ = h.wsHub.BroadcastCommandLog(toCommandLogWSData(entry), wsSentAt.Format(time.RFC3339Nano))
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(entry)
@@ -255,18 +279,22 @@ func (h *CommandLogHandler) CreateCommandAck(c *fiber.Ctx) error {
 		})
 	}
 
-	resolvedAt := time.Now()
+	ackReceivedAt := time.Now().UTC()
+	resolvedAt := ackReceivedAt
+	var usvAckAt *time.Time
 	if ts := strings.TrimSpace(req.Timestamp); ts != "" {
-		parsed, err := time.Parse(time.RFC3339, ts)
-		if err != nil {
+		if parsed, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+			usvAckAt = &parsed
+		} else if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+			usvAckAt = &parsed
+		} else {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "timestamp must be RFC3339",
+				"error": "timestamp must be RFC3339/RFC3339Nano",
 			})
 		}
-		resolvedAt = parsed
 	}
 
-	updated, err := h.repo.UpdateLatestPendingCommandLog(vehicleCode, command, finalStatus, req.Message, resolvedAt)
+	updated, err := h.repo.UpdateLatestPendingCommandLog(vehicleCode, strings.TrimSpace(req.RequestID), command, finalStatus, req.Message, usvAckAt, ackReceivedAt, resolvedAt)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			var vehicle model.Vehicle
@@ -275,13 +303,16 @@ func (h *CommandLogHandler) CreateCommandAck(c *fiber.Ctx) error {
 			}
 
 			entry := &model.CommandLog{
-				VehicleID:   vehicle.ID,
-				VehicleCode: vehicleCode,
-				Command:     command,
-				Status:      finalStatus,
-				Message:     req.Message,
-				InitiatedAt: resolvedAt,
-				ResolvedAt:  &resolvedAt,
+				VehicleID:      vehicle.ID,
+				VehicleCode:    vehicleCode,
+				RequestID:      strings.TrimSpace(req.RequestID),
+				Command:        command,
+				Status:         finalStatus,
+				Message:        req.Message,
+				InitiatedAt:    ackReceivedAt,
+				UsvAckAt:       usvAckAt,
+				AckReceivedAt:  &ackReceivedAt,
+				ResolvedAt:     &resolvedAt,
 			}
 
 			if err := h.repo.CreateCommandLog(entry); err != nil {
@@ -294,22 +325,11 @@ func (h *CommandLogHandler) CreateCommandAck(c *fiber.Ctx) error {
 	}
 
 	if h.wsHub != nil && updated != nil {
-		var resolvedAtStr *string
-		if updated.ResolvedAt != nil {
-			s := updated.ResolvedAt.Format(time.RFC3339)
-			resolvedAtStr = &s
+		wsSentAt := time.Now().UTC()
+		if err := h.repo.UpdateCommandLogWSSentAt(updated.ID, wsSentAt); err == nil {
+			updated.WsSentAt = &wsSentAt
 		}
-		_ = h.wsHub.BroadcastCommandLog(wsocket.CommandLogData{
-			ID:          updated.ID,
-			VehicleID:   updated.VehicleID,
-			VehicleCode: updated.VehicleCode,
-			Command:     updated.Command,
-			Status:      updated.Status,
-			Message:     updated.Message,
-			InitiatedAt: updated.InitiatedAt.Format(time.RFC3339),
-			ResolvedAt:  resolvedAtStr,
-			CreatedAt:   updated.CreatedAt.Format(time.RFC3339),
-		})
+		_ = h.wsHub.BroadcastCommandLog(toCommandLogWSData(updated), wsSentAt.Format(time.RFC3339Nano))
 	}
 
 	return c.JSON(updated)
@@ -327,4 +347,175 @@ func (h *CommandLogHandler) DeleteCommandLog(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// MarkWSReceivedAt stores frontend websocket receive timestamp for a command log.
+func (h *CommandLogHandler) MarkWSReceivedAt(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
+
+	id, err := c.ParamsInt("id")
+	if err != nil || id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
+	}
+
+	logEntry, err := h.repo.GetCommandLogByID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "command log not found"})
+	}
+
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to validate ownership"})
+		}
+
+		allowed := false
+		for _, vid := range userVehicleIDs {
+			if vid == logEntry.VehicleID {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You don't have permission to update this command log"})
+		}
+	}
+
+	wsReceivedAt := time.Now().UTC()
+	if err := h.repo.UpdateCommandLogWSReceivedAt(uint(id), wsReceivedAt); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update ws_received_at"})
+	}
+
+	return c.JSON(fiber.Map{"message": "ws_received_at updated"})
+}
+
+// ExportCommandLogs godoc
+// @Summary Export command logs to CSV
+// @Description Export command logs to CSV file with optional filters
+// @Tags Command Logs
+// @Accept json
+// @Produce text/csv
+// @Param vehicle_id query int false "Vehicle ID"
+// @Param start_time query string false "Start Time (ISO 8601)"
+// @Param end_time query string false "End Time (ISO 8601)"
+// @Success 200 {file} file "CSV file"
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /command-logs/export [get]
+func (h *CommandLogHandler) ExportCommandLogs(c *fiber.Ctx) error {
+	var query model.CommandLogQuery
+
+	// Parse query parameters
+	if vehicleID := c.Query("vehicle_id"); vehicleID != "" {
+		id, err := strconv.ParseUint(vehicleID, 10, 32)
+		if err == nil {
+			query.VehicleID = uint(id)
+		}
+	}
+
+	if startTime := c.Query("start_time"); startTime != "" {
+		t, err := time.Parse(time.RFC3339, startTime)
+		if err == nil {
+			query.StartTime = t
+		}
+	}
+
+	if endTime := c.Query("end_time"); endTime != "" {
+		t, err := time.Parse(time.RFC3339, endTime)
+		if err == nil {
+			query.EndTime = t
+		}
+	}
+
+	// No limit for export
+	query.Limit = 0
+	query.Order = "asc"
+
+	// Get all logs matching query
+	logs, err := h.repo.GetCommandLogs(query)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch logs for export",
+		})
+	}
+
+	// Set CSV response headers
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=command_logs.csv")
+
+	// Use CSV writer with proper formatting
+	writer := csv.NewWriter(c.Response().BodyWriter())
+	defer writer.Flush()
+
+	// Write header
+	header := []string{"Timestamp", "Vehicle", "VehicleCode", "RequestID", "Command", "Status", "Message", "InitiatedAt", "MqttPublishedAt", "UsvAckAt", "AckReceivedAt", "ResolvedAt", "WsSentAt", "WsReceivedAt"}
+	if err := writer.Write(header); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV header"})
+	}
+
+	// Write data rows
+	for _, log := range logs {
+		ts := log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00")
+
+		vehicleDisp := ""
+		if log.Vehicle != nil {
+			if log.Vehicle.Name != "" {
+				vehicleDisp = log.Vehicle.Name
+			} else if log.Vehicle.Code != "" {
+				vehicleDisp = log.Vehicle.Code
+			}
+		} else if log.VehicleID != 0 {
+			vehicleDisp = strconv.Itoa(int(log.VehicleID))
+		}
+
+		initiatedAtStr := log.InitiatedAt.Format("2006-01-02T15:04:05.000Z07:00")
+		mqttPublishedAtStr := ""
+		if log.MqttPublishedAt != nil {
+			mqttPublishedAtStr = log.MqttPublishedAt.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+		usvAckAtStr := ""
+		if log.UsvAckAt != nil {
+			usvAckAtStr = log.UsvAckAt.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+		ackReceivedAtStr := ""
+		if log.AckReceivedAt != nil {
+			ackReceivedAtStr = log.AckReceivedAt.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+		resolvedAtStr := ""
+		if log.ResolvedAt != nil {
+			resolvedAtStr = log.ResolvedAt.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+		wsSentAtStr := ""
+		if log.WsSentAt != nil {
+			wsSentAtStr = log.WsSentAt.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+		wsReceivedAtStr := ""
+		if log.WsReceivedAt != nil {
+			wsReceivedAtStr = log.WsReceivedAt.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+
+		row := []string{
+			ts,
+			vehicleDisp,
+			log.VehicleCode,
+			log.RequestID,
+			log.Command,
+			log.Status,
+			log.Message,
+			initiatedAtStr,
+			mqttPublishedAtStr,
+			usvAckAtStr,
+			ackReceivedAtStr,
+			resolvedAtStr,
+			wsSentAtStr,
+			wsReceivedAtStr,
+		}
+
+		if err := writer.Write(row); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV row"})
+		}
+	}
+
+	return nil
 }

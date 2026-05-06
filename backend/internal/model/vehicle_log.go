@@ -68,7 +68,9 @@ type VehicleLog struct {
 	TemperatureSystem  *string    `json:"temperature_system" gorm:"type:varchar(50)"` // Type field from schema
 	UsvTimestamp       *time.Time `json:"usv_timestamp,omitempty" gorm:"type:timestamptz;index"` // timestamp from USV payload
 	MqttReceivedAt     *time.Time `json:"mqtt_received_at,omitempty" gorm:"type:timestamptz;index"` // when backend received MQTT
-	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime;index"`
+	WsSentAt           *time.Time `json:"ws_sent_at,omitempty" gorm:"type:timestamptz;index"` // when backend pushed to websocket
+	WsReceivedAt       *time.Time `json:"ws_received_at,omitempty" gorm:"type:timestamptz;index"` // when frontend reported websocket receive
+	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime;not null;index"`
 }
 
 func (VehicleLog) TableName() string {
@@ -83,6 +85,7 @@ type VehicleLogQuery struct {
 	MissionCode string   `query:"mission_code"`
 	StartTime  time.Time `query:"start_time"`
 	EndTime    time.Time `query:"end_time"`
+	Order      string    `query:"order"`
 	Limit      int       `query:"limit"`
 	Offset     int       `query:"offset"`
 }
@@ -110,5 +113,6 @@ type CreateVehicleLogRequest struct {
 	Pitch             *float64         `json:"pitch,omitempty" example:"1.2"`
 	Yaw               *float64         `json:"yaw,omitempty" example:"90.5"`
 	TemperatureSystem *FlexibleString  `json:"temperature_system,omitempty" example:"Normal"`
+	DateTime          *string          `json:"date_time,omitempty" example:"2026-05-05T19:59:57.123456+07:00"`
 }
 

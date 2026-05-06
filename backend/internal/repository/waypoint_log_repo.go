@@ -2,6 +2,7 @@ package repository
 
 import (
 	"go-fiber-pgsql/internal/model"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -51,7 +52,12 @@ func (r *WaypointLogRepository) GetWaypointLogs(query model.WaypointLogQuery) ([
 		db = db.Offset(query.Offset)
 	}
 
-	err := db.Order("initiated_at DESC").Find(&logs).Error
+	orderClause := "initiated_at DESC"
+	if strings.ToLower(query.Order) == "asc" {
+		orderClause = "initiated_at ASC"
+	}
+
+	err := db.Order(orderClause).Find(&logs).Error
 	return logs, err
 }
 

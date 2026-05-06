@@ -31,6 +31,7 @@ type WaypointLogQuery struct {
 	Status      string    `query:"status"`
 	StartTime   time.Time `query:"start_time"`
 	EndTime     time.Time `query:"end_time"`
+	Order       string    `query:"order"`
 	Limit       int       `query:"limit"`
 	Offset      int       `query:"offset"`
 }

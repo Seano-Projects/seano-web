@@ -20,6 +20,10 @@ type SensorLogHandler struct {
 	db            *gorm.DB
 }
 
+type sensorWSReceivedAtRequest struct {
+	WSReceivedAt string `json:"ws_received_at"`
+}
+
 func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, db *gorm.DB) *SensorLogHandler {
 	return &SensorLogHandler{
 		sensorLogRepo: sensorLogRepo,
@@ -40,6 +44,7 @@ func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository, vehicleR
 // @Param sensor_type query string false "Sensor type name (e.g. ctd, adcp, sbes, mbes)"
 // @Param start_time query string false "Start Time (ISO 8601)"
 // @Param end_time query string false "End Time (ISO 8601)"
+// @Param order query string false "Sort order: asc or desc" default(desc)
 // @Param limit query int false "Limit" default(100)
 // @Param offset query int false "Offset" default(0)
 // @Success 200 {object} map[string]interface{}
@@ -136,6 +141,17 @@ func (h *SensorLogHandler) GetSensorLogs(c *fiber.Ctx) error {
 		}
 		query.EndTime = t
 	}
+
+	order := strings.ToLower(strings.TrimSpace(c.Query("order")))
+	if order == "" {
+		order = "desc"
+	}
+	if order != "asc" && order != "desc" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid order, use asc or desc",
+		})
+	}
+	query.Order = order
 
 	if limit := c.Query("limit"); limit != "" {
 		l, err := strconv.Atoi(limit)
@@ -300,6 +316,61 @@ func (h *SensorLogHandler) DeleteSensorLog(c *fiber.Ctx) error {
 	})
 }
 
+// MarkWSReceivedAt stores frontend websocket receive timestamp for a sensor log.
+func (h *SensorLogHandler) MarkWSReceivedAt(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
+
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid ID",
+		})
+	}
+
+	logEntry, err := h.sensorLogRepo.GetSensorLogByID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Sensor log not found",
+		})
+	}
+
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to validate ownership",
+			})
+		}
+
+		allowed := false
+		for _, vid := range userVehicleIDs {
+			if vid == logEntry.VehicleID {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "You don't have permission to update this sensor log",
+			})
+		}
+	}
+
+	// Use server receipt time to avoid negative latency from client clock skew.
+	wsReceivedAt := time.Now().UTC()
+
+	if err := h.sensorLogRepo.UpdateWSReceivedAt(uint(id), wsReceivedAt); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update ws_received_at",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "ws_received_at updated",
+	})
+}
+
 // ExportSensorLogs godoc
 // @Summary Export sensor logs to CSV
 // @Description Export sensor logs to CSV file with optional filters
@@ -332,6 +403,17 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 		}
 	}
 
+	if sensorType := c.Query("sensor_type"); sensorType != "" {
+		query.SensorType = sensorType
+	}
+
+	if missionID := c.Query("mission_id"); missionID != "" {
+		id, err := strconv.ParseUint(missionID, 10, 32)
+		if err == nil {
+			query.MissionID = uint(id)
+		}
+	}
+
 	if startTime := c.Query("start_time"); startTime != "" {
 		t, err := time.Parse(time.RFC3339, startTime)
 		if err == nil {
@@ -348,6 +430,7 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 
 	// No limit for export
 	query.Limit = 0
+	query.Order = "asc"
 
 	// Get all logs matching query
 	logs, err := h.sensorLogRepo.GetSensorLogs(query)
@@ -357,15 +440,94 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 		})
 	}
 
-	// Build CSV content
-	csv := "ID,Vehicle ID,Sensor ID,Data,Created At\n"
+	// Build CSV content (Timestamp first, Vehicle, Sensor, Mission, Data)
+	csvHeader := []string{"Timestamp", "Vehicle", "Sensor", "Mission", "Data", "UsvTimestamp", "MqttReceivedAt", "WsSentAt", "WsReceivedAt"}
+	var b strings.Builder
+	b.WriteString(strings.Join(csvHeader, ","))
+	b.WriteString("\n")
+
 	for _, log := range logs {
-		csv += strconv.Itoa(int(log.ID)) + "," +
-			strconv.Itoa(int(log.VehicleID)) + "," +
-			strconv.Itoa(int(log.SensorID)) + "," +
-			"\"" + log.Data + "\"," +
-			log.CreatedAt.Format(time.RFC3339) + "\n"
+		// Prefer USV timestamp if present, otherwise created_at
+		ts := log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00")
+		if log.UsvTimestamp != nil {
+			ts = log.UsvTimestamp.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+
+		vehicleDisp := ""
+		if log.Vehicle != nil {
+			if log.Vehicle.Name != "" {
+				vehicleDisp = log.Vehicle.Name
+			} else if log.Vehicle.Code != "" {
+				vehicleDisp = log.Vehicle.Code
+			}
+		} else if log.VehicleID != 0 {
+			vehicleDisp = strconv.Itoa(int(log.VehicleID))
+		}
+
+		sensorDisp := ""
+		if log.Sensor != nil {
+			if log.Sensor.Model != "" {
+				sensorDisp = log.Sensor.Model
+			} else if log.Sensor.Code != "" {
+				sensorDisp = log.Sensor.Code
+			} else if log.Sensor.SensorType != nil && log.Sensor.SensorType.Name != "" {
+				sensorDisp = log.Sensor.SensorType.Name
+			} else if log.Sensor.Brand != "" {
+				sensorDisp = log.Sensor.Brand
+			}
+		} else if log.SensorID != 0 {
+			sensorDisp = strconv.Itoa(int(log.SensorID))
+		}
+
+		missionDisp := ""
+		if log.MissionCode != nil && *log.MissionCode != "" {
+			missionDisp = *log.MissionCode
+		} else if log.MissionID != nil {
+			missionDisp = strconv.Itoa(int(*log.MissionID))
+		}
+
+		usvTs := ""
+		if log.UsvTimestamp != nil {
+			usvTs = log.UsvTimestamp.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+
+		mqttTs := ""
+		if log.MqttReceivedAt != nil {
+			mqttTs = log.MqttReceivedAt.Format("2006-01-02T15:04:05.000Z07:00")
+		}
+
+		wsSentAt := ""
+		if log.WsSentAt != nil {
+			wsSentAt = log.WsSentAt.Format("2006-01-02T15:04:05.000000Z07:00")
+		}
+
+		wsReceivedAt := ""
+		if log.WsReceivedAt != nil {
+			wsReceivedAt = log.WsReceivedAt.Format("2006-01-02T15:04:05.000000Z07:00")
+		}
+
+		esc := func(s string) string {
+			s = strings.ReplaceAll(s, "\"", "\"\"")
+			return "\"" + s + "\""
+		}
+
+		row := []string{
+			esc(ts),
+			esc(vehicleDisp),
+			esc(sensorDisp),
+			esc(missionDisp),
+			esc(log.Data),
+			esc(usvTs),
+			esc(mqttTs),
+			esc(wsSentAt),
+			esc(wsReceivedAt),
+		}
+
+		b.WriteString(strings.Join(row, ","))
+		b.WriteString("\n")
 	}
+
+	csv := b.String()
 
 	// Set headers for file download
 	c.Set("Content-Type", "text/csv")

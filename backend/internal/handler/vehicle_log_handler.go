@@ -6,6 +6,7 @@ import (
 	"go-fiber-pgsql/internal/repository"
 	"go-fiber-pgsql/internal/util"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -17,6 +18,10 @@ type VehicleLogHandler struct {
 	vehicleRepo    *repository.VehicleRepository
 	missionRepo    *repository.MissionRepository
 	db             *gorm.DB
+}
+
+type vehicleWSReceivedAtRequest struct {
+	WSReceivedAt string `json:"ws_received_at"`
 }
 
 func NewVehicleLogHandler(vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, missionRepo *repository.MissionRepository, db *gorm.DB) *VehicleLogHandler {
@@ -350,6 +355,61 @@ func (h *VehicleLogHandler) DeleteVehicleLog(c *fiber.Ctx) error {
 	})
 }
 
+// MarkWSReceivedAt stores frontend websocket receive timestamp for a vehicle log.
+func (h *VehicleLogHandler) MarkWSReceivedAt(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
+
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid ID",
+		})
+	}
+
+	logEntry, err := h.vehicleLogRepo.GetVehicleLogByID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Vehicle log not found",
+		})
+	}
+
+	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
+		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to validate ownership",
+			})
+		}
+
+		allowed := false
+		for _, vid := range userVehicleIDs {
+			if vid == logEntry.VehicleID {
+				allowed = true
+				break
+			}
+		}
+
+		if !allowed {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "You don't have permission to update this vehicle log",
+			})
+		}
+	}
+
+	// Use server receipt time to avoid negative latency from client clock skew.
+	wsReceivedAt := time.Now().UTC()
+
+	if err := h.vehicleLogRepo.UpdateWSReceivedAt(uint(id), wsReceivedAt); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update ws_received_at",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "ws_received_at updated",
+	})
+}
+
 // ExportVehicleLogs godoc
 // @Summary Export vehicle logs to CSV
 // @Description Export vehicle logs to CSV file with optional filters
@@ -374,6 +434,13 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 		}
 	}
 
+	if missionID := c.Query("mission_id"); missionID != "" {
+		id, err := strconv.ParseUint(missionID, 10, 32)
+		if err == nil {
+			query.MissionID = uint(id)
+		}
+	}
+
 	if startTime := c.Query("start_time"); startTime != "" {
 		t, err := time.Parse(time.RFC3339, startTime)
 		if err == nil {
@@ -390,6 +457,7 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 
 	// No limit for export
 	query.Limit = 0
+	query.Order = "asc"
 
 	// Get all logs matching query
 	logs, err := h.vehicleLogRepo.GetVehicleLogs(query)
@@ -399,56 +467,113 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 		})
 	}
 
-	// Build CSV content
-	csv := "ID,Vehicle ID,Vehicle Code,Latitude,Longitude,Speed,Heading,Battery Voltage,Mode,Created At\n"
+	// Build CSV content (cleaner format: Timestamp first, Vehicle, Mission, Coordinates, Speed, Battery, Mode, SystemStatus)
+	csvHeader := []string{"Timestamp", "Vehicle", "Mission", "Latitude", "Longitude", "Speed_m_s", "Battery_V", "Mode", "SystemStatus", "UsvTimestamp", "MqttReceivedAt", "WsSentAt", "WsReceivedAt"}
+	var b strings.Builder
+	b.WriteString(strings.Join(csvHeader, ","))
+	b.WriteString("\n")
+
 	for _, log := range logs {
-		vehicleCode := ""
+		// Timestamp
+		ts := log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00")
+
+		// Vehicle display: prefer vehicle name then code
+		vehicleDisp := ""
 		if log.Vehicle != nil {
-			vehicleCode = log.Vehicle.Code
+			if log.Vehicle.Name != "" {
+				vehicleDisp = log.Vehicle.Name
+			} else if log.Vehicle.Code != "" {
+				vehicleDisp = log.Vehicle.Code
+			}
+		} else if log.VehicleID != 0 {
+			vehicleDisp = strconv.Itoa(int(log.VehicleID))
 		}
-		vehicleIDStr := strconv.Itoa(int(log.VehicleID))
-		
+
+		// Mission name if available
+		missionDisp := ""
+		if log.MissionCode != nil && *log.MissionCode != "" {
+			missionDisp = *log.MissionCode
+		} else if log.MissionID != nil {
+			missionDisp = strconv.Itoa(int(*log.MissionID))
+		}
+
 		latStr := ""
 		if log.Latitude != nil {
 			latStr = strconv.FormatFloat(*log.Latitude, 'f', 6, 64)
 		}
-		
+
 		lonStr := ""
 		if log.Longitude != nil {
 			lonStr = strconv.FormatFloat(*log.Longitude, 'f', 6, 64)
 		}
-		
+
 		speedStr := ""
 		if log.Speed != nil {
 			speedStr = strconv.FormatFloat(*log.Speed, 'f', 2, 64)
 		}
-		
-		headingStr := ""
-		if log.Heading != nil {
-			headingStr = strconv.FormatFloat(*log.Heading, 'f', 2, 64)
-		}
-		
+
 		batteryStr := ""
 		if log.BatteryVoltage != nil {
 			batteryStr = strconv.FormatFloat(*log.BatteryVoltage, 'f', 2, 64)
 		}
-		
+
 		modeStr := ""
 		if log.Mode != nil {
 			modeStr = *log.Mode
 		}
-		
-		csv += strconv.Itoa(int(log.ID)) + "," +
-			vehicleIDStr + "," +
-			vehicleCode + "," +
-			latStr + "," +
-			lonStr + "," +
-			speedStr + "," +
-			headingStr + "," +
-			batteryStr + "," +
-			modeStr + "," +
-			log.CreatedAt.Format(time.RFC3339) + "\n"
+
+		statusStr := ""
+		if log.SystemStatus != nil {
+			statusStr = *log.SystemStatus
+		}
+
+		// Escape any commas/quotes by wrapping fields in double quotes and escaping existing quotes
+		esc := func(s string) string {
+			s = strings.ReplaceAll(s, "\"", "\"\"")
+			return "\"" + s + "\""
+		}
+
+		usvTs := ""
+		if log.UsvTimestamp != nil {
+			usvTs = log.UsvTimestamp.Format("2006-01-02T15:04:05.000000Z07:00")
+		}
+
+		mqttTs := ""
+		if log.MqttReceivedAt != nil {
+			mqttTs = log.MqttReceivedAt.Format("2006-01-02T15:04:05.000000Z07:00")
+		}
+
+		wsSentAt := ""
+		if log.WsSentAt != nil {
+			wsSentAt = log.WsSentAt.Format("2006-01-02T15:04:05.000000Z07:00")
+		}
+
+		wsReceivedAt := ""
+		if log.WsReceivedAt != nil {
+			wsReceivedAt = log.WsReceivedAt.Format("2006-01-02T15:04:05.000000Z07:00")
+		}
+
+		row := []string{
+			esc(ts),
+			esc(vehicleDisp),
+			esc(missionDisp),
+			esc(latStr),
+			esc(lonStr),
+			esc(speedStr),
+			esc(batteryStr),
+			esc(modeStr),
+			esc(statusStr),
+			esc(usvTs),
+			esc(mqttTs),
+			esc(wsSentAt),
+			esc(wsReceivedAt),
+		}
+
+		b.WriteString(strings.Join(row, ","))
+		b.WriteString("\n")
 	}
+
+	csv := b.String()
 
 	// Set headers for file download
 	c.Set("Content-Type", "text/csv")
