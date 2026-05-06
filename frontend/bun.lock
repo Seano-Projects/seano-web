@@ -15,6 +15,7 @@
         "dayjs": "^1.11.19",
         "flag-icons": "^7.5.0",
         "framer-motion": "^12.23.12",
+        "heatmap.js": "^2.0.5",
         "leaflet": "^1.9.4",
         "leaflet-draw": "^1.0.4",
         "lucide-react": "^0.554.0",
@@ -472,6 +473,8 @@
     "has-tostringtag": ["has-tostringtag@1.0.2", "", { "dependencies": { "has-symbols": "^1.0.3" } }, ""],
 
     "hasown": ["hasown@2.0.2", "", { "dependencies": { "function-bind": "^1.1.2" } }, ""],
+
+    "heatmap.js": ["heatmap.js@2.0.5", "", {}, "sha512-CG2gYFP5Cv9IQCXEg3ZRxnJDyAilhWnQlAuHYGuWVzv6mFtQelS1bR9iN80IyDmFECbFPbg6I0LR5uAFHgCthw=="],
 
     "help-me": ["help-me@5.0.0", "", {}, "sha512-7xgomUX6ADmcYzFik0HzAxh/73YlKR9bmFzf51CZwR+b6YtzU2m0u49hQCqV6SvlqIqsaxovfwdvbnsw3b/zpg=="],
 

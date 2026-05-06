@@ -13,6 +13,11 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 import RegistrationRoute from "./components/RegistrationRoute";
 import useVehicleData from "./hooks/useVehicleData";
+import useVehicleConnectionStatus from "./hooks/useVehicleConnectionStatus";
+import {
+  SelectedVehicleProvider,
+  useSelectedVehicleContext,
+} from "./contexts/SelectedVehicleContext";
 
 // Setup React Query client dengan caching configuration
 const queryClient = new QueryClient({
@@ -80,30 +85,42 @@ function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+
+  // Use shared context for selected vehicle
+  const {
+    selectedVehicleId,
+    setSelectedVehicleId: handleSetSelectedVehicleId,
+  } = useSelectedVehicleContext();
   const { vehicles } = useVehicleData();
+  const { isVehicleOnline } = useVehicleConnectionStatus();
   const initializedRef = useRef(false);
 
   useEffect(() => {
     if (!vehicles || vehicles.length === 0) {
-      setSelectedVehicleId(null);
       initializedRef.current = false;
       return;
     }
 
     if (!initializedRef.current && !selectedVehicleId) {
-      setSelectedVehicleId(vehicles[0].id);
+      // Default to first online vehicle if available, otherwise first vehicle
+      const onlineVehicle = vehicles.find((v) => isVehicleOnline(v.code));
+      const defaultId = onlineVehicle ? onlineVehicle.id : vehicles[0].id;
+      handleSetSelectedVehicleId(defaultId);
       initializedRef.current = true;
       return;
     }
 
-    if (
-      selectedVehicleId &&
-      !vehicles.find((v) => v.id === selectedVehicleId)
-    ) {
-      setSelectedVehicleId(vehicles[0].id);
+    if (!initializedRef.current && selectedVehicleId) {
+      // Saved value exists - validate it still belongs to this user
+      if (!vehicles.find((v) => v.id === selectedVehicleId)) {
+        const onlineVehicle = vehicles.find((v) => isVehicleOnline(v.code));
+        handleSetSelectedVehicleId(
+          onlineVehicle ? onlineVehicle.id : vehicles[0].id,
+        );
+      }
+      initializedRef.current = true;
     }
-  }, [vehicles, selectedVehicleId]);
+  }, [vehicles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedVehicle = selectedVehicleId
     ? vehicles.find((v) => v.id === selectedVehicleId)
@@ -283,21 +300,21 @@ function App() {
       <a href="#main-content" className="skip-to-main">
         Skip to main content
       </a>
-      <Sidebar isSidebarOpen={isSidebarOpen} onHoverChange={setIsSidebarHovered} />
+      <Sidebar
+        isSidebarOpen={isSidebarOpen}
+        onHoverChange={setIsSidebarHovered}
+      />
       <Footbar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <div className="flex-1 flex flex-col min-h-screen">
-        <Header
-          toggleDarkMode={toggleDarkMode}
-          darkMode={darkMode}
-        />
+        <Header toggleDarkMode={toggleDarkMode} darkMode={darkMode} />
         <Main
           isSidebarOpen={isSidebarOpen}
           selectedVehicle={selectedVehicle}
           setSelectedVehicle={(vehicle) => {
             if (vehicle && vehicle.id) {
-              setSelectedVehicleId(vehicle.id);
+              handleSetSelectedVehicleId(vehicle.id);
             } else if (vehicle) {
-              setSelectedVehicleId(vehicle);
+              handleSetSelectedVehicleId(vehicle);
             }
           }}
           darkMode={darkMode}
@@ -596,7 +613,9 @@ const AppWithRouter = () => (
     <BrowserRouter>
       <AuthProvider>
         <PermissionProvider>
-          <App />
+          <SelectedVehicleProvider>
+            <App />
+          </SelectedVehicleProvider>
         </PermissionProvider>
       </AuthProvider>
     </BrowserRouter>
