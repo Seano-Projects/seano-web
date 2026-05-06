@@ -4,11 +4,7 @@ import { useAlertData } from "../hooks/useAlertData";
 import useVehicleData from "../hooks/useVehicleData";
 import { ColumnToggle, Title } from "../components/ui";
 import { WidgetCard } from "../components/Widgets";
-import {
-  VehicleDropdown,
-  DatePickerField,
-  TimePickerField,
-} from "../components/Widgets";
+import { VehicleDropdown } from "../components/Widgets";
 import { WidgetCardSkeleton } from "../components/Skeleton";
 import { DataTable } from "../components/ui";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
@@ -136,11 +132,6 @@ const Log = () => {
   };
 
   const [isRealtimePaused, setIsRealtimePaused] = useState(false);
-  // Filter states
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
 
   const {
     vehicles,
@@ -164,18 +155,9 @@ const Log = () => {
   } = useLogData({
     enableRealtime: true,
     pauseRealtime: isRealtimePaused,
-    startDate,
-    endDate,
-    startTime,
-    endTime,
     selectedVehicleId: selectedVehicle?.id || 0,
   });
-  const { alerts } = useAlertData({
-    startDate,
-    endDate,
-    startTime,
-    endTime,
-  });
+  const { alerts } = useAlertData();
   const [activeTab, setActiveTab] = useState("vehicle");
   const hasInitializedVehicleSelection = useRef(false);
 
@@ -213,80 +195,35 @@ const Log = () => {
   const shouldShowSkeleton =
     timeoutLoading && loading && vehicleLogs.length === 0;
 
-  // Filter functions
-  const filterLogs = (logs) => {
-    let filtered = logs;
-
-    // Filter by vehicle
-    if (selectedVehicle) {
-      filtered = filtered.filter(
-        (log) =>
-          log.vehicle?.code === selectedVehicle.code ||
-          log.vehicle_id === selectedVehicle.id,
-      );
-    }
-
-    // Filter by date range and time
-    if (startDate || endDate || startTime || endTime) {
-      filtered = filtered.filter((log) => {
-        const logDate = new Date(
-          log.created_at || log.timestamp || log.initiated_at,
-        );
-
-        // Combine date and time for comparison
-        const startDateTime = startDate
-          ? new Date(startDate + "T" + (startTime || "00:00:00"))
-          : null;
-        const endDateTime = endDate
-          ? new Date(endDate + "T" + (endTime || "23:59:59"))
-          : null;
-
-        if (startDateTime && logDate < startDateTime) return false;
-        if (endDateTime && logDate > endDateTime) return false;
-        return true;
-      });
-    }
-
-    return filtered;
+  // Filter logs by vehicle
+  const filterLogsByVehicle = (logs) => {
+    if (!selectedVehicle) return logs;
+    return logs.filter(
+      (log) =>
+        log.vehicle?.code === selectedVehicle.code ||
+        log.vehicle_id === selectedVehicle.id,
+    );
   };
 
-  // Apply filters to logs
-  const filteredVehicleLogs = filterLogs(vehicleLogs);
-  const filteredSensorLogs = filterLogs(sensorLogs);
-  const filteredRawLogs = filterLogs(rawLogs);
-  const filteredAntiTheftLogs = filterLogs(antiTheftLogs);
-  const filteredFailsafeLogs = filterLogs(failsafeLogs);
-
-  // Filter command/waypoint logs (use initiated_at and vehicle_code directly)
-  const filterActionLogs = (logs) => {
-    let filtered = logs;
-    if (selectedVehicle) {
-      filtered = filtered.filter(
-        (log) =>
-          log.vehicle?.code === selectedVehicle.code ||
-          log.vehicle_code === selectedVehicle.code ||
-          log.vehicle_id === selectedVehicle.id,
-      );
-    }
-    if (startDate || endDate || startTime || endTime) {
-      filtered = filtered.filter((log) => {
-        const logDate = new Date(log.initiated_at || log.created_at);
-        const startDateTime = startDate
-          ? new Date(startDate + "T" + (startTime || "00:00:00"))
-          : null;
-        const endDateTime = endDate
-          ? new Date(endDate + "T" + (endTime || "23:59:59"))
-          : null;
-        if (startDateTime && logDate < startDateTime) return false;
-        if (endDateTime && logDate > endDateTime) return false;
-        return true;
-      });
-    }
-    return filtered;
+  // Filter action logs by vehicle
+  const filterActionLogsByVehicle = (logs) => {
+    if (!selectedVehicle) return logs;
+    return logs.filter(
+      (log) =>
+        log.vehicle?.code === selectedVehicle.code ||
+        log.vehicle_code === selectedVehicle.code ||
+        log.vehicle_id === selectedVehicle.id,
+    );
   };
 
-  const filteredCommandLogs = filterActionLogs(commandLogs);
-  const filteredWaypointLogs = filterActionLogs(waypointLogs);
+  // Apply vehicle filters to logs
+  const filteredVehicleLogs = filterLogsByVehicle(vehicleLogs);
+  const filteredSensorLogs = filterLogsByVehicle(sensorLogs);
+  const filteredRawLogs = filterLogsByVehicle(rawLogs);
+  const filteredAntiTheftLogs = filterLogsByVehicle(antiTheftLogs);
+  const filteredFailsafeLogs = filterLogsByVehicle(failsafeLogs);
+  const filteredCommandLogs = filterActionLogsByVehicle(commandLogs);
+  const filteredWaypointLogs = filterActionLogsByVehicle(waypointLogs);
   const commandTablePageSize = Math.max(filteredCommandLogs.length, 1);
   const waypointTablePageSize = Math.max(filteredWaypointLogs.length, 1);
 
@@ -790,61 +727,15 @@ const Log = () => {
       className="p-4"
       key={`logs-root-${isRealtimePaused ? "paused" : "live"}`}
     >
-      {/* Header with Title and Filters */}
+      {/* Header with Title and Controls */}
       <div className="flex items-center justify-between mb-4">
         <Title
           title={t("pages.logs.title")}
           subtitle={t("pages.logs.subtitle")}
         />
 
-        {/* Filters Section */}
+        {/* Controls Section */}
         <div className="flex items-center gap-3">
-          {/* Date Range Filter */}
-          <div className="flex items-center gap-2">
-            {/* Start Date */}
-            <DatePickerField
-              value={startDate}
-              onChange={(date) => {
-                setStartDate(date);
-                if (endDate && date && new Date(date) > new Date(endDate)) {
-                  setEndDate("");
-                }
-              }}
-              placeholder={t("pages.logs.startDate")}
-              maxDate={endDate || new Date().toISOString().split("T")[0]}
-              className="w-40"
-            />
-
-            {/* Start Time */}
-            <TimePickerField
-              value={startTime}
-              onChange={setStartTime}
-              placeholder="00:00"
-              className="w-32"
-            />
-
-            {/* Separator */}
-            <span className="text-gray-500 dark:text-gray-400 text-sm">
-              {t("pages.logs.to")}
-            </span>
-
-            {/* End Date */}
-            <DatePickerField
-              value={endDate}
-              onChange={setEndDate}
-              placeholder={t("pages.logs.endDate")}
-              minDate={startDate || undefined}
-              className="w-40"
-            />
-
-            {/* End Time */}
-            <TimePickerField
-              value={endTime}
-              onChange={setEndTime}
-              placeholder="23:59"
-              className="w-32"
-            />
-          </div>
           {/* Vehicle Filter */}
           <div className="w-52">
             <VehicleDropdown
@@ -862,40 +753,6 @@ const Log = () => {
               disabled={vehicleLoading}
             />
           </div>
-
-          {/* Clear Filters Button */}
-          {(selectedVehicleId ||
-            startDate ||
-            endDate ||
-            startTime ||
-            endTime) && (
-            <button
-              onClick={() => {
-                setSelectedVehicleId(null);
-                setStartDate("");
-                setEndDate("");
-                setStartTime("");
-                setEndTime("");
-              }}
-              className="px-3 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 text-sm rounded-xl transition-all flex items-center gap-2 font-medium"
-              title={t("pages.logs.clearAllFilters")}
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-              {t("pages.logs.clear")}
-            </button>
-          )}
 
           <button
             onClick={() => setIsRealtimePaused((prev) => !prev)}
