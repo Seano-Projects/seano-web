@@ -129,6 +129,11 @@ func (r *AlertRepository) AcknowledgeAlert(id uint) error {
 	return r.db.Model(&model.Alert{}).Where("id = ?", id).Update("acknowledged", true).Error
 }
 
+// AcknowledgeAllAlerts marks all unacknowledged alerts as acknowledged
+func (r *AlertRepository) AcknowledgeAllAlerts() error {
+	return r.db.Model(&model.Alert{}).Where("acknowledged = ?", false).Update("acknowledged", true).Error
+}
+
 // DeleteAlert deletes an alert by ID
 func (r *AlertRepository) DeleteAlert(id uint) error {
 	return r.db.Delete(&model.Alert{}, id).Error

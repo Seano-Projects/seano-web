@@ -2,6 +2,7 @@ package repository
 
 import (
 	"go-fiber-pgsql/internal/model"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -18,6 +19,21 @@ func NewSensorLogRepository(db *gorm.DB) *SensorLogRepository {
 // CreateSensorLog saves a new sensor log entry
 func (r *SensorLogRepository) CreateSensorLog(log *model.SensorLog) error {
 	return r.db.Create(log).Error
+}
+
+// UpdateWSSentAt stores backend websocket send time for a sensor log
+func (r *SensorLogRepository) UpdateWSSentAt(id uint, wsSentAt time.Time) error {
+	return r.db.Model(&model.SensorLog{}).
+		Where("id = ?", id).
+		Update("ws_sent_at", wsSentAt).Error
+}
+
+// UpdateWSReceivedAt stores frontend websocket receive time for a sensor log.
+// Keeps the earliest receive timestamp when multiple clients report the same log.
+func (r *SensorLogRepository) UpdateWSReceivedAt(id uint, wsReceivedAt time.Time) error {
+	return r.db.Model(&model.SensorLog{}).
+		Where("id = ? AND (ws_received_at IS NULL OR ws_received_at > ?)", id, wsReceivedAt).
+		Update("ws_received_at", wsReceivedAt).Error
 }
 
 // GetSensorLogs retrieves sensor logs with filters
@@ -62,7 +78,12 @@ func (r *SensorLogRepository) GetSensorLogs(query model.SensorLogQuery) ([]model
 		db = db.Offset(query.Offset)
 	}
 	
-	err := db.Order("created_at ASC").Find(&logs).Error
+	orderClause := "created_at DESC"
+	if strings.ToLower(query.Order) == "asc" {
+		orderClause = "created_at ASC"
+	}
+
+	err := db.Order(orderClause).Find(&logs).Error
 	return logs, err
 }
 
