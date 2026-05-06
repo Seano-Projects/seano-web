@@ -105,25 +105,45 @@ const DataHeader = ({
     // Handle custom date range with time
     if (activeFilters.startDate) {
       const timeStr = activeFilters.startTime || "00:00";
+      const [year, month, day] = activeFilters.startDate.split("-").map(Number);
       const [hours, mins] = timeStr.split(":").map(Number);
-      const d = new Date(activeFilters.startDate);
-      d.setHours(hours, mins, 0, 0);
-      params.start_time = d.toISOString();
+      // Create date in local time: 2026-05-02T00:00:00
+      const d = new Date(year, month - 1, day, hours, mins, 0, 0);
+      // Get timezone offset and format as RFC3339 with +07:00 format
+      const offset = -d.getTimezoneOffset();
+      const offsetHours = String(Math.abs(Math.floor(offset / 60))).padStart(2, "0");
+      const offsetMins = String(Math.abs(offset % 60)).padStart(2, "0");
+      const sign = offset >= 0 ? "+" : "-";
+      const pad = (n) => String(n).padStart(2, "0");
+      const isoStr = `${pad(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${offsetHours}:${offsetMins}`;
+      params.start_time = isoStr;
     }
 
     if (activeFilters.endDate) {
       const timeStr = activeFilters.endTime || "23:59";
+      const [year, month, day] = activeFilters.endDate.split("-").map(Number);
       const [hours, mins] = timeStr.split(":").map(Number);
-      const d = new Date(activeFilters.endDate);
-      d.setHours(hours, mins, 59, 999);
-      params.end_time = d.toISOString();
+      const d = new Date(year, month - 1, day, hours, mins, 59, 999);
+      const offset = -d.getTimezoneOffset();
+      const offsetHours = String(Math.abs(Math.floor(offset / 60))).padStart(2, "0");
+      const offsetMins = String(Math.abs(offset % 60)).padStart(2, "0");
+      const sign = offset >= 0 ? "+" : "-";
+      const pad = (n) => String(n).padStart(2, "0");
+      const isoStr = `${pad(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${offsetHours}:${offsetMins}`;
+      params.end_time = isoStr;
     } else if (activeFilters.startDate && !activeFilters.endDate) {
       // If only start date is provided, set end date to end of same day
       const timeStr = activeFilters.endTime || "23:59";
+      const [year, month, day] = activeFilters.startDate.split("-").map(Number);
       const [hours, mins] = timeStr.split(":").map(Number);
-      const d = new Date(activeFilters.startDate);
-      d.setHours(hours, mins, 59, 999);
-      params.end_time = d.toISOString();
+      const d = new Date(year, month - 1, day, hours, mins, 59, 999);
+      const offset = -d.getTimezoneOffset();
+      const offsetHours = String(Math.abs(Math.floor(offset / 60))).padStart(2, "0");
+      const offsetMins = String(Math.abs(offset % 60)).padStart(2, "0");
+      const sign = offset >= 0 ? "+" : "-";
+      const pad = (n) => String(n).padStart(2, "0");
+      const isoStr = `${pad(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${offsetHours}:${offsetMins}`;
+      params.end_time = isoStr;
     }
 
     if (
@@ -639,6 +659,12 @@ const DataHeader = ({
         return;
       }
 
+      // Validate sensor selection for sensor logs
+      if (exportType === "sensor_logs" && !exportFilters.sensor?.id) {
+        toast.error("Please select a sensor to export sensor logs");
+        return;
+      }
+
       const queryParams = buildExportParams(exportType, exportFilters);
 
       const response = await axios.get(exportEndpointForType, {
@@ -668,6 +694,12 @@ const DataHeader = ({
             ),
           );
         }
+      }
+
+      // Check if blob is empty or only contains headers (very small file size)
+      if (response.data.size < 200) {
+        toast.info(t("pages.data.messages.noDataToExport"));
+        return;
       }
 
       downloadCsvBlob(response.data, exportType);

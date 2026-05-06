@@ -138,6 +138,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	
 	// Battery routes
 	app.Get("/vehicle-batteries/latest", middleware.AuthRequired(), vehicleHandler.GetAllLatestBatteryStatus)
+	app.Get("/vehicle-batteries/export", middleware.AuthRequired(), vehicleHandler.ExportBatteryLogs)
 	app.Post("/vehicle-batteries", middleware.AuthOrVehicleAPIKey(vehicleRepo), vehicleHandler.CreateVehicleBatteryStatus)
 
 	// Vehicle status routes

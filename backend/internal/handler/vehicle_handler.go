@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"strconv"
@@ -562,6 +563,116 @@ func (h *VehicleHandler) GetBatteryLogs(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(logs)
+}
+
+// ExportBatteryLogs godoc
+// @Summary Export battery logs to CSV
+// @Description Export battery logs to CSV file with optional filters
+// @Tags Vehicles
+// @Accept json
+// @Produce text/csv
+// @Param vehicle_id query int false "Vehicle ID"
+// @Param start_time query string false "Start Time (ISO 8601)"
+// @Param end_time query string false "End Time (ISO 8601)"
+// @Success 200 {file} file "CSV file"
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /vehicle-batteries/export [get]
+func (h *VehicleHandler) ExportBatteryLogs(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
+
+	// Get all vehicles user has access to
+	var vehicleIDs []uint
+	if middleware.HasPermission(h.db, userID, "vehicles.read_all") {
+		// Admin can export all
+		vehicles, _ := h.vehicleRepo.GetAllVehicles()
+		for _, v := range vehicles {
+			vehicleIDs = append(vehicleIDs, v.ID)
+		}
+	} else {
+		// Regular users only export their own
+		vehicleIDs, _ = h.vehicleRepo.GetVehicleIDsByUserID(userID)
+	}
+
+	if len(vehicleIDs) == 0 {
+		// Return empty CSV
+		c.Set("Content-Type", "text/csv")
+		c.Set("Content-Disposition", "attachment; filename=battery_logs.csv")
+		return c.SendString("Timestamp,Vehicle,BatteryID,Percentage,Voltage,Current,Status,Temperature\n")
+	}
+
+	// Parse filter parameters
+	var startTime, endTime time.Time
+	if st := c.Query("start_time"); st != "" {
+		if t, err := time.Parse(time.RFC3339, st); err == nil {
+			startTime = t
+		}
+	}
+	if et := c.Query("end_time"); et != "" {
+		if t, err := time.Parse(time.RFC3339, et); err == nil {
+			endTime = t
+		}
+	}
+
+	// Set CSV response headers
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=battery_logs.csv")
+
+	// Use CSV writer with proper formatting
+	writer := csv.NewWriter(c.Response().BodyWriter())
+	defer writer.Flush()
+
+	// Write header
+	header := []string{"Timestamp", "Vehicle", "BatteryID", "Percentage", "Voltage", "Current", "Status", "Temperature"}
+	if err := writer.Write(header); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV header"})
+	}
+
+	// Get battery logs for each vehicle
+	for _, vehicleID := range vehicleIDs {
+		logs, err := h.vehicleRepo.GetBatteryLogsByVehicleID(vehicleID, nil, 10000)
+		if err != nil || len(logs) == 0 {
+			continue
+		}
+
+		vehicle, _ := h.vehicleRepo.GetVehicleByID(vehicleID)
+
+		for _, log := range logs {
+			// Apply time filters
+			if !startTime.IsZero() && log.CreatedAt.Before(startTime) {
+				continue
+			}
+			if !endTime.IsZero() && log.CreatedAt.After(endTime) {
+				continue
+			}
+
+			vehicleDisp := ""
+			if vehicle != nil {
+				if vehicle.Name != "" {
+					vehicleDisp = vehicle.Name
+				} else {
+					vehicleDisp = vehicle.Code
+				}
+			}
+
+			row := []string{
+				log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00"),
+				vehicleDisp,
+				strconv.Itoa(log.BatteryID),
+				strconv.FormatFloat(log.Percentage, 'f', 2, 64),
+				strconv.FormatFloat(log.Voltage, 'f', 2, 64),
+				strconv.FormatFloat(log.Current, 'f', 2, 64),
+				log.Status,
+				strconv.FormatFloat(log.Temperature, 'f', 2, 64),
+			}
+
+			if err := writer.Write(row); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV row"})
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetVehicleConnectionStatuses godoc

@@ -156,7 +156,14 @@ const MenuGroup = ({
                   }
                 >
                   {Icon && <Icon size={14} className="shrink-0" aria-hidden="true" />}
-                  <span>{t(item.text)}</span>
+                  <span className="flex-1">{t(item.text)}</span>
+                  {item.badge && (
+                    <span
+                      className={`inline-flex items-center justify-center px-2 text-xs font-medium rounded-full ${item.badge.color} ${item.badge.darkColor}`}
+                    >
+                      {item.badge.text}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             );

@@ -177,6 +177,11 @@ export const menuGroups = [
         text: "nav.sbes",
         size: sizeIcon,
         requiredPermission: "sensor-monitoring.read",
+        badge: {
+          text: "SOON",
+          color: "bg-amber-100 text-amber-800",
+          darkColor: "dark:bg-amber-900/30 dark:text-amber-300",
+        },
       },
       {
         href: "/sensor-monitoring/mbes",
@@ -184,6 +189,11 @@ export const menuGroups = [
         text: "nav.mbes",
         size: sizeIcon,
         requiredPermission: "sensor-monitoring.read",
+        badge: {
+          text: "SOON",
+          color: "bg-amber-100 text-amber-800",
+          darkColor: "dark:bg-amber-900/30 dark:text-amber-300",
+        },
       },
     ],
   },

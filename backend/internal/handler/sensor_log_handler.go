@@ -440,7 +440,7 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 		})
 	}
 
-	// Build CSV content (Timestamp first, Vehicle, Sensor, Mission, Data)
+	// Build CSV content
 	csvHeader := []string{"Timestamp", "Vehicle", "Sensor", "Mission", "Data", "UsvTimestamp", "MqttReceivedAt", "WsSentAt", "WsReceivedAt"}
 	var b strings.Builder
 	b.WriteString(strings.Join(csvHeader, ","))
@@ -531,7 +531,7 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 
 	// Set headers for file download
 	c.Set("Content-Type", "text/csv")
-	c.Set("Content-Disposition", "attachment; filename=sensor_logs_"+time.Now().Format("20060102_150405")+".csv")
+	c.Set("Content-Disposition", "attachment; filename=sensor_logs.csv")
 
 	return c.SendString(csv)
 }

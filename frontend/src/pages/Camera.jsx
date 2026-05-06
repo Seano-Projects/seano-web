@@ -167,7 +167,7 @@ const Camera = () => {
   }, []);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] p-4 gap-4">
+    <div className="flex flex-col h-[calc(100vh-8rem)] p-4 gap-4">
       {/* Header */}
       <div className="flex items-center justify-between shrink-0">
         <div>
