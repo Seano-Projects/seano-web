@@ -1,4 +1,5 @@
 // UI Components
+export { default as ColumnToggle } from './ColumnToggle'
 export { default as ConfirmModal } from './ConfirmModal'
 export { default as DataTable } from './DataTable'
 export { default as LanguageToggle } from './LanguageToggle'
