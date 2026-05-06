@@ -1,5 +1,7 @@
 import { MdOutlineRadar } from "react-icons/md";
 import { Link } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { HiDotsVertical } from "react-icons/hi";
 import useMissionData from "../../../hooks/useMissionData";
 import { MissionCardSkeleton } from "../../Skeleton";
 import useTranslation from "../../../hooks/useTranslation";
@@ -8,6 +10,18 @@ const RecentMissions = () => {
   const { t } = useTranslation();
   const { getRecentMissions, loading, refreshData, lastUpdated } =
     useMissionData();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const missions = getRecentMissions ? getRecentMissions(3) : [];
 
@@ -22,15 +36,30 @@ const RecentMissions = () => {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            to="/missions"
-            className="group inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all duration-200 hover:bg-blue-700 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/35"
-          >
-            {t("dashboard.recentMissions.viewAll")}
-            <span className="transition-transform duration-200 group-hover:translate-x-0.5">
-              {"->"}
-            </span>
-          </Link>
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((prev) => !prev)}
+              className="p-1 text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-100"
+              title="More options"
+            >
+              <HiDotsVertical size={20} />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-44 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-black shadow-lg z-50 py-1 overflow-hidden">
+                <Link
+                  to="/missions"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors"
+                >
+                  <MdOutlineRadar
+                    size={12}
+                    className="text-gray-400 dark:text-gray-500"
+                  />
+                  {t("dashboard.recentMissions.viewAll")}
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

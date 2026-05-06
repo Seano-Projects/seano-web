@@ -68,36 +68,36 @@ const LatestAlerts = ({ selectedVehicle }) => {
       case "critical":
       case "error":
         return {
-          bg: "bg-red-50 dark:bg-red-900/20",
-          border: "border-red-200 dark:border-red-800",
+          bg: "bg-white dark:bg-black",
+          border: "border-gray-200 dark:border-slate-700",
           icon: "text-red-500",
           text: "text-red-700 dark:text-red-300",
         };
       case "warning":
         return {
-          bg: "bg-yellow-50 dark:bg-yellow-900/20",
-          border: "border-yellow-200 dark:border-yellow-800",
-          icon: "text-yellow-500",
-          text: "text-yellow-700 dark:text-yellow-300",
+          bg: "bg-white dark:bg-black",
+          border: "border-gray-200 dark:border-slate-700",
+          icon: "text-amber-500",
+          text: "text-amber-700 dark:text-amber-300",
         };
       case "info":
         return {
-          bg: "bg-blue-50 dark:bg-blue-900/20",
-          border: "border-blue-200 dark:border-blue-800",
+          bg: "bg-white dark:bg-black",
+          border: "border-gray-200 dark:border-slate-700",
           icon: "text-blue-500",
           text: "text-blue-700 dark:text-blue-300",
         };
       case "success":
         return {
-          bg: "bg-green-50 dark:bg-green-900/20",
-          border: "border-green-200 dark:border-green-800",
+          bg: "bg-white dark:bg-black",
+          border: "border-gray-200 dark:border-slate-700",
           icon: "text-green-500",
           text: "text-green-700 dark:text-green-300",
         };
       default:
         return {
-          bg: "bg-gray-50 dark:bg-gray-800/50",
-          border: "border-gray-200 dark:border-gray-700",
+          bg: "bg-white dark:bg-black",
+          border: "border-gray-200 dark:border-slate-700",
           icon: "text-gray-500",
           text: "text-gray-700 dark:text-gray-300",
         };

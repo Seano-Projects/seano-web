@@ -1,13 +1,25 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { FaBell } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { useAlertData } from "../../../hooks/useAlertData";
-import { MdRefresh } from "react-icons/md";
+import { HiDotsVertical } from "react-icons/hi";
 import useTranslation from "../../../hooks/useTranslation";
 
 const LatestAlerts = () => {
   const { t } = useTranslation();
   const { alerts, loading, refreshData } = useAlertData();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Get 4 latest alerts
   const latestAlerts = alerts.slice(0, 4);
@@ -41,33 +53,36 @@ const LatestAlerts = () => {
     if (lowerSeverity === "critical" || lowerSeverity === "error") {
       return {
         container:
-          "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800",
-        icon: "bg-red-500/20 text-red-500",
-        title: "text-red-900 dark:text-red-100",
-        message: "text-red-700 dark:text-red-300",
-        timestamp: "text-red-600 dark:text-red-400",
-        badge: "bg-red-500",
+          "bg-white dark:bg-black border border-gray-200 dark:border-slate-700",
+        icon: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+        title: "text-gray-900 dark:text-gray-100",
+        message: "text-gray-600 dark:text-gray-300",
+        timestamp: "text-gray-400 dark:text-gray-500",
+        badge:
+          "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700",
       };
     } else if (lowerSeverity === "warning" || lowerSeverity === "warn") {
       return {
         container:
-          "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800",
-        icon: "bg-yellow-500/20 text-yellow-500",
-        title: "text-yellow-900 dark:text-yellow-100",
-        message: "text-yellow-700 dark:text-yellow-300",
-        timestamp: "text-yellow-600 dark:text-yellow-400",
-        badge: "bg-yellow-500",
+          "bg-white dark:bg-black border border-gray-200 dark:border-slate-700",
+        icon: "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400",
+        title: "text-gray-900 dark:text-gray-100",
+        message: "text-gray-600 dark:text-gray-300",
+        timestamp: "text-gray-400 dark:text-gray-500",
+        badge:
+          "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700",
       };
     } else {
       // info, success, or default
       return {
         container:
-          "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800",
-        icon: "bg-blue-500/20 text-blue-500",
-        title: "text-blue-900 dark:text-blue-100",
-        message: "text-blue-700 dark:text-blue-300",
-        timestamp: "text-blue-600 dark:text-blue-400",
-        badge: "bg-blue-500",
+          "bg-white dark:bg-black border border-gray-200 dark:border-slate-700",
+        icon: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
+        title: "text-gray-900 dark:text-gray-100",
+        message: "text-gray-600 dark:text-gray-300",
+        timestamp: "text-gray-400 dark:text-gray-500",
+        badge:
+          "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700",
       };
     }
   };
@@ -83,22 +98,31 @@ const LatestAlerts = () => {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={refreshData}
-            className="rounded-full border border-slate-200 p-2 text-slate-500 transition-all duration-200 hover:border-blue-300 hover:text-blue-500 dark:border-slate-700 dark:text-slate-300 dark:hover:border-blue-500"
-            title={t("dashboard.latestAlerts.refreshAlerts")}
-          >
-            <MdRefresh size={14} />
-          </button>
-          <Link
-            to="/alerts"
-            className="group inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all duration-200 hover:bg-blue-700 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/35"
-          >
-            {t("dashboard.latestAlerts.viewAll")}
-            <span className="transition-transform duration-200 group-hover:translate-x-0.5">
-              {"->"}
-            </span>
-          </Link>
+          {/* Three-dots menu */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((prev) => !prev)}
+              className="p-1 text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-100"
+              title="More options"
+            >
+              <HiDotsVertical size={20} />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-44 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-black shadow-lg z-50 py-1 overflow-hidden">
+                <Link
+                  to="/alerts"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors"
+                >
+                  <FaBell
+                    size={12}
+                    className="text-gray-400 dark:text-gray-500"
+                  />
+                  {t("dashboard.latestAlerts.viewAll")}
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -136,33 +160,35 @@ const LatestAlerts = () => {
             return (
               <div
                 key={alert.id}
-                className={`flex items-start gap-4 p-4 ${classes.container} border rounded-xl ${alert.acknowledged ? "opacity-60" : ""}`}
+                className={`flex items-start gap-3 p-4 ${classes.container} rounded-xl transition-colors`}
               >
                 <div
-                  className={`${classes.icon} p-2 rounded-full shrink-0 mt-1`}
+                  className={`${classes.icon} p-2 rounded-lg shrink-0 mt-0.5`}
                 >
-                  <FaBell size={16} />
+                  <FaBell size={14} />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className={`text-sm font-semibold ${classes.title}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <h3
+                      className={`text-sm font-semibold ${classes.title} truncate`}
+                    >
                       {alert.type || "System Alert"}
                     </h3>
-                    <span className={`text-xs ${classes.timestamp}`}>
+                    <span className={`text-xs shrink-0 ${classes.timestamp}`}>
                       {formatTimeAgo(alert.timestamp)}
                     </span>
                   </div>
-                  <p className={`text-sm ${classes.message}`}>
+                  <p className={`text-xs ${classes.message} line-clamp-2 mb-2`}>
                     {alert.message}
                   </p>
-                  <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center justify-between">
                     <span
-                      className={`inline-block px-2 py-1 ${classes.badge} text-white text-xs font-medium rounded-full uppercase`}
+                      className={`inline-block px-2 py-0.5 ${classes.badge} text-xs font-semibold rounded-full uppercase`}
                     >
                       {alert.severity}
                     </span>
                     {alert.vehicle_name && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 truncate ml-2">
                         {alert.vehicle_name}
                       </span>
                     )}

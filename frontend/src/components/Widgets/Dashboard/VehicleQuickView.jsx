@@ -80,40 +80,42 @@ const VehicleQuickView = ({
 
   // Use real-time data from WebSocket if available, fallback to vehicle data
   const vehicleDetails = useMemo(() => {
-    const resolveGpsStatus = log => {
+    const resolveGpsStatus = (log) => {
       if (!log) {
-        return t("dashboard.vehicleQuickView.noGPS")
+        return t("dashboard.vehicleQuickView.noGPS");
       }
 
       if (typeof log.gps_ok === "boolean") {
-        return log.gps_ok ? "GPS Fix" : t("dashboard.vehicleQuickView.noGPS")
+        return log.gps_ok ? "GPS Fix" : t("dashboard.vehicleQuickView.noGPS");
       }
 
       if (typeof log.gps_ok === "string") {
-        const normalized = log.gps_ok.toLowerCase()
+        const normalized = log.gps_ok.toLowerCase();
         if (normalized === "true") {
-          return "GPS Fix"
+          return "GPS Fix";
         }
         if (normalized === "false") {
-          return t("dashboard.vehicleQuickView.noGPS")
+          return t("dashboard.vehicleQuickView.noGPS");
         }
       }
 
       if (typeof log.gps_ok === "number") {
-        return log.gps_ok > 0 ? "GPS Fix" : t("dashboard.vehicleQuickView.noGPS")
+        return log.gps_ok > 0
+          ? "GPS Fix"
+          : t("dashboard.vehicleQuickView.noGPS");
       }
 
       const gpsNum =
         typeof log.gps_fix === "string"
           ? Number.parseInt(log.gps_fix, 10)
-          : log.gps_fix
+          : log.gps_fix;
 
       if (Number.isFinite(gpsNum)) {
-        return gpsNum >= 3 ? "GPS Fix" : t("dashboard.vehicleQuickView.noGPS")
+        return gpsNum >= 3 ? "GPS Fix" : t("dashboard.vehicleQuickView.noGPS");
       }
 
-      return t("dashboard.vehicleQuickView.noGPS")
-    }
+      return t("dashboard.vehicleQuickView.noGPS");
+    };
 
     if (!selectedVehicle) {
       return {
@@ -169,7 +171,7 @@ const VehicleQuickView = ({
     {
       icon: FaBatteryFull,
       title: t("dashboard.vehicleQuickView.battery"),
-      value: `${vehicleDetails.battery}%`,
+      value: `${typeof vehicleDetails.battery === "number" ? vehicleDetails.battery.toFixed(1) : vehicleDetails.battery}%`,
       color: "green",
     },
     {

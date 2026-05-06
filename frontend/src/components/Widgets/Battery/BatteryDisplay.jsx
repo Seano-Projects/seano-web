@@ -55,7 +55,9 @@ const BatteryDisplay = ({ unit, battery, vehicleCode, compact = false }) => {
     return value;
   }, [calibrationInput]);
 
-  const canSendCalibration = Boolean(vehicleCode && sanitizedCalibration && !isLoading);
+  const canSendCalibration = Boolean(
+    vehicleCode && sanitizedCalibration && !isLoading,
+  );
 
   const handleSendCalibration = async () => {
     if (!canSendCalibration) {
@@ -68,23 +70,33 @@ const BatteryDisplay = ({ unit, battery, vehicleCode, compact = false }) => {
     }
 
     const command = `k${sanitizedCalibration}`;
-    toast.info(`${t("pages.battery.widgets.calibration.sendingPrefix")} ${command}...`);
+    toast.info(
+      `${t("pages.battery.widgets.calibration.sendingPrefix")} ${command}...`,
+    );
     const result = await sendCommand(vehicleCode, command);
 
     if (result?.success) {
-      toast.success(`${t("pages.battery.widgets.calibration.sentPrefix")} ${command}`);
+      toast.success(
+        `${t("pages.battery.widgets.calibration.sentPrefix")} ${command}`,
+      );
       return;
     }
 
-    toast.error(result?.message || t("pages.battery.widgets.calibration.sendFailed"));
+    toast.error(
+      result?.message || t("pages.battery.widgets.calibration.sendFailed"),
+    );
   };
 
   return (
-    <div className={`dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl ${padding} h-full flex flex-col`}>
+    <div
+      className={`dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl ${padding} h-full flex flex-col`}
+    >
       {/* Unit Label */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className={`${compact ? "text-sm" : "text-lg"} font-semibold dark:text-white text-black`}>
-          BAT {unit}
+        <h3
+          className={`${compact ? "text-sm" : "text-lg"} font-semibold dark:text-white text-black`}
+        >
+          {t("tracking.battery.batteryLabel")} {unit}
         </h3>
         <span
           className={`px-2 py-0.5 rounded-full text-xs font-medium border bg-transparent ${getStatusColor()}`}
@@ -117,7 +129,9 @@ const BatteryDisplay = ({ unit, battery, vehicleCode, compact = false }) => {
             </div>
           </div>
           {/* Battery Terminal */}
-          <div className={`absolute -top-1.5 left-1/2 transform -translate-x-1/2 ${termW} ${termH} bg-gray-300 dark:bg-gray-700 rounded-t`} />
+          <div
+            className={`absolute -top-1.5 left-1/2 transform -translate-x-1/2 ${termW} ${termH} bg-gray-300 dark:bg-gray-700 rounded-t`}
+          />
         </div>
       </div>
 
