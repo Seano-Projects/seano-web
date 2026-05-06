@@ -306,18 +306,6 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
         )}
       </div>
 
-      {/* Footer */}
-      {notifications.length > 0 && (
-        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
-          <Link
-            to="/notification"
-            onClick={onClose}
-            className="block text-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-          >
-            {t("pages.notifications.dropdown.viewAllNotifications")} {"->"}
-          </Link>
-        </div>
-      )}
 
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {

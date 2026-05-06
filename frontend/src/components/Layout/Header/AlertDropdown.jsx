@@ -215,21 +215,21 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
       case "failsafe":
         return <FaBolt className="text-yellow-500" />;
       default:
-        return null;
+        return <FaExclamationCircle className="text-gray-500" />;
     }
   };
 
   const getSeverityBadge = (severity) => {
-    const baseClass = "text-xs font-semibold px-2 py-0.5 rounded";
+    const baseClass = "text-xs font-semibold px-2 py-0.5 rounded-full border";
     switch (severity?.toLowerCase()) {
       case "critical":
-        return `${baseClass} bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200`;
+        return `${baseClass} bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700`;
       case "warning":
-        return `${baseClass} bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200`;
+        return `${baseClass} bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700`;
       case "info":
-        return `${baseClass} bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200`;
+        return `${baseClass} bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700`;
       default:
-        return `${baseClass} bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200`;
+        return `${baseClass} bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600`;
     }
   };
 
@@ -324,79 +324,64 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
-                  alert.severity === "critical"
-                    ? "bg-red-50 dark:bg-red-900/10"
-                    : ""
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2 flex-1">
-                    <div className="mt-0.5">
-                      {getSeverityIcon(alert.severity)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {getAlertTypeIcon(alert.alert_type)}
-                        <span className={getSeverityBadge(alert.severity)}>
-                          {alert.severity?.toUpperCase()}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {alert.vehicle_name ||
-                            `${t("pages.alerts.vehicle")} #${alert.vehicle_id}`}
-                        </span>
+          <div className="divide-y divide-gray-100 dark:divide-slate-700/60">
+            {alerts.map((alert) => {
+              return (
+                <div
+                  key={alert.id}
+                  className="px-4 py-3 bg-white dark:bg-black border-b border-gray-100 dark:border-slate-700/60 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2 flex-1">
+                      <div className="mt-0.5">
+                        {getSeverityIcon(alert.severity)}
                       </div>
-                      <p className="text-sm text-gray-900 dark:text-white font-medium mb-1">
-                        {alert.alert_type?.replace(/_/g, " ")}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                        {alert.message}
-                      </p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatTimestamp(alert.created_at)}
-                        </span>
-                        <div className="flex gap-2">
-                          <Link
-                            to={getLogRoute(alert.alert_type)}
-                            onClick={onClose}
-                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                          >
-                            {t("pages.logs.title")}
-                          </Link>
-                          <button
-                            onClick={() => acknowledgeAlert(alert.id)}
-                            className="text-xs text-green-600 dark:text-green-400 hover:underline"
-                          >
-                            {t("pages.alerts.acknowledge")}
-                          </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          {getAlertTypeIcon(alert.alert_type)}
+                          <span className={getSeverityBadge(alert.severity)}>
+                            {alert.severity?.toUpperCase()}
+                          </span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                            {alert.vehicle_name ||
+                              `${t("pages.alerts.vehicle")} #${alert.vehicle_id}`}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-900 dark:text-gray-100 font-medium mb-1">
+                          {alert.alert_type?.replace(/_/g, " ")}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                          {alert.message}
+                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            {formatTimestamp(alert.created_at)}
+                          </span>
+                          <div className="flex gap-2">
+                            <Link
+                              to={getLogRoute(alert.alert_type)}
+                              onClick={onClose}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                              {t("pages.logs.title")}
+                            </Link>
+                            <button
+                              onClick={() => acknowledgeAlert(alert.id)}
+                              className="text-xs text-green-600 dark:text-green-400 hover:underline"
+                            >
+                              {t("pages.alerts.acknowledge")}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
-
-      {/* Footer */}
-      {alerts.length > 0 && (
-        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
-          <Link
-            to="/alerts"
-            onClick={onClose}
-            className="block text-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-          >
-            {t("pages.alerts.dropdown.viewAllAlerts")} {"->"}
-          </Link>
-        </div>
-      )}
     </div>
   );
 };

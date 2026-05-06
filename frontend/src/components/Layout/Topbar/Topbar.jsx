@@ -22,7 +22,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const { t } = useTranslation();
   const [location, setLocation] = useState(t("tracking.topbar.waitingGps"));
   const { vehicles, loading } = useVehicleData();
-  const { getActiveMissions } = useMissionData();
+  const { missionData, getActiveMissions } = useMissionData();
   const { vehicleLogs } = useLogData();
   const { getVehicleStatus } = useVehicleConnectionStatus();
   const { batteryData = {} } = useBatteryData() || {};
@@ -38,21 +38,34 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const renderBatteryIcon = (pct, unit) => {
     const level = pct ?? null;
     const color =
-      level === null ? "text-gray-400"
-      : level <= 10 ? "text-red-500"
-      : level <= 30 ? "text-orange-500"
-      : level <= 60 ? "text-yellow-500"
-      : level <= 90 ? "text-green-400"
-      : "text-green-500";
+      level === null
+        ? "text-gray-400"
+        : level <= 10
+          ? "text-red-500"
+          : level <= 30
+            ? "text-orange-500"
+            : level <= 60
+              ? "text-yellow-500"
+              : level <= 90
+                ? "text-green-400"
+                : "text-green-500";
     const Icon =
-      level === null || level <= 10 ? FaBatteryEmpty
-      : level <= 30 ? FaBatteryQuarter
-      : level <= 60 ? FaBatteryHalf
-      : level <= 90 ? FaBatteryThreeQuarters
-      : FaBatteryFull;
+      level === null || level <= 10
+        ? FaBatteryEmpty
+        : level <= 30
+          ? FaBatteryQuarter
+          : level <= 60
+            ? FaBatteryHalf
+            : level <= 90
+              ? FaBatteryThreeQuarters
+              : FaBatteryFull;
     const label = level !== null ? `${Math.round(level)}%` : "-- %";
     return (
-      <div key={unit} className="flex items-center gap-1" title={`Battery ${unit}: ${label}`}>
+      <div
+        key={unit}
+        className="flex items-center gap-1"
+        title={`Battery ${unit}: ${label}`}
+      >
         <Icon size={22} className={color} />
         <span className="hidden sm:inline text-xs font-medium">{label}</span>
       </div>
@@ -77,35 +90,33 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
 
   // Get real RSSI from vehicle log (only when online)
   const rssiLevel = useMemo(() => {
-    if (usvStatus !== 'online') return null;
+    if (usvStatus !== "online") return null;
     if (vehicleLog?.rssi !== undefined && vehicleLog?.rssi !== null) {
       return vehicleLog.rssi;
     }
     return null;
   }, [vehicleLog, usvStatus]);
 
-  // Get current active mission for selected vehicle
-  const getCurrentMission = () => {
+  // Get current active mission for selected vehicle - match by ID (vehicle field is an object from API)
+  const currentMission = useMemo(() => {
     if (!selectedVehicle) return null;
-
     const activeMissions = getActiveMissions();
-    return activeMissions.find(
-      (mission) =>
-        mission.vehicle === selectedVehicle.registration_code ||
-        mission.vehicle === selectedVehicle.vehicle_name ||
-        mission.vehicle === selectedVehicle.name,
+    return (
+      activeMissions.find((mission) => {
+        const missionVehicleId =
+          mission.vehicle_id ||
+          (typeof mission.vehicle === "object" ? mission.vehicle?.id : null);
+        return Number(missionVehicleId) === Number(selectedVehicle.id);
+      }) || null
     );
-  };
-
-  const currentMission = getCurrentMission();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVehicle, missionData]);
 
   const currentWaypointProgress = useMemo(() => {
     if (!currentMission) return null;
 
-    const current = Math.max(
-      0,
-      Number(currentMission.current_waypoint) || 0,
-    );
+    // current_waypoint from vehicle is 1-based; display as-is
+    const current = Math.max(0, Number(currentMission.current_waypoint) || 0);
 
     if (Array.isArray(currentMission.waypoints)) {
       const totalFromArray = currentMission.waypoints.filter((waypoint) => {
@@ -124,22 +135,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
       };
     }
 
-    const totalFromField = Number(currentMission.total_waypoints);
-    if (Number.isFinite(totalFromField) && totalFromField >= 0) {
-      return {
-        current,
-        total: totalFromField,
-      };
-    }
-
-    const totalFallback = Number(currentMission.waypoints);
-    return {
-      current,
-      total:
-        Number.isFinite(totalFallback) && totalFallback >= 0
-          ? totalFallback
-          : 0,
-    };
+    return { current, total: 0 };
   }, [currentMission]);
 
   const renderRssiIcon = () => {
@@ -195,7 +191,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
 
   // Reverse geocoding untuk mendapatkan lokasi dari koordinat
   useEffect(() => {
-    if (usvStatus !== 'online') {
+    if (usvStatus !== "online") {
       setLocation(t("tracking.topbar.waitingGps"));
       return;
     }
@@ -351,7 +347,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
 
         <div className="flex items-center gap-2">
           {batteryUnits.map(({ unit, data }) =>
-            renderBatteryIcon(data?.percentage, unit)
+            renderBatteryIcon(data?.percentage, unit),
           )}
         </div>
 

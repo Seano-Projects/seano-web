@@ -52,8 +52,10 @@ const Footbar = ({ isSidebarOpen, toggleSidebar }) => {
     if (!showMenu) return;
     const handler = (e) => {
       if (
-        menuRef.current && !menuRef.current.contains(e.target) &&
-        btnRef.current && !btnRef.current.contains(e.target)
+        menuRef.current &&
+        !menuRef.current.contains(e.target) &&
+        btnRef.current &&
+        !btnRef.current.contains(e.target)
       ) {
         setShowMenu(false);
       }
@@ -65,7 +67,9 @@ const Footbar = ({ isSidebarOpen, toggleSidebar }) => {
   // Close on Escape
   useEffect(() => {
     if (!showMenu) return;
-    const handler = (e) => { if (e.key === "Escape") setShowMenu(false); };
+    const handler = (e) => {
+      if (e.key === "Escape") setShowMenu(false);
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [showMenu]);
@@ -89,7 +93,9 @@ const Footbar = ({ isSidebarOpen, toggleSidebar }) => {
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-800">
-            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">{t("helpResources.title")}</span>
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+              {t("helpResources.title")}
+            </span>
             <button
               onClick={() => setShowMenu(false)}
               className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition-colors"
@@ -109,8 +115,12 @@ const Footbar = ({ isSidebarOpen, toggleSidebar }) => {
                   >
                     <Icon className={`text-base shrink-0 ${item.color}`} />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-tight">{t(`helpResources.${item.labelKey}`)}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 leading-tight">{t(`helpResources.${item.descKey}`)}</p>
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-tight">
+                        {t(`helpResources.${item.labelKey}`)}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 leading-tight">
+                        {t(`helpResources.${item.descKey}`)}
+                      </p>
                     </div>
                   </button>
                 </li>
@@ -121,10 +131,7 @@ const Footbar = ({ isSidebarOpen, toggleSidebar }) => {
       )}
 
       {/* Footbar */}
-      <div
-        className="fixed bottom-0 left-0 right-0 h-9 bg-white dark:bg-black border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-2"
-        style={{ zIndex: 10001 }}
-      >
+      <div className="fixed bottom-0 left-0 right-0 h-9 z-[10050] bg-white dark:bg-black border-t border-gray-200 dark:border-gray-700 flex items-center justify-between px-2">
         {/* Left: Sidebar toggle */}
         <button
           onClick={toggleSidebar}
