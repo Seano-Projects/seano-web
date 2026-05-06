@@ -8,24 +8,26 @@ const ALL_COLUMN_KEYS = [
   "sensor_code",
   "latitude",
   "longitude",
-  "altitude",
   "gps_ok",
-  "depth",
-  "pressure",
-  "temperature",
-  "conductivity",
-  "salinity",
-  "density",
-  "sound_velocity",
+  "current_speed_ms",
+  "current_direction_deg",
+  "water_depth_m",
+  "temperature_c",
+  "heading_deg",
+  "ensemble_no",
+  "v1_ms",
+  "v2_ms",
+  "v3_ms",
+  "v4_ms",
 ];
 
 const DEFAULT_VISIBLE = new Set([
   "timestamp",
   "vehicle_code",
-  "depth",
-  "temperature",
-  "salinity",
-  "sound_velocity",
+  "current_speed_ms",
+  "current_direction_deg",
+  "water_depth_m",
+  "temperature_c",
 ]);
 
 const COLUMN_LABELS = {
@@ -34,18 +36,27 @@ const COLUMN_LABELS = {
   sensor_code: "Sensor",
   latitude: "Latitude",
   longitude: "Longitude",
-  altitude: "Altitude (m)",
   gps_ok: "GPS OK",
-  depth: "Depth (m)",
-  pressure: "Pressure (M)",
-  temperature: "Temperature (°C)",
-  conductivity: "Conductivity (MS/CM)",
-  salinity: "Salinity (PSU)",
-  density: "Density (kg/m³)",
-  sound_velocity: "Sound Velocity (m/s)",
+  current_speed_ms: "Speed (m/s)",
+  current_direction_deg: "Direction (°)",
+  water_depth_m: "Depth (m)",
+  temperature_c: "Temperature (°C)",
+  heading_deg: "Heading (°)",
+  ensemble_no: "Ensemble No.",
+  v1_ms: "V1 (m/s)",
+  v2_ms: "V2 (m/s)",
+  v3_ms: "V3 (m/s)",
+  v4_ms: "V4 (m/s)",
 };
 
-const CTDTable = ({ ctdData, loading = false, isConnected = false }) => {
+const MAX_COLUMNS = 6;
+
+const fmt = (v, decimals = 3) =>
+  v !== null && v !== undefined && Number.isFinite(Number(v))
+    ? Number(v).toFixed(decimals)
+    : "—";
+
+const ADCPTable = ({ adcpData, loading = false }) => {
   const [visibleKeys, setVisibleKeys] = useState(DEFAULT_VISIBLE);
 
   const MAX_COLUMNS = 6;
@@ -77,7 +88,6 @@ const CTDTable = ({ ctdData, loading = false, isConnected = false }) => {
     });
   };
 
-  // All columns definition
   const allColumns = [
     {
       header: "Date/Time",
@@ -95,7 +105,7 @@ const CTDTable = ({ ctdData, loading = false, isConnected = false }) => {
       sortable: true,
       cell: (row) => (
         <span className="text-sm text-gray-900 dark:text-gray-300">
-          {row.vehicle_code}
+          {row.vehicle_code ?? "—"}
         </span>
       ),
     },
@@ -105,7 +115,7 @@ const CTDTable = ({ ctdData, loading = false, isConnected = false }) => {
       sortable: true,
       cell: (row) => (
         <span className="text-sm text-gray-900 dark:text-gray-300">
-          {row.sensor_code}
+          {row.sensor_code ?? "—"}
         </span>
       ),
     },
@@ -117,7 +127,7 @@ const CTDTable = ({ ctdData, loading = false, isConnected = false }) => {
       cellClassName: "text-right",
       cell: (row) => (
         <span className="text-sm text-gray-900 dark:text-gray-300">
-          {typeof row.latitude === "number" ? row.latitude.toFixed(7) : "-"}
+          {fmt(row.latitude, 7)}
         </span>
       ),
     },
@@ -129,19 +139,7 @@ const CTDTable = ({ ctdData, loading = false, isConnected = false }) => {
       cellClassName: "text-right",
       cell: (row) => (
         <span className="text-sm text-gray-900 dark:text-gray-300">
-          {typeof row.longitude === "number" ? row.longitude.toFixed(7) : "-"}
-        </span>
-      ),
-    },
-    {
-      header: "Altitude (m)",
-      accessorKey: "altitude",
-      sortable: true,
-      className: "text-right",
-      cellClassName: "text-right",
-      cell: (row) => (
-        <span className="text-sm text-gray-900 dark:text-gray-300">
-          {typeof row.altitude === "number" ? row.altitude.toFixed(2) : "-"}
+          {fmt(row.longitude, 7)}
         </span>
       ),
     },
@@ -159,97 +157,132 @@ const CTDTable = ({ ctdData, loading = false, isConnected = false }) => {
                 : "text-gray-500 dark:text-gray-400"
           }`}
         >
-          {row.gps_ok === true ? "Yes" : row.gps_ok === false ? "No" : "-"}
+          {row.gps_ok === true ? "Yes" : row.gps_ok === false ? "No" : "—"}
+        </span>
+      ),
+    },
+    {
+      header: "Speed (m/s)",
+      accessorKey: "current_speed_ms",
+      sortable: true,
+      className: "text-right",
+      cellClassName: "text-right",
+      cell: (row) => (
+        <span className="text-sm text-red-600 dark:text-red-400">
+          {fmt(row.current_speed_ms, 3)}
+        </span>
+      ),
+    },
+    {
+      header: "Direction (°)",
+      accessorKey: "current_direction_deg",
+      sortable: true,
+      className: "text-right",
+      cellClassName: "text-right",
+      cell: (row) => (
+        <span className="text-sm text-gray-900 dark:text-gray-300">
+          {fmt(row.current_direction_deg, 1)}
         </span>
       ),
     },
     {
       header: "Depth (m)",
-      accessorKey: "depth",
+      accessorKey: "water_depth_m",
       sortable: true,
       className: "text-right",
       cellClassName: "text-right",
       cell: (row) => (
-        <span className="text-sm text-gray-900 dark:text-gray-300">
-          {row.depth.toFixed(3)}
-        </span>
-      ),
-    },
-    {
-      header: "Pressure (M)",
-      accessorKey: "pressure",
-      sortable: true,
-      className: "text-right",
-      cellClassName: "text-right",
-      cell: (row) => (
-        <span className="text-sm text-gray-900 dark:text-gray-300">
-          {row.pressure.toFixed(3)}
+        <span className="text-sm text-blue-600 dark:text-blue-400">
+          {fmt(row.water_depth_m, 1)}
         </span>
       ),
     },
     {
       header: "Temperature (°C)",
-      accessorKey: "temperature",
+      accessorKey: "temperature_c",
       sortable: true,
       className: "text-right",
       cellClassName: "text-right",
       cell: (row) => (
-        <span className="text-sm text-gray-900 dark:text-gray-300">
-          {row.temperature.toFixed(3)}
+        <span className="text-sm text-orange-600 dark:text-orange-400">
+          {fmt(row.temperature_c, 2)}
         </span>
       ),
     },
     {
-      header: "Conductivity (MS/CM)",
-      accessorKey: "conductivity",
+      header: "Heading (°)",
+      accessorKey: "heading_deg",
       sortable: true,
       className: "text-right",
       cellClassName: "text-right",
       cell: (row) => (
         <span className="text-sm text-gray-900 dark:text-gray-300">
-          {row.conductivity.toFixed(3)}
+          {fmt(row.heading_deg, 1)}
         </span>
       ),
     },
     {
-      header: "Salinity (PSU)",
-      accessorKey: "salinity",
+      header: "Ensemble No.",
+      accessorKey: "ensemble_no",
       sortable: true,
       className: "text-right",
       cellClassName: "text-right",
       cell: (row) => (
         <span className="text-sm text-gray-900 dark:text-gray-300">
-          {row.salinity.toFixed(3)}
+          {row.ensemble_no ?? "—"}
         </span>
       ),
     },
     {
-      header: "Density (kg/m³)",
-      accessorKey: "density",
+      header: "V1 (m/s)",
+      accessorKey: "v1_ms",
       sortable: true,
       className: "text-right",
       cellClassName: "text-right",
       cell: (row) => (
         <span className="text-sm text-gray-900 dark:text-gray-300">
-          {row.density.toFixed(3)}
+          {fmt(row.v1_ms, 3)}
         </span>
       ),
     },
     {
-      header: "Sound Velocity (m/s)",
-      accessorKey: "sound_velocity",
+      header: "V2 (m/s)",
+      accessorKey: "v2_ms",
       sortable: true,
       className: "text-right",
       cellClassName: "text-right",
       cell: (row) => (
         <span className="text-sm text-gray-900 dark:text-gray-300">
-          {row.sound_velocity.toFixed(3)}
+          {fmt(row.v2_ms, 3)}
+        </span>
+      ),
+    },
+    {
+      header: "V3 (m/s)",
+      accessorKey: "v3_ms",
+      sortable: true,
+      className: "text-right",
+      cellClassName: "text-right",
+      cell: (row) => (
+        <span className="text-sm text-gray-900 dark:text-gray-300">
+          {fmt(row.v3_ms, 3)}
+        </span>
+      ),
+    },
+    {
+      header: "V4 (m/s)",
+      accessorKey: "v4_ms",
+      sortable: true,
+      className: "text-right",
+      cellClassName: "text-right",
+      cell: (row) => (
+        <span className="text-sm text-gray-900 dark:text-gray-300">
+          {fmt(row.v4_ms, 3)}
         </span>
       ),
     },
   ];
 
-  // Only pass visible columns to the table
   const columns = allColumns.filter((col) => visibleKeys.has(col.accessorKey));
 
   const columnToggle = (
@@ -264,19 +297,19 @@ const CTDTable = ({ ctdData, loading = false, isConnected = false }) => {
   );
 
   return (
-    <DataCard title="CTD Sensor Data" headerExtra={columnToggle}>
+    <DataCard title="ADCP Sensor Data" headerExtra={columnToggle}>
       <DataTable
         columns={columns}
-        data={ctdData}
-        searchPlaceholder="Search CTD data..."
+        data={adcpData}
+        searchPlaceholder="Search ADCP data..."
         searchKeys={["vehicle_code", "sensor_code"]}
         pageSize={10}
         showPagination={true}
-        emptyMessage="No CTD data available"
+        emptyMessage="No ADCP data available"
         loading={loading}
       />
     </DataCard>
   );
 };
 
-export default CTDTable;
+export default ADCPTable;
