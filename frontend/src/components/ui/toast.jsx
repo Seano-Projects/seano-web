@@ -98,8 +98,8 @@ export const ToastProvider = ({ children }) => {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed inset-0 z-[99999] flex flex-col items-center lg:items-end px-2 py-4 lg:px-6">
-        <div className="flex w-full max-w-sm flex-col gap-3 lg:w-auto">
+      <div className="pointer-events-none fixed inset-0 z-[99999] flex flex-col items-center px-2 py-4">
+        <div className="flex w-full max-w-sm flex-col gap-3">
           <AnimatePresence mode="popLayout">
             {toasts.map((toastItem) => (
               <ToastCard
@@ -139,15 +139,12 @@ const ToastCard = ({ toastItem, onClose }) => {
   const { id, title, description, variant, actionLabel, onAction } = toastItem;
   const icon = variantIcon[variant] ?? variantIcon.default;
   const iconColor = variantIconColor[variant] ?? variantIconColor.default;
-  const isMobile =
-    typeof window !== "undefined" &&
-    window.matchMedia("(max-width: 1024px)").matches;
 
   return (
     <motion.div
-      initial={{ opacity: 0, ...(isMobile ? { y: -24 } : { x: 100 }) }}
-      animate={{ opacity: 1, y: 0, x: 0 }}
-      exit={{ opacity: 0, ...(isMobile ? { y: -24 } : { x: 100 }) }}
+      initial={{ opacity: 0, y: -24 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -24 }}
       transition={{
         duration: 0.3,
         ease: "easeOut",
