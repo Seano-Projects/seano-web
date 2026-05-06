@@ -1,4 +1,12 @@
-import { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import useTitle from "../../../hooks/useTitle";
 import useMissionData from "../../../hooks/useMissionData";
@@ -40,8 +48,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
   const [showNewMissionModal, setShowNewMissionModal] = useState(false);
   const [showLoadMissionModal, setShowLoadMissionModal] = useState(false);
 
-  // Selected vehicle for this mission
-  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  // selectedVehicleId/setSelectedVehicleId come from useVehicleData (shared SelectedVehicleContext)
 
   // Loading states
   const [isCreatingMission, setIsCreatingMission] = useState(false);
@@ -63,7 +70,8 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
   const hasAutoSetHomeRef = useRef(false);
 
   // Get vehicle position for auto-home
-  const { vehicles } = useVehicleData();
+  const { vehicles, selectedVehicleId, setSelectedVehicleId } =
+    useVehicleData();
   const { vehicleLogs } = useLogData();
 
   // Auto-set home location to selected vehicle position when vehicle is selected
@@ -82,12 +90,13 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
       vehicleLogs &&
       vehicleLogs
         .filter((l) => l.vehicle_id === vehicleId)
-        .reduce((latest, l) =>
-          !latest ||
-          new Date(l.created_at) > new Date(latest.created_at)
-            ? l
-            : latest,
-        null);
+        .reduce(
+          (latest, l) =>
+            !latest || new Date(l.created_at) > new Date(latest.created_at)
+              ? l
+              : latest,
+          null,
+        );
 
     const vehicle = vehicles.find((v) => v.id === vehicleId);
     const lat = latestLog?.latitude ?? vehicle?.latitude;
@@ -97,7 +106,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
       setHomeLocation({ lat: parseFloat(lat), lng: parseFloat(lng) });
       hasAutoSetHomeRef.current = true;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicleId, vehicles, vehicleLogs]);
 
   // Mission Parameters state
@@ -139,6 +148,11 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
         (m) => m.id === parseInt(editMissionId),
       );
       if (missionToEdit) {
+        if (missionToEdit.status === "Completed") {
+          // Don't load completed missions into planner
+          hasLoadedMissionRef.current = true;
+          return;
+        }
         hasLoadedMissionRef.current = true;
         handleSelectMission(missionToEdit);
       }
@@ -489,17 +503,22 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
     <div className="relative -mx-4 -mt-4 h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* Overlay for mobile when sidebar open */}
       {showMissionSidebar && (
-        <div
-          className="fixed inset-0 z-[10010] bg-black/40 lg:hidden"
-          onClick={() => setShowMissionSidebar(false)}
-        />
+        <>
+          {/* Visual backdrop — pointer-events-none agar sidebar tetap bisa diklik di Android */}
+          <div className="fixed inset-0 z-[10010] bg-black/40 lg:hidden pointer-events-none" />
+          {/* Tap-to-close — hanya menutupi area di LUAR sidebar (sm: 22rem, md: 18rem) */}
+          <div
+            className="fixed inset-y-0 right-0 z-[10010] hidden sm:block sm:left-[22rem] md:left-72 lg:hidden"
+            onClick={() => setShowMissionSidebar(false)}
+          />
+        </>
       )}
 
       <MissionSidebar {...sharedProps} />
 
       <div
         className={`h-full transition-all duration-300 ${
-          showMissionSidebar ? "md:ml-72 ml-0" : "ml-0"
+          showMissionSidebar ? "lg:ml-72" : ""
         }`}
       >
         <Suspense
@@ -515,7 +534,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
         {!showMissionSidebar && (
           <button
             onClick={() => setShowMissionSidebar(true)}
-            className="absolute left-3 top-3 z-[10020] flex items-center justify-center rounded-full border border-gray-200 bg-white p-3 shadow-lg transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-black dark:hover:bg-gray-900 lg:hidden"
+            className="absolute left-3 top-3 z-[9999] flex items-center justify-center rounded-full border border-gray-200 bg-white p-3 shadow-lg transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-black dark:hover:bg-gray-900 lg:hidden"
             title="Open Mission Panel"
           >
             <svg

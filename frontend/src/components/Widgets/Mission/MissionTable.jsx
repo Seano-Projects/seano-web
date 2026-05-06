@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useMissionData from "../../../hooks/useMissionData";
 import useTranslation from "../../../hooks/useTranslation";
-import { DataTable, ConfirmModal } from "../../ui";
+import { ColumnToggle, DataTable, ConfirmModal } from "../../ui";
 import DataCard from "../DataCard";
-import { FaColumns, FaEdit, FaEye, FaTrash } from "react-icons/fa";
+import { FaEdit, FaEye, FaTrash } from "react-icons/fa";
 import { formatDistance, formatTime } from "../../../utils/missionCalculations";
 
 const ALL_COLUMN_KEYS = [
@@ -53,18 +53,6 @@ const MissionTable = () => {
   const [selectedMission, setSelectedMission] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [visibleKeys, setVisibleKeys] = useState(DEFAULT_VISIBLE);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const toggleColumn = (key) => {
     setVisibleKeys((prev) => {
@@ -139,13 +127,21 @@ const MissionTable = () => {
   const transformedData = missionData.map((mission) => {
     const waypointCount = mission.waypoints?.length || 0;
     const completedWaypoints = mission.completed_waypoint || 0;
-    const totalWaypoints = mission.total_waypoints || 0;
 
-    // Progress: use total_waypoints (incl. home + RTH) when available, otherwise fallback to stored progress
+    // For completed missions, freeze waypoint display at time of completion
+    const displayWaypointTotal =
+      mission.status === "Completed" ? completedWaypoints : waypointCount;
+
+    // Progress: for completed use stored progress, otherwise calculate
     const progressValue =
-      totalWaypoints > 0
-        ? Math.min(100, Math.round((completedWaypoints / totalWaypoints) * 100))
-        : Math.round(mission.progress || 0);
+      mission.status === "Completed"
+        ? Math.round(mission.progress || 100)
+        : displayWaypointTotal > 0
+          ? Math.min(
+              100,
+              Math.round((completedWaypoints / displayWaypointTotal) * 100),
+            )
+          : Math.round(mission.progress || 0);
     const energyStatus = mission.energy_budget
       ? `${(mission.energy_consumed || 0).toFixed(1)}/${mission.energy_budget.toFixed(1)} kWh`
       : "N/A";
@@ -155,7 +151,7 @@ const MissionTable = () => {
       name: mission.name,
       status: mission.status,
       vehicle: mission.vehicle?.name || "N/A",
-      waypoints: `${completedWaypoints}/${waypointCount}`,
+      waypoints: `${completedWaypoints}/${displayWaypointTotal}`,
       waypointCount,
       completedWaypoints,
       progress: `${progressValue}%`,
@@ -292,31 +288,43 @@ const MissionTable = () => {
     className: "text-center w-32",
     cellClassName: "text-center whitespace-nowrap",
     sortable: false,
-    cell: (row) => (
-      <div className="flex items-center justify-center gap-3 w-full h-full">
-        <button
-          onClick={() => handleViewClick(row)}
-          className="inline-flex items-center justify-center p-2 text-white bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
-          title="View Mission Details"
-        >
-          <FaEye size={16} />
-        </button>
-        <button
-          onClick={() => handleEditClick(row)}
-          className="inline-flex items-center justify-center p-2 text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
-          title="Edit Mission"
-        >
-          <FaEdit size={16} />
-        </button>
-        <button
-          onClick={() => handleDeleteClick(row)}
-          className="inline-flex items-center justify-center p-2 text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
-          title="Delete Mission"
-        >
-          <FaTrash size={16} />
-        </button>
-      </div>
-    ),
+    cell: (row) => {
+      const isCompleted = row.status === "Completed";
+      return (
+        <div className="flex items-center justify-center gap-3 w-full h-full">
+          <button
+            onClick={() => handleViewClick(row)}
+            className="inline-flex items-center justify-center p-2 text-white bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
+            title="View Mission Details"
+          >
+            <FaEye size={16} />
+          </button>
+          <button
+            onClick={() => !isCompleted && handleEditClick(row)}
+            disabled={isCompleted}
+            className={`inline-flex items-center justify-center p-2 text-white transition-all rounded-lg shadow-sm ${
+              isCompleted
+                ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-50"
+                : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 cursor-pointer hover:shadow-md"
+            }`}
+            title={
+              isCompleted
+                ? "Completed missions cannot be edited"
+                : "Edit Mission"
+            }
+          >
+            <FaEdit size={16} />
+          </button>
+          <button
+            onClick={() => handleDeleteClick(row)}
+            className="inline-flex items-center justify-center p-2 text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
+            title="Delete Mission"
+          >
+            <FaTrash size={16} />
+          </button>
+        </div>
+      );
+    },
   };
 
   const columns = [
@@ -334,77 +342,22 @@ const MissionTable = () => {
   ];
 
   const columnToggle = (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setDropdownOpen((prev) => !prev)}
-        className="inline-flex items-center gap-2 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-transparent px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 transition hover:bg-gray-50 dark:hover:bg-slate-700"
-      >
-        <FaColumns className="text-gray-500 dark:text-gray-400" />
-        {t("missionComponents.table.columns")}
-        <span
-          className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-            visibleKeys.size >= MAX_COLUMNS
-              ? "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
-              : "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-          }`}
-        >
-          {visibleKeys.size}/{MAX_COLUMNS}
-        </span>
-      </button>
-
-      {dropdownOpen && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg">
-          <div className="border-b border-gray-200 dark:border-slate-600 px-3 py-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {t("missionComponents.table.toggleColumns")}
-              </span>
-              <button
-                type="button"
-                onClick={() => setVisibleKeys(new Set(DEFAULT_VISIBLE))}
-                className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
-              >
-                {t("missionComponents.table.reset")}
-              </button>
-            </div>
-            {visibleKeys.size >= MAX_COLUMNS && (
-              <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
-                {t("missionComponents.table.maxColumnsReached").replace(
-                  "{{max}}",
-                  MAX_COLUMNS,
-                )}
-              </p>
-            )}
-          </div>
-          <div className="max-h-72 overflow-y-auto py-1">
-            {ALL_COLUMN_KEYS.map((key) => {
-              const isChecked = visibleKeys.has(key);
-              const isDisabled = !isChecked && visibleKeys.size >= MAX_COLUMNS;
-              return (
-                <label
-                  key={key}
-                  className={`flex items-center gap-3 px-3 py-2 text-sm ${
-                    isDisabled
-                      ? "cursor-not-allowed opacity-40"
-                      : "cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700"
-                  } text-gray-700 dark:text-gray-200`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    disabled={isDisabled}
-                    onChange={() => toggleColumn(key)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
-                  />
-                  {t(COLUMN_LABEL_KEYS[key])}
-                </label>
-              );
-            })}
-          </div>
-        </div>
+    <ColumnToggle
+      allKeys={ALL_COLUMN_KEYS}
+      labels={Object.fromEntries(
+        ALL_COLUMN_KEYS.map((k) => [k, t(COLUMN_LABEL_KEYS[k])]),
       )}
-    </div>
+      visibleKeys={visibleKeys}
+      onToggle={toggleColumn}
+      onReset={() => setVisibleKeys(new Set(DEFAULT_VISIBLE))}
+      maxColumns={MAX_COLUMNS}
+      title={t("missionComponents.table.toggleColumns")}
+      resetLabel={t("missionComponents.table.reset")}
+      maxLabel={t("missionComponents.table.maxColumnsReached").replace(
+        "{{max}}",
+        MAX_COLUMNS,
+      )}
+    />
   );
 
   return (

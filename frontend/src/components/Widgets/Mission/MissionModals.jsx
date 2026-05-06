@@ -109,35 +109,49 @@ const MissionModals = ({
           </div>
         ) : (
           <div className="custom-scrollbar max-h-[55dvh] space-y-3 overflow-y-auto sm:max-h-64">
-            {missionData.map((mission) => (
-              <div
-                key={mission.id}
-                onClick={() => handleSelectMission(mission)}
-                className="p-3 border border-gray-200 dark:border-slate-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-sm font-medium text-gray-800 dark:text-white">
-                    {mission.title || mission.name}
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {Array.isArray(mission.waypoints)
-                      ? mission.waypoints.length
-                      : 0}{" "}
-                    {t("missionComponents.modals.pts")}
-                  </span>
+            {missionData.map((mission) => {
+              const isCompleted = mission.status === "Completed";
+              return (
+                <div
+                  key={mission.id}
+                  onClick={() => !isCompleted && handleSelectMission(mission)}
+                  className={`p-3 border rounded-xl transition-colors ${
+                    isCompleted
+                      ? "border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed opacity-60"
+                      : "border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-sm font-medium text-gray-800 dark:text-white">
+                      {mission.title || mission.name}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {Array.isArray(mission.waypoints)
+                        ? mission.waypoints.length
+                        : 0}{" "}
+                      {t("missionComponents.modals.pts")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {mission.created_at
+                        ? new Date(mission.created_at).toLocaleDateString()
+                        : "N/A"}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${
+                        isCompleted
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                      }`}
+                    >
+                      {isCompleted && "🔒 "}
+                      {mission.status || t("missionComponents.modals.draft")}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {mission.created_at
-                      ? new Date(mission.created_at).toLocaleDateString()
-                      : "N/A"}
-                  </span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                    {mission.status || t("missionComponents.modals.draft")}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         <div className="flex gap-2 mt-4">

@@ -15,11 +15,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import L from "leaflet";
 import "leaflet-draw";
-import {
-  FaHome,
-  FaEdit,
-  FaSearch,
-} from "react-icons/fa";
+import { FaHome, FaEdit, FaSearch } from "react-icons/fa";
 import { FaX } from "react-icons/fa6";
 import { toast } from "../../ui";
 import { useVehicleData } from "../../../hooks";
@@ -125,9 +121,7 @@ const MinZoomController = () => {
       const size = map.getSize();
       // 256px = standard tile size. World width in pixels = 256 * 2^zoom.
       // Minimum zoom needed to fill container: zoom >= log2(containerPx / 256)
-      const minZ = Math.ceil(
-        Math.log2(Math.max(size.x, size.y) / 256),
-      );
+      const minZ = Math.ceil(Math.log2(Math.max(size.x, size.y) / 256));
       const clamped = Math.max(minZ, 3); // never below 3
       map.setMinZoom(clamped);
       if (map.getZoom() < clamped) {
@@ -136,8 +130,8 @@ const MinZoomController = () => {
     };
 
     updateMinZoom();
-    map.on('resize', updateMinZoom);
-    return () => map.off('resize', updateMinZoom);
+    map.on("resize", updateMinZoom);
+    return () => map.off("resize", updateMinZoom);
   }, [map]);
 
   return null;
@@ -379,8 +373,7 @@ const MissionMap = ({
         : false,
       // Control remove/delete based on waypoint state
       remove:
-        featureGroupRef &&
-        !(hasGeneratedWaypoints || hasPathWaypoints)
+        featureGroupRef && !(hasGeneratedWaypoints || hasPathWaypoints)
           ? {
               selectedPathOptions: {
                 opacity: 0.6,
@@ -573,197 +566,52 @@ const MissionMap = ({
   }, [selectedVehicle, selectedVehicleLog]);
 
   // Drawing event handlers
-  const onDrawCreated = useCallback((e) => {
-    const { layerType, layer } = e;
+  const onDrawCreated = useCallback(
+    (e) => {
+      const { layerType, layer } = e;
 
-    // PATH PLANNING - Handle polyline (sequential waypoint navigation)
-    if (layerType === "polyline") {
-      const latLngs = layer.getLatLngs();
-      const newWaypoints = latLngs.map((latlng, index) => ({
-        id: Date.now() + index,
-        name: `WP${waypoints.length + index + 1}`,
-        type: "path",
-        lat: latlng.lat,
-        lng: latlng.lng,
-        altitude: 0, // Fixed for USV
-        speed: missionParams.speed,
-        delay: missionParams.delay,
-        loiter: missionParams.loiter,
-        radius: missionParams.radius,
-        action: missionParams.action,
-      }));
-
-      setWaypoints((prev) => [...prev, ...newWaypoints]);
-
-      if (activeMission) {
-        setActiveMission((prev) => ({
-          ...prev,
-          waypoints: getActualWaypointCount([...waypoints, ...newWaypoints]),
-        }));
-      }
-
-      // Remove the polyline from map since waypoints are now created
-      // The connection lines will be rendered by our custom Polyline component
-      if (featureGroupRef && layer) {
-        featureGroupRef.removeLayer(layer);
-      }
-    } else if (layerType === "polygon") {
-      const latLngs = layer.getLatLngs()[0]; // Polygon returns nested array
-      const bounds = layer.getBounds();
-      const center = bounds.getCenter();
-
-      const zoneWaypointId = Date.now();
-      const zoneWaypoint = {
-        id: zoneWaypointId,
-        name: `Zone${waypoints.filter((wp) => wp.type === "zone").length + 1}`,
-        type: "zone",
-        shape: "polygon",
-        lat: center.lat,
-        lng: center.lng,
-        bounds: {
-          north: bounds.getNorth(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          west: bounds.getWest(),
-        },
-        vertices: latLngs.map((latlng) => ({
+      // PATH PLANNING - Handle polyline (sequential waypoint navigation)
+      if (layerType === "polyline") {
+        const latLngs = layer.getLatLngs();
+        const newWaypoints = latLngs.map((latlng, index) => ({
+          id: Date.now() + index,
+          name: `WP${waypoints.length + index + 1}`,
+          type: "path",
           lat: latlng.lat,
           lng: latlng.lng,
-        })),
-        altitude: 0,
-        speed: missionParams.speed,
-        pattern: "zigzag", // Coverage pattern for zone
-        coverage: 80, // Coverage percentage
-        overlap: 20, // Line overlap percentage
-      };
-
-      // Store waypoint ID in the layer for future reference during edits
-      layer.waypointId = zoneWaypointId;
-      layer.options = layer.options || {};
-      layer.options.waypointId = zoneWaypointId;
-
-      // Also store the leaflet layer ID for reverse lookup
-      const leafletLayerId = layer._leaflet_id;
-
-      setWaypoints((prev) => [...prev, { ...zoneWaypoint, leafletLayerId }]);
-
-      if (activeMission) {
-        setActiveMission((prev) => ({
-          ...prev,
-          waypoints: getActualWaypointCount([...waypoints, zoneWaypoint]),
+          altitude: 0, // Fixed for USV
+          speed: missionParams.speed,
+          delay: missionParams.delay,
+          loiter: missionParams.loiter,
+          radius: missionParams.radius,
+          action: missionParams.action,
         }));
-      }
-    }
 
-    // ZONE PLANNING - Handle rectangle (rectangular area coverage)
-    else if (layerType === "rectangle") {
-      const bounds = layer.getBounds();
-      const center = bounds.getCenter();
+        setWaypoints((prev) => [...prev, ...newWaypoints]);
 
-      const zoneWaypointId = Date.now() + 1; // Ensure different ID from polygon if created at same time
-      const zoneWaypoint = {
-        id: zoneWaypointId,
-        name: `Zone${waypoints.filter((wp) => wp.type === "zone").length + 1}`,
-        type: "zone",
-        shape: "rectangle",
-        lat: center.lat,
-        lng: center.lng,
-        bounds: {
-          north: bounds.getNorth(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          west: bounds.getWest(),
-        },
-        altitude: 0,
-        speed: missionParams.speed,
-        pattern: "zigzag", // Coverage pattern for zone
-        coverage: 80, // Coverage percentage
-        overlap: 20, // Line overlap percentage
-      };
+        if (activeMission) {
+          setActiveMission((prev) => ({
+            ...prev,
+            waypoints: getActualWaypointCount([...waypoints, ...newWaypoints]),
+          }));
+        }
 
-      // Store waypoint ID in the layer for future reference during edits
-      layer.waypointId = zoneWaypointId;
-      layer.options = layer.options || {};
-      layer.options.waypointId = zoneWaypointId;
-
-      // Also store the leaflet layer ID for reverse lookup
-      const leafletLayerId = layer._leaflet_id;
-
-      setWaypoints((prev) => [...prev, { ...zoneWaypoint, leafletLayerId }]);
-
-      if (activeMission) {
-        setActiveMission((prev) => ({
-          ...prev,
-          waypoints: getActualWaypointCount([...waypoints, zoneWaypoint]),
-        }));
-      }
-    }
-  }, [
-    activeMission,
-    featureGroupRef,
-    getActualWaypointCount,
-    missionParams.action,
-    missionParams.delay,
-    missionParams.loiter,
-    missionParams.radius,
-    missionParams.speed,
-    setActiveMission,
-    setWaypoints,
-    waypoints,
-  ]);
-
-  const onDrawDeleted = useCallback((e) => {
-    // Get deleted layers
-    const deletedLayers = e.layers;
-
-    if (deletedLayers.getLayers().length > 0) {
-      // When shapes are deleted from map, clear all waypoints and generated paths
-      setWaypoints([]);
-      setGeneratedPaths([]);
-      setHasGeneratedWaypoints(false);
-
-      // Update mission waypoints count
-      if (activeMission) {
-        setActiveMission((prev) => ({
-          ...prev,
-          waypoints: 0,
-        }));
-      }
-    }
-  }, [
-    activeMission,
-    setActiveMission,
-    setGeneratedPaths,
-    setHasGeneratedWaypoints,
-    setWaypoints,
-  ]);
-
-  // Handle when shapes are edited (resized, moved, etc.)
-  const onDrawEdited = useCallback((e) => {
-    const layers = e.layers;
-
-    layers.eachLayer((layer) => {
-      // Get layer type and updated geometry
-      const layerType = layer.constructor.name.toLowerCase();
-
-      // Check different ways to identify polygon/rectangle layers
-      const isPolygon =
-        layerType === "polygon" ||
-        layerType.includes("polygon") ||
-        layer instanceof L.Polygon ||
-        (layer.getLatLngs && typeof layer.getLatLngs === "function");
-
-      const isRectangle =
-        layerType === "rectangle" ||
-        layerType.includes("rectangle") ||
-        layer instanceof L.Rectangle;
-
-      if (isPolygon || isRectangle) {
-        // Get updated bounds and center
+        // Remove the polyline from map since waypoints are now created
+        // The connection lines will be rendered by our custom Polyline component
+        if (featureGroupRef && layer) {
+          featureGroupRef.removeLayer(layer);
+        }
+      } else if (layerType === "polygon") {
+        const latLngs = layer.getLatLngs()[0]; // Polygon returns nested array
         const bounds = layer.getBounds();
         const center = bounds.getCenter();
 
-        let updatedData = {
+        const zoneWaypointId = Date.now();
+        const zoneWaypoint = {
+          id: zoneWaypointId,
+          name: `Zone${waypoints.filter((wp) => wp.type === "zone").length + 1}`,
+          type: "zone",
+          shape: "polygon",
           lat: center.lat,
           lng: center.lng,
           bounds: {
@@ -772,117 +620,271 @@ const MissionMap = ({
             east: bounds.getEast(),
             west: bounds.getWest(),
           },
+          vertices: latLngs.map((latlng) => ({
+            lat: latlng.lat,
+            lng: latlng.lng,
+          })),
+          altitude: 0,
+          speed: missionParams.speed,
+          pattern: "zigzag", // Coverage pattern for zone
+          coverage: 80, // Coverage percentage
+          overlap: 20, // Line overlap percentage
         };
 
-        // For polygon, also update vertices
-        if (
-          isPolygon &&
-          layer.getLatLngs &&
-          typeof layer.getLatLngs === "function"
-        ) {
-          try {
-            const latLngs = layer.getLatLngs()[0]; // Get first ring for polygon
-            updatedData.vertices = latLngs.map((latlng) => ({
-              lat: latlng.lat,
-              lng: latlng.lng,
-            }));
-          } catch (error) {
-            // Fallback: create vertices from bounds for rectangle-like shapes
+        // Store waypoint ID in the layer for future reference during edits
+        layer.waypointId = zoneWaypointId;
+        layer.options = layer.options || {};
+        layer.options.waypointId = zoneWaypointId;
+
+        // Also store the leaflet layer ID for reverse lookup
+        const leafletLayerId = layer._leaflet_id;
+
+        setWaypoints((prev) => [...prev, { ...zoneWaypoint, leafletLayerId }]);
+
+        if (activeMission) {
+          setActiveMission((prev) => ({
+            ...prev,
+            waypoints: getActualWaypointCount([...waypoints, zoneWaypoint]),
+          }));
+        }
+      }
+
+      // ZONE PLANNING - Handle rectangle (rectangular area coverage)
+      else if (layerType === "rectangle") {
+        const bounds = layer.getBounds();
+        const center = bounds.getCenter();
+
+        const zoneWaypointId = Date.now() + 1; // Ensure different ID from polygon if created at same time
+        const zoneWaypoint = {
+          id: zoneWaypointId,
+          name: `Zone${waypoints.filter((wp) => wp.type === "zone").length + 1}`,
+          type: "zone",
+          shape: "rectangle",
+          lat: center.lat,
+          lng: center.lng,
+          bounds: {
+            north: bounds.getNorth(),
+            south: bounds.getSouth(),
+            east: bounds.getEast(),
+            west: bounds.getWest(),
+          },
+          altitude: 0,
+          speed: missionParams.speed,
+          pattern: "zigzag", // Coverage pattern for zone
+          coverage: 80, // Coverage percentage
+          overlap: 20, // Line overlap percentage
+        };
+
+        // Store waypoint ID in the layer for future reference during edits
+        layer.waypointId = zoneWaypointId;
+        layer.options = layer.options || {};
+        layer.options.waypointId = zoneWaypointId;
+
+        // Also store the leaflet layer ID for reverse lookup
+        const leafletLayerId = layer._leaflet_id;
+
+        setWaypoints((prev) => [...prev, { ...zoneWaypoint, leafletLayerId }]);
+
+        if (activeMission) {
+          setActiveMission((prev) => ({
+            ...prev,
+            waypoints: getActualWaypointCount([...waypoints, zoneWaypoint]),
+          }));
+        }
+      }
+    },
+    [
+      activeMission,
+      featureGroupRef,
+      getActualWaypointCount,
+      missionParams.action,
+      missionParams.delay,
+      missionParams.loiter,
+      missionParams.radius,
+      missionParams.speed,
+      setActiveMission,
+      setWaypoints,
+      waypoints,
+    ],
+  );
+
+  const onDrawDeleted = useCallback(
+    (e) => {
+      // Get deleted layers
+      const deletedLayers = e.layers;
+
+      if (deletedLayers.getLayers().length > 0) {
+        // When shapes are deleted from map, clear all waypoints and generated paths
+        setWaypoints([]);
+        setGeneratedPaths([]);
+        setHasGeneratedWaypoints(false);
+
+        // Update mission waypoints count
+        if (activeMission) {
+          setActiveMission((prev) => ({
+            ...prev,
+            waypoints: 0,
+          }));
+        }
+      }
+    },
+    [
+      activeMission,
+      setActiveMission,
+      setGeneratedPaths,
+      setHasGeneratedWaypoints,
+      setWaypoints,
+    ],
+  );
+
+  // Handle when shapes are edited (resized, moved, etc.)
+  const onDrawEdited = useCallback(
+    (e) => {
+      const layers = e.layers;
+
+      layers.eachLayer((layer) => {
+        // Get layer type and updated geometry
+        const layerType = layer.constructor.name.toLowerCase();
+
+        // Check different ways to identify polygon/rectangle layers
+        const isPolygon =
+          layerType === "polygon" ||
+          layerType.includes("polygon") ||
+          layer instanceof L.Polygon ||
+          (layer.getLatLngs && typeof layer.getLatLngs === "function");
+
+        const isRectangle =
+          layerType === "rectangle" ||
+          layerType.includes("rectangle") ||
+          layer instanceof L.Rectangle;
+
+        if (isPolygon || isRectangle) {
+          // Get updated bounds and center
+          const bounds = layer.getBounds();
+          const center = bounds.getCenter();
+
+          let updatedData = {
+            lat: center.lat,
+            lng: center.lng,
+            bounds: {
+              north: bounds.getNorth(),
+              south: bounds.getSouth(),
+              east: bounds.getEast(),
+              west: bounds.getWest(),
+            },
+          };
+
+          // For polygon, also update vertices
+          if (
+            isPolygon &&
+            layer.getLatLngs &&
+            typeof layer.getLatLngs === "function"
+          ) {
+            try {
+              const latLngs = layer.getLatLngs()[0]; // Get first ring for polygon
+              updatedData.vertices = latLngs.map((latlng) => ({
+                lat: latlng.lat,
+                lng: latlng.lng,
+              }));
+            } catch (error) {
+              // Fallback: create vertices from bounds for rectangle-like shapes
+              updatedData.vertices = [
+                { lat: bounds.getNorth(), lng: bounds.getWest() },
+                { lat: bounds.getNorth(), lng: bounds.getEast() },
+                { lat: bounds.getSouth(), lng: bounds.getEast() },
+                { lat: bounds.getSouth(), lng: bounds.getWest() },
+              ];
+              return error;
+            }
+          } else {
+            // For rectangle or when getLatLngs is not available, create vertices from bounds
             updatedData.vertices = [
               { lat: bounds.getNorth(), lng: bounds.getWest() },
               { lat: bounds.getNorth(), lng: bounds.getEast() },
               { lat: bounds.getSouth(), lng: bounds.getEast() },
               { lat: bounds.getSouth(), lng: bounds.getWest() },
             ];
-            return error;
           }
-        } else {
-          // For rectangle or when getLatLngs is not available, create vertices from bounds
-          updatedData.vertices = [
-            { lat: bounds.getNorth(), lng: bounds.getWest() },
-            { lat: bounds.getNorth(), lng: bounds.getEast() },
-            { lat: bounds.getSouth(), lng: bounds.getEast() },
-            { lat: bounds.getSouth(), lng: bounds.getWest() },
-          ];
+
+          // Get the layer's waypoint ID and leaflet ID
+          const layerWaypointId = layer.options?.waypointId || layer.waypointId;
+          const layerLeafletId = layer._leaflet_id;
+
+          // Update the corresponding zone waypoint AND clear generated waypoints in one operation
+          setWaypoints((prev) => {
+            const zoneWaypoints = prev.filter((wp) => wp.type === "zone");
+            const hasExistingPaths = prev.some((wp) => wp.type === "path");
+
+            if (zoneWaypoints.length === 0) {
+              return prev;
+            }
+
+            // Find the matching zone waypoint
+            let matchingZone = zoneWaypoints[0];
+
+            if (layerLeafletId || layerWaypointId) {
+              const idMatch = zoneWaypoints.find(
+                (zone) =>
+                  zone.leafletLayerId === layerLeafletId ||
+                  zone.id === layerWaypointId,
+              );
+              if (idMatch) {
+                matchingZone = idMatch;
+              }
+            }
+
+            if (matchingZone) {
+              // Create completely new waypoint object to force React re-render
+              const updatedZone = {
+                // Keep existing properties
+                id: matchingZone.id,
+                name: matchingZone.name,
+                type: matchingZone.type,
+                shape: matchingZone.shape,
+                altitude: matchingZone.altitude,
+                speed: matchingZone.speed,
+                pattern: matchingZone.pattern,
+                coverage: matchingZone.coverage,
+                overlap: matchingZone.overlap,
+                // Apply new geometry data
+                ...updatedData,
+                leafletLayerId: layerLeafletId,
+                // Force new timestamp to ensure change detection
+                lastModified: Date.now(),
+                editCount: (matchingZone.editCount || 0) + 1,
+              };
+
+              // Update zone data AND remove generated waypoints in one operation
+              let updated = prev.map((wp) =>
+                wp.id === matchingZone.id ? updatedZone : wp,
+              );
+
+              // Remove generated path waypoints if they exist
+              if (hasExistingPaths) {
+                updated = updated.filter((wp) => wp.type !== "path");
+
+                // Show user notification
+                setTimeout(() => {
+                  toast.warning(
+                    "Zone has been modified! Generated waypoints have been cleared. Please click 'Generate Waypoints' again to create new waypoints for the updated zone.",
+                  );
+                }, 100);
+              }
+
+              return updated;
+            } else {
+              return prev;
+            }
+          });
+
+          // Also clear generated paths and reset state if zone was edited
+          setGeneratedPaths([]);
+          setHasGeneratedWaypoints(false);
         }
-
-        // Get the layer's waypoint ID and leaflet ID
-        const layerWaypointId = layer.options?.waypointId || layer.waypointId;
-        const layerLeafletId = layer._leaflet_id;
-
-        // Update the corresponding zone waypoint AND clear generated waypoints in one operation
-        setWaypoints((prev) => {
-          const zoneWaypoints = prev.filter((wp) => wp.type === "zone");
-          const hasExistingPaths = prev.some((wp) => wp.type === "path");
-
-          if (zoneWaypoints.length === 0) {
-            return prev;
-          }
-
-          // Find the matching zone waypoint
-          let matchingZone = zoneWaypoints[0];
-
-          if (layerLeafletId || layerWaypointId) {
-            const idMatch = zoneWaypoints.find(
-              (zone) =>
-                zone.leafletLayerId === layerLeafletId ||
-                zone.id === layerWaypointId,
-            );
-            if (idMatch) {
-              matchingZone = idMatch;
-            }
-          }
-
-          if (matchingZone) {
-            // Create completely new waypoint object to force React re-render
-            const updatedZone = {
-              // Keep existing properties
-              id: matchingZone.id,
-              name: matchingZone.name,
-              type: matchingZone.type,
-              shape: matchingZone.shape,
-              altitude: matchingZone.altitude,
-              speed: matchingZone.speed,
-              pattern: matchingZone.pattern,
-              coverage: matchingZone.coverage,
-              overlap: matchingZone.overlap,
-              // Apply new geometry data
-              ...updatedData,
-              leafletLayerId: layerLeafletId,
-              // Force new timestamp to ensure change detection
-              lastModified: Date.now(),
-              editCount: (matchingZone.editCount || 0) + 1,
-            };
-
-            // Update zone data AND remove generated waypoints in one operation
-            let updated = prev.map((wp) =>
-              wp.id === matchingZone.id ? updatedZone : wp,
-            );
-
-            // Remove generated path waypoints if they exist
-            if (hasExistingPaths) {
-              updated = updated.filter((wp) => wp.type !== "path");
-
-              // Show user notification
-              setTimeout(() => {
-                toast.warning(
-                  "Zone has been modified! Generated waypoints have been cleared. Please click 'Generate Waypoints' again to create new waypoints for the updated zone.",
-                );
-              }, 100);
-            }
-
-            return updated;
-          } else {
-            return prev;
-          }
-        });
-
-        // Also clear generated paths and reset state if zone was edited
-        setGeneratedPaths([]);
-        setHasGeneratedWaypoints(false);
-      }
-    });
-  }, [setGeneratedPaths, setHasGeneratedWaypoints, setWaypoints]);
+      });
+    },
+    [setGeneratedPaths, setHasGeneratedWaypoints, setWaypoints],
+  );
 
   // Update waypoint position when dragged
   const handleWaypointDrag = (waypointId, newPosition) => {
@@ -1066,7 +1068,7 @@ const MissionMap = ({
         ]}
         maxBoundsViscosity={1}
         minZoom={3}
-        maxZoom={20}
+        maxZoom={22}
       >
         <MinZoomController />
         <MapController center={mapCenter} zoom={mapZoom} />
@@ -1081,8 +1083,8 @@ const MissionMap = ({
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           noWrap={true}
           minZoom={3}
-          maxZoom={20}
-          maxNativeZoom={18}
+          maxZoom={22}
+          maxNativeZoom={19}
         />
         <ZoomControl position="topright" />
 

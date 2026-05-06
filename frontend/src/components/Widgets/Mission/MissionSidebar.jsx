@@ -19,6 +19,7 @@ import {
   useVehicleData,
   useVehicleConnectionStatus,
 } from "../../../hooks";
+import useMissionData from "../../../hooks/useMissionData";
 import useNotify from "../../../hooks/useNotify";
 import useTranslation from "../../../hooks/useTranslation";
 import MissionUploadModal from "./MissionUploadModal";
@@ -58,6 +59,7 @@ const MissionSidebar = ({
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadVehicleId, setUploadVehicleId] = useState(null);
   const { t } = useTranslation();
+  const { refreshData: refreshMissionData } = useMissionData();
 
   // Upload hooks
   const { uploadState, uploadMissionToVehicle, resetUploadState } =
@@ -249,6 +251,8 @@ const MissionSidebar = ({
     );
 
     if (result.success) {
+      // Refresh mission data so Control page gets reset completed_waypoint/progress
+      refreshMissionData();
       await notify.success(
         result.message || "Mission uploaded successfully to vehicle!",
         {
@@ -549,7 +553,7 @@ const MissionSidebar = ({
 
   return (
     <aside
-      className={`fixed top-0 z-[10020] h-screen w-full border-r border-gray-200 bg-white px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] shadow-xl duration-300 transition-transform dark:border-gray-700 dark:bg-black overflow-y-auto scrollbar-hide sm:w-[22rem] md:top-14 md:z-[10000] md:h-[calc(100vh-3.5rem)] md:w-72 md:p-4 md:pt-4 md:shadow-none ${
+      className={`fixed top-0 z-[10020] h-[calc(100vh-2.25rem)] w-full border-r border-gray-200 bg-white px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] shadow-xl duration-300 transition-transform dark:border-gray-700 dark:bg-black overflow-y-auto scrollbar-hide sm:w-[22rem] md:top-14 md:z-[10020] md:h-[calc(100vh-3.5rem)] md:w-72 md:p-4 md:pt-4 md:shadow-none ${
         showMissionSidebar
           ? isSidebarOpen
             ? "left-0 translate-x-0 lg:left-64"

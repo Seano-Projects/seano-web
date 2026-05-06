@@ -77,7 +77,10 @@ const MissionLogs = ({
       vessel: vehicleName,
       vesselColor: getVehicleColor(mission.vehicle?.id || mission.vehicle_id),
       status: normalizeStatus(mission.status),
-      progress: Math.round(mission.progress || 0),
+      progress:
+        normalizeStatus(mission.status) === "Completed"
+          ? 100
+          : Math.round(mission.progress || 0),
       energy: getEnergyStatus(mission),
       timeElapsed: formatTimeElapsed(mission.time_elapsed || 0),
       rawData: mission,
