@@ -99,20 +99,34 @@ func (l *SensorLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) 
 	// Store raw JSON data
 	dataJSON := string(msg.Payload())
 
-	// Use sensor-provided event time when available.
-	createdAt := time.Now()
+	// Record the moment MQTT message was received by the backend
+	mqttReceivedAt := time.Now()
+
+	// Parse USV timestamp from payload (Jetson-side timestamp) — support sub-second precision
+	var usvTimestamp *time.Time
+	createdAt := mqttReceivedAt
 	if dateTime, ok := payloadData["date_time"].(string); ok && dateTime != "" {
-		if parsedTime, err := time.Parse(time.RFC3339, dateTime); err == nil {
+		var parsedTime time.Time
+		var err error
+		// Try RFC3339Nano first (supports microseconds), then RFC3339
+		parsedTime, err = time.Parse(time.RFC3339Nano, dateTime)
+		if err != nil {
+			parsedTime, err = time.Parse(time.RFC3339, dateTime)
+		}
+		if err == nil {
+			usvTimestamp = &parsedTime
 			createdAt = parsedTime
 		}
 	}
-	
+
 	// Create sensor log
 	sensorLog := &model.SensorLog{
-		VehicleID: vehicle.ID,
-		SensorID:  sensor.ID,
-		Data:      dataJSON,
-		CreatedAt: createdAt,
+		VehicleID:      vehicle.ID,
+		SensorID:       sensor.ID,
+		Data:           dataJSON,
+		CreatedAt:      createdAt,
+		UsvTimestamp:   usvTimestamp,
+		MqttReceivedAt: &mqttReceivedAt,
 	}
 
 	// Auto-detect active mission for this vehicle
@@ -126,6 +140,13 @@ func (l *SensorLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) 
 	if err := l.sensorLogRepo.CreateSensorLog(sensorLog); err != nil {
 		log.Printf("Failed to save sensor log: %v", err)
 		return
+	}
+
+	wsSentAt := time.Now()
+	if err := l.sensorLogRepo.UpdateWSSentAt(sensorLog.ID, wsSentAt); err != nil {
+		log.Printf("Failed to update sensor ws_sent_at: %v", err)
+	} else {
+		sensorLog.WsSentAt = &wsSentAt
 	}
 	
 	log.Printf("✓ Sensor log saved: vehicle=%s, sensor=%s, id=%d", vehicleCode, sensorCode, sensorLog.ID)
@@ -146,9 +167,21 @@ func (l *SensorLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) 
 				Model: sensor.Model,
 			},
 			Data:      dataJSON,
-			CreatedAt: sensorLog.CreatedAt.Format(time.RFC3339),
+			CreatedAt: sensorLog.CreatedAt.Format(time.RFC3339Nano),
+			UsvTimestamp: func() string {
+				if sensorLog.UsvTimestamp != nil {
+					return sensorLog.UsvTimestamp.Format(time.RFC3339Nano)
+				}
+				return ""
+			}(),
+			MqttReceivedAt: func() string {
+				if sensorLog.MqttReceivedAt != nil {
+					return sensorLog.MqttReceivedAt.Format(time.RFC3339Nano)
+				}
+				return ""
+			}(),
 		}
-		l.wsHub.BroadcastSensorLog(wsData, sensorLog.CreatedAt.Format("2006-01-02T15:04:05Z07:00"))
+		l.wsHub.BroadcastSensorLog(wsData, sensorLog.CreatedAt.Format(time.RFC3339Nano), wsSentAt.UTC().Format(time.RFC3339Nano))
 	}
 }
 

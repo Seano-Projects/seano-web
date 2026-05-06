@@ -137,6 +137,21 @@ func (l *VehicleLogListener) handleMessage(client mqtt.Client, msg mqtt.Message)
 		batteryPercentage = &percentage
 	}
 	
+	// Record MQTT receive time and parse USV timestamp for latency measurement
+	mqttReceivedAt := time.Now()
+	var usvTimestamp *time.Time
+	if data.DateTime != nil && *data.DateTime != "" {
+		var parsedTime time.Time
+		var err error
+		parsedTime, err = time.Parse(time.RFC3339Nano, *data.DateTime)
+		if err != nil {
+			parsedTime, err = time.Parse(time.RFC3339, *data.DateTime)
+		}
+		if err == nil {
+			usvTimestamp = &parsedTime
+		}
+	}
+
 	// Create vehicle log
 	vehicleLog := &model.VehicleLog{
 		VehicleID:         vehicle.ID,
@@ -159,11 +174,20 @@ func (l *VehicleLogListener) handleMessage(client mqtt.Client, msg mqtt.Message)
 		Pitch:             data.Pitch,
 		Yaw:               data.Yaw,
 		TemperatureSystem: tempSystem,
+		UsvTimestamp:      usvTimestamp,
+		MqttReceivedAt:    &mqttReceivedAt,
 	}
 	
 	if err := l.vehicleLogRepo.CreateVehicleLog(vehicleLog); err != nil {
 		log.Printf("Failed to save vehicle log: %v", err)
 		return
+	}
+
+	wsSentAt := time.Now()
+	if err := l.vehicleLogRepo.UpdateWSSentAt(vehicleLog.ID, wsSentAt); err != nil {
+		log.Printf("Failed to update vehicle ws_sent_at: %v", err)
+	} else {
+		vehicleLog.WsSentAt = &wsSentAt
 	}
 	
 	log.Printf("✓ Vehicle log saved: vehicle=%s, id=%d", vehicleCode, vehicleLog.ID)
@@ -196,9 +220,21 @@ func (l *VehicleLogListener) handleMessage(client mqtt.Client, msg mqtt.Message)
 			Pitch:             vehicleLog.Pitch,
 			Yaw:               vehicleLog.Yaw,
 			TemperatureSystem: vehicleLog.TemperatureSystem,
-			CreatedAt:         vehicleLog.CreatedAt.Format(time.RFC3339),
+			CreatedAt:         vehicleLog.CreatedAt.Format(time.RFC3339Nano),
+			UsvTimestamp:      func() string {
+				if vehicleLog.UsvTimestamp != nil {
+					return vehicleLog.UsvTimestamp.Format(time.RFC3339Nano)
+				}
+				return ""
+			}(),
+			MqttReceivedAt: func() string {
+				if vehicleLog.MqttReceivedAt != nil {
+					return vehicleLog.MqttReceivedAt.Format(time.RFC3339Nano)
+				}
+				return ""
+			}(),
 		}
-		l.wsHub.BroadcastVehicleLog(wsData, vehicleLog.CreatedAt.Format("2006-01-02T15:04:05Z07:00"))
+		l.wsHub.BroadcastVehicleLog(wsData, vehicleLog.CreatedAt.Format(time.RFC3339Nano), wsSentAt.UTC().Format(time.RFC3339Nano))
 	}
 }
 

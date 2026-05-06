@@ -35,7 +35,8 @@ const (
 
 // CommandPayload is the MQTT message sent to hardware
 type CommandPayload struct {
-	Command CommandType `json:"command"`
+	RequestID string      `json:"request_id,omitempty"`
+	Command   CommandType `json:"command"`
 }
 
 // AckPayload is the MQTT feedback received from hardware
@@ -45,6 +46,7 @@ type AckPayload struct {
 	Command   string `json:"command"`
 	Status    string `json:"status"`  // "ok" or "error"
 	Message   string `json:"message"` // Human-readable description
+	Timestamp string `json:"timestamp,omitempty"`
 }
 
 type pendingRequest struct {
@@ -103,20 +105,33 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 			finalStatus = "timeout"
 		}
 
-		resolvedAt := time.Now()
-		updated, err := cp.commandLogRepo.UpdateLatestPendingCommandLog(vehicleCode, ack.Command, finalStatus, ack.Message, resolvedAt)
+		ackReceivedAt := time.Now().UTC()
+		resolvedAt := ackReceivedAt
+		var usvAckAt *time.Time
+		if ts := strings.TrimSpace(ack.Timestamp); ts != "" {
+			if parsed, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+				usvAckAt = &parsed
+			} else if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+				usvAckAt = &parsed
+			}
+		}
+
+		updated, err := cp.commandLogRepo.UpdateLatestPendingCommandLog(vehicleCode, strings.TrimSpace(ack.RequestID), ack.Command, finalStatus, ack.Message, usvAckAt, ackReceivedAt, resolvedAt)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) && cp.vehicleRepo != nil {
 				vehicle, err := cp.vehicleRepo.GetVehicleByCode(vehicleCode)
 				if err == nil {
 					entry := &model.CommandLog{
-						VehicleID:   vehicle.ID,
-						VehicleCode: vehicleCode,
-						Command:     ack.Command,
-						Status:      finalStatus,
-						Message:     ack.Message,
-						InitiatedAt: resolvedAt,
-						ResolvedAt:  &resolvedAt,
+						VehicleID:     vehicle.ID,
+						VehicleCode:   vehicleCode,
+						RequestID:     strings.TrimSpace(ack.RequestID),
+						Command:       ack.Command,
+						Status:        finalStatus,
+						Message:       ack.Message,
+						InitiatedAt:   ackReceivedAt,
+						UsvAckAt:      usvAckAt,
+						AckReceivedAt: &ackReceivedAt,
+						ResolvedAt:    &resolvedAt,
 					}
 					if err := cp.commandLogRepo.CreateCommandLog(entry); err != nil {
 						log.Printf("⚠️  Failed to create command log from ACK: %v", err)
@@ -132,22 +147,58 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 		}
 
 		if updated != nil && cp.wsHub != nil {
+			wsSentAt := time.Now().UTC()
+			if err := cp.commandLogRepo.UpdateCommandLogWSSentAt(updated.ID, wsSentAt); err != nil {
+				log.Printf("⚠️  Failed to update command ws_sent_at: %v", err)
+			} else {
+				updated.WsSentAt = &wsSentAt
+			}
+
+			var mqttPublishedAtStr *string
+			if updated.MqttPublishedAt != nil {
+				s := updated.MqttPublishedAt.Format(time.RFC3339Nano)
+				mqttPublishedAtStr = &s
+			}
+
+			var usvAckAtStr *string
+			if updated.UsvAckAt != nil {
+				s := updated.UsvAckAt.Format(time.RFC3339Nano)
+				usvAckAtStr = &s
+			}
+
+			var ackReceivedAtStr *string
+			if updated.AckReceivedAt != nil {
+				s := updated.AckReceivedAt.Format(time.RFC3339Nano)
+				ackReceivedAtStr = &s
+			}
+
 			var resolvedAtStr *string
 			if updated.ResolvedAt != nil {
-				s := updated.ResolvedAt.Format(time.RFC3339)
+				s := updated.ResolvedAt.Format(time.RFC3339Nano)
 				resolvedAtStr = &s
 			}
+			var wsReceivedAtStr *string
+			if updated.WsReceivedAt != nil {
+				s := updated.WsReceivedAt.Format(time.RFC3339Nano)
+				wsReceivedAtStr = &s
+			}
+
 			_ = cp.wsHub.BroadcastCommandLog(wsocket.CommandLogData{
-				ID:          updated.ID,
-				VehicleID:   updated.VehicleID,
-				VehicleCode: updated.VehicleCode,
-				Command:     updated.Command,
-				Status:      updated.Status,
-				Message:     updated.Message,
-				InitiatedAt: updated.InitiatedAt.Format(time.RFC3339),
-				ResolvedAt:  resolvedAtStr,
-				CreatedAt:   updated.CreatedAt.Format(time.RFC3339),
-			})
+				ID:              updated.ID,
+				VehicleID:       updated.VehicleID,
+				VehicleCode:     updated.VehicleCode,
+				RequestID:       updated.RequestID,
+				Command:         updated.Command,
+				Status:          updated.Status,
+				Message:         updated.Message,
+				InitiatedAt:     updated.InitiatedAt.Format(time.RFC3339Nano),
+				MqttPublishedAt: mqttPublishedAtStr,
+				UsvAckAt:        usvAckAtStr,
+				AckReceivedAt:   ackReceivedAtStr,
+				ResolvedAt:      resolvedAtStr,
+				WsReceivedAt:    wsReceivedAtStr,
+				CreatedAt:       updated.CreatedAt.Format(time.RFC3339Nano),
+			}, wsSentAt.Format(time.RFC3339Nano))
 		}
 	}
 
@@ -164,7 +215,7 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 
 // SendCommand publishes a command and waits for hardware ACK.
 // Returns error if MQTT publish fails or hardware does not respond within timeout.
-func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType) (*AckPayload, error) {
+func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType, requestID string) (*AckPayload, error) {
 	ackTopic := fmt.Sprintf("seano/%s/ack", vehicleCode)
 	cmdTopic := fmt.Sprintf("seano/%s/command", vehicleCode)
 
@@ -179,9 +230,12 @@ func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType)
 	defer cp.client.Unsubscribe(ackTopic)
 
 	// Build command payload
-	requestID := uuid.New().String()
+	if strings.TrimSpace(requestID) == "" {
+		requestID = uuid.New().String()
+	}
 	cmd := CommandPayload{
-		Command: cmdType,
+		RequestID: requestID,
+		Command:   cmdType,
 	}
 
 	// Register pending before publish (avoid race)
@@ -208,6 +262,13 @@ func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType)
 	}
 	if pubToken.Error() != nil {
 		return nil, fmt.Errorf("failed to publish command: %w", pubToken.Error())
+	}
+
+	if cp.commandLogRepo != nil {
+		publishedAt := time.Now().UTC()
+		if err := cp.commandLogRepo.UpdateCommandLogPublishedAtByRequestID(requestID, publishedAt); err != nil {
+			log.Printf("⚠️  Failed to update mqtt_published_at for request_id=%s: %v", requestID, err)
+		}
 	}
 
 	log.Printf("📤 Command published: topic=%s payload=%s", cmdTopic, string(payload))

@@ -3,13 +3,15 @@ package websocket
 import (
 	"encoding/json"
 	"log"
+	"time"
 )
 
 // LogMessage represents a log message to be broadcasted
 type LogMessage struct {
-	Type      string      `json:"type"`       // "vehicle_log", "sensor_log", "raw_log"
-	Timestamp string      `json:"timestamp"`  // ISO 8601 format
-	Data      interface{} `json:"data"`       // Actual log data
+	Type      string      `json:"type"`        // "vehicle_log", "sensor_log", "raw_log"
+	Timestamp string      `json:"timestamp"`   // ISO 8601 format
+	WsSentAt  string      `json:"ws_sent_at"` // when backend pushed to WebSocket
+	Data      interface{} `json:"data"`        // Actual log data
 }
 
 // VehicleInfo represents vehicle basic info for frontend
@@ -43,6 +45,8 @@ type VehicleLogData struct {
 	Yaw                 *float64     `json:"yaw,omitempty"`
 	TemperatureSystem   *string      `json:"temperature_system,omitempty"`
 	CreatedAt           string       `json:"created_at"`
+	UsvTimestamp        string       `json:"usv_timestamp,omitempty"`
+	MqttReceivedAt      string       `json:"mqtt_received_at,omitempty"`
 }
 
 // SensorInfo represents sensor basic info for frontend
@@ -54,13 +58,15 @@ type SensorInfo struct {
 
 // SensorLogData represents sensor data log
 type SensorLogData struct {
-	ID        uint         `json:"id"`
-	VehicleID uint         `json:"vehicle_id"`
-	SensorID  uint         `json:"sensor_id"`
-	Vehicle   *VehicleInfo `json:"vehicle,omitempty"`
-	Sensor    *SensorInfo  `json:"sensor,omitempty"`
-	Data      string       `json:"data"` // JSON string
-	CreatedAt string       `json:"created_at"`
+	ID             uint         `json:"id"`
+	VehicleID      uint         `json:"vehicle_id"`
+	SensorID       uint         `json:"sensor_id"`
+	Vehicle        *VehicleInfo `json:"vehicle,omitempty"`
+	Sensor         *SensorInfo  `json:"sensor,omitempty"`
+	Data           string       `json:"data"` // JSON string
+	CreatedAt      string       `json:"created_at"`
+	UsvTimestamp   string       `json:"usv_timestamp,omitempty"`
+	MqttReceivedAt string       `json:"mqtt_received_at,omitempty"`
 }
 
 // RawLogData represents raw text log
@@ -86,10 +92,15 @@ type BatteryMessage struct {
 }
 
 // BroadcastVehicleLog broadcasts vehicle log to all connected clients
-func (h *Hub) BroadcastVehicleLog(data VehicleLogData, timestamp string) error {
+func (h *Hub) BroadcastVehicleLog(data VehicleLogData, timestamp string, wsSentAt string) error {
+	if wsSentAt == "" {
+		wsSentAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+
 	msg := LogMessage{
 		Type:      "vehicle_log",
 		Timestamp: timestamp,
+		WsSentAt:  wsSentAt,
 		Data:      data,
 	}
 	
@@ -105,10 +116,15 @@ func (h *Hub) BroadcastVehicleLog(data VehicleLogData, timestamp string) error {
 }
 
 // BroadcastSensorLog broadcasts sensor log to all connected clients
-func (h *Hub) BroadcastSensorLog(data SensorLogData, timestamp string) error {
+func (h *Hub) BroadcastSensorLog(data SensorLogData, timestamp string, wsSentAt string) error {
+	if wsSentAt == "" {
+		wsSentAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+
 	msg := LogMessage{
 		Type:      "sensor_log",
 		Timestamp: timestamp,
+		WsSentAt:  wsSentAt,
 		Data:      data,
 	}
 	
@@ -144,15 +160,20 @@ func (h *Hub) BroadcastRawLog(data RawLogData, timestamp string) error {
 
 // CommandLogData represents a command log entry for WebSocket broadcast
 type CommandLogData struct {
-	ID          uint    `json:"id"`
-	VehicleID   uint    `json:"vehicle_id"`
-	VehicleCode string  `json:"vehicle_code"`
-	Command     string  `json:"command"`
-	Status      string  `json:"status"`
-	Message     string  `json:"message"`
-	InitiatedAt string  `json:"initiated_at"`
-	ResolvedAt  *string `json:"resolved_at,omitempty"`
-	CreatedAt   string  `json:"created_at"`
+	ID              uint    `json:"id"`
+	VehicleID       uint    `json:"vehicle_id"`
+	VehicleCode     string  `json:"vehicle_code"`
+	RequestID       string  `json:"request_id,omitempty"`
+	Command         string  `json:"command"`
+	Status          string  `json:"status"`
+	Message         string  `json:"message"`
+	InitiatedAt     string  `json:"initiated_at"`
+	MqttPublishedAt *string `json:"mqtt_published_at,omitempty"`
+	UsvAckAt        *string `json:"usv_ack_at,omitempty"`
+	AckReceivedAt   *string `json:"ack_received_at,omitempty"`
+	ResolvedAt      *string `json:"resolved_at,omitempty"`
+	WsReceivedAt    *string `json:"ws_received_at,omitempty"`
+	CreatedAt       string  `json:"created_at"`
 }
 
 // WaypointLogData represents a waypoint log entry for WebSocket broadcast
@@ -171,10 +192,15 @@ type WaypointLogData struct {
 }
 
 // BroadcastCommandLog broadcasts a command log entry to all connected clients
-func (h *Hub) BroadcastCommandLog(data CommandLogData) error {
+func (h *Hub) BroadcastCommandLog(data CommandLogData, wsSentAt string) error {
+	if wsSentAt == "" {
+		wsSentAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+
 	msg := LogMessage{
 		Type:      "command_log",
 		Timestamp: data.CreatedAt,
+		WsSentAt:  wsSentAt,
 		Data:      data,
 	}
 

@@ -13,7 +13,7 @@ import (
 	wsocket "go-fiber-pgsql/internal/websocket"
 )
 
-// AlertListener handles MQTT alerts for anti-theft and failsafe events.
+// AlertListener handles MQTT alerts for anti-theft, failsafe, and general events.
 type AlertListener struct {
 	client      mqtt.Client
 	alertRepo   *repository.AlertRepository
@@ -35,6 +35,7 @@ func (l *AlertListener) Start() error {
 		"seano/+/antitheft/alert",
 		"seano/+/failsafe/alert",
 		"seano/+/faisalfe/alert", // alias typo tolerated for compatibility
+		"seano/+/alert",          // general alert from Jetson (GPS, battery, system, etc.)
 	}
 
 	for _, topic := range topics {
@@ -58,6 +59,16 @@ func normalizeAlertType(raw string) string {
 	default:
 		return "system"
 	}
+}
+
+// sanitizeAlertType passes through a custom alert_type from the payload,
+// falling back to "general" if empty.
+func sanitizeAlertType(raw string) string {
+	cleaned := strings.TrimSpace(raw)
+	if cleaned == "" {
+		return "general"
+	}
+	return cleaned
 }
 
 func normalizeSeverity(raw string, alertType string) string {
@@ -112,13 +123,27 @@ func extractFloatPtr(m map[string]interface{}, keys ...string) *float64 {
 
 func (l *AlertListener) handleMessage(client mqtt.Client, msg mqtt.Message) {
 	parts := strings.Split(msg.Topic(), "/")
-	if len(parts) != 4 {
+
+	var vehicleCode string
+	var alertType string
+
+	switch len(parts) {
+	case 3:
+		// seano/{vehicle_code}/alert  →  general alert
+		if parts[2] != "alert" {
+			log.Printf("⚠️ Unexpected alert topic format: %s", msg.Topic())
+			return
+		}
+		vehicleCode = parts[1]
+		alertType = "general" // will be overridden by payload alert_type if provided
+	case 4:
+		// seano/{vehicle_code}/{type}/alert  →  specific alert (antitheft, failsafe, …)
+		vehicleCode = parts[1]
+		alertType = normalizeAlertType(parts[2])
+	default:
 		log.Printf("⚠️ Invalid alert topic format: %s", msg.Topic())
 		return
 	}
-
-	vehicleCode := parts[1]
-	alertType := normalizeAlertType(parts[2])
 
 	payload := msg.Payload()
 	messageText := strings.TrimSpace(string(payload))
@@ -143,6 +168,11 @@ func (l *AlertListener) handleMessage(client mqtt.Client, msg mqtt.Message) {
 
 		if payloadSource := extractString(parsed, "source"); payloadSource != "" {
 			source = payloadSource
+		}
+
+		// Allow payload to override alert_type (important for general alerts)
+		if payloadAlertType := extractString(parsed, "alert_type", "alertType", "type"); payloadAlertType != "" {
+			alertType = sanitizeAlertType(payloadAlertType)
 		}
 
 		latitude = extractFloatPtr(parsed, "latitude", "lat")
