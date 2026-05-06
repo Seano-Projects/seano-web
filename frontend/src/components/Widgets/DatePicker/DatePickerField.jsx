@@ -11,9 +11,12 @@ const DatePickerField = ({
   className = "",
   minDate,
   maxDate,
+  useFixedPositioning = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [calendarPosition, setCalendarPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -28,6 +31,17 @@ const DatePickerField = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // Calculate position for fixed calendar
+  useEffect(() => {
+    if (isOpen && useFixedPositioning && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCalendarPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+      });
+    }
+  }, [isOpen, useFixedPositioning]);
 
   const handleDateChange = (date) => {
     // Format as YYYY-MM-DD
@@ -53,6 +67,7 @@ const DatePickerField = ({
     <div className={`relative ${className}`} ref={dropdownRef}>
       {/* Date Input Button */}
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors duration-200 flex items-center justify-between"
@@ -71,7 +86,19 @@ const DatePickerField = ({
 
       {/* Calendar Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg shadow-lg z-50">
+        <div
+          className={`bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg shadow-lg z-[10000] ${
+            useFixedPositioning ? "fixed" : "absolute top-full left-0 mt-1"
+          }`}
+          style={
+            useFixedPositioning
+              ? {
+                  top: `${calendarPosition.top}px`,
+                  left: `${calendarPosition.left}px`,
+                }
+              : {}
+          }
+        >
           <Calendar
             onChange={handleDateChange}
             value={dateValue}
