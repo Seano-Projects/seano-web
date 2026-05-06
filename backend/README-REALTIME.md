@@ -15,8 +15,9 @@ seano/{vehicle_code}/raw                      # raw log (text/JSON)
 seano/{vehicle_code}/battery                  # battery status
 seano/{vehicle_code}/status                   # LWT online/offline
 seano/{vehicle_code}/mission/waypoint_reached # mission progress
-seano/{vehicle_code}/antitheft/alert          # alert
-seano/{vehicle_code}/failsafe/alert           # alert
+seano/{vehicle_code}/antitheft/alert          # alert (anti-theft)
+seano/{vehicle_code}/failsafe/alert           # alert (failsafe)
+seano/{vehicle_code}/alert                    # general alert (GPS, sensor, system, dll)
 seano/{vehicle_code}/ack                      # USV replies ACK here
 ```
 
@@ -145,6 +146,24 @@ Topic: `seano/USV-001/failsafe/alert`
 }
 ```
 
+Topic: `seano/USV-001/alert` _(general alert — bebas alert_type)_
+
+```json
+{
+  "vehicle_code": "USV-001",
+  "alert_type": "GPS",
+  "severity": "warning",
+  "message": "GPS no fix",
+  "source": "USV",
+  "latitude": -6.2088,
+  "longitude": 106.8456
+}
+```
+
+> Field `alert_type` bebas diisi apa saja: `GPS`, `Battery`, `IMU`, `Communication`, `Sensor`, `System`, dll.  
+> Kalau tidak diisi, default ke `general`.  
+> Field `severity` bisa: `critical`, `warning`, `info` (default `warning`).
+
 Topic: `seano/USV-001/ack`
 
 ```json
@@ -214,7 +233,7 @@ Response:
 - `POST /sensor-logs` bisa pakai `vehicle_id`/`vehicle_code` dan `sensor_id`/`sensor_code`.
 - `POST /command-logs` dan `POST /waypoint-logs` memakai `vehicle_code` (vehicle_id opsional).
 - `POST /command-acks` menerima ACK command dari USV (status: ok/error/success/failed/timeout).
-- `POST /alerts` bisa pakai `vehicle_id` atau `vehicle_code`.
+- `POST /alerts` bisa pakai `vehicle_id` atau `vehicle_code`. Field `alert_type` bebas diisi (GPS, Battery, IMU, dll) — tidak harus `failsafe` atau `antitheft`.
 - `POST /raw-logs` bisa pakai `vehicle_code` (opsional) + `logs`.
 - `POST /missions/waypoint-reached` memakai payload seperti MQTT `mission/waypoint_reached`.
 - `POST /control/{vehicle_code}/command` memakai JWT (admin/operator). Jika MQTT nonaktif, command disimpan `pending` untuk dipolling USV.
@@ -427,6 +446,19 @@ POST https://api.seano.cloud/alerts
   "severity": "critical",
   "alert_type": "failsafe",
   "message": "GPS lost, switching to RTL",
+  "latitude": -6.2088,
+  "longitude": 106.8456,
+  "source": "USV"
+}
+```
+
+```json
+POST https://api.seano.cloud/alerts
+{
+  "vehicle_code": "USV-001",
+  "severity": "warning",
+  "alert_type": "GPS",
+  "message": "GPS no fix",
   "latitude": -6.2088,
   "longitude": 106.8456,
   "source": "USV"

@@ -386,8 +386,9 @@ seano/{vehicle_code}/raw                      # raw log (text/JSON)
 seano/{vehicle_code}/battery                  # battery status
 seano/{vehicle_code}/status                   # LWT online/offline
 seano/{vehicle_code}/mission/waypoint_reached # mission progress
-seano/{vehicle_code}/antitheft/alert          # alert
-seano/{vehicle_code}/failsafe/alert           # alert
+seano/{vehicle_code}/antitheft/alert          # alert (anti-theft)
+seano/{vehicle_code}/failsafe/alert           # alert (failsafe)
+seano/{vehicle_code}/alert                    # general alert (GPS, sensor, system, dll)
 ```
 
 **Topics published by backend (command/missions):**
