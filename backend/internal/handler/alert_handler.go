@@ -374,6 +374,26 @@ func (h *AlertHandler) AcknowledgeAlert(c *fiber.Ctx) error {
 	})
 }
 
+// AcknowledgeAllAlerts godoc
+// @Summary Acknowledge all alerts
+// @Description Mark all unacknowledged alerts as acknowledged
+// @Tags Alerts
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/alerts/acknowledge-all [patch]
+func (h *AlertHandler) AcknowledgeAllAlerts(c *fiber.Ctx) error {
+	if err := h.alertRepo.AcknowledgeAllAlerts(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to acknowledge all alerts",
+		})
+	}
+	return c.JSON(fiber.Map{
+		"message": "All alerts acknowledged successfully",
+	})
+}
+
 // DeleteAlert godoc
 // @Summary Delete an alert
 // @Description Delete an alert by ID
@@ -698,7 +718,7 @@ func (h *AlertHandler) ExportAlerts(c *fiber.Ctx) error {
 			latStr + "," +
 			lonStr + "," +
 			acknowledgedStr + "," +
-			alert.CreatedAt.Format(time.RFC3339) + "\n"
+			alert.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00") + "\n"
 	}
 
 	// Set headers for file download

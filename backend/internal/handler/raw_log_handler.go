@@ -433,7 +433,7 @@ func (h *RawLogHandler) ExportRawLogs(c *fiber.Ctx) error {
 			vehicleIDStr + "," +
 			vehicleCode + "," +
 			logsContent + "," +
-			log.CreatedAt.Format(time.RFC3339) + "\n"
+			log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00") + "\n"
 	}
 
 	// Set headers for file download

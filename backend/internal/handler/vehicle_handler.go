@@ -519,7 +519,7 @@ func (h *VehicleHandler) GetAllLatestBatteryStatus(c *fiber.Ctx) error {
 func (h *VehicleHandler) GetBatteryLogs(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(uint)
 
-	id, err := strconv.Atoi(c.Params("id"))
+	id, err := strconv.Atoi(c.Params("vehicle_id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid vehicle ID",

@@ -231,6 +231,13 @@ func (h *MissionHandler) UpdateMission(c *fiber.Ctx) error {
 		})
 	}
 
+	// Completed missions cannot be edited
+	if mission.Status == "Completed" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Completed missions cannot be edited",
+		})
+	}
+
 	var req model.UpdateMissionRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -338,7 +345,9 @@ func (h *MissionHandler) UploadMissionToVehicle(c *fiber.Ctx) error {
 	}
 
 	updates := map[string]interface{}{
-		"vehicle_id": req.VehicleID,
+		"vehicle_id":         req.VehicleID,
+		"completed_waypoint": 0,
+		"progress":           0,
 	}
 	if len(req.Waypoints) > 0 {
 		updates["waypoints"] = model.WaypointArray(req.Waypoints)
@@ -565,6 +574,60 @@ func (h *MissionHandler) GetPendingMissionUploads(c *fiber.Ctx) error {
 // @Failure 500 {object} map[string]string
 // @Security BearerAuth
 // @Router /missions/{mission_id} [delete]
+// ClearMission godoc
+// @Summary Clear/reset a mission
+// @Description Reset mission status to Draft and clear progress
+// @Tags Missions
+// @Produce json
+// @Param mission_id path int true "Mission ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /api/missions/{mission_id}/clear [patch]
+func (h *MissionHandler) ClearMission(c *fiber.Ctx) error {
+	missionID, err := strconv.Atoi(c.Params("mission_id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid mission ID",
+		})
+	}
+
+	mission, err := h.missionRepo.GetMissionByID(uint(missionID))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Mission not found",
+		})
+	}
+
+	userID := c.Locals("user_id").(uint)
+	role := c.Locals("role").(string)
+	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You don't have permission to clear this mission",
+		})
+	}
+
+	updates := map[string]interface{}{
+		"status":             "Draft",
+		"completed_waypoint": 0,
+		"current_waypoint":   0,
+		"progress":           0,
+	}
+
+	if err := h.missionRepo.UpdateMission(uint(missionID), updates); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to clear mission",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Mission cleared successfully",
+	})
+}
+
 func (h *MissionHandler) DeleteMission(c *fiber.Ctx) error {
 	missionID, err := strconv.Atoi(c.Params("mission_id"))
 	if err != nil {

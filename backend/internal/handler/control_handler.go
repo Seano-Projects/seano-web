@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
@@ -92,9 +93,11 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 	}
 
 	initiatedAt := time.Now()
+	requestID := uuid.New().String()
 	entry := &model.CommandLog{
 		VehicleID:   vehicle.ID,
 		VehicleCode: vehicle.Code,
+		RequestID:   requestID,
 		Command:     command,
 		Status:      "pending",
 		Message:     "queued",
@@ -119,7 +122,7 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 	}
 
 	// Send command and wait for hardware ACK
-	ack, err := h.cmdPublisher.SendCommand(vehicleCode, mqttservice.CommandType(command))
+	ack, err := h.cmdPublisher.SendCommand(vehicleCode, mqttservice.CommandType(command), requestID)
 	if err != nil {
 		status := "failed"
 		if strings.Contains(strings.ToLower(err.Error()), "timeout") {
