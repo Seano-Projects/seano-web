@@ -91,8 +91,8 @@ const MinZoomController = () => {
     };
 
     updateMinZoom();
-    map.on('resize', updateMinZoom);
-    return () => map.off('resize', updateMinZoom);
+    map.on("resize", updateMinZoom);
+    return () => map.off("resize", updateMinZoom);
   }, [map]);
 
   return null;
@@ -276,9 +276,25 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
     mapInstanceRef.current = map;
     setIsMapReady(true);
 
+    // Initial invalidate after short delay
     setTimeout(() => {
       map.invalidateSize();
-    }, 200);
+    }, 100);
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 500);
+
+    // ResizeObserver: re-invalidate whenever container size changes
+    // (handles grid layout settling, sidebar toggle, window resize, etc.)
+    const container = map.getContainer();
+    if (container && typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      ro.observe(container);
+      // Store for cleanup
+      mapInstanceRef._resizeObserver = ro;
+    }
   };
 
   // Handle user interaction (drag start, zoom start)
@@ -550,7 +566,7 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
     getVehiclePosition(selectedVehicle) !== null;
 
   return (
-    <div className="relative w-full h-full z-50">
+    <div className="relative w-full h-full flex-1 min-h-0">
       {shouldShowFocusButton && (
         <button
           onClick={focusToVehicle}
@@ -616,7 +632,7 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
         ]}
         maxBoundsViscosity={1}
         minZoom={3}
-        maxZoom={20}
+        maxZoom={22}
       >
         <MinZoomController />
         <MapInstanceGetter
@@ -629,11 +645,10 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
           attribution="&copy; Esri"
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           noWrap={true}
-          updateWhenIdle
           updateWhenZooming={false}
-          keepBuffer={2}
-          maxZoom={20}
-          maxNativeZoom={18}
+          keepBuffer={4}
+          maxZoom={22}
+          maxNativeZoom={19}
         />
 
         {/* Vehicle Trail/History Lines */}
