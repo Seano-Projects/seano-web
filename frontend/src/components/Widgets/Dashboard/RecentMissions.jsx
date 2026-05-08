@@ -131,14 +131,18 @@ const RecentMissions = () => {
                   {t("dashboard.recentMissions.progress")}
                 </span>
                 <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {mission.progress}%
+                  {String(mission.status).toLowerCase() === "completed"
+                    ? 100
+                    : mission.progress}
+                  %
                 </span>
               </div>
 
               <div className="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-2">
                 <div
                   className={`h-2 rounded-full transition-all duration-300 ${
-                    mission.progress === 100
+                    mission.progress === 100 ||
+                    String(mission.status).toLowerCase() === "completed"
                       ? "bg-green-500"
                       : mission.statusColor === "green"
                         ? "bg-blue-500"
@@ -148,7 +152,9 @@ const RecentMissions = () => {
                             ? "bg-red-500"
                             : "bg-blue-500"
                   }`}
-                  style={{ width: `${mission.progress}%` }}
+                  style={{
+                    width: `${String(mission.status).toLowerCase() === "completed" ? 100 : mission.progress}%`,
+                  }}
                 ></div>
               </div>
 
