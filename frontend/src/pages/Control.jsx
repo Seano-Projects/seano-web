@@ -18,7 +18,7 @@ import {
 } from "../components/Widgets/Control";
 
 const MAP_CENTER = [45.4215, -75.6972];
-const MAP_ZOOM = 14;
+const MAP_ZOOM = 15;
 
 const normalizeStreamName = (rawValue = "") => {
   const normalized = rawValue
@@ -172,13 +172,13 @@ const Control = () => {
     () => vehicles.find((v) => v.id === selectedVehicleId) ?? null,
     [vehicles, selectedVehicleId],
   );
-  const { vehicleLogs } = useLogData({
+  const { vehicleLogs, waypointLogs } = useLogData({
     enableStats: false,
     enableChartData: false,
     enableSensorLogs: false,
     enableRawLogs: false,
     enableCommandLogs: false,
-    enableWaypointLogs: false,
+    enableWaypointLogs: true, // listen for mission-upload events
     enableBatteryData: false,
   });
   const {
@@ -194,6 +194,10 @@ const Control = () => {
   const pendingThrusterRef = useRef(null);
   const latestThrottleRef = useRef(0);
   const latestSteeringRef = useRef(0);
+  // Track when the last command was sent so telemetry doesn't immediately
+  // override the optimistic UI state before the USV processes the command.
+  const lastCommandSentAtRef = useRef(0);
+  const COMMAND_COOLDOWN_MS = 8000;
 
   // Latest log fetched directly from API when vehicle changes (initial state)
   const [fetchedVehicleLog, setFetchedVehicleLog] = useState(null);
@@ -229,6 +233,15 @@ const Control = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [mapCenter, setMapCenter] = useState(MAP_CENTER);
   const [mapZoom, setMapZoom] = useState(MAP_ZOOM);
+
+  // Vehicle trail – accumulated positions during active mission
+  const [vehicleTrail, setVehicleTrail] = useState([]);
+  const trailMissionIdRef = useRef(null);
+  const lastTrailPositionRef = useRef(null);
+
+  // Mission completed card
+  const [showMissionCompletedCard, setShowMissionCompletedCard] =
+    useState(false);
 
   const currentMission = useMemo(() => {
     if (!selectedVehicle) return null;
@@ -323,6 +336,26 @@ const Control = () => {
     }
   }, [vehicles]);
 
+  // Refresh mission data when a mission upload is detected via waypoint_log event.
+  // A waypoint_log broadcast is emitted by the backend whenever a mission is
+  // uploaded to a vehicle, which updates the mission's vehicle_id in the DB.
+  // Without this refresh the Control page would have stale mission data
+  // (vehicle_id = null) and currentMission would resolve to null → no waypoints.
+  const waypointLogsCountRef = useRef(-1);
+  useEffect(() => {
+    const count = waypointLogs.length;
+    if (waypointLogsCountRef.current === -1) {
+      // First render – record initial count without triggering a refresh
+      waypointLogsCountRef.current = count;
+      return;
+    }
+    if (count > waypointLogsCountRef.current) {
+      waypointLogsCountRef.current = count;
+      refreshMissionData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waypointLogs.length]);
+
   // Get latest vehicle log for selected vehicle
   // Priority: real-time WebSocket logs > API-fetched initial log
   const selectedVehicleLog = useMemo(() => {
@@ -389,22 +422,27 @@ const Control = () => {
       rssi: selectedVehicleLog.rssi ?? null,
       battery_voltage: selectedVehicleLog.battery_voltage ?? null,
       battery_current: selectedVehicleLog.battery_current ?? null,
-      armed: selectedVehicleLog.armed || false,
+      armed: selectedVehicleLog.armed === true,
       mode:
         selectedVehicleLog.mode || selectedVehicleLog.flight_mode || "MANUAL",
       gps_status: gpsStatusRaw,
     };
   }, [selectedVehicleLog]);
 
-  // Sync armed state and mode from real-time data
+  // Sync armed state and mode from real-time data.
+  // Skip update during the cooldown window after a command was sent so we
+  // don't override the optimistic UI state before the USV processes it.
   useEffect(() => {
     if (selectedVehicleLog) {
+      const msSinceCommand = Date.now() - lastCommandSentAtRef.current;
+      if (msSinceCommand < COMMAND_COOLDOWN_MS) return;
       setIsArmed(telemetryData.armed);
       setActiveMode(telemetryData.mode);
       if (telemetryData.armed) {
         setLastArmFailureMessage("");
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicleLog, telemetryData.armed, telemetryData.mode]);
 
   // Get vehicle position for map display
@@ -475,6 +513,36 @@ const Control = () => {
     return t("control.missionControl.rtlInProgress");
   }, [isMissionCompleted, isVehicleAtHomeAfterMission, t]);
 
+  // Accumulate vehicle trail while mission is active
+  useEffect(() => {
+    const missionId = currentMission?.id ?? null;
+    if (missionId !== trailMissionIdRef.current) {
+      trailMissionIdRef.current = missionId;
+      setVehicleTrail([]);
+      lastTrailPositionRef.current = null;
+      return;
+    }
+    const missionIsActive = isActiveMissionStatus(currentMission?.status);
+    if (!missionIsActive || !vehiclePosition) return;
+    const last = lastTrailPositionRef.current;
+    if (last) {
+      const dist = calculateDistanceMeters(vehiclePosition, last);
+      if (dist !== null && dist < 2) return; // skip if moved < 2 m
+    }
+    lastTrailPositionRef.current = vehiclePosition;
+    setVehicleTrail((prev) => {
+      const next = [...prev, vehiclePosition];
+      return next.length > 10000 ? next.slice(-10000) : next;
+    });
+  }, [vehiclePosition, currentMission?.id, currentMission?.status]);
+
+  // Show mission completed card when vehicle arrives home
+  useEffect(() => {
+    if (isVehicleAtHomeAfterMission) {
+      setShowMissionCompletedCard(true);
+    }
+  }, [isVehicleAtHomeAfterMission]);
+
   // Collapse/Expand states for menus with localStorage
   const [isVesselTelemetryExpanded, setIsVesselTelemetryExpanded] = useState(
     () => {
@@ -531,6 +599,11 @@ const Control = () => {
     const saved = localStorage.getItem("control_camera_expanded");
     return saved !== null ? JSON.parse(saved) : false;
   });
+  // Toggle to show/hide vehicle trail on the Control map
+  const [showTrails, setShowTrails] = useState(() => {
+    const saved = localStorage.getItem("control_show_trails");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [streamName, setStreamName] = useState("");
   const [cameraConnected, setCameraConnected] = useState(false);
   const [cameraConnecting, setCameraConnecting] = useState(false);
@@ -543,6 +616,11 @@ const Control = () => {
       JSON.stringify(isCameraExpanded),
     );
   }, [isCameraExpanded]);
+
+  // Persist trail visibility preference
+  useEffect(() => {
+    localStorage.setItem("control_show_trails", JSON.stringify(showTrails));
+  }, [showTrails]);
 
   // Auto-fill stream name from selected vehicle
   useEffect(() => {
@@ -725,7 +803,7 @@ const Control = () => {
         lng <= 180
       ) {
         setMapCenter([lat, lng]);
-        setMapZoom(15);
+        setMapZoom(18);
         toast.success(t("control.search.success"));
       } else {
         toast.error(t("control.search.error"));
@@ -827,6 +905,11 @@ const Control = () => {
 
   const handleDisarmConfirm = async () => {
     setShowDisarmConfirm(false);
+    lastCommandSentAtRef.current = Date.now();
+    // Optimistically update UI immediately so the panel reflects the action at once.
+    // The cooldown blocks telemetry from reverting this for 8 s.
+    setIsArmed(false);
+    setLastArmFailureMessage("");
     toast.info(t("control.missionControl.sendingCommand"));
     const result = await sendCommand(selectedVehicle?.code, "DISARM");
     if (result.success) {
@@ -834,48 +917,61 @@ const Control = () => {
         toast.info(t("control.missionControl.commandQueued"));
         return;
       }
-      setIsArmed(false);
-      setLastArmFailureMessage("");
+      toast.success(t("control.missionControl.disarmSuccess"));
+    } else if (result.error === "timeout") {
+      // Published via MQTT but no ACK – keep the optimistic state.
       toast.success(t("control.missionControl.disarmSuccess"));
     } else {
+      // Actual failure – revert the optimistic state.
+      setIsArmed(true);
       handleCommandError(result);
     }
   };
 
   const handleArmConfirm = async () => {
     setShowArmConfirm(false);
+    lastCommandSentAtRef.current = Date.now();
+    // Optimistic update immediately.
+    setIsArmed(true);
+    setLastArmFailureMessage("");
     toast.info(t("control.missionControl.sendingCommand"));
     const result = await sendCommand(selectedVehicle?.code, "ARM");
     if (result.success) {
       if (result.queued) {
-        setLastArmFailureMessage(t("control.missionControl.armPendingHint"));
         toast.info(t("control.missionControl.commandQueued"));
         return;
       }
-      setIsArmed(true);
-      setLastArmFailureMessage("");
+      toast.success(t("control.missionControl.armSuccess"));
+    } else if (result.error === "timeout") {
       toast.success(t("control.missionControl.armSuccess"));
     } else {
+      // Actual failure – revert.
+      setIsArmed(false);
       setLastArmFailureMessage(result.message || "ARM failed");
       handleCommandError(result);
     }
   };
 
   const handleForceArm = async () => {
+    lastCommandSentAtRef.current = Date.now();
+    setIsArmed(true);
+    setLastArmFailureMessage("");
     toast.info("Sending FORCE_ARM command...");
     const result = await sendCommand(selectedVehicle?.code, "FORCE_ARM");
     if (result.success) {
       if (result.queued) {
-        setLastArmFailureMessage(t("control.missionControl.armPendingHint"));
         toast.info(t("control.missionControl.commandQueued"));
         return;
       }
-      setIsArmed(true);
-      setLastArmFailureMessage("");
       toast.success("Force arm success");
       return;
     }
-
+    if (result.error === "timeout") {
+      toast.success("Force arm success");
+      return;
+    }
+    // Actual failure – revert.
+    setIsArmed(false);
     handleCommandError(result);
   };
 
@@ -888,7 +984,11 @@ const Control = () => {
   const handleModeChangeConfirm = async () => {
     if (!pendingMode) return;
     const modeToSet = pendingMode;
+    const prevMode = activeMode;
     setPendingMode(null);
+    lastCommandSentAtRef.current = Date.now();
+    // Optimistic update immediately.
+    setActiveMode(modeToSet);
     toast.info(t("control.missionControl.sendingCommand"));
     const result = await sendCommand(selectedVehicle?.code, modeToSet);
     if (result.success) {
@@ -896,11 +996,16 @@ const Control = () => {
         toast.info(t("control.missionControl.commandQueued"));
         return;
       }
-      setActiveMode(modeToSet);
+      toast.success(
+        `${t("control.missionControl.modeChangedTo")} ${modeToSet} ${t("control.missionControl.successfully")}`.trim(),
+      );
+    } else if (result.error === "timeout") {
       toast.success(
         `${t("control.missionControl.modeChangedTo")} ${modeToSet} ${t("control.missionControl.successfully")}`.trim(),
       );
     } else {
+      // Actual failure – revert.
+      setActiveMode(prevMode);
       handleCommandError(result);
     }
   };
@@ -917,20 +1022,95 @@ const Control = () => {
         missionMarkers={
           shouldHideCompletedMissionPath ? [] : missionPathData.markers
         }
+        vehicleTrail={showTrails ? vehicleTrail : []}
       />
 
       {/* ——— FLOATING PANELS (over map) ——— */}
       <div className="absolute inset-0 z-10 pointer-events-none">
-        {missionStatusBannerText && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none">
-            <div
-              className={`px-4 py-2 rounded-lg border text-xs md:text-sm font-medium shadow-lg backdrop-blur-sm ${
-                isVehicleAtHomeAfterMission
-                  ? "bg-emerald-500/20 border-emerald-400 text-emerald-100"
-                  : "bg-blue-500/20 border-blue-400 text-blue-100"
-              }`}
+        {/* Trail toggle button (Control page) */}
+        <div className="absolute bottom-4 left-4 pointer-events-auto z-50">
+          <button
+            onClick={() => setShowTrails(!showTrails)}
+            onMouseDown={(e) => e.stopPropagation()}
+            className={`w-14 h-14 rounded-full ${
+              showTrails
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-gray-600 hover:bg-gray-700"
+            } text-white shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer pointer-events-auto border-2 border-white`}
+            title={showTrails ? "Sembunyikan jalur" : "Tampilkan jalur"}
+            type="button"
+            aria-label="Toggle trail"
+            style={{
+              boxShadow: showTrails
+                ? "0 10px 25px rgba(34, 197, 94, 0.5)"
+                : "0 10px 25px rgba(75, 85, 99, 0.5)",
+            }}
+          >
+            <svg
+              className="w-7 h-7"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              {missionStatusBannerText}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+              />
+            </svg>
+          </button>
+        </div>
+        {/* RTL in-progress banner (small) */}
+        {isMissionCompleted && !isVehicleAtHomeAfterMission && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none">
+            <div className="px-4 py-2 rounded-lg border text-xs md:text-sm font-medium shadow-lg backdrop-blur-sm bg-blue-500/20 border-blue-400 text-blue-100">
+              {t("control.missionControl.rtlInProgress")}
+            </div>
+          </div>
+        )}
+
+        {/* Mission completed card (prominent) */}
+        {showMissionCompletedCard && isVehicleAtHomeAfterMission && (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto z-50">
+            <div className="bg-white dark:bg-black border border-emerald-500/60 rounded-2xl shadow-2xl backdrop-blur-md p-6 w-80 max-w-[90vw] flex flex-col items-center gap-4">
+              {/* Icon */}
+              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-emerald-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              {/* Title */}
+              <div className="text-center">
+                <div className="text-emerald-400 font-bold text-lg mb-1">
+                  Mission Completed
+                </div>
+                {currentMission?.name && (
+                  <div className="text-gray-600 dark:text-gray-300 text-sm font-medium">
+                    {currentMission.name}
+                  </div>
+                )}
+                <div className="text-gray-500 dark:text-gray-400 text-xs mt-2">
+                  Vehicle has returned home. Route points reset.
+                </div>
+              </div>
+              {/* Dismiss */}
+              <button
+                onClick={() => setShowMissionCompletedCard(false)}
+                className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors"
+              >
+                OK
+              </button>
             </div>
           </div>
         )}

@@ -154,9 +154,9 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	// Sensor Logs routes
 	sensorLogs := app.Group("/sensor-logs")
 	sensorLogs.Get("/", middleware.AuthRequired(), sensorLogHandler.GetSensorLogs) // Query by vehicle_id, sensor_id, time range
-	sensorLogs.Get("/:id", middleware.AuthRequired(), sensorLogHandler.GetSensorLogByID)
 	sensorLogs.Get("/export", middleware.AuthRequired(), sensorLogHandler.ExportSensorLogs) // Export to CSV
 	sensorLogs.Post("/import", middleware.AuthRequired(), sensorLogHandler.ImportSensorLogs) // Import from CSV
+	sensorLogs.Get("/:id", middleware.AuthRequired(), sensorLogHandler.GetSensorLogByID)
 	sensorLogs.Post("/:id/ws-received", middleware.AuthRequired(), sensorLogHandler.MarkWSReceivedAt)
 	sensorLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), sensorLogHandler.CreateSensorLog)
 	sensorLogs.Delete("/:id", middleware.AuthRequired(), sensorLogHandler.DeleteSensorLog)
@@ -239,8 +239,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	// Command Logs routes
 	commandLogs := app.Group("/command-logs")
 	commandLogs.Get("/", middleware.AuthRequired(), commandLogHandler.GetCommandLogs)
-	commandLogs.Get("/:id", middleware.AuthRequired(), commandLogHandler.GetCommandLogByID)
 	commandLogs.Get("/export", middleware.AuthRequired(), commandLogHandler.ExportCommandLogs)
+	commandLogs.Get("/:id", middleware.AuthRequired(), commandLogHandler.GetCommandLogByID)
 	commandLogs.Post("/:id/ws-received", middleware.AuthRequired(), commandLogHandler.MarkWSReceivedAt)
 	commandLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), commandLogHandler.CreateCommandLog)
 	commandLogs.Delete("/:id", middleware.AuthRequired(), commandLogHandler.DeleteCommandLog)
@@ -259,8 +259,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	// Waypoint Logs routes
 	waypointLogs := app.Group("/waypoint-logs")
 	waypointLogs.Get("/", middleware.AuthRequired(), waypointLogHandler.GetWaypointLogs)
-	waypointLogs.Get("/:id", middleware.AuthRequired(), waypointLogHandler.GetWaypointLogByID)
 	waypointLogs.Get("/export", middleware.AuthRequired(), waypointLogHandler.ExportWaypointLogs)
+	waypointLogs.Get("/:id", middleware.AuthRequired(), waypointLogHandler.GetWaypointLogByID)
 	waypointLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), waypointLogHandler.CreateWaypointLog)
 	waypointLogs.Delete("/:id", middleware.AuthRequired(), waypointLogHandler.DeleteWaypointLog)
 

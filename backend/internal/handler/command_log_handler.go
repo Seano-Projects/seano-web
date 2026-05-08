@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/csv"
 	"errors"
 	"strconv"
 	"strings"
@@ -440,21 +439,17 @@ func (h *CommandLogHandler) ExportCommandLogs(c *fiber.Ctx) error {
 		})
 	}
 
-	// Set CSV response headers
-	c.Set("Content-Type", "text/csv")
-	c.Set("Content-Disposition", "attachment; filename=command_logs.csv")
+	// Build CSV content
+	csvHeader := []string{"Timestamp", "Vehicle", "VehicleCode", "RequestID", "Command", "Status", "Message", "InitiatedAt", "MqttPublishedAt", "UsvAckAt", "AckReceivedAt", "ResolvedAt", "WsSentAt", "WsReceivedAt"}
+	var b strings.Builder
+	b.WriteString(strings.Join(csvHeader, ","))
+	b.WriteString("\n")
 
-	// Use CSV writer with proper formatting
-	writer := csv.NewWriter(c.Response().BodyWriter())
-	defer writer.Flush()
-
-	// Write header
-	header := []string{"Timestamp", "Vehicle", "VehicleCode", "RequestID", "Command", "Status", "Message", "InitiatedAt", "MqttPublishedAt", "UsvAckAt", "AckReceivedAt", "ResolvedAt", "WsSentAt", "WsReceivedAt"}
-	if err := writer.Write(header); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV header"})
+	esc := func(s string) string {
+		s = strings.ReplaceAll(s, "\"", "\"\"")
+		return "\"" + s + "\""
 	}
 
-	// Write data rows
 	for _, log := range logs {
 		ts := log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00")
 
@@ -496,26 +491,31 @@ func (h *CommandLogHandler) ExportCommandLogs(c *fiber.Ctx) error {
 		}
 
 		row := []string{
-			ts,
-			vehicleDisp,
-			log.VehicleCode,
-			log.RequestID,
-			log.Command,
-			log.Status,
-			log.Message,
-			initiatedAtStr,
-			mqttPublishedAtStr,
-			usvAckAtStr,
-			ackReceivedAtStr,
-			resolvedAtStr,
-			wsSentAtStr,
-			wsReceivedAtStr,
+			esc(ts),
+			esc(vehicleDisp),
+			esc(log.VehicleCode),
+			esc(log.RequestID),
+			esc(log.Command),
+			esc(log.Status),
+			esc(log.Message),
+			esc(initiatedAtStr),
+			esc(mqttPublishedAtStr),
+			esc(usvAckAtStr),
+			esc(ackReceivedAtStr),
+			esc(resolvedAtStr),
+			esc(wsSentAtStr),
+			esc(wsReceivedAtStr),
 		}
 
-		if err := writer.Write(row); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV row"})
-		}
+		b.WriteString(strings.Join(row, ","))
+		b.WriteString("\n")
 	}
 
-	return nil
+	csv := b.String()
+
+	// Set headers for file download
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=command_logs.csv")
+
+	return c.SendString(csv)
 }

@@ -102,48 +102,36 @@ const DataHeader = ({
     if (activeFilters.vehicle?.id) params.vehicle_id = activeFilters.vehicle.id;
     if (activeFilters.mission?.id) params.mission_id = activeFilters.mission.id;
 
-    // Handle custom date range with time
+    // Handle custom date range - manually build RFC3339 string with timezone
+    const pad = (n) => String(n).padStart(2, "0");
+    const getTZOffset = () => {
+      const d = new Date();
+      const offset = -d.getTimezoneOffset();
+      const hours = String(Math.abs(Math.floor(offset / 60))).padStart(2, "0");
+      const mins = String(Math.abs(offset % 60)).padStart(2, "0");
+      const sign = offset >= 0 ? "+" : "-";
+      return `${sign}${hours}:${mins}`;
+    };
+    const tzOffset = getTZOffset();
+
     if (activeFilters.startDate) {
       const timeStr = activeFilters.startTime || "00:00";
       const [year, month, day] = activeFilters.startDate.split("-").map(Number);
       const [hours, mins] = timeStr.split(":").map(Number);
-      // Create date in local time: 2026-05-02T00:00:00
-      const d = new Date(year, month - 1, day, hours, mins, 0, 0);
-      // Get timezone offset and format as RFC3339 with +07:00 format
-      const offset = -d.getTimezoneOffset();
-      const offsetHours = String(Math.abs(Math.floor(offset / 60))).padStart(2, "0");
-      const offsetMins = String(Math.abs(offset % 60)).padStart(2, "0");
-      const sign = offset >= 0 ? "+" : "-";
-      const pad = (n) => String(n).padStart(2, "0");
-      const isoStr = `${pad(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${offsetHours}:${offsetMins}`;
-      params.start_time = isoStr;
+      params.start_time = `${pad(year)}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(mins)}:00${tzOffset}`;
     }
 
     if (activeFilters.endDate) {
       const timeStr = activeFilters.endTime || "23:59";
       const [year, month, day] = activeFilters.endDate.split("-").map(Number);
       const [hours, mins] = timeStr.split(":").map(Number);
-      const d = new Date(year, month - 1, day, hours, mins, 59, 999);
-      const offset = -d.getTimezoneOffset();
-      const offsetHours = String(Math.abs(Math.floor(offset / 60))).padStart(2, "0");
-      const offsetMins = String(Math.abs(offset % 60)).padStart(2, "0");
-      const sign = offset >= 0 ? "+" : "-";
-      const pad = (n) => String(n).padStart(2, "0");
-      const isoStr = `${pad(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${offsetHours}:${offsetMins}`;
-      params.end_time = isoStr;
+      params.end_time = `${pad(year)}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(mins)}:59${tzOffset}`;
     } else if (activeFilters.startDate && !activeFilters.endDate) {
       // If only start date is provided, set end date to end of same day
       const timeStr = activeFilters.endTime || "23:59";
       const [year, month, day] = activeFilters.startDate.split("-").map(Number);
       const [hours, mins] = timeStr.split(":").map(Number);
-      const d = new Date(year, month - 1, day, hours, mins, 59, 999);
-      const offset = -d.getTimezoneOffset();
-      const offsetHours = String(Math.abs(Math.floor(offset / 60))).padStart(2, "0");
-      const offsetMins = String(Math.abs(offset % 60)).padStart(2, "0");
-      const sign = offset >= 0 ? "+" : "-";
-      const pad = (n) => String(n).padStart(2, "0");
-      const isoStr = `${pad(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${offsetHours}:${offsetMins}`;
-      params.end_time = isoStr;
+      params.end_time = `${pad(year)}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(mins)}:59${tzOffset}`;
     }
 
     if (
@@ -655,23 +643,26 @@ const DataHeader = ({
 
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
         downloadCsvBlob(blob, exportType);
-        toast.success(t("pages.data.messages.exportFromLoadedData"));
-        return;
-      }
-
-      // Validate sensor selection for sensor logs
-      if (exportType === "sensor_logs" && !exportFilters.sensor?.id) {
-        toast.error("Please select a sensor to export sensor logs");
+        toast.success(
+          `${exportTypeConfig.label || "Data"} exported successfully!`,
+        );
         return;
       }
 
       const queryParams = buildExportParams(exportType, exportFilters);
+      console.log(`[Export ${exportType}] Endpoint:`, exportEndpointForType);
+      console.log(`[Export ${exportType}] Params:`, queryParams);
 
       const response = await axios.get(exportEndpointForType, {
         responseType: "blob",
         params: queryParams,
         timeout: 15000,
       });
+      console.log(`[Export ${exportType}] Response status:`, response.status);
+      console.log(
+        `[Export ${exportType}] Response blob size:`,
+        response.data.size,
+      );
 
       // If backend returns an error JSON as blob, parse and surface message.
       if (response.data?.type?.includes("application/json")) {
@@ -709,6 +700,9 @@ const DataHeader = ({
       );
     } catch (error) {
       console.error("Export error:", error);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      console.error("Error message:", error.message);
 
       // If server export fails or times out, fallback to currently loaded rows.
       if (Array.isArray(exportData) && exportData.length > 0) {

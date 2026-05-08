@@ -31,12 +31,12 @@ type VehicleLogData struct {
 	BatteryCurrent      *float64     `json:"battery_current,omitempty"`
 	BatteryPercentage   *float64     `json:"battery_percentage,omitempty"`
 	RSSI                *int         `json:"rssi,omitempty"`
-	Mode                *string      `json:"mode,omitempty"`
+	Mode                *string      `json:"mode"`
 	Latitude            *float64     `json:"latitude,omitempty"`
 	Longitude           *float64     `json:"longitude,omitempty"`
 	Altitude            *float64     `json:"altitude,omitempty"`
 	Heading             *float64     `json:"heading,omitempty"`
-	Armed               *bool        `json:"armed,omitempty"`
+	Armed               *bool        `json:"armed"`
 	GPSok               *bool        `json:"gps_ok,omitempty"`
 	SystemStatus        *string      `json:"system_status,omitempty"`
 	Speed               *float64     `json:"speed,omitempty"`

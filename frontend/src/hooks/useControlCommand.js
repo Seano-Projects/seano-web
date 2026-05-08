@@ -31,6 +31,10 @@ const SUPPORTED_COMMANDS = new Set([
   'RTL'
 ])
 
+// ARM/DISARM commands wait for hardware ACK. Mode commands (AUTO, MANUAL, etc.)
+// are fire-and-forget via MQTT – the telemetry stream confirms the state change.
+const ARM_COMMANDS = new Set(['ARM', 'FORCE_ARM', 'DISARM', 'FORCE_DISARM'])
+
 const MQTT_CONNECT_TIMEOUT_MS = 5000
 const MQTT_PUBLISH_TIMEOUT_MS = 3000
 const MQTT_COMMAND_ACK_TIMEOUT_MS = 5000
@@ -176,14 +180,22 @@ const isPositiveStatus = value => {
     normalized === 'OK' ||
     normalized === 'SUCCESS' ||
     normalized === 'ARMED' ||
-    normalized === 'DISARMED'
+    normalized === 'DISARMED' ||
+    normalized === 'MANUAL' ||
+    normalized === 'AUTO' ||
+    normalized === 'HOLD' ||
+    normalized === 'LOITER' ||
+    normalized === 'RTL' ||
+    normalized === 'MODE_SET' ||
+    normalized === 'MODE_CHANGED'
   )
 }
 
 const waitForCommandAck = (client, vehicleCode, command) =>
   new Promise((resolve, reject) => {
     const topicVehicleCode = String(vehicleCode || '').trim()
-    const statusTopic = `seano/${topicVehicleCode}/command/response`
+    // The USV publishes ACK to seano/{code}/ack (same topic the backend uses)
+    const statusTopic = `seano/${topicVehicleCode}/ack`
     const normalizedCommand = normalizeText(command)
     const timeoutId = setTimeout(() => {
       cleanup()
@@ -299,7 +311,7 @@ const useControlCommand = () => {
         const initiatedAt = new Date().toISOString()
         const topicSuffix = calibrationCommand ? 'battery/cmd' : 'command'
         await publishCommandToMqtt(vehicleCode, mqttCommand, topicSuffix)
-        const shouldWaitAck = isSupportedModeCommand
+        const shouldWaitAck = ARM_COMMANDS.has(normalizedCommand)
         if (!shouldWaitAck) {
           const resolvedAt = new Date().toISOString()
           postCommandLog(

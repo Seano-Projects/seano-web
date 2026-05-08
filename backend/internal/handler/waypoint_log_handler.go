@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/csv"
 	"errors"
 	"strconv"
 	"strings"
@@ -320,21 +319,17 @@ func (h *WaypointLogHandler) ExportWaypointLogs(c *fiber.Ctx) error {
 		})
 	}
 
-	// Set CSV response headers
-	c.Set("Content-Type", "text/csv")
-	c.Set("Content-Disposition", "attachment; filename=waypoint_logs.csv")
+	// Build CSV content
+	csvHeader := []string{"Timestamp", "Vehicle", "VehicleCode", "Mission", "MissionName", "WaypointCount", "Status", "Message", "InitiatedAt", "ResolvedAt"}
+	var b strings.Builder
+	b.WriteString(strings.Join(csvHeader, ","))
+	b.WriteString("\n")
 
-	// Use CSV writer with proper formatting
-	writer := csv.NewWriter(c.Response().BodyWriter())
-	defer writer.Flush()
-
-	// Write header
-	header := []string{"Timestamp", "Vehicle", "VehicleCode", "Mission", "MissionName", "WaypointCount", "Status", "Message", "InitiatedAt", "ResolvedAt"}
-	if err := writer.Write(header); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV header"})
+	esc := func(s string) string {
+		s = strings.ReplaceAll(s, "\"", "\"\"")
+		return "\"" + s + "\""
 	}
 
-	// Write data rows
 	for _, log := range logs {
 		ts := log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00")
 
@@ -361,22 +356,27 @@ func (h *WaypointLogHandler) ExportWaypointLogs(c *fiber.Ctx) error {
 		}
 
 		row := []string{
-			ts,
-			vehicleDisp,
-			log.VehicleCode,
-			missionIDStr,
-			log.MissionName,
-			strconv.Itoa(log.WaypointCount),
-			log.Status,
-			log.Message,
-			initiatedAtStr,
-			resolvedAtStr,
+			esc(ts),
+			esc(vehicleDisp),
+			esc(log.VehicleCode),
+			esc(missionIDStr),
+			esc(log.MissionName),
+			esc(strconv.Itoa(log.WaypointCount)),
+			esc(log.Status),
+			esc(log.Message),
+			esc(initiatedAtStr),
+			esc(resolvedAtStr),
 		}
 
-		if err := writer.Write(row); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to write CSV row"})
-		}
+		b.WriteString(strings.Join(row, ","))
+		b.WriteString("\n")
 	}
 
-	return nil
+	csv := b.String()
+
+	// Set headers for file download
+	c.Set("Content-Type", "text/csv")
+	c.Set("Content-Disposition", "attachment; filename=waypoint_logs.csv")
+
+	return c.SendString(csv)
 }

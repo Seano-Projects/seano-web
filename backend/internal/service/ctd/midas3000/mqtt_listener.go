@@ -43,8 +43,8 @@ func NewMQTTListener(config MQTTConfig, handler *DataHandler) (*MQTTListener, er
 	opts.SetMaxReconnectInterval(60 * time.Second)
 	opts.SetKeepAlive(30 * time.Second)        // Send ping every 30s
 	opts.SetPingTimeout(10 * time.Second)       // Wait 10s for ping response
-	opts.SetCleanSession(true)                  // Clean session to avoid conflicts on restart
-	opts.SetResumeSubs(false)                   // Don't resume old subscriptions
+	opts.SetCleanSession(false)                 // Persistent session so broker retains subscriptions
+	opts.SetResumeSubs(true)                    // Auto-resubscribe on reconnect
 
 	// Set connection lost handler
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {

@@ -413,6 +413,18 @@ const useMissionUpload = () => {
         const resolvedAt = new Date().toISOString()
         postWaypointLog(vehicleCode, missionId, missionName, waypointCount, 'success', 'Mission uploaded to vehicle', initiatedAt, resolvedAt)
 
+        // Update mission record: set vehicle_id and status to Ongoing
+        try {
+          await axios.put(API_ENDPOINTS.MISSIONS.UPDATE(missionId), {
+            vehicle_id: vehicleId,
+            status: 'Ongoing',
+            completed_waypoint: 0,
+            progress: 0,
+          })
+        } catch (_) {
+          // Non-fatal: mission will still run even if DB update fails
+        }
+
         setUploadState(prev => ({
           ...prev,
           progress: 100,

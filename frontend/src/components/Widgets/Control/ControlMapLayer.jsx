@@ -11,7 +11,7 @@ import L from "leaflet";
 import usvPointIcon from "../../../assets/usv-point.webp";
 
 const MAP_CENTER = [45.4215, -75.6972];
-const MAP_ZOOM = 14;
+const MAP_ZOOM = 15;
 
 // ─── Waypoint marker icon factory ────────────────────────────────────────────
 const createWaypointIcon = (label, bgColor, textColor = "#ffffff") =>
@@ -92,12 +92,20 @@ const MapResizeController = () => {
 const MapController = ({ center, zoom }) => {
   const map = useMap();
   useEffect(() => {
-    if (center) map.setView(center, zoom || map.getZoom(), { animate: true, duration: 1 });
+    if (center)
+      map.setView(center, zoom || map.getZoom(), {
+        animate: true,
+        duration: 1,
+      });
   }, [center, zoom, map]);
   return null;
 };
 
-const AutoCenterController = ({ selectedVehicle, vehiclePosition, isEnabled }) => {
+const AutoCenterController = ({
+  selectedVehicle,
+  vehiclePosition,
+  isEnabled,
+}) => {
   const map = useMap();
   const lastFocusedVehicleRef = useRef(null);
   useEffect(() => {
@@ -109,7 +117,7 @@ const AutoCenterController = ({ selectedVehicle, vehiclePosition, isEnabled }) =
     if (id === String(lastFocusedVehicleRef.current)) return;
     lastFocusedVehicleRef.current = id;
     try {
-      map.flyTo(vehiclePosition, 15, { animate: true, duration: 1.2 });
+      map.flyTo(vehiclePosition, 18, { animate: true, duration: 1.2 });
     } catch (_) {}
   }, [selectedVehicle, vehiclePosition, isEnabled, map]);
   return null;
@@ -124,9 +132,10 @@ const MissionFitController = ({ missionPath, vehiclePosition }) => {
   const prevKeyRef = useRef(null);
 
   const pathKey = useMemo(
-    () => (Array.isArray(missionPath) && missionPath.length > 0
-      ? missionPath.map((p) => p.join(",")).join("|")
-      : null),
+    () =>
+      Array.isArray(missionPath) && missionPath.length > 0
+        ? missionPath.map((p) => p.join(",")).join("|")
+        : null,
     [missionPath],
   );
 
@@ -182,13 +191,14 @@ const ControlMapLayer = ({
   heading = 0,
   missionPath = [],
   missionMarkers = [],
+  vehicleTrail = [],
 }) => {
-  const vehicleIcon = vehiclePosition && selectedVehicle
-    ? createVehicleIcon(heading)
-    : null;
+  const vehicleIcon =
+    vehiclePosition && selectedVehicle ? createVehicleIcon(heading) : null;
 
-  const hasMissionPath    = Array.isArray(missionPath)    && missionPath.length > 1;
-  const hasMissionMarkers = Array.isArray(missionMarkers) && missionMarkers.length > 0;
+  const hasMissionPath = Array.isArray(missionPath) && missionPath.length > 1;
+  const hasMissionMarkers =
+    Array.isArray(missionMarkers) && missionMarkers.length > 0;
 
   // waypoint counter resets per render (only path-type markers count)
   let wpCounter = 0;
@@ -205,10 +215,13 @@ const ControlMapLayer = ({
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom
         worldCopyJump={false}
-        maxBounds={[[-85, -180], [85, 180]]}
+        maxBounds={[
+          [-85, -180],
+          [85, 180],
+        ]}
         maxBoundsViscosity={1}
         minZoom={3}
-        maxZoom={20}
+        maxZoom={22}
         zoomControl={false}
       >
         <MinZoomController />
@@ -231,9 +244,31 @@ const ControlMapLayer = ({
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           noWrap={true}
           minZoom={3}
-          maxZoom={20}
-          maxNativeZoom={18}
+          maxZoom={22}
+          maxNativeZoom={19}
         />
+
+        {/* ── Vehicle trail (history path) ── */}
+        {vehicleTrail.length > 1 && (
+          <>
+            {/* Glow outline */}
+            <Polyline
+              positions={vehicleTrail}
+              pathOptions={{ color: "#1d4ed8", weight: 8, opacity: 0.25 }}
+            />
+            {/* Solid blue trail */}
+            <Polyline
+              positions={vehicleTrail}
+              pathOptions={{
+                color: "#3b82f6",
+                weight: 4,
+                opacity: 1,
+                lineCap: "round",
+                lineJoin: "round",
+              }}
+            />
+          </>
+        )}
 
         {/* ── Mission path line ── */}
         {hasMissionPath && (
@@ -269,10 +304,7 @@ const ControlMapLayer = ({
               icon = HOME_ICON;
             } else {
               wpCounter += 1;
-              icon = getWaypointIcon(
-                wpCounter,
-                marker?.state,
-              );
+              icon = getWaypointIcon(wpCounter, marker?.state);
             }
 
             return (
