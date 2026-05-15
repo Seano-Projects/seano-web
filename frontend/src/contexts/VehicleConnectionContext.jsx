@@ -186,6 +186,27 @@ export const VehicleConnectionProvider = ({ children }) => {
     REALTIME_POLL_INTERVAL_MS,
   ]);
 
+  // Re-fetch statuses when user logs in (token becomes available)
+  useEffect(() => {
+    const handleLogin = () => {
+      fetchInitialStatuses();
+      if (!isPollingMode) {
+        // Reconnect WebSocket with new token
+        if (wsRef.current) {
+          wsRef.current.close();
+        }
+        connectWebSocket();
+      }
+    };
+
+    window.addEventListener("storage", handleLogin);
+    window.addEventListener("userLoggedIn", handleLogin);
+    return () => {
+      window.removeEventListener("storage", handleLogin);
+      window.removeEventListener("userLoggedIn", handleLogin);
+    };
+  }, [fetchInitialStatuses, connectWebSocket, isPollingMode]);
+
   /**
    * Get MQTT connection status for a specific vehicle
    * @param {string} vehicleCode - Vehicle code (e.g., "USV-01")

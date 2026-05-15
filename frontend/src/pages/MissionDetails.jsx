@@ -10,6 +10,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import useMapTile from "../hooks/useMapTile";
 import {
   FaArrowLeft,
   FaBatteryHalf,
@@ -262,8 +263,8 @@ const MissionJourneyMap = ({ mission, journeyPoints }) => {
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
-          attribution="&copy; Esri"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          attribution={tileAttribution}
+          url={tileUrl}
           noWrap={true}
           maxZoom={20}
           maxNativeZoom={18}
@@ -385,10 +386,18 @@ const MissionJourneyMap = ({ mission, journeyPoints }) => {
   );
 };
 
-const DetailItem = ({ icon, label, value, iconColor = "text-slate-400", iconBg = "bg-slate-100 dark:bg-slate-800" }) => (
+const DetailItem = ({
+  icon,
+  label,
+  value,
+  iconColor = "text-slate-400",
+  iconBg = "bg-slate-100 dark:bg-slate-800",
+}) => (
   <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-transparent">
     <div className="mb-3 flex items-center gap-2.5">
-      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm ${iconBg} ${iconColor}`}>
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm ${iconBg} ${iconColor}`}
+      >
         {icon}
       </span>
       <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
@@ -403,6 +412,7 @@ const DetailItem = ({ icon, label, value, iconColor = "text-slate-400", iconBg =
 
 const MissionDetails = () => {
   const { t } = useTranslation();
+  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
   useTitle(t("pages.missionDetails.title"));
 
   const { missionId } = useParams();
@@ -488,12 +498,14 @@ const MissionDetails = () => {
           // Keep existing object when no meaningful progress change to avoid noisy rerenders.
           if (!prevMission) return missionData;
           const noProgressChange =
-            Number(prevMission.progress || 0) === Number(missionData.progress || 0) &&
+            Number(prevMission.progress || 0) ===
+              Number(missionData.progress || 0) &&
             Number(prevMission.completed_waypoint || 0) ===
               Number(missionData.completed_waypoint || 0) &&
             Number(prevMission.current_waypoint || 0) ===
               Number(missionData.current_waypoint || 0) &&
-            String(prevMission.status || "") === String(missionData.status || "");
+            String(prevMission.status || "") ===
+              String(missionData.status || "");
           return noProgressChange ? prevMission : missionData;
         });
       } catch {
@@ -820,7 +832,8 @@ const MissionDetails = () => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DetailItem
           icon={<FaShip />}
-          iconColor="text-sky-500" iconBg="bg-sky-50 dark:bg-sky-950/40"
+          iconColor="text-sky-500"
+          iconBg="bg-sky-50 dark:bg-sky-950/40"
           label={t("pages.missionDetails.vehicle")}
           value={
             mission.vehicle?.name ||
@@ -830,19 +843,22 @@ const MissionDetails = () => {
         />
         <DetailItem
           icon={<FaRoute />}
-          iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-950/40"
+          iconColor="text-amber-500"
+          iconBg="bg-amber-50 dark:bg-amber-950/40"
           label={t("pages.missionDetails.waypointProgress")}
           value={`${mission.completed_waypoint || 0}/${executionWaypointCount} ${t("pages.missionDetails.waypointUnit")}`}
         />
         <DetailItem
           icon={<FaCheckCircle />}
-          iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+          iconColor="text-emerald-500"
+          iconBg="bg-emerald-50 dark:bg-emerald-950/40"
           label={t("pages.missionDetails.progress")}
           value={`${progressPercent}%`}
         />
         <DetailItem
           icon={<FaClock />}
-          iconColor="text-violet-500" iconBg="bg-violet-50 dark:bg-violet-950/40"
+          iconColor="text-violet-500"
+          iconBg="bg-violet-50 dark:bg-violet-950/40"
           label={t("pages.missionDetails.duration")}
           value={formatDuration(mission.time_elapsed || 0)}
         />
@@ -854,25 +870,29 @@ const MissionDetails = () => {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
               <DetailItem
                 icon={<FaSatelliteDish />}
-                iconColor="text-cyan-500" iconBg="bg-cyan-50 dark:bg-cyan-950/40"
+                iconColor="text-cyan-500"
+                iconBg="bg-cyan-50 dark:bg-cyan-950/40"
                 label={t("pages.missionDetails.telemetrySamples")}
                 value={String(telemetryStats.samples)}
               />
               <DetailItem
                 icon={<FaPlayCircle />}
-                iconColor="text-green-500" iconBg="bg-green-50 dark:bg-green-950/40"
+                iconColor="text-green-500"
+                iconBg="bg-green-50 dark:bg-green-950/40"
                 label={t("pages.missionDetails.firstPing")}
                 value={telemetryStats.firstPing}
               />
               <DetailItem
                 icon={<FaClock />}
-                iconColor="text-orange-500" iconBg="bg-orange-50 dark:bg-orange-950/40"
+                iconColor="text-orange-500"
+                iconBg="bg-orange-50 dark:bg-orange-950/40"
                 label={t("pages.missionDetails.lastPing")}
                 value={telemetryStats.lastPing}
               />
               <DetailItem
                 icon={<FaRoute />}
-                iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-950/40"
+                iconColor="text-amber-500"
+                iconBg="bg-amber-50 dark:bg-amber-950/40"
                 label={t("pages.missionDetails.avgSpeed")}
                 value={telemetryStats.avgSpeed}
               />
@@ -891,31 +911,36 @@ const MissionDetails = () => {
           <div className="space-y-3">
             <DetailItem
               icon={<FaUser />}
-              iconColor="text-indigo-500" iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+              iconColor="text-indigo-500"
+              iconBg="bg-indigo-50 dark:bg-indigo-950/40"
               label={t("pages.missionDetails.createdBy")}
               value={mission.creator?.name || mission.creator?.email || "-"}
             />
             <DetailItem
               icon={<FaCalendarAlt />}
-              iconColor="text-rose-500" iconBg="bg-rose-50 dark:bg-rose-950/40"
+              iconColor="text-rose-500"
+              iconBg="bg-rose-50 dark:bg-rose-950/40"
               label={t("pages.missionDetails.createdAt")}
               value={formatDateTime(mission.created_at)}
             />
             <DetailItem
               icon={<FaPlayCircle />}
-              iconColor="text-green-500" iconBg="bg-green-50 dark:bg-green-950/40"
+              iconColor="text-green-500"
+              iconBg="bg-green-50 dark:bg-green-950/40"
               label={t("pages.missionDetails.startTime")}
               value={formatDateTime(mission.start_time)}
             />
             <DetailItem
               icon={<FaCheckCircle />}
-              iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+              iconColor="text-emerald-500"
+              iconBg="bg-emerald-50 dark:bg-emerald-950/40"
               label={t("pages.missionDetails.endTime")}
               value={formatDateTime(mission.end_time)}
             />
             <DetailItem
               icon={<FaBatteryHalf />}
-              iconColor="text-yellow-500" iconBg="bg-yellow-50 dark:bg-yellow-950/40"
+              iconColor="text-yellow-500"
+              iconBg="bg-yellow-50 dark:bg-yellow-950/40"
               label={t("pages.missionDetails.energy")}
               value={
                 mission.energy_budget
@@ -925,7 +950,8 @@ const MissionDetails = () => {
             />
             <DetailItem
               icon={<FaMapMarkerAlt />}
-              iconColor="text-pink-500" iconBg="bg-pink-50 dark:bg-pink-950/40"
+              iconColor="text-pink-500"
+              iconBg="bg-pink-50 dark:bg-pink-950/40"
               label={t("pages.missionDetails.currentWaypoint")}
               value={`${mission.current_waypoint || 0}/${executionWaypointCount}`}
             />
@@ -1006,8 +1032,8 @@ const MissionDetails = () => {
       </div>
 
       <DataCard title={t("pages.missionDetails.telemetryJourney")}>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
+        <div className="w-full max-w-full overflow-x-auto">
+          <table className="w-full min-w-max divide-y divide-slate-200 text-sm dark:divide-slate-700">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                 <th className="px-4 py-3">{t("pages.missionDetails.time")}</th>

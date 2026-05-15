@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -23,62 +23,72 @@ import {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // Data dianggap fresh selama 5 menit
-      gcTime: 10 * 60 * 1000, // Cache disimpan 10 menit (formerly cacheTime)
-      refetchOnWindowFocus: false, // Tidak auto-refetch saat window focus
-      retry: 1, // Retry 1x jika gagal
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
     },
   },
 });
 
-// Layout Components
+// Layout Components (eager - always visible)
 import { Header, Sidebar, Footbar } from "./components/Layout";
 import { Content, Main } from "./components/ui";
 
-// Direct imports - load semua pages into main bundle
-import Dashboard from "./pages/Dashboard";
-import Tracking from "./pages/Tracking";
-import Missions from "./pages/Missions";
-import Data from "./pages/Data";
-import Log from "./pages/Log";
-import Settings from "./pages/Settings";
-import Vehicle from "./pages/Vehicle";
-import Alerts from "./pages/Alerts";
-import Profile from "./pages/Profile";
-import Control from "./pages/Control";
-import Camera from "./pages/Camera";
-import Battery from "./pages/Battery";
-import Sensor from "./pages/Sensor";
-import SensorType from "./pages/SensorType";
-import Notification from "./pages/Notification";
-import User from "./pages/User";
-import Role from "./pages/Role";
-import Permission from "./pages/Permission";
-import MissionsPlanner from "./pages/MissionPlanner";
-import MissionDetails from "./pages/MissionDetails";
-import MissionReport from "./pages/MissionReport";
-import CTD from "./pages/SensorMonitoring/CTD";
-import ADCP from "./pages/SensorMonitoring/ADCP";
-import SBES from "./pages/SensorMonitoring/SBES";
-import MBES from "./pages/SensorMonitoring/MBES";
-import Weather from "./pages/Weather";
-import GettingStarted from "./pages/docs/GettingStarted";
-import MqttDocs from "./pages/docs/MqttDocs";
-import ApiDocs from "./pages/docs/ApiDocs";
-import DocsIndex from "./pages/docs/DocsIndex";
-import MissionPlannerDocs from "./pages/docs/MissionPlannerDocs";
-import ControlDocs from "./pages/docs/ControlDocs";
+// Lazy-loaded protected pages - code splitting per route
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Tracking = lazy(() => import("./pages/Tracking"));
+const Missions = lazy(() => import("./pages/Missions"));
+const Data = lazy(() => import("./pages/Data"));
+const Log = lazy(() => import("./pages/Log"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Vehicle = lazy(() => import("./pages/Vehicle"));
+const Alerts = lazy(() => import("./pages/Alerts"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Control = lazy(() => import("./pages/Control"));
+const Camera = lazy(() => import("./pages/Camera"));
+const Battery = lazy(() => import("./pages/Battery"));
+const Sensor = lazy(() => import("./pages/Sensor"));
+const SensorType = lazy(() => import("./pages/SensorType"));
+const Notification = lazy(() => import("./pages/Notification"));
+const User = lazy(() => import("./pages/User"));
+const Role = lazy(() => import("./pages/Role"));
+const Permission = lazy(() => import("./pages/Permission"));
+const MissionsPlanner = lazy(() => import("./pages/MissionPlanner"));
+const MissionDetails = lazy(() => import("./pages/MissionDetails"));
+const MissionReport = lazy(() => import("./pages/MissionReport"));
+const CTD = lazy(() => import("./pages/SensorMonitoring/CTD"));
+const ADCP = lazy(() => import("./pages/SensorMonitoring/ADCP"));
+const SBES = lazy(() => import("./pages/SensorMonitoring/SBES"));
+const MBES = lazy(() => import("./pages/SensorMonitoring/MBES"));
+const Weather = lazy(() => import("./pages/Weather"));
+const GettingStarted = lazy(() => import("./pages/docs/GettingStarted"));
+const MqttDocs = lazy(() => import("./pages/docs/MqttDocs"));
+const ApiDocs = lazy(() => import("./pages/docs/ApiDocs"));
+const DocsIndex = lazy(() => import("./pages/docs/DocsIndex"));
+const MissionPlannerDocs = lazy(() => import("./pages/docs/MissionPlannerDocs"));
+const ControlDocs = lazy(() => import("./pages/docs/ControlDocs"));
 
-// Auth Pages - EAGER LOAD untuk avoid chunking issues
+// Auth Pages - eager load (small, needed immediately)
 import Login from "./pages/auth/Login";
 import EmailRegistration from "./pages/auth/EmailRegistration";
 import SetAccount from "./pages/auth/SetAccount";
 import CheckEmailVerification from "./pages/auth/CheckEmailVerification";
 import VerifyEmail from "./pages/auth/VerifyEmail";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 
-// Other - eager load untuk pages yang ringan
+// Other - eager load (lightweight)
 import Landing from "./pages/Landing";
 import ErrorPage from "./components/Error/ErrorPage";
+
+// Loading fallback for lazy-loaded pages
+import { LoadingDots } from "./components/ui";
+const PageLoader = () => (
+  <div className="flex items-center justify-center h-64">
+    <LoadingDots size="lg" />
+  </div>
+);
 
 function App() {
   const location = useLocation();
@@ -122,9 +132,10 @@ function App() {
     }
   }, [vehicles]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selectedVehicle = selectedVehicleId
-    ? vehicles.find((v) => v.id === selectedVehicleId)
-    : null;
+  const selectedVehicle = useMemo(
+    () => (selectedVehicleId ? vehicles.find((v) => v.id === selectedVehicleId) : null),
+    [selectedVehicleId, vehicles]
+  );
 
   useEffect(() => {
     const savedSidebar = localStorage.getItem("sidebarOpen");
@@ -133,6 +144,16 @@ function App() {
     } else {
       setIsSidebarOpen(window.innerWidth >= 768);
     }
+  }, []);
+
+  // Close sidebar when thrust control enters fullscreen (consistent cross-platform)
+  useEffect(() => {
+    const handler = () => {
+      setIsSidebarOpen(false);
+      localStorage.setItem("sidebarOpen", "false");
+    };
+    window.addEventListener("thrust-fullscreen-open", handler);
+    return () => window.removeEventListener("thrust-fullscreen-open", handler);
   }, []);
 
   useEffect(() => {
@@ -170,6 +191,8 @@ function App() {
     "/auth/email-registration",
     "/auth/set-account",
     "/auth/email-verification",
+    "/auth/forgot-password",
+    "/auth/reset-password",
     "/verify-email",
   ];
 
@@ -277,6 +300,22 @@ function App() {
               </PublicRoute>
             }
           />
+          <Route
+            path="/auth/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPassword darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/auth/reset-password"
+            element={
+              <PublicRoute>
+                <ResetPassword darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+              </PublicRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/404" replace />} />
         </Routes>
       </div>
@@ -303,6 +342,7 @@ function App() {
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onHoverChange={setIsSidebarHovered}
+        onClose={() => setIsSidebarOpen(false)}
       />
       <Footbar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <div className="flex-1 flex flex-col min-h-screen">
@@ -320,7 +360,7 @@ function App() {
           darkMode={darkMode}
         >
           <Content id="main-content">
-            {/* All pages loaded directly - no lazy loading */}
+            <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route
                 path="/dashboard"
@@ -491,7 +531,7 @@ function App() {
                 path="/settings"
                 element={
                   <ProtectedRoute>
-                    <Settings darkMode={darkMode} />
+                    <Settings darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
                   </ProtectedRoute>
                 }
               />
@@ -570,7 +610,7 @@ function App() {
               <Route
                 path="/docs/mqtt"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute adminOnly>
                     <MqttDocs />
                   </ProtectedRoute>
                 }
@@ -578,7 +618,7 @@ function App() {
               <Route
                 path="/docs/api"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute adminOnly>
                     <ApiDocs />
                   </ProtectedRoute>
                 }
@@ -601,6 +641,7 @@ function App() {
               />
               <Route path="*" element={<Navigate to="/404" replace />} />
             </Routes>
+            </Suspense>
           </Content>
         </Main>
       </div>

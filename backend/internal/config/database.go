@@ -20,14 +20,27 @@ func ConnectDB() (*gorm.DB, error) {
 		os.Getenv("DB_PORT"),
 	)
 
+	logLevel := logger.Warn
+	if os.Getenv("DB_LOG_LEVEL") == "info" {
+		logLevel = logger.Info
+	}
+
 	var db *gorm.DB
 	var err error
 
 	for i := 1; i <= 10; i++ {
 		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-			Logger: logger.Default.LogMode(logger.Info),
+			Logger: logger.Default.LogMode(logLevel),
 		})
 		if err == nil {
+			// Configure connection pool
+			sqlDB, poolErr := db.DB()
+			if poolErr == nil {
+				sqlDB.SetMaxOpenConns(50)
+				sqlDB.SetMaxIdleConns(10)
+				sqlDB.SetConnMaxLifetime(30 * time.Minute)
+				sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+			}
 			return db, nil
 		}
 		time.Sleep(2 * time.Second)

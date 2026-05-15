@@ -4,13 +4,20 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/gofiber/contrib/websocket"
 )
 
+const (
+	pongWait   = 60 * time.Second
+	pingPeriod = 50 * time.Second
+	writeWait  = 10 * time.Second
+)
+
 type SensorDataMessage struct {
-	MessageType string      `json:"message_type"` // "sensor_data", "mission_progress"
-	SensorType  string      `json:"sensor_type"`  // "ctd_midas3000", "adcp", etc.
+	MessageType string      `json:"message_type"`
+	SensorType  string      `json:"sensor_type"`
 	VehicleCode string      `json:"vehicle_code"`
 	SensorCode  string      `json:"sensor_code"`
 	Timestamp   string      `json:"timestamp"`
@@ -18,7 +25,7 @@ type SensorDataMessage struct {
 }
 
 type MissionProgressMessage struct {
-	MessageType       string  `json:"message_type"` // "mission_progress"
+	MessageType       string  `json:"message_type"`
 	MissionID         uint    `json:"mission_id"`
 	VehicleCode       string  `json:"vehicle_code"`
 	Progress          float64 `json:"progress"`
@@ -54,9 +61,9 @@ type Hub struct {
 func NewHub() *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
+		broadcast:  make(chan []byte, 512),
+		register:   make(chan *Client, 64),
+		unregister: make(chan *Client, 64),
 	}
 }
 
@@ -79,46 +86,54 @@ func (h *Hub) Run() {
 			log.Printf("WebSocket client unregistered. Total clients: %d", len(h.clients))
 
 		case message := <-h.broadcast:
+			// Unmarshal once for filtering instead of per-client
+			var parsedMsg SensorDataMessage
+			parsed := json.Unmarshal(message, &parsedMsg) == nil
+
 			h.mu.RLock()
+			var slowClients []*Client
 			for client := range h.clients {
-				if h.shouldSendToClient(client, message) {
+				if h.shouldSendToClientParsed(client, &parsedMsg, parsed) {
 					select {
 					case client.Send <- message:
 					default:
-						h.mu.RUnlock()
-						h.unregister <- client
-						h.mu.RLock()
+						slowClients = append(slowClients, client)
 					}
 				}
 			}
 			h.mu.RUnlock()
+
+			if len(slowClients) > 0 {
+				h.mu.Lock()
+				for _, client := range slowClients {
+					if _, ok := h.clients[client]; ok {
+						delete(h.clients, client)
+						close(client.Send)
+						log.Printf("WebSocket slow client dropped. Total clients: %d", len(h.clients))
+					}
+				}
+				h.mu.Unlock()
+			}
 		}
 	}
 }
 
-func (h *Hub) shouldSendToClient(client *Client, message []byte) bool {
+func (h *Hub) shouldSendToClientParsed(client *Client, msg *SensorDataMessage, parsed bool) bool {
 	if client.Filter.VehicleCode == "" && client.Filter.SensorCode == "" && client.Filter.SensorType == "" {
 		return true
 	}
-
-	var msg SensorDataMessage
-	if err := json.Unmarshal(message, &msg); err != nil {
-		return true 
+	if !parsed {
+		return true
 	}
-
-	// Check filters
 	if client.Filter.VehicleCode != "" && client.Filter.VehicleCode != msg.VehicleCode {
 		return false
 	}
-
 	if client.Filter.SensorCode != "" && client.Filter.SensorCode != msg.SensorCode {
 		return false
 	}
-
 	if client.Filter.SensorType != "" && client.Filter.SensorType != msg.SensorType {
 		return false
 	}
-
 	return true
 }
 
@@ -127,8 +142,11 @@ func (h *Hub) BroadcastSensorData(msg SensorDataMessage) error {
 	if err != nil {
 		return err
 	}
-
-	h.broadcast <- data
+	select {
+	case h.broadcast <- data:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping message")
+	}
 	return nil
 }
 
@@ -137,15 +155,21 @@ func (h *Hub) BroadcastMissionProgress(msg MissionProgressMessage) error {
 	if err != nil {
 		return err
 	}
-
-	h.broadcast <- data
+	select {
+	case h.broadcast <- data:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping message")
+	}
 	return nil
 }
 
-
-// Broadcast sends raw data to all connected clients
+// Broadcast sends raw data to all connected clients (non-blocking)
 func (h *Hub) Broadcast(data []byte) {
-	h.broadcast <- data
+	select {
+	case h.broadcast <- data:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping message")
+	}
 }
 
 func (h *Hub) GetClientCount() int {
@@ -159,6 +183,12 @@ func (c *Client) ReadPump(hub *Hub) {
 		hub.unregister <- c
 		c.Conn.Close()
 	}()
+
+	c.Conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.Conn.SetPongHandler(func(string) error {
+		c.Conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 
 	for {
 		_, message, err := c.Conn.ReadMessage()
@@ -174,19 +204,28 @@ func (c *Client) ReadPump(hub *Hub) {
 }
 
 func (c *Client) WritePump() {
+	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		ticker.Stop()
 		c.Conn.Close()
 	}()
 
 	for {
-		message, ok := <-c.Send
-		if !ok {
-			c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
-			return
-		}
-
-		if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
-			return
+		select {
+		case message, ok := <-c.Send:
+			c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				return
+			}
+		case <-ticker.C:
+			c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
 		}
 	}
 }
@@ -194,7 +233,6 @@ func (c *Client) WritePump() {
 func (h *Hub) handleClientMessage(client *Client, message []byte) {
 	var msg map[string]interface{}
 	if err := json.Unmarshal(message, &msg); err != nil {
-		log.Printf("Error parsing client message: %v", err)
 		return
 	}
 
@@ -210,8 +248,5 @@ func (h *Hub) handleClientMessage(client *Client, message []byte) {
 			client.Filter.SensorType = sensorType
 		}
 		h.mu.Unlock()
-
-		log.Printf("Client filter updated: vehicle=%s, sensor=%s, type=%s",
-			client.Filter.VehicleCode, client.Filter.SensorCode, client.Filter.SensorType)
 	}
 }

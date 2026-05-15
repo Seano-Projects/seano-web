@@ -67,9 +67,26 @@ services:
       - VITE_USE_PROXY=true
       - VITE_MODE=production
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: seano_ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./ollama:/ollama
+    networks:
+      - seano_net
+    deploy:
+      resources:
+        reservations:
+          memory: 4G
+
 networks:
   seano_net:
     driver: bridge
 
 volumes:
   pgdata:
+  ollama_data:

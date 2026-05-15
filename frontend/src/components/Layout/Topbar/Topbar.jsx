@@ -241,7 +241,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
                   py-2 px-3 border-b border-gray-200
                   dark:bg-black dark:border-gray-700
                   flex items-center justify-between gap-2
-                  ${isSidebarOpen ? "md:left-64 left-16" : "left-16"}`}
+                  ${isSidebarOpen ? "md:left-64 left-0" : "md:left-16 left-0"}`}
     >
       <div className="flex items-center gap-2 dark:text-white text-sm min-w-0">
         <div className="flex items-center gap-2 shrink-0">

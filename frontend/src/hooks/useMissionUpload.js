@@ -35,7 +35,7 @@ const buildMqttUrl = () => {
   }
 
   const broker = import.meta.env.VITE_MQTT_BROKER
-  const port = import.meta.env.VITE_MQTT_PORT || '443'
+  const port = import.meta.env.VITE_MQTT_PORT || '8884'
   const protocol = import.meta.env.VITE_MQTT_PROTOCOL || 'wss'
   const path = import.meta.env.VITE_MQTT_PATH || '/mqtt'
 

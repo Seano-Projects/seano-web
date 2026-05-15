@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -162,16 +163,31 @@ func (h *VehicleHandler) GetAllVehicles(c *fiber.Ctx) error {
 		})
 	}
 
-	// Enrich vehicles with latest telemetry data from vehicle_logs
-	for i := range vehicles {
-		var latestLog model.VehicleLog
-		err := h.db.Where("vehicle_id = ?", vehicles[i].ID).
-			Order("created_at DESC").
-			Limit(1).
-			First(&latestLog).Error
-		
-		if err == nil {
-			// Update vehicle with latest telemetry data
+	// Enrich vehicles with latest telemetry data — single query instead of N+1
+	if len(vehicles) > 0 {
+		vehicleIDs := make([]uint, len(vehicles))
+		for i, v := range vehicles {
+			vehicleIDs[i] = v.ID
+		}
+
+		var latestLogs []model.VehicleLog
+		h.db.Raw(`
+			SELECT DISTINCT ON (vehicle_id) *
+			FROM vehicle_logs
+			WHERE vehicle_id IN ?
+			ORDER BY vehicle_id, created_at DESC
+		`, vehicleIDs).Scan(&latestLogs)
+
+		logMap := make(map[uint]*model.VehicleLog, len(latestLogs))
+		for i := range latestLogs {
+			logMap[latestLogs[i].VehicleID] = &latestLogs[i]
+		}
+
+		for i := range vehicles {
+			latestLog, ok := logMap[vehicles[i].ID]
+			if !ok {
+				continue
+			}
 			if latestLog.BatteryPercentage != nil {
 				vehicles[i].BatteryLevel = latestLog.BatteryPercentage
 			}
@@ -425,6 +441,17 @@ func (h *VehicleHandler) DeleteVehicle(c *fiber.Ctx) error {
 		})
 	}
 
+	// Cancel any active missions tied to this vehicle before deletion.
+	// Without this, the ON DELETE SET NULL cascade would leave missions in Ongoing
+	// status with vehicle_id=NULL — an orphan state that confuses MQTT listeners
+	// when the vehicle is re-added later with a new ID.
+	if err := h.db.Model(&model.Mission{}).
+		Where("vehicle_id = ? AND LOWER(status) IN ?", uint(id), []string{"ongoing", "active", "running", "in_progress"}).
+		Updates(map[string]interface{}{"status": "Cancelled"}).Error; err != nil {
+		log.Printf("Warning: failed to cancel active missions for vehicle %d before deletion: %v", id, err)
+		// Non-fatal — proceed with deletion
+	}
+
 	if err := h.vehicleRepo.DeleteVehicle(uint(id)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to delete vehicle",
@@ -583,14 +610,18 @@ func (h *VehicleHandler) ExportBatteryLogs(c *fiber.Ctx) error {
 	// Get all vehicles user has access to
 	var vehicleIDs []uint
 	if middleware.HasPermission(h.db, userID, "vehicles.read_all") {
-		// Admin can export all
 		vehicles, _ := h.vehicleRepo.GetAllVehicles()
 		for _, v := range vehicles {
 			vehicleIDs = append(vehicleIDs, v.ID)
 		}
 	} else {
-		// Regular users only export their own
 		vehicleIDs, _ = h.vehicleRepo.GetVehicleIDsByUserID(userID)
+	}
+
+	if len(vehicleIDs) == 0 {
+		c.Set("Content-Type", "text/csv")
+		c.Set("Content-Disposition", "attachment; filename=battery_logs.csv")
+		return c.SendString("Timestamp,Vehicle,BatteryID,Percentage,Voltage,Current,Status,Temperature\n")
 	}
 
 	// Parse filter parameters
@@ -606,6 +637,17 @@ func (h *VehicleHandler) ExportBatteryLogs(c *fiber.Ctx) error {
 		}
 	}
 
+	// Single query: fetch all battery logs with vehicle info, filtered by time in SQL
+	var logs []model.VehicleBattery
+	q := h.db.Preload("Vehicle").Where("vehicle_id IN ?", vehicleIDs)
+	if !startTime.IsZero() {
+		q = q.Where("created_at >= ?", startTime)
+	}
+	if !endTime.IsZero() {
+		q = q.Where("created_at <= ?", endTime)
+	}
+	q.Order("created_at ASC").Limit(50000).Find(&logs)
+
 	// Build CSV content
 	csvHeader := []string{"Timestamp", "Vehicle", "BatteryID", "Percentage", "Voltage", "Current", "Status", "Temperature"}
 	var b strings.Builder
@@ -617,54 +659,33 @@ func (h *VehicleHandler) ExportBatteryLogs(c *fiber.Ctx) error {
 		return "\"" + s + "\""
 	}
 
-	// Get battery logs for each vehicle
-	if len(vehicleIDs) > 0 {
-		for _, vehicleID := range vehicleIDs {
-			logs, err := h.vehicleRepo.GetBatteryLogsByVehicleID(vehicleID, nil, 10000)
-			if err != nil || len(logs) == 0 {
-				continue
-			}
-
-			vehicle, _ := h.vehicleRepo.GetVehicleByID(vehicleID)
-
-			for _, log := range logs {
-				// Apply time filters
-				if !startTime.IsZero() && log.CreatedAt.Before(startTime) {
-					continue
-				}
-				if !endTime.IsZero() && log.CreatedAt.After(endTime) {
-					continue
-				}
-
-				vehicleDisp := ""
-				if vehicle != nil {
-					if vehicle.Name != "" {
-						vehicleDisp = vehicle.Name
-					} else {
-						vehicleDisp = vehicle.Code
-					}
-				}
-
-				row := []string{
-					esc(log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00")),
-					esc(vehicleDisp),
-					esc(strconv.Itoa(log.BatteryID)),
-					esc(strconv.FormatFloat(log.Percentage, 'f', 2, 64)),
-					esc(strconv.FormatFloat(log.Voltage, 'f', 2, 64)),
-					esc(strconv.FormatFloat(log.Current, 'f', 2, 64)),
-					esc(log.Status),
-					esc(strconv.FormatFloat(log.Temperature, 'f', 2, 64)),
-				}
-
-				b.WriteString(strings.Join(row, ","))
-				b.WriteString("\n")
+	for _, log := range logs {
+		vehicleDisp := ""
+		if log.Vehicle != nil {
+			if log.Vehicle.Name != "" {
+				vehicleDisp = log.Vehicle.Name
+			} else {
+				vehicleDisp = log.Vehicle.Code
 			}
 		}
+
+		row := []string{
+			esc(log.CreatedAt.Format("2006-01-02T15:04:05.000Z07:00")),
+			esc(vehicleDisp),
+			esc(strconv.Itoa(log.BatteryID)),
+			esc(strconv.FormatFloat(log.Percentage, 'f', 2, 64)),
+			esc(strconv.FormatFloat(log.Voltage, 'f', 2, 64)),
+			esc(strconv.FormatFloat(log.Current, 'f', 2, 64)),
+			esc(log.Status),
+			esc(strconv.FormatFloat(log.Temperature, 'f', 2, 64)),
+		}
+
+		b.WriteString(strings.Join(row, ","))
+		b.WriteString("\n")
 	}
 
 	csv := b.String()
 
-	// Set headers for file download
 	c.Set("Content-Type", "text/csv")
 	c.Set("Content-Disposition", "attachment; filename=battery_logs.csv")
 

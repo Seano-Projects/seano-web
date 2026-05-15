@@ -101,6 +101,47 @@
         "title": "Registration Complete",
         "message": "Your account has been created successfully!"
       }
+    },
+    "forgotPassword": {
+      "link": "Forgot password?",
+      "title": "Forgot Password",
+      "subtitle": "Enter your email and we'll send you a link to reset your password.",
+      "email": "Email",
+      "emailPlaceholder": "your.email@example.com",
+      "submit": "Send Reset Link",
+      "sending": "Sending...",
+      "backToLogin": "Back to Login",
+      "sentMessage": "A password reset link has been sent to your email. Please check your inbox.",
+      "errors": {
+        "emailRequired": "Please enter your email address",
+        "invalidEmail": "Please enter a valid email address",
+        "failed": "Failed to send reset email. Please try again."
+      },
+      "success": {
+        "title": "Email Sent",
+        "message": "Password reset link has been sent to your email."
+      }
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "subtitle": "Enter your new password.",
+      "password": "New Password",
+      "passwordPlaceholder": "At least 6 characters",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter your password",
+      "submit": "Reset Password",
+      "resetting": "Resetting...",
+      "errors": {
+        "fillAllFields": "Please fill in all fields",
+        "passwordMinLength": "Password must be at least 6 characters",
+        "passwordMismatch": "Passwords do not match",
+        "invalidToken": "Invalid or expired reset token.",
+        "failed": "Failed to reset password. Please try again."
+      },
+      "success": {
+        "title": "Success",
+        "message": "Password reset successfully! Redirecting to login..."
+      }
     }
   },
   "nav": {
@@ -428,7 +469,8 @@
       "step4Item1": "Click the expand icon (top-right of video) to enter fullscreen",
       "step4Item2": "Click Disconnect to stop the stream",
       "step4Item3": "Switch vehicles using the dropdown - it will auto-reconnect"
-    }
+    },
+    "lockedByAnotherSession": "This device is currently being controlled by another session"
   },
   "pages": {
     "missions": {
@@ -939,7 +981,23 @@
     },
     "settings": {
       "title": "Settings",
-      "subtitle": "Configure system preferences"
+      "subtitle": "Configure system preferences",
+      "appearance": "Appearance",
+      "theme": "Theme",
+      "mapStyle": "Map Style",
+      "language": "Language",
+      "systemInfo": "System Info",
+      "appVersion": "App Version",
+      "realtimeMode": "Realtime Mode",
+      "realtimeModeDesc": "Choose how the app receives real-time data. Changing this will reload the page.",
+      "changeRealtimeMode": "Change Realtime Mode",
+      "realtimeModeConfirm": "Changing realtime mode will reload the page. Continue?",
+      "reloadNow": "Reload Now",
+      "cancel": "Cancel",
+      "wsConnection": "WebSocket",
+      "mqttBroker": "MQTT Broker",
+      "connected": "Connected",
+      "disconnected": "Disconnected"
     },
     "profile": {
       "title": "Profile",
@@ -1219,6 +1277,10 @@
     "title": "Help & Resources",
     "gettingStarted": "Getting Started",
     "gettingStartedDesc": "Basic guide to using SeaPortal",
+    "missionPlanner": "Mission Planner",
+    "missionPlannerDesc": "How to plan and execute missions",
+    "controlGuide": "Control Guide",
+    "controlGuideDesc": "Vehicle control and monitoring",
     "mqttTopics": "Connection Guide",
     "mqttTopicsDesc": "How to connect your vehicle",
     "apiDocumentation": "Integration Guide",

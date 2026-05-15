@@ -6,6 +6,7 @@ import useControlCommand from "../hooks/useControlCommand";
 import useVehicleData from "../hooks/useVehicleData";
 import { useLogData } from "../hooks/useLogData";
 import useMissionData from "../hooks/useMissionData";
+import useDeviceLock from "../hooks/useDeviceLock";
 import { API_BASE_URL } from "../config";
 import { toast } from "../components/ui";
 import {
@@ -172,6 +173,11 @@ const Control = () => {
     () => vehicles.find((v) => v.id === selectedVehicleId) ?? null,
     [vehicles, selectedVehicleId],
   );
+
+  // Exclusive page lock - only one session can control at a time
+  const deviceLockId = selectedVehicle?.id ? `control-${selectedVehicle.id}` : null;
+  const { isLocked, isLockOwner, lockedBySession } = useDeviceLock(deviceLockId);
+  const isControlDisabled = isLocked && !isLockOwner;
   const { vehicleLogs, waypointLogs } = useLogData({
     enableStats: false,
     enableChartData: false,
@@ -414,8 +420,11 @@ const Control = () => {
           : null;
 
     return {
-      heading: selectedVehicleLog.heading || selectedVehicleLog.yaw || 0,
-      speed: selectedVehicleLog.speed || 0,
+      heading:
+        (selectedVehicleLog.heading != null
+          ? selectedVehicleLog.heading
+          : selectedVehicleLog.yaw) ?? 0,
+      speed: selectedVehicleLog.speed ?? 0,
       altitude: selectedVehicleLog.altitude ?? null,
       latitude: selectedVehicleLog.latitude,
       longitude: selectedVehicleLog.longitude,
@@ -918,11 +927,8 @@ const Control = () => {
         return;
       }
       toast.success(t("control.missionControl.disarmSuccess"));
-    } else if (result.error === "timeout") {
-      // Published via MQTT but no ACK – keep the optimistic state.
-      toast.success(t("control.missionControl.disarmSuccess"));
     } else {
-      // Actual failure – revert the optimistic state.
+      // Actual failure or timeout – revert the optimistic state.
       setIsArmed(true);
       handleCommandError(result);
     }
@@ -942,10 +948,8 @@ const Control = () => {
         return;
       }
       toast.success(t("control.missionControl.armSuccess"));
-    } else if (result.error === "timeout") {
-      toast.success(t("control.missionControl.armSuccess"));
     } else {
-      // Actual failure – revert.
+      // Actual failure or timeout – revert.
       setIsArmed(false);
       setLastArmFailureMessage(result.message || "ARM failed");
       handleCommandError(result);
@@ -966,11 +970,7 @@ const Control = () => {
       toast.success("Force arm success");
       return;
     }
-    if (result.error === "timeout") {
-      toast.success("Force arm success");
-      return;
-    }
-    // Actual failure – revert.
+    // Actual failure or timeout – revert.
     setIsArmed(false);
     handleCommandError(result);
   };
@@ -999,12 +999,8 @@ const Control = () => {
       toast.success(
         `${t("control.missionControl.modeChangedTo")} ${modeToSet} ${t("control.missionControl.successfully")}`.trim(),
       );
-    } else if (result.error === "timeout") {
-      toast.success(
-        `${t("control.missionControl.modeChangedTo")} ${modeToSet} ${t("control.missionControl.successfully")}`.trim(),
-      );
     } else {
-      // Actual failure – revert.
+      // Actual failure or timeout – revert.
       setActiveMode(prevMode);
       handleCommandError(result);
     }
@@ -1027,6 +1023,17 @@ const Control = () => {
 
       {/* ——— FLOATING PANELS (over map) ——— */}
       <div className="absolute inset-0 z-10 pointer-events-none">
+        {/* Lock notification banner */}
+        {isControlDisabled && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none z-50">
+            <div className="px-5 py-3 rounded-xl border text-sm font-medium shadow-lg backdrop-blur-sm bg-red-500/20 border-red-400 text-red-100 flex items-center gap-2">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              {t("control.lockedByAnotherSession") || "Device sedang dikontrol oleh sesi lain"}
+            </div>
+          </div>
+        )}
         {/* Trail toggle button (Control page) */}
         <div className="absolute bottom-4 left-4 pointer-events-auto z-50">
           <button
@@ -1142,20 +1149,40 @@ const Control = () => {
           isExpanded={isThrustControlExpanded}
           onExpand={() => openPanel("thrust")}
           onCollapse={() => setIsThrustControlExpanded(false)}
+          disabled={isControlDisabled}
           isArmed={isArmed}
           selectedVehicle={selectedVehicle}
+          vehicles={vehicles}
+          onVehicleChange={(v) => setSelectedVehicleId(v.id)}
           activeMode={activeMode}
           thrusterThrottle={thrusterThrottle}
           thrusterSteering={thrusterSteering}
           onThrottleChange={handleThrottleChange}
           onSteeringChange={handleSteeringChange}
           onTestMotors={handleTestMotors}
+          commandLoading={commandLoading}
+          showDisarmConfirm={showDisarmConfirm}
+          setShowDisarmConfirm={setShowDisarmConfirm}
+          showArmConfirm={showArmConfirm}
+          setShowArmConfirm={setShowArmConfirm}
+          pendingMode={pendingMode}
+          setPendingMode={setPendingMode}
+          lastArmFailureMessage={lastArmFailureMessage}
+          onDisarmConfirm={handleDisarmConfirm}
+          onArmConfirm={handleArmConfirm}
+          onForceArm={handleForceArm}
+          onModeChangeRequest={handleModeChangeRequest}
+          onModeChangeConfirm={handleModeChangeConfirm}
+          vehiclePosition={vehiclePosition}
+          vehicleTrail={vehicleTrail}
+          vehicleHeading={telemetryData.heading}
         />
 
         <MissionControlPanel
           isExpanded={isMissionControlExpanded}
           onExpand={() => openPanel("mission")}
           onCollapse={() => setIsMissionControlExpanded(false)}
+          disabled={isControlDisabled}
           isArmed={isArmed}
           commandLoading={commandLoading}
           selectedVehicle={selectedVehicle}

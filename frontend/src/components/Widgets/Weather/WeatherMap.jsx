@@ -1,10 +1,12 @@
 import React from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import useMapTile from "../../../hooks/useMapTile";
 import { OWM_ICON, INDONESIA_CITIES, createWeatherIcon } from "./weatherUtils";
 import { Card } from "./WeatherPrimitives";
 
 const WeatherMap = ({ citiesWeather, activeCoords, weather, iconCode, temp, humidity, cityName, description, coordsSource }) => {
+  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
   return (
     <Card className="overflow-hidden" style={{ position: "relative", zIndex: 0, isolation: "isolate" }}>
       <div style={{ height: "clamp(280px, 50vh, 540px)" }}>
@@ -15,8 +17,8 @@ const WeatherMap = ({ citiesWeather, activeCoords, weather, iconCode, temp, humi
           scrollWheelZoom={false}
         >
           <TileLayer
-            attribution="&copy; Esri"
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution={tileAttribution}
+            url={tileUrl}
             maxZoom={20}
           />
 

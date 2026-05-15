@@ -196,6 +196,7 @@ const useNotificationData = () => {
           return updated
         })
 
+        window.dispatchEvent(new Event('notification-count-refresh'))
         return { success: true }
       } catch {
         return { success: false }
@@ -225,6 +226,7 @@ const useNotificationData = () => {
         return updated
       })
 
+      window.dispatchEvent(new Event('notification-count-refresh'))
       return { success: true }
     } catch {
       return { success: false }
@@ -252,6 +254,7 @@ const useNotificationData = () => {
         return updated
       })
 
+      window.dispatchEvent(new Event('notification-count-refresh'))
       return { success: true }
     } catch {
       return { success: false }

@@ -129,6 +129,29 @@ func SetupHypertables(db *gorm.DB, includeRawLogs bool) error {
 
 	log.Println("✓ Hypertable compression policies configured")
 
+	// Create composite indexes for common query patterns
+	indexQueries := []string{
+		// sensor_logs
+		`CREATE INDEX IF NOT EXISTS idx_sensor_logs_sensor_created ON sensor_logs (sensor_id, created_at DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_sensor_logs_vehicle_sensor_created ON sensor_logs (vehicle_id, sensor_id, created_at DESC);`,
+		// vehicle_logs
+		`CREATE INDEX IF NOT EXISTS idx_vehicle_logs_vehicle_created ON vehicle_logs (vehicle_id, created_at DESC);`,
+		// notifications
+		`CREATE INDEX IF NOT EXISTS idx_notifications_user_read_created ON notifications (user_id, read, created_at DESC);`,
+		// alerts
+		`CREATE INDEX IF NOT EXISTS idx_alerts_vehicle_created ON alerts (vehicle_id, created_at DESC);`,
+		// vehicle_batteries
+		`CREATE INDEX IF NOT EXISTS idx_vehicle_batteries_vehicle_created ON vehicle_batteries (vehicle_id, created_at DESC);`,
+		// vehicles — functional index for case-insensitive code lookup (used by every MQTT message)
+		`CREATE INDEX IF NOT EXISTS idx_vehicles_code_lower ON vehicles (LOWER(code));`,
+	}
+	for _, q := range indexQueries {
+		if err := db.Exec(q).Error; err != nil {
+			log.Printf("Warning: Index creation: %v", err)
+		}
+	}
+	log.Println("✓ Composite indexes created")
+
 	retentionQueries := []string{
 		`SELECT remove_retention_policy('sensor_logs', if_exists => TRUE);`,
 		`SELECT remove_retention_policy('vehicle_logs', if_exists => TRUE);`,

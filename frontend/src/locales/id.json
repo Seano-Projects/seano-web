@@ -101,6 +101,47 @@
         "title": "Registrasi Selesai",
         "message": "Akun Anda berhasil dibuat!"
       }
+    },
+    "forgotPassword": {
+      "link": "Lupa kata sandi?",
+      "title": "Lupa Kata Sandi",
+      "subtitle": "Masukkan email Anda dan kami akan mengirim link untuk reset kata sandi.",
+      "email": "Email",
+      "emailPlaceholder": "email.anda@contoh.com",
+      "submit": "Kirim Link Reset",
+      "sending": "Mengirim...",
+      "backToLogin": "Kembali ke Login",
+      "sentMessage": "Link reset kata sandi telah dikirim ke email Anda. Silakan periksa kotak masuk Anda.",
+      "errors": {
+        "emailRequired": "Masukkan alamat email Anda",
+        "invalidEmail": "Masukkan alamat email yang valid",
+        "failed": "Gagal mengirim email reset. Silakan coba lagi."
+      },
+      "success": {
+        "title": "Email Terkirim",
+        "message": "Link reset kata sandi telah dikirim ke email Anda."
+      }
+    },
+    "resetPassword": {
+      "title": "Reset Kata Sandi",
+      "subtitle": "Masukkan kata sandi baru Anda.",
+      "password": "Kata Sandi Baru",
+      "passwordPlaceholder": "Minimal 6 karakter",
+      "confirmPassword": "Konfirmasi Kata Sandi",
+      "confirmPasswordPlaceholder": "Masukkan ulang kata sandi",
+      "submit": "Reset Kata Sandi",
+      "resetting": "Mereset...",
+      "errors": {
+        "fillAllFields": "Harap isi semua kolom",
+        "passwordMinLength": "Kata sandi minimal 6 karakter",
+        "passwordMismatch": "Kata sandi tidak cocok",
+        "invalidToken": "Token reset tidak valid atau sudah kedaluwarsa.",
+        "failed": "Gagal mereset kata sandi. Silakan coba lagi."
+      },
+      "success": {
+        "title": "Berhasil",
+        "message": "Kata sandi berhasil direset! Mengalihkan ke halaman login..."
+      }
     }
   },
   "nav": {
@@ -428,7 +469,8 @@
       "step4Item1": "Klik ikon perbesar (kanan atas video) untuk layar penuh",
       "step4Item2": "Klik Putuskan untuk menghentikan stream",
       "step4Item3": "Ganti kendaraan lewat dropdown - akan auto reconnect"
-    }
+    },
+    "lockedByAnotherSession": "Device sedang dikontrol oleh sesi lain"
   },
   "pages": {
     "missions": {
@@ -939,7 +981,23 @@
     },
     "settings": {
       "title": "Pengaturan",
-      "subtitle": "Konfigurasi preferensi sistem"
+      "subtitle": "Konfigurasi preferensi sistem",
+      "appearance": "Tampilan",
+      "theme": "Tema",
+      "mapStyle": "Gaya Peta",
+      "language": "Bahasa",
+      "systemInfo": "Info Sistem",
+      "appVersion": "Versi Aplikasi",
+      "realtimeMode": "Mode Realtime",
+      "realtimeModeDesc": "Pilih cara aplikasi menerima data real-time. Mengubah ini akan memuat ulang halaman.",
+      "changeRealtimeMode": "Ubah Mode Realtime",
+      "realtimeModeConfirm": "Mengubah mode realtime akan memuat ulang halaman. Lanjutkan?",
+      "reloadNow": "Muat Ulang",
+      "cancel": "Batal",
+      "wsConnection": "WebSocket",
+      "mqttBroker": "MQTT Broker",
+      "connected": "Terhubung",
+      "disconnected": "Terputus"
     },
     "profile": {
       "title": "Profil",
@@ -1219,6 +1277,10 @@
     "title": "Bantuan & Sumber Daya",
     "gettingStarted": "Memulai",
     "gettingStartedDesc": "Panduan dasar penggunaan SeaPortal",
+    "missionPlanner": "Mission Planner",
+    "missionPlannerDesc": "Cara merencanakan dan menjalankan misi",
+    "controlGuide": "Panduan Kontrol",
+    "controlGuideDesc": "Kontrol dan monitoring kendaraan",
     "mqttTopics": "Panduan Koneksi",
     "mqttTopicsDesc": "Panduan menghubungkan kendaraan",
     "apiDocumentation": "Panduan Integrasi",

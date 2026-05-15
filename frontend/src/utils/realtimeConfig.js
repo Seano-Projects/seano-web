@@ -1,7 +1,9 @@
 const normalizeMode = value =>
   typeof value === 'string' ? value.trim().toLowerCase() : ''
 
-const rawMode = normalizeMode(import.meta.env.VITE_REALTIME_MODE)
+const savedMode = normalizeMode(localStorage.getItem('realtimeMode'))
+const envMode = normalizeMode(import.meta.env.VITE_REALTIME_MODE)
+const rawMode = savedMode || envMode
 
 export const REALTIME_MODE = rawMode === 'api' ? 'api' : 'mqtt'
 

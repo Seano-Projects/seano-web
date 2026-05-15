@@ -88,7 +88,17 @@ export const useADCPData = (vehicle = null) => {
     }
 
     try {
-      let url = `${API_BASE_URL}/sensor-logs/?limit=300&sensor_id=2`
+      // Find ADCP sensor IDs first
+      const sensorRes = await fetch(`${API_BASE_URL}/sensors/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!sensorRes.ok) return
+      const sensorList = await sensorRes.json()
+      const sensors = Array.isArray(sensorList) ? sensorList : sensorList.data || []
+      const adcpSensor = sensors.find(s => s.code && s.code.toUpperCase().includes('ADCP'))
+      if (!adcpSensor) return
+
+      let url = `${API_BASE_URL}/sensor-logs/?limit=300&order=desc&skip_count=true&sensor_id=${adcpSensor.id}`
       if (vehicleId) url += `&vehicle_id=${vehicleId}`
 
       const response = await fetch(url, {
@@ -117,7 +127,6 @@ export const useADCPData = (vehicle = null) => {
             sensor_code: log.sensor?.code
           })
           if (!n) return null
-          if (!n.sensor_code.toUpperCase().includes('ADCP')) return null
 
           const currentVehicle = selectedVehicleCodeRef.current
           if (currentVehicle && n.vehicle_code.toUpperCase() !== currentVehicle) {

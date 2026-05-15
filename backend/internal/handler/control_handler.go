@@ -92,6 +92,14 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 		})
 	}
 
+	// Ownership check: only the vehicle owner can send commands
+	userID := c.Locals("user_id").(uint)
+	if vehicle.UserID != userID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You do not have permission to control this vehicle",
+		})
+	}
+
 	initiatedAt := time.Now()
 	requestID := uuid.New().String()
 	entry := &model.CommandLog{

@@ -4,16 +4,20 @@ import axios from '../utils/axiosConfig'
 import { API_ENDPOINTS } from '../config'
 import { REALTIME_MODE } from '../utils/realtimeConfig'
 
-const postCommandLog = async (vehicleCode, command, status, message, initiatedAt, resolvedAt) => {
+const postCommandLog = async (vehicleCode, command, status, message, initiatedAt, resolvedAt, mqttPublishedAt, usvAckAt, ackReceivedAt) => {
   try {
-    await axios.post(API_ENDPOINTS.COMMAND_LOGS.CREATE, {
+    const body = {
       vehicle_code: vehicleCode,
       command,
       status,
       message: message || '',
       initiated_at: initiatedAt,
-      resolved_at: resolvedAt || null
-    })
+      resolved_at: resolvedAt || null,
+    }
+    if (mqttPublishedAt) body.mqtt_published_at = mqttPublishedAt
+    if (usvAckAt) body.usv_ack_at = usvAckAt
+    if (ackReceivedAt) body.ack_received_at = ackReceivedAt
+    await axios.post(API_ENDPOINTS.COMMAND_LOGS.CREATE, body)
   } catch {
     // log failure is non-blocking
   }
@@ -31,8 +35,9 @@ const SUPPORTED_COMMANDS = new Set([
   'RTL'
 ])
 
-// ARM/DISARM commands wait for hardware ACK. Mode commands (AUTO, MANUAL, etc.)
-// are fire-and-forget via MQTT – the telemetry stream confirms the state change.
+// All commands are fire-and-forget via MQTT – the telemetry stream confirms the
+// state change. ACK wait has been removed: waiting for ACK added latency but
+// provided no UX benefit since timeout was already treated as success.
 const ARM_COMMANDS = new Set(['ARM', 'FORCE_ARM', 'DISARM', 'FORCE_DISARM'])
 
 const MQTT_CONNECT_TIMEOUT_MS = 5000
@@ -159,6 +164,7 @@ const publishCommandToMqtt = async (vehicleCode, command, topicSuffix = 'command
     }),
     timeout(MQTT_PUBLISH_TIMEOUT_MS, 'MQTT publish timeout')
   ])
+  return new Date().toISOString()
 }
 
 const normalizeText = value =>
@@ -194,8 +200,8 @@ const isPositiveStatus = value => {
 const waitForCommandAck = (client, vehicleCode, command) =>
   new Promise((resolve, reject) => {
     const topicVehicleCode = String(vehicleCode || '').trim()
-    // The USV publishes ACK to seano/{code}/ack (same topic the backend uses)
-    const statusTopic = `seano/${topicVehicleCode}/ack`
+    // The USV publishes ACK to seano/{code}/command/response
+    const statusTopic = `seano/${topicVehicleCode}/command/response`
     const normalizedCommand = normalizeText(command)
     const timeoutId = setTimeout(() => {
       cleanup()
@@ -245,14 +251,15 @@ const waitForCommandAck = (client, vehicleCode, command) =>
         resolve({
           success: false,
           error: 'hardware_error',
-          message: message || `${command} failed`
+          message: message || `${command} failed`,
+          usvAckAt: payload.timestamp || null
         })
         return
       }
 
       if (isPositiveStatus(status) || isPositiveStatus(message)) {
         cleanup()
-        resolve({ success: true, message: message || `${command} success` })
+        resolve({ success: true, message: message || `${command} success`, usvAckAt: payload.timestamp || null })
       }
     }
 
@@ -310,32 +317,33 @@ const useControlCommand = () => {
         setIsLoading(true)
         const initiatedAt = new Date().toISOString()
         const topicSuffix = calibrationCommand ? 'battery/cmd' : 'command'
-        await publishCommandToMqtt(vehicleCode, mqttCommand, topicSuffix)
-        const shouldWaitAck = ARM_COMMANDS.has(normalizedCommand)
-        if (!shouldWaitAck) {
-          const resolvedAt = new Date().toISOString()
-          postCommandLog(
-            vehicleCode,
-            mqttCommand,
-            'success',
-            'Command sent via MQTT',
-            initiatedAt,
-            resolvedAt
-          )
-          return { success: true, message: 'Command sent via MQTT' }
+        const mqttPublishedAt = await publishCommandToMqtt(vehicleCode, mqttCommand, topicSuffix)
+
+        // For ARM/DISARM/mode commands, wait for hardware ACK to confirm execution.
+        // Calibration commands remain fire-and-forget.
+        if (!calibrationCommand) {
+          try {
+            const client = await getMqttClient()
+            const ackResult = await waitForCommandAck(client, vehicleCode, mqttCommand)
+            const resolvedAt = new Date().toISOString()
+            if (ackResult.success) {
+              postCommandLog(vehicleCode, mqttCommand, 'success', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt)
+              return { success: true, message: ackResult.message }
+            } else {
+              postCommandLog(vehicleCode, mqttCommand, 'failed', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt)
+              return { success: false, error: ackResult.error || 'hardware_error', message: ackResult.message }
+            }
+          } catch {
+            // ACK timeout – hardware did not respond
+            const resolvedAt = new Date().toISOString()
+            postCommandLog(vehicleCode, mqttCommand, 'timeout', 'No ACK from hardware', initiatedAt, resolvedAt, mqttPublishedAt)
+            return { success: false, error: 'timeout', message: 'No ACK from hardware' }
+          }
         }
-        const client = await getMqttClient()
-        const result = await waitForCommandAck(client, vehicleCode, mqttCommand)
+
         const resolvedAt = new Date().toISOString()
-        postCommandLog(
-          vehicleCode,
-          mqttCommand,
-          result.success ? 'success' : (result.error || 'failed'),
-          result.message || '',
-          initiatedAt,
-          resolvedAt
-        )
-        return result
+        postCommandLog(vehicleCode, mqttCommand, 'success', 'Command sent via MQTT', initiatedAt, resolvedAt, mqttPublishedAt)
+        return { success: true, message: 'Command sent via MQTT' }
       }
 
       setIsLoading(true)

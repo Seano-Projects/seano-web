@@ -534,7 +534,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
         {!showMissionSidebar && (
           <button
             onClick={() => setShowMissionSidebar(true)}
-            className="absolute left-3 top-3 z-[9999] flex items-center justify-center rounded-full border border-gray-200 bg-white p-3 shadow-lg transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-black dark:hover:bg-gray-900 lg:hidden"
+            className="absolute left-3 top-3 z-[30] flex items-center justify-center rounded-full border border-gray-200 bg-white p-3 shadow-lg transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-black dark:hover:bg-gray-900 lg:hidden"
             title="Open Mission Panel"
           >
             <svg

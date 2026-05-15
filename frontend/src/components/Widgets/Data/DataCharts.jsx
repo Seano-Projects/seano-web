@@ -16,6 +16,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import useMapTile from "../../../hooks/useMapTile";
 import useTranslation from "../../../hooks/useTranslation";
 import Dropdown from "../Dropdown";
 
@@ -71,6 +72,7 @@ const EmptyState = ({ message }) => (
 
 const VehicleLogsCharts = ({ data }) => {
   const { t } = useTranslation();
+  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
 
   const actualPath = useMemo(() => {
     return data
@@ -120,8 +122,8 @@ const VehicleLogsCharts = ({ data }) => {
           maxZoom={20}
         >
           <TileLayer
-            attribution="&copy; Esri"
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution={tileAttribution}
+            url={tileUrl}
             noWrap={true}
             updateWhenIdle
             updateWhenZooming={false}

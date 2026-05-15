@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -36,6 +37,11 @@ func AuthOrVehicleAPIKey(vehicleRepo *repository.VehicleRepository) fiber.Handle
 		if err != nil {
 			return err
 		}
+		// c.JSON() inside resolveVehicleFromBody returns nil (not an error) in Fiber,
+		// so the error response was already sent but err is nil — guard against nil vehicle.
+		if vehicle == nil {
+			return nil
+		}
 
 		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || apiKey != *vehicle.ApiKey {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -69,6 +75,10 @@ func AuthOrVehicleAPIKeyFromQuery(vehicleRepo *repository.VehicleRepository) fib
 		vehicle, err := resolveVehicleFromQuery(c, vehicleRepo)
 		if err != nil {
 			return err
+		}
+		// Guard against nil vehicle (response already sent, err is nil due to Fiber's c.JSON() returning nil).
+		if vehicle == nil {
+			return nil
 		}
 
 		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || apiKey != *vehicle.ApiKey {
@@ -148,10 +158,13 @@ func authenticateJWT(c *fiber.Ctx, authHeader string) error {
 
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "your-secret-key-change-in-production"
+		panic("JWT_SECRET environment variable is required")
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return []byte(secret), nil
 	})
 	if err != nil || !token.Valid {

@@ -677,7 +677,7 @@ func (h *AlertHandler) ExportAlerts(c *fiber.Ctx) error {
 	query.Severity = c.Query("severity")
 
 	// No limit for export
-	query.Limit = 0
+	query.Limit = 50000
 
 	// Get all alerts matching query
 	alerts, err := h.alertRepo.GetAlerts(query)
@@ -746,6 +746,13 @@ func (h *AlertHandler) ImportAlerts(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "No file uploaded",
+		})
+	}
+
+	// Limit file size to 10MB
+	if file.Size > 10*1024*1024 {
+		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{
+			"error": "File too large. Maximum size is 10MB",
 		})
 	}
 

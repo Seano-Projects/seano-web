@@ -1,8 +1,11 @@
 package route
 
 import (
+	"time"
+
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	swagger "github.com/gofiber/swagger"
 	"gorm.io/gorm"
 
@@ -66,17 +69,33 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Auth routes (public)
+	// Rate limiter for auth endpoints
+	authLimiter := limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 15 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(429).JSON(fiber.Map{"error": "Too many requests. Please try again later."})
+		},
+	})
+
 	auth := app.Group("/auth")
-	auth.Post("/register-email", authHandler.RegisterEmail)
+	auth.Post("/register-email", authLimiter, authHandler.RegisterEmail)
 	auth.Post("/verify-email", authHandler.VerifyEmail)
 	auth.Post("/set-credentials", authHandler.SetCredentials)
-	auth.Post("/resend-verification", authHandler.ResendVerification)
-	auth.Post("/login", authHandler.Login)
+	auth.Post("/resend-verification", authLimiter, authHandler.ResendVerification)
+	auth.Post("/login", authLimiter, authHandler.Login)
 	auth.Post("/refresh", authHandler.RefreshToken)
+	auth.Post("/forgot-password", authLimiter, authHandler.ForgotPassword)
+	auth.Post("/reset-password", authLimiter, authHandler.ResetPassword)
 
 	// Auth routes (protected)
 	auth.Get("/me", middleware.AuthRequired(), authHandler.GetMe)
 	auth.Post("/logout", middleware.AuthRequired(), authHandler.Logout)
+	auth.Get("/sessions", middleware.AuthRequired(), authHandler.GetActiveSessions)
+	auth.Delete("/sessions/:id", middleware.AuthRequired(), authHandler.LogoutSession)
 
 	// User management routes (protected)
 	users := app.Group("/users", middleware.AuthRequired())
@@ -194,13 +213,14 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	missions.Get("/", middleware.AuthRequired(), missionHandler.GetAllMissions)                  // Returns own missions for regular users
 	missions.Get("/stats", middleware.AuthRequired(), missionHandler.GetMissionStats)
 	missions.Get("/ongoing", middleware.AuthRequired(), missionHandler.GetOngoingMissions)       // Get all ongoing missions
+	// Static routes MUST come before dynamic /:mission_id to avoid being swallowed
+	missions.Get("/pending-upload", middleware.AuthOrVehicleAPIKeyFromQuery(vehicleRepo), missionHandler.GetPendingMissionUploads)
+	missions.Post("/waypoint-reached", middleware.AuthOrVehicleAPIKey(vehicleRepo), missionHandler.UpdateMissionProgressFromWaypoint) // USV waypoint reached
 	missions.Get("/:mission_id", middleware.AuthRequired(), missionHandler.GetMissionByID)       // Ownership check in handler
 	missions.Put("/:mission_id", middleware.AuthRequired(), missionHandler.UpdateMission)        // Ownership check in handler
 	missions.Post("/:mission_id/upload-to-vehicle", middleware.AuthRequired(), missionHandler.UploadMissionToVehicle)
 	missions.Patch("/:mission_id/clear", middleware.AuthRequired(), missionHandler.ClearMission)
-	missions.Get("/pending-upload", middleware.AuthOrVehicleAPIKeyFromQuery(vehicleRepo), missionHandler.GetPendingMissionUploads)
 	missions.Put("/:id/progress", middleware.AuthOrVehicleAPIKeyByMissionID(missionRepo, vehicleRepo), missionHandler.UpdateMissionProgress) // Update mission progress
-	missions.Post("/waypoint-reached", middleware.AuthOrVehicleAPIKey(vehicleRepo), missionHandler.UpdateMissionProgressFromWaypoint) // USV waypoint reached
 	missions.Delete("/:mission_id", middleware.AuthRequired(), missionHandler.DeleteMission)     // Ownership check in handler
 
 	// Alert management routes
@@ -236,6 +256,23 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	control := app.Group("/control", middleware.AuthRequired())
 	control.Post("/:vehicle_code/command", controlHandler.SendCommand)
 
+	// AI Assistant routes (protected)
+	chatRepo := repository.NewChatRepository(db)
+	aiHandler := handler.NewAIHandler(chatRepo)
+	ai := app.Group("/ai", middleware.AuthRequired())
+	ai.Post("/chat", aiHandler.Chat)
+	ai.Get("/sessions", aiHandler.GetSessions)
+	ai.Get("/sessions/:id/messages", aiHandler.GetMessages)
+	ai.Delete("/sessions/:id", aiHandler.DeleteSession)
+
+	// Device lock routes (exclusive page lock for control page)
+	deviceLockHandler := handler.NewDeviceLockHandler(vehicleRepo)
+	deviceLock := app.Group("/device-lock", middleware.AuthRequired())
+	deviceLock.Post("/acquire", deviceLockHandler.AcquireLock)
+	deviceLock.Post("/heartbeat", deviceLockHandler.Heartbeat)
+	deviceLock.Post("/release", deviceLockHandler.ReleaseLock)
+	deviceLock.Get("/status", deviceLockHandler.GetLockStatus)
+
 	// Command Logs routes
 	commandLogs := app.Group("/command-logs")
 	commandLogs.Get("/", middleware.AuthRequired(), commandLogHandler.GetCommandLogs)
@@ -267,10 +304,11 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	// Waypoint ACK routes
 	app.Post("/waypoint-acks", middleware.AuthOrVehicleAPIKey(vehicleRepo), waypointLogHandler.CreateWaypointAck)
 
-	// WebSocket routes (no middleware, auth checked inside WebSocket handler via query param)
+	// WebSocket routes — token validated from ?token= query param (WS can't set custom headers)
+	wsAuth := middleware.WSAuthRequired()
 	app.Get("/ws/stats", middleware.AuthRequired(), wsHandler.GetStats)
-	app.Get("/ws/sensor-data", websocket.New(wsHandler.HandleWebSocket))
-	app.Get("/ws/logs", websocket.New(wsHandler.HandleWebSocket)) // Reuse existing handler
-	app.Get("/ws/alerts", websocket.New(wsHandler.HandleWebSocket)) // Alerts WebSocket
-	app.Get("/ws/missions", websocket.New(wsHandler.HandleWebSocket)) // Mission progress WebSocket
+	app.Get("/ws/sensor-data", wsAuth, websocket.New(wsHandler.HandleWebSocket))
+	app.Get("/ws/logs", wsAuth, websocket.New(wsHandler.HandleWebSocket))
+	app.Get("/ws/alerts", wsAuth, websocket.New(wsHandler.HandleWebSocket))
+	app.Get("/ws/missions", wsAuth, websocket.New(wsHandler.HandleWebSocket))
 }

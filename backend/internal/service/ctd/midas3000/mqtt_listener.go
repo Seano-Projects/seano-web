@@ -41,10 +41,12 @@ func NewMQTTListener(config MQTTConfig, handler *DataHandler) (*MQTTListener, er
 	opts.SetConnectRetry(true)
 	opts.SetConnectRetryInterval(5 * time.Second)
 	opts.SetMaxReconnectInterval(60 * time.Second)
-	opts.SetKeepAlive(30 * time.Second)        // Send ping every 30s
-	opts.SetPingTimeout(10 * time.Second)       // Wait 10s for ping response
-	opts.SetCleanSession(false)                 // Persistent session so broker retains subscriptions
-	opts.SetResumeSubs(true)                    // Auto-resubscribe on reconnect
+	opts.SetKeepAlive(30 * time.Second)  // Send ping every 30s
+	opts.SetPingTimeout(10 * time.Second) // Wait 10s for ping response
+	// CleanSession=true: ClientID already contains a unique timestamp, so there is no
+	// persistent session to resume. Using false here would leave orphan sessions on the
+	// broker on every server restart, slowly leaking memory.
+	opts.SetCleanSession(true)
 
 	// Set connection lost handler
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {

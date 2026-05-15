@@ -3,13 +3,15 @@ import {
   MapContainer,
   TileLayer,
   Marker,
+  Polyline,
   useMap,
-  CircleMarker,
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import useMapTile from "../../../../hooks/useMapTile";
 import { useEffect } from "react";
 import useTranslation from "../../../../hooks/useTranslation";
+import usvPointIcon from "../../../../assets/usv-point.webp";
 
 const FitBounds = ({ positions }) => {
   const map = useMap();
@@ -25,28 +27,35 @@ const FitBounds = ({ positions }) => {
   return null;
 };
 
-const createCurrentArrow = (directionDeg, speedMs) => {
-  const rotate = directionDeg ?? 0;
-  const opacity = speedMs !== null ? Math.min(0.4 + speedMs * 2, 1) : 0.7;
-
-  const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-    <g transform="rotate(${rotate}, 20, 20)">
-      <line x1="20" y1="32" x2="20" y2="10" stroke="#ef4444" stroke-width="3" stroke-linecap="round" opacity="${opacity}"/>
-      <polygon points="20,4 14,14 26,14" fill="#ef4444" opacity="${opacity}"/>
-    </g>
-  </svg>`;
-
+const createUsvIcon = (heading = 0) => {
+  const size = 40;
   return L.divIcon({
-    html: svg,
-    className: "",
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    html: `
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform: rotate(${90 - heading}deg);
+        filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+      ">
+        <img 
+          src="${usvPointIcon}" 
+          alt="USV" 
+          style="width: 100%; height: 100%; object-fit: contain;"
+        />
+      </div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    className: "boat-marker-icon",
   });
 };
 
 const ADCPMap = ({ adcpData }) => {
   const { t } = useTranslation();
+  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
 
   const latest = useMemo(() => {
     if (!adcpData || adcpData.length === 0) return null;
@@ -74,6 +83,11 @@ const ADCPMap = ({ adcpData }) => {
     ? [latest.latitude, latest.longitude]
     : [-6.2, 106.8166667];
 
+  const usvIcon = useMemo(
+    () => createUsvIcon(latest?.current_direction_deg ?? 0),
+    [latest?.current_direction_deg],
+  );
+
   if (!latest) {
     return (
       <div
@@ -86,11 +100,6 @@ const ADCPMap = ({ adcpData }) => {
       </div>
     );
   }
-
-  const arrowIcon = createCurrentArrow(
-    latest.current_direction_deg,
-    latest.current_speed_ms,
-  );
 
   return (
     <div
@@ -106,33 +115,28 @@ const ADCPMap = ({ adcpData }) => {
         maxZoom={20}
       >
         <TileLayer
-          attribution="&copy; Esri"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          attribution={tileAttribution}
+          url={tileUrl}
           noWrap={true}
           maxZoom={20}
           maxNativeZoom={18}
         />
         {trail.length >= 2 && (
-          <>
-            {trail.slice(0, -1).map((pos, i) => (
-              <CircleMarker
-                key={i}
-                center={pos}
-                radius={2}
-                pathOptions={{
-                  color: "#38bdf8",
-                  fillColor: "#38bdf8",
-                  fillOpacity: 0.5,
-                  weight: 1,
-                }}
-              />
-            ))}
-          </>
+          <Polyline
+            positions={trail}
+            pathOptions={{
+              color: "#38bdf8",
+              weight: 3,
+              opacity: 0.7,
+              lineCap: "round",
+              lineJoin: "round",
+            }}
+          />
         )}
-        {/* Current direction arrow at latest position */}
+        {/* USV position marker */}
         <Marker
           position={[latest.latitude, latest.longitude]}
-          icon={arrowIcon}
+          icon={usvIcon}
         />
         <FitBounds
           positions={

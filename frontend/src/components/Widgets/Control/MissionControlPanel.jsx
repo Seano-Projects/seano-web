@@ -12,6 +12,7 @@ const MissionControlPanel = ({
   isExpanded,
   onExpand,
   onCollapse,
+  disabled = false,
   isArmed,
   commandLoading,
   selectedVehicle,
@@ -100,7 +101,7 @@ const MissionControlPanel = ({
             !showDisarmConfirm ? (
               <button
                 type="button"
-                disabled={commandLoading || !selectedVehicle?.code}
+                disabled={commandLoading || !selectedVehicle?.code || disabled}
                 onClick={() => setShowDisarmConfirm(true)}
                 className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-colors ${
                   !selectedVehicle?.code
@@ -134,7 +135,7 @@ const MissionControlPanel = ({
           ) : !showArmConfirm ? (
             <button
               type="button"
-              disabled={commandLoading || !selectedVehicle?.code}
+              disabled={commandLoading || !selectedVehicle?.code || disabled}
               onClick={() => setShowArmConfirm(true)}
               className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-white font-medium text-sm transition-colors ${
                 !selectedVehicle?.code
@@ -219,7 +220,7 @@ const MissionControlPanel = ({
                   <button
                     type="button"
                     onClick={() => onModeChangeRequest(m.id)}
-                    disabled={activeMode === m.id || commandLoading || !selectedVehicle?.code}
+                    disabled={activeMode === m.id || commandLoading || !selectedVehicle?.code || disabled}
                     className={`w-full rounded-lg p-3 text-left flex items-center gap-3 transition-colors border ${
                       activeMode === m.id
                         ? "border-blue-500 bg-blue-500/10 dark:bg-blue-500/20 " + textCls

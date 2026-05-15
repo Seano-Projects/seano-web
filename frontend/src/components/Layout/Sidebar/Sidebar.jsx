@@ -11,20 +11,36 @@ import { FiLogOut } from "react-icons/fi";
 import useTranslation from "../../../hooks/useTranslation";
 import QuickSearch from "./QuickSearch";
 
-const Sidebar = ({ isSidebarOpen, onHoverChange }) => {
+const Sidebar = ({ isSidebarOpen, onHoverChange, onClose }) => {
   const location = useLocation();
   const { user, logout } = useAuthContext();
   const { t } = useTranslation();
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isThrustFullscreen, setIsThrustFullscreen] = useState(false);
 
   // Sidebar is visually open if pinned open OR hovered while collapsed
   const isExpanded = isSidebarOpen || isHovered;
+
+  // Track thrust control fullscreen state to properly hide sidebar on mobile
+  useEffect(() => {
+    const open = () => setIsThrustFullscreen(true);
+    const close = () => setIsThrustFullscreen(false);
+    window.addEventListener("thrust-fullscreen-open", open);
+    window.addEventListener("thrust-fullscreen-close", close);
+    return () => {
+      window.removeEventListener("thrust-fullscreen-open", open);
+      window.removeEventListener("thrust-fullscreen-close", close);
+    };
+  }, []);
 
   const handleHover = (val) => {
     setIsHovered(val);
     onHoverChange?.(val);
   };
+
+  const isMobile = () =>
+    typeof window !== "undefined" && window.innerWidth < 768;
 
   const getInitials = (username, email) => {
     if (username) {
@@ -72,6 +88,8 @@ const Sidebar = ({ isSidebarOpen, onHoverChange }) => {
   useEffect(() => {
     // Close account dropdown and refresh badge data on navigation.
     setIsAccountOpen(false);
+    // Reset fullscreen state when user navigates away (safety net in case close event missed)
+    setIsThrustFullscreen(false);
     if (typeof refreshNotifications === "function") {
       refreshNotifications();
     }
@@ -118,117 +136,154 @@ const Sidebar = ({ isSidebarOpen, onHoverChange }) => {
   );
 
   return (
-    <aside
-      className={`fixed top-0 left-0 z-40 h-screen pt-18 bg-white border-r border-gray-200 dark:bg-black dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out ${
-        isExpanded ? "w-64" : "w-16"
-      }`}
-      aria-label="Sidebar"
-      onMouseEnter={() => !isSidebarOpen && handleHover(true)}
-      onMouseLeave={() => handleHover(false)}
-    >
-      <div className="h-full flex flex-col relative">
-        {/* Scrollable Content Area */}
+    <>
+      {/* Mobile overlay backdrop — closes sidebar when tapping outside */}
+      {isSidebarOpen && (
         <div
-          className="flex-1 px-3 pt-2 overflow-y-auto scrollbar-hide"
-          style={{ paddingBottom: "120px" }}
-        >
-          {/* Quick Search */}
-          <div className="mb-3">
+          className="fixed inset-0 z-[9010] bg-black/50 md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`fixed top-0 left-0 z-[9011] h-[100dvh] pt-18 bg-white border-r border-gray-200 dark:bg-black dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out ${
+          isExpanded ? "w-64" : "md:w-16 w-64"
+        } ${isSidebarOpen ? "" : "max-md:-translate-x-full"} ${
+          isThrustFullscreen && !isSidebarOpen ? "!hidden" : ""
+        }`}
+        aria-label="Sidebar"
+        onMouseEnter={() =>
+          window.innerWidth >= 768 && !isSidebarOpen && handleHover(true)
+        }
+        onMouseLeave={() => window.innerWidth >= 768 && handleHover(false)}
+      >
+        <div className="h-full flex flex-col relative">
+          {/* Sticky Quick Search */}
+          <div className="px-3 py-2 shrink-0">
             <QuickSearch isSidebarOpen={isExpanded} />
           </div>
 
-          {/* Dashboard - Root Level */}
-          <div className="mb-3">
-            <ul className="space-y-2 font-semibold">
-              <LinkItem isSidebarOpen={isExpanded} {...dashboardLink} />
-            </ul>
-          </div>
-
-          {/* Menu Groups */}
-          <div className="space-y-1 font-semibold">
-            {menuGroupsWithBadges.map((group, index) => (
-              <MenuGroup
-                key={index}
-                title={group.title}
-                icon={group.icon}
-                items={group.items}
-                isSidebarOpen={isExpanded}
-                adminOnly={group.adminOnly}
-                userOnly={group.userOnly}
-                requiredPermission={group.requiredPermission}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Fixed Bottom Account Section */}
-        <div
-          className={`absolute left-0 bottom-9 w-full border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-black z-40`}
-        >
-          {/* Account Settings Toggle */}
-          <button
-            onClick={() => setIsAccountOpen((prev) => !prev)}
-            className={`w-full flex items-center transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
-              isExpanded ? "px-4 py-3 gap-3" : "px-0 py-3 justify-center"
-            }`}
-            aria-expanded={isAccountOpen}
-            aria-label="Account settings"
+          {/* Scrollable Content Area */}
+          <div
+            className="flex-1 px-3 overflow-y-auto scrollbar-hide"
+            style={{ paddingBottom: "120px" }}
           >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-fourth to-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-              {getInitials(user?.username, user?.email)}
-            </div>
-            <div className={`flex-1 min-w-0 text-left overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-w-full opacity-100' : 'max-w-0 opacity-0'}`}>
-              <p className="text-xs font-semibold text-gray-800 dark:text-white truncate leading-tight whitespace-nowrap">
-                {user?.username || "User"}
-              </p>
-              <p className="text-[10px] text-gray-400 truncate leading-tight whitespace-nowrap">
-                {user?.email || ""}
-              </p>
-            </div>
-            <span className={`shrink-0 transition-all duration-300 ease-in-out ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
-              {isAccountOpen ? (
-                <FaChevronDown className="text-gray-400 text-xs" />
-              ) : (
-                <FaChevronUp className="text-gray-400 text-xs" />
-              )}
-            </span>
-          </button>
-
-          {/* Expandable Account Menu */}
-          {isAccountOpen && (
-            <div className="border-t border-gray-200 dark:border-gray-700">
-              <ul className={`py-1 space-y-0.5 ${isExpanded ? "px-2" : "px-1"}`}>
-                <li>
-                  <Link
-                    to="/profile"
-                    onClick={() => setIsAccountOpen(false)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
-                      !isExpanded ? "justify-center px-2" : ""
-                    }`}
-                    title={!isExpanded ? t("nav.profile") : undefined}
-                  >
-                    <FaRegUser className="shrink-0 text-base" aria-hidden="true" />
-                    <span className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${isExpanded ? 'max-w-full opacity-100' : 'max-w-0 opacity-0'}`}>{t("nav.profile")}</span>
-                  </Link>
-                </li>
-                <li>
-                  <button
-                    onClick={() => { setIsAccountOpen(false); logout(); }}
-                    className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ${
-                      !isExpanded ? "justify-center px-2" : ""
-                    }`}
-                    title={!isExpanded ? t("nav.logout") : undefined}
-                  >
-                    <FiLogOut className="shrink-0 text-base" aria-hidden="true" />
-                    <span className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${isExpanded ? 'max-w-full opacity-100' : 'max-w-0 opacity-0'}`}>{t("nav.logout")}</span>
-                  </button>
-                </li>
+            {/* Dashboard - Root Level */}
+            <div className="mb-3 mt-2">
+              <ul className="space-y-2 font-semibold">
+                <LinkItem isSidebarOpen={isExpanded} {...dashboardLink} />
               </ul>
             </div>
-          )}
+
+            {/* Menu Groups */}
+            <div className="space-y-1 font-semibold">
+              {menuGroupsWithBadges.map((group, index) => (
+                <MenuGroup
+                  key={index}
+                  title={group.title}
+                  icon={group.icon}
+                  items={group.items}
+                  isSidebarOpen={isExpanded}
+                  adminOnly={group.adminOnly}
+                  userOnly={group.userOnly}
+                  requiredPermission={group.requiredPermission}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Fixed Bottom Account Section */}
+          <div
+            className={`absolute left-0 bottom-9 w-full border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-black z-40`}
+          >
+            {/* Account Settings Toggle */}
+            <button
+              onClick={() => setIsAccountOpen((prev) => !prev)}
+              className={`w-full flex items-center transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                isExpanded ? "px-4 py-3 gap-3" : "px-0 py-3 justify-center"
+              }`}
+              aria-expanded={isAccountOpen}
+              aria-label="Account settings"
+            >
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-fourth to-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {getInitials(user?.username, user?.email)}
+              </div>
+              <div
+                className={`flex-1 min-w-0 text-left overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? "max-w-full opacity-100" : "max-w-0 opacity-0"}`}
+              >
+                <p className="text-xs font-semibold text-gray-800 dark:text-white truncate leading-tight whitespace-nowrap">
+                  {user?.username || "User"}
+                </p>
+                <p className="text-[10px] text-gray-400 truncate leading-tight whitespace-nowrap">
+                  {user?.email || ""}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 transition-all duration-300 ease-in-out ${isExpanded ? "opacity-100" : "opacity-0 w-0 overflow-hidden"}`}
+              >
+                {isAccountOpen ? (
+                  <FaChevronDown className="text-gray-400 text-xs" />
+                ) : (
+                  <FaChevronUp className="text-gray-400 text-xs" />
+                )}
+              </span>
+            </button>
+
+            {/* Expandable Account Menu */}
+            {isAccountOpen && (
+              <div className="border-t border-gray-200 dark:border-gray-700">
+                <ul
+                  className={`py-1 space-y-0.5 ${isExpanded ? "px-2" : "px-1"}`}
+                >
+                  <li>
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsAccountOpen(false)}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
+                        !isExpanded ? "justify-center px-2" : ""
+                      }`}
+                      title={!isExpanded ? t("nav.profile") : undefined}
+                    >
+                      <FaRegUser
+                        className="shrink-0 text-base"
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${isExpanded ? "max-w-full opacity-100" : "max-w-0 opacity-0"}`}
+                      >
+                        {t("nav.profile")}
+                      </span>
+                    </Link>
+                  </li>
+                  <li>
+                    <button
+                      onClick={() => {
+                        setIsAccountOpen(false);
+                        logout();
+                      }}
+                      className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ${
+                        !isExpanded ? "justify-center px-2" : ""
+                      }`}
+                      title={!isExpanded ? t("nav.logout") : undefined}
+                    >
+                      <FiLogOut
+                        className="shrink-0 text-base"
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${isExpanded ? "max-w-full opacity-100" : "max-w-0 opacity-0"}`}
+                      >
+                        {t("nav.logout")}
+                      </span>
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 };
 

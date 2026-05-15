@@ -21,17 +21,23 @@ type VehicleLogListener struct {
 	vehicleRepo    *repository.VehicleRepository
 	missionRepo    *repository.MissionRepository
 	wsHub          *wsocket.Hub
+	workChan       chan mqtt.Message
 }
 
 // NewVehicleLogListener creates a new vehicle log listener
 func NewVehicleLogListener(client mqtt.Client, vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, missionRepo *repository.MissionRepository, wsHub *wsocket.Hub) *VehicleLogListener {
-	return &VehicleLogListener{
+	l := &VehicleLogListener{
 		client:         client,
 		vehicleLogRepo: vehicleLogRepo,
 		vehicleRepo:    vehicleRepo,
 		missionRepo:    missionRepo,
 		wsHub:          wsHub,
+		workChan:       make(chan mqtt.Message, 500),
 	}
+	for i := 0; i < 10; i++ {
+		go l.worker()
+	}
+	return l
 }
 
 // Start subscribes to vehicle telemetry topics and processes messages
@@ -50,8 +56,23 @@ func (l *VehicleLogListener) Start() error {
 	return nil
 }
 
-// handleMessage processes incoming MQTT messages
+// handleMessage dispatches incoming MQTT messages to worker pool
 func (l *VehicleLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) {
+	select {
+	case l.workChan <- msg:
+	default:
+		log.Printf("⚠️ Vehicle log worker queue full, dropping message from topic: %s", msg.Topic())
+	}
+}
+
+func (l *VehicleLogListener) worker() {
+	for msg := range l.workChan {
+		l.processMessage(msg)
+	}
+}
+
+// processMessage processes incoming MQTT messages
+func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 	log.Printf("🚗 Received vehicle telemetry on topic: %s", msg.Topic())
 	log.Printf("   Payload: %s", string(msg.Payload()))
 	
@@ -149,6 +170,15 @@ func (l *VehicleLogListener) handleMessage(client mqtt.Client, msg mqtt.Message)
 		}
 		if err == nil {
 			usvTimestamp = &parsedTime
+		}
+	}
+
+	// Deduplicate: MQTT QoS-1 re-delivers unacknowledged messages on reconnect.
+	// If the USV payload carries a usv_timestamp we can use it as an idempotency key.
+	if usvTimestamp != nil {
+		if exists, err := l.vehicleLogRepo.ExistsByVehicleAndUsvTimestamp(vehicle.ID, *usvTimestamp); err == nil && exists {
+			log.Printf("⚠️  Duplicate vehicle log skipped (vehicle=%s usv_timestamp=%v)", vehicleCode, usvTimestamp)
+			return
 		}
 	}
 

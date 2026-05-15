@@ -22,18 +22,24 @@ type SensorLogListener struct {
 	sensorRepo    *repository.SensorRepository
 	missionRepo   *repository.MissionRepository
 	wsHub         *wsocket.Hub
+	workChan      chan mqtt.Message
 }
 
 // NewSensorLogListener creates a new sensor log listener
 func NewSensorLogListener(client mqtt.Client, sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, missionRepo *repository.MissionRepository, wsHub *wsocket.Hub) *SensorLogListener {
-	return &SensorLogListener{
+	l := &SensorLogListener{
 		client:        client,
 		sensorLogRepo: sensorLogRepo,
 		vehicleRepo:   vehicleRepo,
 		sensorRepo:    sensorRepo,
 		missionRepo:   missionRepo,
 		wsHub:         wsHub,
+		workChan:      make(chan mqtt.Message, 500),
 	}
+	for i := 0; i < 10; i++ {
+		go l.worker()
+	}
+	return l
 }
 
 // Start subscribes to sensor data topics and processes messages
@@ -52,8 +58,23 @@ func (l *SensorLogListener) Start() error {
 	return nil
 }
 
-// handleMessage processes incoming MQTT messages
+// handleMessage dispatches incoming MQTT messages to worker pool
 func (l *SensorLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) {
+	select {
+	case l.workChan <- msg:
+	default:
+		log.Printf("⚠️ Sensor log worker queue full, dropping message from topic: %s", msg.Topic())
+	}
+}
+
+func (l *SensorLogListener) worker() {
+	for msg := range l.workChan {
+		l.processMessage(msg)
+	}
+}
+
+// processMessage processes incoming MQTT messages
+func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 	// Parse topic: seano/{vehicle_code}/{sensor_code}/data
 	parts := strings.Split(msg.Topic(), "/")
 	if len(parts) != 4 {
@@ -116,6 +137,15 @@ func (l *SensorLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) 
 		if err == nil {
 			usvTimestamp = &parsedTime
 			createdAt = parsedTime
+		}
+	}
+
+	// Deduplicate: MQTT QoS-1 re-delivers unacknowledged messages on reconnect.
+	// If the USV payload carries a usv_timestamp we can use it as an idempotency key.
+	if usvTimestamp != nil {
+		if exists, err := l.sensorLogRepo.ExistsByVehicleSensorAndUsvTimestamp(vehicle.ID, sensor.ID, *usvTimestamp); err == nil && exists {
+			log.Printf("⚠️  Duplicate sensor log skipped (vehicle=%s sensor=%s usv_timestamp=%v)", vehicleCode, sensorCode, usvTimestamp)
+			return
 		}
 	}
 

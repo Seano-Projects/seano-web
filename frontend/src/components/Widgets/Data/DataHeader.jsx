@@ -650,19 +650,12 @@ const DataHeader = ({
       }
 
       const queryParams = buildExportParams(exportType, exportFilters);
-      console.log(`[Export ${exportType}] Endpoint:`, exportEndpointForType);
-      console.log(`[Export ${exportType}] Params:`, queryParams);
 
       const response = await axios.get(exportEndpointForType, {
         responseType: "blob",
         params: queryParams,
         timeout: 15000,
       });
-      console.log(`[Export ${exportType}] Response status:`, response.status);
-      console.log(
-        `[Export ${exportType}] Response blob size:`,
-        response.data.size,
-      );
 
       // If backend returns an error JSON as blob, parse and surface message.
       if (response.data?.type?.includes("application/json")) {

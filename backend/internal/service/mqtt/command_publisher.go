@@ -69,7 +69,7 @@ func NewCommandPublisher(client mqtt.Client, commandLogRepo *repository.CommandL
 	return &CommandPublisher{
 		client:         client,
 		pending:        make(map[string]*pendingRequest),
-		timeout:        8 * time.Second,
+		timeout:        5 * time.Second,
 		commandLogRepo: commandLogRepo,
 		vehicleRepo:    vehicleRepo,
 		wsHub:          wsHub,
@@ -213,21 +213,27 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 	}
 }
 
+// SubscribeACK subscribes once to the wildcard ACK topic seano/+/command/response.
+// This must be called once after the MQTT client connects. Using a persistent
+// wildcard subscription instead of per-command subscribe/unsubscribe avoids a
+// race condition where concurrent SendCommand calls for the same vehicle could
+// remove each other's ACK handler.
+func (cp *CommandPublisher) SubscribeACK() error {
+	token := cp.client.Subscribe("seano/+/command/response", 1, cp.handleACK)
+	if !token.WaitTimeout(5 * time.Second) {
+		return fmt.Errorf("timeout subscribing to ACK wildcard topic")
+	}
+	if token.Error() != nil {
+		return fmt.Errorf("failed to subscribe to ACK wildcard topic: %w", token.Error())
+	}
+	log.Println("✓ CommandPublisher subscribed to seano/+/command/response")
+	return nil
+}
+
 // SendCommand publishes a command and waits for hardware ACK.
 // Returns error if MQTT publish fails or hardware does not respond within timeout.
 func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType, requestID string) (*AckPayload, error) {
-	ackTopic := fmt.Sprintf("seano/%s/ack", vehicleCode)
 	cmdTopic := fmt.Sprintf("seano/%s/command", vehicleCode)
-
-	// Subscribe to ACK topic before publishing (avoid race)
-	token := cp.client.Subscribe(ackTopic, 1, cp.handleACK)
-	if !token.WaitTimeout(3 * time.Second) {
-		return nil, fmt.Errorf("timeout subscribing to ACK topic")
-	}
-	if token.Error() != nil {
-		return nil, fmt.Errorf("failed to subscribe to ACK topic: %w", token.Error())
-	}
-	defer cp.client.Unsubscribe(ackTopic)
 
 	// Build command payload
 	if strings.TrimSpace(requestID) == "" {

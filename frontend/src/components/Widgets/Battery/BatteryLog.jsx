@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from "react";
-import { FaDownload } from "react-icons/fa";
 import useBatteryData from "../../../hooks/useBatteryData";
 import useTranslation from "../../../hooks/useTranslation";
 
@@ -28,11 +27,12 @@ const BatteryLog = ({ selectedVehicle }) => {
       timestamp: new Date(log.timestamp).toLocaleTimeString(
         language === "id" ? "id-ID" : "en-US",
         {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }),
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        },
+      ),
       unit: log.battery_id === 1 ? "A" : "B",
       status: log.status
         ? log.status.charAt(0).toUpperCase() + log.status.slice(1)
@@ -52,41 +52,8 @@ const BatteryLog = ({ selectedVehicle }) => {
     if (normalized === "high") return "bg-green-500";
     if (normalized === "medium" || normalized === "warning")
       return "bg-yellow-500";
-    if (normalized === "low" || normalized === "critical")
-      return "bg-red-500";
+    if (normalized === "low" || normalized === "critical") return "bg-red-500";
     return "bg-gray-500";
-  };
-
-  const exportCSV = () => {
-    const headers = [
-      t("pages.battery.widgets.log.columns.timestamp"),
-      t("pages.battery.widgets.log.columns.unit"),
-      t("pages.battery.widgets.log.columns.status"),
-      t("pages.battery.widgets.log.columns.level"),
-    ];
-    const rows = logs.map((log) => [
-      log.timestamp,
-      log.unit,
-      log.status,
-      log.level,
-    ]);
-
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `battery_logs_${new Date().toISOString().split("T")[0]}.csv`,
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
@@ -95,18 +62,11 @@ const BatteryLog = ({ selectedVehicle }) => {
         <h3 className="text-lg font-semibold text-black dark:text-white">
           {t("pages.battery.widgets.log.title")}
         </h3>
-        <button
-          onClick={exportCSV}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <FaDownload />
-          {t("pages.battery.widgets.log.exportCsv")}
-        </button>
       </div>
 
-      <div className="relative overflow-x-auto">
+      <div className="relative w-full max-w-full overflow-x-auto">
         <div className="overflow-y-auto max-h-96 custom-scrollbar">
-          <table className="w-full">
+          <table className="w-full min-w-max">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-black">
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">

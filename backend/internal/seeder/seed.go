@@ -191,7 +191,7 @@ func SeedAdminUser(db *gorm.DB) {
 			if err := db.Create(&adminUser).Error; err != nil {
 				log.Printf("Failed to create admin user: %v", err)
 			} else {
-				log.Println("Admin user created successfully (email: seanousv@gmail.com, password: Seano2025*)")
+				log.Println("Admin user created successfully (email: seanousv@gmail.com)")
 			}
 		}
 	} else {
@@ -227,7 +227,7 @@ func SeedRegularUser(db *gorm.DB) {
 			if err := db.Create(&regularUser).Error; err != nil {
 				log.Printf("Failed to create regular user: %v", err)
 			} else {
-				log.Println("User created successfully (email: seanouser@gmail.com, password: Seano2025*)")
+				log.Println("User created successfully (email: seanouser@gmail.com)")
 			}
 		}
 	} else {

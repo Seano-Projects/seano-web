@@ -64,8 +64,8 @@ const VehicleLogChart = ({ className = "", selectedVehicle }) => {
               }),
               battery: logData.battery_level || logData.battery || "N/A",
               voltage: logData.battery_voltage || logData.voltage || "N/A",
-              speed: logData.speed || "N/A",
-              heading: logData.heading || "N/A",
+              speed: logData.speed ?? "N/A",
+              heading: logData.heading ?? "N/A",
               temperature: logData.temperature || "N/A",
             };
           });
@@ -81,28 +81,43 @@ const VehicleLogChart = ({ className = "", selectedVehicle }) => {
   // Current values for display cards - with defensive defaults
   const currentValues = {
     battery: {
-      value: chartData.length > 0 && chartData[chartData.length - 1]?.battery !== "N/A" ? chartData[chartData.length - 1].battery : "N/A",
+      value:
+        chartData.length > 0 &&
+        chartData[chartData.length - 1]?.battery !== "N/A"
+          ? chartData[chartData.length - 1].battery
+          : "N/A",
       unit: "%",
       icon: FaBatteryFull,
       color: "#22c55e",
       label: "Battery Level",
     },
     speed: {
-      value: chartData.length > 0 && chartData[chartData.length - 1]?.speed !== "N/A" ? chartData[chartData.length - 1].speed : "N/A",
+      value:
+        chartData.length > 0 && chartData[chartData.length - 1]?.speed !== "N/A"
+          ? chartData[chartData.length - 1].speed
+          : "N/A",
       unit: "m/s",
       icon: FaTachometerAlt,
       color: "#8b5cf6",
       label: "Vehicle Speed",
     },
     heading: {
-      value: chartData.length > 0 && chartData[chartData.length - 1]?.heading !== "N/A" ? chartData[chartData.length - 1].heading : "N/A",
+      value:
+        chartData.length > 0 &&
+        chartData[chartData.length - 1]?.heading !== "N/A"
+          ? chartData[chartData.length - 1].heading
+          : "N/A",
       unit: "°",
       icon: FaCompass,
       color: "#6366f1",
       label: "Heading",
     },
     temperature: {
-      value: chartData.length > 0 && chartData[chartData.length - 1]?.temperature !== "N/A" ? chartData[chartData.length - 1].temperature : "N/A",
+      value:
+        chartData.length > 0 &&
+        chartData[chartData.length - 1]?.temperature !== "N/A"
+          ? chartData[chartData.length - 1].temperature
+          : "N/A",
       unit: "°C",
       icon: FaThermometerHalf,
       color: "#f59e0b",

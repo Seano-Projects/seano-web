@@ -10,6 +10,7 @@ import {
   FaPlay,
   FaEdit,
   FaTrash,
+  FaTimes,
   FaCog,
 } from "react-icons/fa";
 import Dropdown from "../Dropdown";
@@ -818,10 +819,10 @@ const MissionSidebar = ({
                   setHomeLocation(null);
                   setIsSettingHome(false);
                 }}
-                className="text-xs px-2 py-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                className="w-4 h-4 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors font-bold"
                 title="Clear home location"
               >
-                <FaTrash size={10} />
+                <FaTimes size={12} />
               </button>
             </div>
             <div className="text-sm text-green-800 dark:text-green-200">
@@ -929,10 +930,10 @@ const MissionSidebar = ({
                       </span>
                       <button
                         onClick={() => handleDeleteWaypoint(waypoint.id)}
-                        className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                        className="w-4 h-4 flex items-center justify-center bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors font-bold"
                         title="Delete waypoint"
                       >
-                        <FaTrash size={10} />
+                        <FaTimes size={12} />
                       </button>
                     </div>
                   </div>

@@ -62,11 +62,19 @@ async function refreshAccessToken () {
 
       return access_token
     } catch (error) {
-      // Clear tokens and redirect to login
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
-      localStorage.removeItem('user')
-      window.location.href = '/auth/login'
+      // Only clear tokens and redirect if it's not a sessions endpoint
+      // Sessions endpoint might return 401 for non-admin users, which is expected
+      const isSessionsEndpoint = refreshToken && 
+        (window.location.pathname.includes('/user') || 
+         error.config?.url?.includes('/auth/sessions'));
+      
+      if (!isSessionsEndpoint) {
+        // Clear tokens and redirect to login
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+        localStorage.removeItem('user')
+        window.location.href = '/auth/login'
+      }
       throw error
     } finally {
       refreshPromise = null
@@ -86,7 +94,9 @@ axiosInstance.interceptors.request.use(
       config.url?.includes('/auth/refresh') ||
       config.url?.includes('/register-email') ||
       config.url?.includes('/verify-email') ||
-      config.url?.includes('/set-credentials')
+      config.url?.includes('/set-credentials') ||
+      config.url?.includes('/forgot-password') ||
+      config.url?.includes('/reset-password')
 
     if (isAuthEndpoint) {
       return config
@@ -129,7 +139,9 @@ axiosInstance.interceptors.response.use(
       originalRequest.url?.includes('/auth/refresh') ||
       originalRequest.url?.includes('/register-email') ||
       originalRequest.url?.includes('/verify-email') ||
-      originalRequest.url?.includes('/set-credentials')
+      originalRequest.url?.includes('/set-credentials') ||
+      originalRequest.url?.includes('/forgot-password') ||
+      originalRequest.url?.includes('/reset-password')
 
     // If 401 and we haven't tried to refresh yet (and not an auth endpoint)
     if (

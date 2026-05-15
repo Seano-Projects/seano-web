@@ -8,6 +8,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import useMapTile from "../../../hooks/useMapTile";
 import usvPointIcon from "../../../assets/usv-point.webp";
 
 const MAP_CENTER = [45.4215, -75.6972];
@@ -193,6 +194,7 @@ const ControlMapLayer = ({
   missionMarkers = [],
   vehicleTrail = [],
 }) => {
+  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
   const vehicleIcon =
     vehiclePosition && selectedVehicle ? createVehicleIcon(heading) : null;
 
@@ -240,8 +242,8 @@ const ControlMapLayer = ({
         )}
 
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          attribution={tileAttribution}
+          url={tileUrl}
           noWrap={true}
           minZoom={3}
           maxZoom={22}

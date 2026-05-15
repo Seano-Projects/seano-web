@@ -55,6 +55,8 @@ func (r *CommandLogRepository) GetCommandLogs(query model.CommandLogQuery) ([]mo
 	}
 	if query.Limit > 0 {
 		db = db.Limit(query.Limit)
+	} else {
+		db = db.Limit(500)
 	}
 	if query.Offset > 0 {
 		db = db.Offset(query.Offset)

@@ -675,32 +675,38 @@ func (h *MissionHandler) DeleteMission(c *fiber.Ctx) error {
 func (h *MissionHandler) GetMissionStats(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(uint)
 
-	var missions []model.Mission
-	var err error
+	type statusCount struct {
+		Status string
+		Count  int64
+	}
 
-	if middleware.HasPermission(h.db, userID, "missions.read_all") {
-		missions, err = h.missionRepo.GetAllMissions()
-	} else {
-		missions, err = h.missionRepo.GetMissionsByUserID(userID)
+	var rows []statusCount
+	q := h.db.Table("missions").Select("LOWER(TRIM(status)) as status, COUNT(*) as count")
+
+	if !middleware.HasPermission(h.db, userID, "missions.read_all") {
+		// Scope to user's vehicles or missions they created
+		vehicleIDs, _ := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+		if len(vehicleIDs) > 0 {
+			q = q.Where("vehicle_id IN ? OR created_by = ?", vehicleIDs, userID)
+		} else {
+			q = q.Where("created_by = ?", userID)
+		}
 	}
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch mission stats",
-		})
-	}
+
+	q.Group("LOWER(TRIM(status))").Scan(&rows)
 
 	stats := &model.MissionStats{}
-	stats.TotalMissions = int64(len(missions))
-	for _, mission := range missions {
-		switch strings.ToLower(strings.TrimSpace(mission.Status)) {
+	for _, r := range rows {
+		stats.TotalMissions += r.Count
+		switch r.Status {
 		case "draft":
-			stats.DraftMissions++
+			stats.DraftMissions = r.Count
 		case "completed":
-			stats.CompletedMissions++
+			stats.CompletedMissions = r.Count
 		case "failed":
-			stats.FailedMissions++
+			stats.FailedMissions = r.Count
 		case "ongoing", "active", "running", "in_progress":
-			stats.OngoingMissions++
+			stats.OngoingMissions += r.Count
 		}
 	}
 
@@ -909,6 +915,14 @@ func (h *MissionHandler) UpdateMissionProgressFromWaypoint(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Router /missions/ongoing [get]
 func (h *MissionHandler) GetOngoingMissions(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
+	vehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch user vehicles",
+		})
+	}
+
 	missions, err := h.missionRepo.GetOngoingMissions()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -916,5 +930,19 @@ func (h *MissionHandler) GetOngoingMissions(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(missions)
+	// Filter to only user's vehicles
+	idSet := make(map[uint]bool, len(vehicleIDs))
+	for _, id := range vehicleIDs {
+		idSet[id] = true
+	}
+	filtered := make([]interface{}, 0, len(missions))
+	for i := range missions {
+		if missions[i].VehicleID != nil && idSet[*missions[i].VehicleID] {
+			filtered = append(filtered, missions[i])
+		} else if missions[i].CreatedBy != nil && *missions[i].CreatedBy == userID {
+			filtered = append(filtered, missions[i])
+		}
+	}
+
+	return c.JSON(filtered)
 }

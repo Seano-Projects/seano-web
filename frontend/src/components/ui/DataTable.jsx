@@ -115,6 +115,11 @@ const DataTable = ({
     return sortedData.slice(start, start + pageSize);
   }, [sortedData, currentPage, pageSize]);
 
+  const tableMinWidth = useMemo(
+    () => `${Math.max(columns.length * 140, 720)}px`,
+    [columns.length],
+  );
+
   useEffect(() => {
     if (totalPages === 0) {
       if (currentPage !== 1) {
@@ -210,8 +215,14 @@ const DataTable = ({
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 custom-scrollbar">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+      <div
+        className="w-full max-w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 custom-scrollbar"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        <table
+          className="w-full divide-y divide-gray-200 dark:divide-gray-700"
+          style={{ minWidth: tableMinWidth }}
+        >
           <thead className="bg-gray-50 dark:bg-transparent">
             <tr>
               {columns.map((column, index) => {
@@ -219,7 +230,7 @@ const DataTable = ({
                 return (
                   <th
                     key={headerKey}
-                    className={`px-6 py-3 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider align-middle ${
+                    className={`px-6 py-3 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider align-middle whitespace-nowrap ${
                       column.className || ""
                     } ${
                       column.sortable !== false
@@ -288,7 +299,7 @@ const DataTable = ({
                       return (
                         <td
                           key={columnKey}
-                          className={`px-6 py-4 text-gray-900 dark:text-gray-100 ${
+                          className={`px-6 py-4 text-gray-900 dark:text-gray-100 whitespace-nowrap ${
                             column.cellClassName || ""
                           }`}
                           style={{ verticalAlign: "middle" }}

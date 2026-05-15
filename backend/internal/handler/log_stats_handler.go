@@ -2,7 +2,6 @@ package handler
 
 import (
 	"go-fiber-pgsql/internal/middleware"
-	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	"time"
 
@@ -50,7 +49,6 @@ func NewLogStatsHandler(
 func (h *LogStatsHandler) GetLogStats(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(uint)
 
-	// Determine which vehicle IDs to scope stats to
 	var vehicleIDs []uint
 	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
 		ids, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
@@ -60,89 +58,58 @@ func (h *LogStatsHandler) GetLogStats(c *fiber.Ctx) error {
 		vehicleIDs = ids
 	}
 
-	// Get today's date range
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	endOfDay := startOfDay.Add(24 * time.Hour)
+	startOfYesterday := startOfDay.AddDate(0, 0, -1)
 
-	// Get yesterday's date range
-	yesterday := now.AddDate(0, 0, -1)
-	startOfYesterday := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, yesterday.Location())
-	endOfYesterday := startOfYesterday.Add(24 * time.Hour)
-
-	// Vehicle logs stats
-	vehicleLogsToday, _ := h.vehicleLogRepo.CountLogs(model.VehicleLogQuery{
-		VehicleIDs: vehicleIDs,
-		StartTime:  startOfDay,
-		EndTime:    endOfDay,
-	})
-	vehicleLogsYesterday, _ := h.vehicleLogRepo.CountLogs(model.VehicleLogQuery{
-		VehicleIDs: vehicleIDs,
-		StartTime:  startOfYesterday,
-		EndTime:    endOfYesterday,
-	})
-	vehicleLogsTotal, _ := h.vehicleLogRepo.CountLogs(model.VehicleLogQuery{
-		VehicleIDs: vehicleIDs,
-	})
-
-	// Sensor logs stats
-	sensorLogsToday, _ := h.sensorLogRepo.CountLogs(model.SensorLogQuery{
-		VehicleIDs: vehicleIDs,
-		StartTime:  startOfDay,
-		EndTime:    endOfDay,
-	})
-	sensorLogsYesterday, _ := h.sensorLogRepo.CountLogs(model.SensorLogQuery{
-		VehicleIDs: vehicleIDs,
-		StartTime:  startOfYesterday,
-		EndTime:    endOfYesterday,
-	})
-	sensorLogsTotal, _ := h.sensorLogRepo.CountLogs(model.SensorLogQuery{
-		VehicleIDs: vehicleIDs,
-	})
-
-	// Raw logs stats
-	rawLogsToday := int64(0)
-	rawLogsYesterday := int64(0)
-	rawLogsTotal := int64(0)
-	if h.rawLogsEnabled {
-		rawLogsToday, _ = h.rawLogRepo.CountLogs(model.RawLogQuery{
-			VehicleIDs: vehicleIDs,
-			StartTime:  startOfDay,
-			EndTime:    endOfDay,
-		})
-		rawLogsYesterday, _ = h.rawLogRepo.CountLogs(model.RawLogQuery{
-			VehicleIDs: vehicleIDs,
-			StartTime:  startOfYesterday,
-			EndTime:    endOfYesterday,
-		})
-		rawLogsTotal, _ = h.rawLogRepo.CountLogs(model.RawLogQuery{
-			VehicleIDs: vehicleIDs,
-		})
+	// Helper: single query per table with conditional aggregation (3 queries total instead of 9)
+	type statsResult struct {
+		Total     int64
+		Today     int64
+		Yesterday int64
 	}
 
-	// Calculate percentage changes
-	vehicleChange := calculatePercentageChange(vehicleLogsYesterday, vehicleLogsToday)
-	sensorChange := calculatePercentageChange(sensorLogsYesterday, sensorLogsToday)
-	rawChange := calculatePercentageChange(rawLogsYesterday, rawLogsToday)
+	queryStats := func(table string) statsResult {
+		var r statsResult
+		q := h.db.Table(table).Select(`
+			COUNT(*) as total,
+			COUNT(*) FILTER (WHERE created_at >= ? AND created_at < ?) as today,
+			COUNT(*) FILTER (WHERE created_at >= ? AND created_at < ?) as yesterday
+		`, startOfDay, startOfDay.Add(24*time.Hour), startOfYesterday, startOfDay)
+
+		if len(vehicleIDs) > 0 {
+			q = q.Where("vehicle_id IN ?", vehicleIDs)
+		}
+		q.Row().Scan(&r.Total, &r.Today, &r.Yesterday)
+		return r
+	}
+
+	vStats := queryStats("vehicle_logs")
+	sStats := queryStats("sensor_logs")
+
+	var rStats statsResult
+	if h.rawLogsEnabled {
+		rStats = queryStats("raw_logs")
+	}
 
 	return c.JSON(fiber.Map{
 		"vehicle_logs": fiber.Map{
-			"today":             vehicleLogsToday,
-			"yesterday":         vehicleLogsYesterday,
-			"total":             vehicleLogsTotal,
-			"percentage_change": vehicleChange,
+			"today":             vStats.Today,
+			"yesterday":         vStats.Yesterday,
+			"total":             vStats.Total,
+			"percentage_change": calculatePercentageChange(vStats.Yesterday, vStats.Today),
 		},
 		"sensor_logs": fiber.Map{
-			"today":             sensorLogsToday,
-			"yesterday":         sensorLogsYesterday,
-			"total":             sensorLogsTotal,
-			"percentage_change": sensorChange,
+			"today":             sStats.Today,
+			"yesterday":         sStats.Yesterday,
+			"total":             sStats.Total,
+			"percentage_change": calculatePercentageChange(sStats.Yesterday, sStats.Today),
 		},
 		"raw_logs": fiber.Map{
-			"today":             rawLogsToday,
-			"yesterday":         rawLogsYesterday,
-			"total":             rawLogsTotal,
-			"percentage_change": rawChange,
+			"today":             rStats.Today,
+			"yesterday":         rStats.Yesterday,
+			"total":             rStats.Total,
+			"percentage_change": calculatePercentageChange(rStats.Yesterday, rStats.Today),
 		},
 	})
 }
@@ -160,7 +127,6 @@ func (h *LogStatsHandler) GetLogStats(c *fiber.Ctx) error {
 func (h *LogStatsHandler) GetLogChartData(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(uint)
 
-	// Determine which vehicle IDs to scope chart data to
 	var vehicleIDs []uint
 	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
 		ids, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
@@ -171,44 +137,59 @@ func (h *LogStatsHandler) GetLogChartData(c *fiber.Ctx) error {
 	}
 
 	now := time.Now()
+	start := now.Add(-24 * time.Hour)
+	start = time.Date(start.Year(), start.Month(), start.Day(), start.Hour(), 0, 0, 0, start.Location())
 
-	// Get data for last 24 hours
+	// Single query per table with GROUP BY hour (3 queries total instead of 72)
+	type hourCount struct {
+		Hour  time.Time
+		Count int64
+	}
+
+	queryHourly := func(table string) map[string]int64 {
+		var rows []hourCount
+		q := h.db.Table(table).
+			Select("date_trunc('hour', created_at) as hour, COUNT(*) as count").
+			Where("created_at >= ?", start).
+			Group("hour").Order("hour")
+
+		if len(vehicleIDs) > 0 {
+			q = q.Where("vehicle_id IN ?", vehicleIDs)
+		}
+		q.Scan(&rows)
+
+		m := make(map[string]int64, len(rows))
+		for _, r := range rows {
+			m[r.Hour.Format("15:04")] = r.Count
+		}
+		return m
+	}
+
+	vehicleCounts := queryHourly("vehicle_logs")
+	sensorCounts := queryHourly("sensor_logs")
+
+	var rawCounts map[string]int64
+	if h.rawLogsEnabled {
+		rawCounts = queryHourly("raw_logs")
+	} else {
+		rawCounts = make(map[string]int64)
+	}
+
+	// Build chart data for last 24 hours
 	chartData := make([]map[string]interface{}, 0, 24)
-
 	for i := 23; i >= 0; i-- {
 		hourStart := now.Add(-time.Duration(i) * time.Hour)
 		hourStart = time.Date(hourStart.Year(), hourStart.Month(), hourStart.Day(), hourStart.Hour(), 0, 0, 0, hourStart.Location())
-		hourEnd := hourStart.Add(time.Hour)
+		key := hourStart.Format("15:04")
 
-		vehicleCount, _ := h.vehicleLogRepo.CountLogs(model.VehicleLogQuery{
-			VehicleIDs: vehicleIDs,
-			StartTime:  hourStart,
-			EndTime:    hourEnd,
-		})
-
-		sensorCount, _ := h.sensorLogRepo.CountLogs(model.SensorLogQuery{
-			VehicleIDs: vehicleIDs,
-			StartTime:  hourStart,
-			EndTime:    hourEnd,
-		})
-
-		rawCount := int64(0)
-		if h.rawLogsEnabled {
-			rawCount, _ = h.rawLogRepo.CountLogs(model.RawLogQuery{
-				VehicleIDs: vehicleIDs,
-				StartTime:  hourStart,
-				EndTime:    hourEnd,
-			})
-		}
-		
 		chartData = append(chartData, map[string]interface{}{
-			"time":         hourStart.Format("15:04"),
-			"vehicle_logs": vehicleCount,
-			"sensor_logs":  sensorCount,
-			"raw_logs":     rawCount,
+			"time":         key,
+			"vehicle_logs": vehicleCounts[key],
+			"sensor_logs":  sensorCounts[key],
+			"raw_logs":     rawCounts[key],
 		})
 	}
-	
+
 	return c.JSON(fiber.Map{
 		"chart_data": chartData,
 	})

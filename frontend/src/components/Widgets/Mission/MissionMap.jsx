@@ -13,6 +13,7 @@ import {
 import { EditControl } from "react-leaflet-draw";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
+import useMapTile from "../../../hooks/useMapTile";
 import L from "leaflet";
 import "leaflet-draw";
 import { FaHome, FaEdit, FaSearch } from "react-icons/fa";
@@ -233,6 +234,7 @@ const MissionMap = ({
   selectedVehicleId,
 }) => {
   // Search coordinates state
+  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
   const [searchQuery, setSearchQuery] = useState("");
   const [mapCenter, setMapCenter] = useState(null);
   const [mapZoom, setMapZoom] = useState(null);
@@ -539,7 +541,10 @@ const MissionMap = ({
     if (!selectedVehicle) return null;
 
     // Use heading from real-time vehicle log, not from static vehicle data
-    const heading = selectedVehicleLog?.heading || selectedVehicleLog?.yaw || 0;
+    const heading =
+      (selectedVehicleLog?.heading != null
+        ? selectedVehicleLog.heading
+        : selectedVehicleLog?.yaw) ?? 0;
 
     return L.divIcon({
       html: `
@@ -1079,8 +1084,8 @@ const MissionMap = ({
         />
         <DrawCursorController onDrawStateChange={setIsDrawActive} />
         <TileLayer
-          attribution="&copy; Esri"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          attribution={tileAttribution}
+          url={tileUrl}
           noWrap={true}
           minZoom={3}
           maxZoom={22}
@@ -1449,9 +1454,9 @@ const MissionMap = ({
                   <div className="text-xs text-gray-500 mt-1">
                     Heading:{" "}
                     {(
-                      selectedVehicleLog?.heading ||
-                      selectedVehicleLog?.yaw ||
-                      0
+                      (selectedVehicleLog?.heading != null
+                        ? selectedVehicleLog.heading
+                        : selectedVehicleLog?.yaw) ?? 0
                     ).toFixed(1)}
                     °
                   </div>

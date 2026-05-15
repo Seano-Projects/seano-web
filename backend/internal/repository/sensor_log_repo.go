@@ -21,6 +21,17 @@ func (r *SensorLogRepository) CreateSensorLog(log *model.SensorLog) error {
 	return r.db.Create(log).Error
 }
 
+// ExistsByVehicleSensorAndUsvTimestamp checks whether a sensor log with the same
+// vehicle_id, sensor_id, and usv_timestamp already exists. Used to deduplicate
+// messages that may be re-delivered on MQTT QoS-1 reconnect.
+func (r *SensorLogRepository) ExistsByVehicleSensorAndUsvTimestamp(vehicleID, sensorID uint, usvTimestamp time.Time) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.SensorLog{}).
+		Where("vehicle_id = ? AND sensor_id = ? AND usv_timestamp = ?", vehicleID, sensorID, usvTimestamp).
+		Count(&count).Error
+	return count > 0, err
+}
+
 // UpdateWSSentAt stores backend websocket send time for a sensor log
 func (r *SensorLogRepository) UpdateWSSentAt(id uint, wsSentAt time.Time) error {
 	return r.db.Model(&model.SensorLog{}).
@@ -39,48 +50,50 @@ func (r *SensorLogRepository) UpdateWSReceivedAt(id uint, wsReceivedAt time.Time
 // GetSensorLogs retrieves sensor logs with filters
 func (r *SensorLogRepository) GetSensorLogs(query model.SensorLogQuery) ([]model.SensorLog, error) {
 	var logs []model.SensorLog
-	
-	db := r.db.Model(&model.SensorLog{}).Preload("Vehicle").Preload("Sensor").Preload("Sensor.SensorType")
-	
+
+	db := r.db.Model(&model.SensorLog{})
+
+	// Use efficient Joins preloading instead of separate queries
+	db = db.Joins("Vehicle").Joins("Sensor").Preload("Sensor.SensorType")
+
 	if len(query.VehicleIDs) > 0 {
-		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
+		db = db.Where("\"sensor_logs\".vehicle_id IN ?", query.VehicleIDs)
 	} else if query.VehicleID != 0 {
-		db = db.Where("vehicle_id = ?", query.VehicleID)
-	}
-	
-	if query.SensorID != 0 {
-		db = db.Where("sensor_id = ?", query.SensorID)
+		db = db.Where("\"sensor_logs\".vehicle_id = ?", query.VehicleID)
 	}
 
-	if query.SensorType != "" {
-		db = db.Joins("JOIN sensors ON sensors.id = sensor_logs.sensor_id").
-			Joins("JOIN sensor_types ON sensor_types.id = sensors.sensor_type_id").
-			Where("LOWER(sensor_types.name) = ?", query.SensorType)
+	if query.SensorID != 0 {
+		db = db.Where("\"sensor_logs\".sensor_id = ?", query.SensorID)
 	}
 
 	if query.MissionID != 0 {
-		db = db.Where("mission_id = ?", query.MissionID)
+		db = db.Where("\"sensor_logs\".mission_id = ?", query.MissionID)
 	}
 
 	if !query.StartTime.IsZero() {
-		db = db.Where("created_at >= ?", query.StartTime)
+		db = db.Where("\"sensor_logs\".created_at >= ?", query.StartTime)
 	}
-	
+
 	if !query.EndTime.IsZero() {
-		db = db.Where("created_at <= ?", query.EndTime)
+		db = db.Where("\"sensor_logs\".created_at <= ?", query.EndTime)
 	}
-	
-	if query.Limit > 0 {
-		db = db.Limit(query.Limit)
+
+	// Default limit cap to prevent unbounded queries
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 500
+	} else if limit > 10000 {
+		limit = 10000
 	}
-	
+	db = db.Limit(limit)
+
 	if query.Offset > 0 {
 		db = db.Offset(query.Offset)
 	}
-	
-	orderClause := "created_at DESC"
+
+	orderClause := "\"sensor_logs\".created_at DESC"
 	if strings.ToLower(query.Order) == "asc" {
-		orderClause = "created_at ASC"
+		orderClause = "\"sensor_logs\".created_at ASC"
 	}
 
 	err := db.Order(orderClause).Find(&logs).Error
@@ -115,23 +128,17 @@ func (r *SensorLogRepository) GetLatestLog(vehicleID, sensorID uint) (*model.Sen
 // CountLogs returns the count of logs matching the query
 func (r *SensorLogRepository) CountLogs(query model.SensorLogQuery) (int64, error) {
 	var count int64
-	
+
 	db := r.db.Model(&model.SensorLog{})
-	
+
 	if len(query.VehicleIDs) > 0 {
 		db = db.Where("vehicle_id IN ?", query.VehicleIDs)
 	} else if query.VehicleID != 0 {
 		db = db.Where("vehicle_id = ?", query.VehicleID)
 	}
-	
+
 	if query.SensorID != 0 {
 		db = db.Where("sensor_id = ?", query.SensorID)
-	}
-
-	if query.SensorType != "" {
-		db = db.Joins("JOIN sensors ON sensors.id = sensor_logs.sensor_id").
-			Joins("JOIN sensor_types ON sensor_types.id = sensors.sensor_type_id").
-			Where("LOWER(sensor_types.name) = ?", query.SensorType)
 	}
 
 	if query.MissionID != 0 {
@@ -139,13 +146,13 @@ func (r *SensorLogRepository) CountLogs(query model.SensorLogQuery) (int64, erro
 	}
 
 	if !query.StartTime.IsZero() {
-		db = db.Where("created_at >= ?", query.StartTime)
+		db = db.Where("sensor_logs.created_at >= ?", query.StartTime)
 	}
-	
+
 	if !query.EndTime.IsZero() {
-		db = db.Where("created_at <= ?", query.EndTime)
+		db = db.Where("sensor_logs.created_at <= ?", query.EndTime)
 	}
-	
+
 	err := db.Count(&count).Error
 	return count, err
 }

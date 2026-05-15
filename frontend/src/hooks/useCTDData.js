@@ -121,8 +121,17 @@ export const useCTDData = (vehicle = null) => {
     }
 
     try {
-      // Keep initial payload moderate to reduce filter-to-render latency on vehicle switch.
-      let url = `${API_BASE_URL}/sensor-logs/?limit=10000`
+      // Find CTD sensor IDs first
+      const sensorRes = await fetch(`${API_BASE_URL}/sensors/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!sensorRes.ok) return
+      const sensorList = await sensorRes.json()
+      const sensors = Array.isArray(sensorList) ? sensorList : sensorList.data || []
+      const ctdSensor = sensors.find(s => s.code && s.code.toUpperCase().includes('CTD'))
+      if (!ctdSensor) return
+
+      let url = `${API_BASE_URL}/sensor-logs/?limit=500&order=desc&skip_count=true&sensor_id=${ctdSensor.id}`
       if (vehicleId) url += `&vehicle_id=${vehicleId}`
 
       const response = await fetch(url, {
@@ -151,7 +160,6 @@ export const useCTDData = (vehicle = null) => {
             sensor_code: log.sensor?.code
           })
           if (!n) return null
-          if (!n.sensor_code.toUpperCase().includes('CTD')) return null
           if (
             vehicleCode &&
             n.vehicle_code.toUpperCase() !== vehicleCode.toUpperCase()

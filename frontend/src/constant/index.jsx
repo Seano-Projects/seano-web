@@ -15,6 +15,7 @@ import {
   MdNavigation,
   MdSignalCellular4Bar,
   MdOutlineSensors,
+  MdOutlineDashboard,
 } from "react-icons/md";
 import {
   TbGps,
@@ -26,6 +27,7 @@ import {
   TbCategory,
   TbNotification,
   TbSunWind,
+  TbLayoutDashboard,
 } from "react-icons/tb";
 import {
   FaArrowTrendDown,
@@ -56,7 +58,7 @@ const sizeIcon = 18;
 
 export const dashboardLink = {
   href: "/dashboard",
-  icon: FaChartBar,
+  icon: TbLayoutDashboard,
   text: "nav.dashboard",
   size: sizeIcon,
 };

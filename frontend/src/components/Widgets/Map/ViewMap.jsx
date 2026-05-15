@@ -8,6 +8,7 @@ import {
   useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import useMapTile from "../../../hooks/useMapTile";
 import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import L from "leaflet";
 import { MdMyLocation } from "react-icons/md";
@@ -28,7 +29,8 @@ const VehicleMarker = memo(
     }
 
     // Get heading from vehicle log
-    const heading = vehicleLog?.heading || vehicleLog?.yaw || 0;
+    const heading =
+      (vehicleLog?.heading != null ? vehicleLog.heading : vehicleLog?.yaw) ?? 0;
     const icon = useMemo(
       () => createBoatIcon(vehicle.id, heading, isSelected),
       [vehicle.id, heading, isSelected, createBoatIcon],
@@ -137,6 +139,7 @@ const MapInstanceGetter = ({ onMapReady, onMapIdle, onUserInteraction }) => {
 };
 
 const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
+  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
   const [showFocusButton, setShowFocusButton] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [showTrails, setShowTrails] = useState(true); // Toggle untuk menampilkan/menyembunyikan jalur
@@ -642,8 +645,8 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
         />
 
         <TileLayer
-          attribution="&copy; Esri"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          attribution={tileAttribution}
+          url={tileUrl}
           noWrap={true}
           updateWhenZooming={false}
           keepBuffer={4}

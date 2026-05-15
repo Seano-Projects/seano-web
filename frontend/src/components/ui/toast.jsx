@@ -14,7 +14,7 @@ const baseToast = ({
   title,
   description,
   variant = "default",
-  duration = 4000,
+  duration = 2500,
   actionLabel,
   onAction,
   id,
@@ -142,11 +142,11 @@ const ToastCard = ({ toastItem, onClose }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -24 }}
+      initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -24 }}
+      exit={{ opacity: 0, y: -8 }}
       transition={{
-        duration: 0.3,
+        duration: 0.16,
         ease: "easeOut",
       }}
       className={`pointer-events-auto flex w-full flex-row items-start gap-3 rounded-xl p-4 transition-all duration-200 ease-out sm:w-96 ${baseStyle} font-openSans`}

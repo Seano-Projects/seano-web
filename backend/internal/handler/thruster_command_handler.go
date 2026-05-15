@@ -56,12 +56,22 @@ func (h *ThrusterCommandHandler) CreateThrusterCommand(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid vehicle_id"})
 		}
 		vehicleCode = found.Code
+		// Ownership check
+		userID := c.Locals("user_id").(uint)
+		if found.UserID != userID {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You do not have permission to control this vehicle"})
+		}
 	} else if vehicleCode != "" {
 		found, err := h.vehicleRepo.GetVehicleByCode(vehicleCode)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid vehicle_code"})
 		}
 		vehicleID = found.ID
+		// Ownership check
+		userID := c.Locals("user_id").(uint)
+		if found.UserID != userID {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You do not have permission to control this vehicle"})
+		}
 	}
 
 	ttlMs := req.TTLms

@@ -61,6 +61,8 @@ func main() {
 		&model.CommandLog{},
 		&model.WaypointLog{},
 		&model.ThrusterCommand{},
+		&model.ChatSession{},
+		&model.ChatMessage{},
 	}
 
 	if saveRawLogsToDB {
@@ -191,6 +193,12 @@ func main() {
 
 				// Command Publisher (for control commands arm/disarm/mode)
 				cmdPublisher = mqttservice.NewCommandPublisher(mqttClient, commandLogRepo, vehicleRepo, wsHub)
+				// Subscribe to the wildcard ACK topic once, persistently.
+				// This avoids the race condition where per-command subscribe/unsubscribe
+				// could remove another concurrent command's handler for the same vehicle.
+				if err := cmdPublisher.SubscribeACK(); err != nil {
+					log.Printf("Warning: Failed to subscribe to ACK topic: %v", err)
+				}
 				log.Println("✓ Command Publisher ready")
 
 				// Waypoint Listener (mission progress from USV)

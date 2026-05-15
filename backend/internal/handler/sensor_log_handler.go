@@ -118,10 +118,6 @@ func (h *SensorLogHandler) GetSensorLogs(c *fiber.Ctx) error {
 		query.SensorID = uint(id)
 	}
 
-	if sensorType := strings.TrimSpace(c.Query("sensor_type")); sensorType != "" {
-		query.SensorType = strings.ToLower(sensorType)
-	}
-
 	if startTime := c.Query("start_time"); startTime != "" {
 		t, err := time.Parse(time.RFC3339, startTime)
 		if err != nil {
@@ -173,10 +169,20 @@ func (h *SensorLogHandler) GetSensorLogs(c *fiber.Ctx) error {
 		query.Offset = o
 	}
 
+	if c.Query("skip_count") == "true" {
+		query.SkipCount = true
+	}
+
 	logs, err := h.sensorLogRepo.GetSensorLogs(query)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch sensor logs",
+		})
+	}
+
+	if query.SkipCount {
+		return c.JSON(fiber.Map{
+			"data": logs,
 		})
 	}
 
@@ -403,10 +409,6 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 		}
 	}
 
-	if sensorType := c.Query("sensor_type"); sensorType != "" {
-		query.SensorType = sensorType
-	}
-
 	if missionID := c.Query("mission_id"); missionID != "" {
 		id, err := strconv.ParseUint(missionID, 10, 32)
 		if err == nil {
@@ -429,7 +431,7 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 	}
 
 	// No limit for export
-	query.Limit = 0
+	query.Limit = 50000
 	query.Order = "asc"
 
 	// Get all logs matching query
@@ -554,6 +556,13 @@ func (h *SensorLogHandler) ImportSensorLogs(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "No file uploaded",
+		})
+	}
+
+	// Limit file size to 10MB
+	if file.Size > 10*1024*1024 {
+		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{
+			"error": "File too large. Maximum size is 10MB",
 		})
 	}
 

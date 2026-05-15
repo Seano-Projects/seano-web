@@ -6,7 +6,6 @@ export { default as DataCard } from './DataCard'
 // Vehicle Widgets
 export {
   VehicleDropdown,
-  VehicleSelector,
   VehicleTable,
   VehicleModal
 } from './Vehicle'

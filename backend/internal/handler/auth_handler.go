@@ -2,6 +2,8 @@ package handler
 
 import (
 	"log"
+	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
@@ -11,6 +13,10 @@ import (
 	"go-fiber-pgsql/internal/repository"
 	"go-fiber-pgsql/internal/util"
 )
+
+func isSecureCookie() bool {
+	return os.Getenv("COOKIE_SECURE") == "true" || os.Getenv("APP_ENV") == "production"
+}
 
 type AuthHandler struct {
 	DB           *gorm.DB
@@ -196,7 +202,11 @@ func (h *AuthHandler) SetCredentials(c *fiber.Ctx) error {
 	accessToken, _ := util.GenerateAccessToken(user.ID, user.Email, roleName)
 	refreshToken, _ := util.GenerateRefreshToken(user.ID, user.Email, roleName)
 
-	repository.UpdateRefreshToken(h.DB, user.ID, refreshToken)
+	// Get client info
+	ipAddress := c.IP()
+	userAgent := c.Get("User-Agent")
+	
+	repository.UpdateRefreshTokenWithContext(h.DB, user.ID, refreshToken, ipAddress, userAgent)
 
 	// Set refresh token as HTTP-only cookie
 	c.Cookie(&fiber.Cookie{
@@ -204,7 +214,7 @@ func (h *AuthHandler) SetCredentials(c *fiber.Ctx) error {
 		Value:    refreshToken,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days in seconds
 		HTTPOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   isSecureCookie(),
 		SameSite: "Lax",
 	})
 
@@ -320,7 +330,11 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	accessToken, _ := util.GenerateAccessToken(user.ID, user.Email, roleName)
 	refreshToken, _ := util.GenerateRefreshToken(user.ID, user.Email, roleName)
 
-	repository.UpdateRefreshToken(h.DB, user.ID, refreshToken)
+	// Get client info
+	ipAddress := c.IP()
+	userAgent := c.Get("User-Agent")
+	
+	repository.UpdateRefreshTokenWithContext(h.DB, user.ID, refreshToken, ipAddress, userAgent)
 
 	// Set refresh token as HTTP-only cookie
 	c.Cookie(&fiber.Cookie{
@@ -328,7 +342,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		Value:    refreshToken,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days in seconds
 		HTTPOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   isSecureCookie(),
 		SameSite: "Lax",
 	})
 
@@ -399,10 +413,20 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 		roleName = user.Role.Name
 	}
 	accessToken, _ := util.GenerateAccessToken(user.ID, user.Email, roleName)
-	newRefreshToken, _ := util.GenerateRefreshToken(user.ID, user.Email, roleName)
-
-	// Update refresh token in database
-	repository.UpdateRefreshToken(h.DB, user.ID, newRefreshToken)
+	
+	// Don't create new refresh token every time - just return the same one
+	// Only create new refresh token if the old one is close to expiry (< 1 day)
+	var currentToken model.RefreshToken
+	h.DB.Where("token = ?", refreshToken).First(&currentToken)
+	
+	newRefreshToken := refreshToken // Keep same token
+	if time.Until(currentToken.ExpiresAt) < 24*time.Hour {
+		// Token expires soon, create new one
+		newRefreshToken, _ = util.GenerateRefreshToken(user.ID, user.Email, roleName)
+		ipAddress := c.IP()
+		userAgent := c.Get("User-Agent")
+		repository.UpdateRefreshTokenWithContext(h.DB, user.ID, newRefreshToken, ipAddress, userAgent)
+	}
 
 	// Set new refresh token as HTTP-only cookie
 	c.Cookie(&fiber.Cookie{
@@ -410,7 +434,7 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 		Value:    newRefreshToken,
 		MaxAge:   7 * 24 * 60 * 60, // 7 days in seconds
 		HTTPOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   isSecureCookie(),
 		SameSite: "Lax",
 	})
 
@@ -432,10 +456,25 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]string
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(uint)
+	// Get refresh token from cookie or body
+	refreshToken := c.Cookies("refresh_token")
+	if refreshToken == "" {
+		var req struct {
+			RefreshToken string `json:"refresh_token"`
+		}
+		if err := c.BodyParser(&req); err == nil && req.RefreshToken != "" {
+			refreshToken = req.RefreshToken
+		}
+	}
 
-	// Clear refresh token
-	repository.ClearRefreshToken(h.DB, userID)
+	// Clear specific refresh token if found
+	if refreshToken != "" {
+		repository.ClearSpecificRefreshToken(h.DB, refreshToken)
+	} else {
+		// Fallback: clear all tokens for user
+		userID := c.Locals("user_id").(uint)
+		repository.ClearRefreshToken(h.DB, userID)
+	}
 
 	// Clear cookie
 	c.Cookie(&fiber.Cookie{
@@ -446,4 +485,173 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	})
 
 	return c.JSON(fiber.Map{"message": "Logged out successfully"})
+}
+
+// ForgotPassword godoc
+// @Summary Request password reset
+// @Description Send password reset link to user's email
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Email"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /auth/forgot-password [post]
+func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request format."})
+	}
+	if req.Email == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Email is required."})
+	}
+
+	user, err := repository.GetUserByEmail(h.DB, req.Email)
+	if err != nil || !user.IsVerified {
+		// Always return success to prevent email enumeration
+		return c.JSON(fiber.Map{"message": "If the email exists, a reset link has been sent."})
+	}
+
+	token := util.GenerateVerificationToken()
+	if err := repository.UpdateVerificationToken(h.DB, req.Email, token); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to process request."})
+	}
+
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "https://seano.cloud"
+	}
+	resetLink := frontendURL + "/auth/reset-password?token=" + token
+
+	if err := h.EmailService.SendPasswordResetLink(user.Email, resetLink); err != nil {
+		log.Printf("Failed to send reset email to %s: %v", user.Email, err)
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to send reset email."})
+	}
+
+	log.Printf("Password reset email sent to %s", user.Email)
+	return c.JSON(fiber.Map{"message": "If the email exists, a reset link has been sent."})
+}
+
+// ResetPassword godoc
+// @Summary Reset password with token
+// @Description Verify reset token and update user password
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Token and new password"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /auth/reset-password [post]
+func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
+	var req struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request format."})
+	}
+	if req.Token == "" || req.Password == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Token and password are required."})
+	}
+	if len(req.Password) < 6 {
+		return c.Status(400).JSON(fiber.Map{"error": "Password must be at least 6 characters."})
+	}
+
+	user, err := repository.GetUserByVerificationToken(h.DB, req.Token)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid or expired reset token."})
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to process password."})
+	}
+
+	// Update password and clear token
+	err = h.DB.Model(&model.User{}).Where("id = ?", user.ID).Updates(map[string]interface{}{
+		"password":            string(hashedPassword),
+		"verification_token":  "",
+		"verification_expiry": nil,
+	}).Error
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to reset password."})
+	}
+
+	return c.JSON(fiber.Map{"message": "Password reset successfully."})
+}
+
+// GetActiveSessions godoc
+// @Summary Get active user sessions (Admin only)
+// @Description Get all active user sessions with IP and device info
+// @Tags Authentication
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {array} model.RefreshToken
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /auth/sessions [get]
+func (h *AuthHandler) GetActiveSessions(c *fiber.Ctx) error {
+	// Check if user is admin
+	userRole := c.Locals("role").(string)
+	if userRole != "admin" {
+		return c.Status(403).JSON(fiber.Map{"error": "Admin access required"})
+	}
+
+	sessions, err := repository.GetAllActiveSessions(h.DB)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to get sessions"})
+	}
+
+	// Format response
+	var response []map[string]interface{}
+	for _, session := range sessions {
+		response = append(response, map[string]interface{}{
+			"id":          session.ID,
+			"user_id":     session.UserID,
+			"user_email":  session.User.Email,
+			"user_name":   session.User.Username,
+			"ip_address":  session.IPAddress,
+			"user_agent":  session.UserAgent,
+			"device_info": session.DeviceInfo,
+			"created_at":  session.CreatedAt,
+			"last_used":   session.LastUsedAt,
+			"expires_at":  session.ExpiresAt,
+		})
+	}
+
+	return c.JSON(response)
+}
+
+// LogoutSession godoc
+// @Summary Logout specific session (Admin only)
+// @Description Admin can logout specific user session by session ID
+// @Tags Authentication
+// @Security BearerAuth
+// @Param id path int true "Session ID"
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /auth/sessions/{id} [delete]
+func (h *AuthHandler) LogoutSession(c *fiber.Ctx) error {
+	// Check if user is admin
+	userRole := c.Locals("role").(string)
+	if userRole != "admin" {
+		return c.Status(403).JSON(fiber.Map{"error": "Admin access required"})
+	}
+
+	sessionID := c.Params("id")
+	if sessionID == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Session ID required"})
+	}
+
+	err := repository.ClearRefreshTokenByID(h.DB, sessionID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Session not found"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Session logged out successfully"})
 }

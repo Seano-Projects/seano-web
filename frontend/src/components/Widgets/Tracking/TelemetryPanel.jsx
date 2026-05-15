@@ -76,9 +76,12 @@ const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
   // Get values from vehicleLog — cleared when vehicle is offline
   const isOnline = isVehicleOnline(selectedVehicle?.code);
   const effectiveLog = isOnline ? vehicleLog : null;
-  const roll = effectiveLog?.roll || 0;
-  const pitch = effectiveLog?.pitch || 0;
-  const heading = effectiveLog?.heading || effectiveLog?.yaw || 0;
+  const roll = effectiveLog?.roll ?? 0;
+  const pitch = effectiveLog?.pitch ?? 0;
+  const heading =
+    (effectiveLog?.heading != null
+      ? effectiveLog.heading
+      : effectiveLog?.yaw) ?? 0;
 
   return (
     <div className="h-full p-3 md:p-6 flex flex-col items-center justify-center">

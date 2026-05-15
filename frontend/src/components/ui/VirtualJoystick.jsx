@@ -1,4 +1,10 @@
 import { useRef, useCallback, useState } from "react";
+import {
+  FaChevronUp,
+  FaChevronDown,
+  FaChevronLeft,
+  FaChevronRight,
+} from "react-icons/fa";
 
 /**
  * VirtualJoystick – analog stick that emits values in [-100, 100].
@@ -154,32 +160,32 @@ const VirtualJoystick = ({
       {axis === "vertical" && (
         <>
           <div
-            className="absolute text-gray-400 dark:text-gray-500 text-xs"
+            className="absolute text-gray-400 dark:text-gray-500"
             style={{ top: 4, left: "50%", transform: "translateX(-50%)" }}
           >
-            ▲
+            <FaChevronUp className="text-[10px]" />
           </div>
           <div
-            className="absolute text-gray-400 dark:text-gray-500 text-xs"
+            className="absolute text-gray-400 dark:text-gray-500"
             style={{ bottom: 4, left: "50%", transform: "translateX(-50%)" }}
           >
-            ▼
+            <FaChevronDown className="text-[10px]" />
           </div>
         </>
       )}
       {axis === "horizontal" && (
         <>
           <div
-            className="absolute text-gray-400 dark:text-gray-500 text-xs"
+            className="absolute text-gray-400 dark:text-gray-500"
             style={{ left: 4, top: "50%", transform: "translateY(-50%)" }}
           >
-            ◀
+            <FaChevronLeft className="text-[10px]" />
           </div>
           <div
-            className="absolute text-gray-400 dark:text-gray-500 text-xs"
+            className="absolute text-gray-400 dark:text-gray-500"
             style={{ right: 4, top: "50%", transform: "translateY(-50%)" }}
           >
-            ▶
+            <FaChevronRight className="text-[10px]" />
           </div>
         </>
       )}

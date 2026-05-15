@@ -21,17 +21,23 @@ type RawLogListener struct {
 	vehicleRepo *repository.VehicleRepository
 	wsHub       *wsocket.Hub
 	saveToDB    bool
+	workChan    chan mqtt.Message
 }
 
 // NewRawLogListener creates a new raw log listener
 func NewRawLogListener(client mqtt.Client, rawLogRepo *repository.RawLogRepository, vehicleRepo *repository.VehicleRepository, wsHub *wsocket.Hub, saveToDB bool) *RawLogListener {
-	return &RawLogListener{
+	l := &RawLogListener{
 		client:      client,
 		rawLogRepo:  rawLogRepo,
 		vehicleRepo: vehicleRepo,
 		wsHub:       wsHub,
 		saveToDB:    saveToDB,
+		workChan:    make(chan mqtt.Message, 500),
 	}
+	for i := 0; i < 5; i++ {
+		go l.worker()
+	}
+	return l
 }
 
 // Start subscribes to raw log topics and processes messages
@@ -50,8 +56,23 @@ func (l *RawLogListener) Start() error {
 	return nil
 }
 
-// handleMessage processes incoming MQTT messages
+// handleMessage dispatches incoming MQTT messages to worker pool
 func (l *RawLogListener) handleMessage(client mqtt.Client, msg mqtt.Message) {
+	select {
+	case l.workChan <- msg:
+	default:
+		log.Printf("⚠️ Raw log worker queue full, dropping message from topic: %s", msg.Topic())
+	}
+}
+
+func (l *RawLogListener) worker() {
+	for msg := range l.workChan {
+		l.processMessage(msg)
+	}
+}
+
+// processMessage processes incoming MQTT messages
+func (l *RawLogListener) processMessage(msg mqtt.Message) {
 	// Parse topic: seano/{vehicle_code}/raw
 	parts := strings.Split(msg.Topic(), "/")
 	if len(parts) != 3 {

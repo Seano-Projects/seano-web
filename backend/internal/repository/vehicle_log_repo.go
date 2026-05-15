@@ -21,6 +21,17 @@ func (r *VehicleLogRepository) CreateVehicleLog(log *model.VehicleLog) error {
 	return r.db.Create(log).Error
 }
 
+// ExistsByVehicleAndUsvTimestamp checks whether a vehicle log with the same
+// vehicle_id and usv_timestamp already exists. Used to deduplicate messages
+// that may be re-delivered on MQTT QoS-1 reconnect.
+func (r *VehicleLogRepository) ExistsByVehicleAndUsvTimestamp(vehicleID uint, usvTimestamp time.Time) (bool, error) {
+	var count int64
+	err := r.db.Model(&model.VehicleLog{}).
+		Where("vehicle_id = ? AND usv_timestamp = ?", vehicleID, usvTimestamp).
+		Count(&count).Error
+	return count > 0, err
+}
+
 // UpdateWSSentAt stores backend websocket send time for a vehicle log
 func (r *VehicleLogRepository) UpdateWSSentAt(id uint, wsSentAt time.Time) error {
 	return r.db.Model(&model.VehicleLog{}).
@@ -64,9 +75,14 @@ func (r *VehicleLogRepository) GetVehicleLogs(query model.VehicleLogQuery) ([]mo
 		db = db.Where("created_at <= ?", query.EndTime)
 	}
 
-	if query.Limit > 0 {
-		db = db.Limit(query.Limit)
+	// Default limit cap to prevent unbounded queries
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 500
+	} else if limit > 10000 {
+		limit = 10000
 	}
+	db = db.Limit(limit)
 
 	if query.Offset > 0 {
 		db = db.Offset(query.Offset)

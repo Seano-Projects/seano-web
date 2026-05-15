@@ -220,8 +220,8 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
           </div>
         ) : (
           <div className="p-6">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="w-full max-w-full overflow-x-auto">
+              <table className="w-full min-w-max text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
                     <th className="text-left py-2 text-gray-600 dark:text-gray-400 font-medium">

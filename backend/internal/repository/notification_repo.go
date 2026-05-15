@@ -140,42 +140,20 @@ func (r *NotificationRepository) DeleteAllRead(userID uint) error {
 func (r *NotificationRepository) GetNotificationStats(userID uint) (*model.NotificationStats, error) {
 	var stats model.NotificationStats
 
-	// Total notifications
-	var total int64
-	if err := r.db.Model(&model.Notification{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
-		return nil, err
-	}
-	stats.Total = int(total)
+	row := r.db.Table("notifications").
+		Select(`
+			COUNT(*) as total,
+			COUNT(*) FILTER (WHERE read = false) as unread,
+			COUNT(*) FILTER (WHERE type = 'error') as critical,
+			COUNT(*) FILTER (WHERE type = 'warning') as warning,
+			COUNT(*) FILTER (WHERE type = 'success') as success,
+			COUNT(*) FILTER (WHERE type = 'info') as info
+		`).
+		Where("user_id = ?", userID).Row()
 
-	// Unread notifications
-	var unread int64
-	if err := r.db.Model(&model.Notification{}).Where("user_id = ? AND read = ?", userID, false).Count(&unread).Error; err != nil {
+	if err := row.Scan(&stats.Total, &stats.Unread, &stats.Critical, &stats.Warning, &stats.Success, &stats.Info); err != nil {
 		return nil, err
 	}
-	stats.Unread = int(unread)
-
-	// Count by type
-	var criticalCount, warningCount, successCount, infoCount int64
-	
-	if err := r.db.Model(&model.Notification{}).Where("user_id = ? AND type = ?", userID, "error").Count(&criticalCount).Error; err != nil {
-		return nil, err
-	}
-	stats.Critical = int(criticalCount)
-
-	if err := r.db.Model(&model.Notification{}).Where("user_id = ? AND type = ?", userID, "warning").Count(&warningCount).Error; err != nil {
-		return nil, err
-	}
-	stats.Warning = int(warningCount)
-
-	if err := r.db.Model(&model.Notification{}).Where("user_id = ? AND type = ?", userID, "success").Count(&successCount).Error; err != nil {
-		return nil, err
-	}
-	stats.Success = int(successCount)
-
-	if err := r.db.Model(&model.Notification{}).Where("user_id = ? AND type = ?", userID, "info").Count(&infoCount).Error; err != nil {
-		return nil, err
-	}
-	stats.Info = int(infoCount)
 
 	return &stats, nil
 }

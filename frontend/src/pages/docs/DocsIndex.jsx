@@ -10,6 +10,7 @@ import {
 } from "react-icons/fa";
 import { MdSettingsRemote } from "react-icons/md";
 import useTitle from "../../hooks/useTitle";
+import { usePermission } from "../../hooks/usePermission";
 
 const CARDS = [
   {
@@ -50,6 +51,7 @@ const CARDS = [
     badge: "Integration",
     badgeColor:
       "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    adminOnly: true,
   },
   {
     icon: FaCode,
@@ -60,12 +62,16 @@ const CARDS = [
     badge: "Reference",
     badgeColor:
       "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+    adminOnly: true,
   },
 ];
 
 const DocsIndex = () => {
   useTitle("Documentation — SeaPortal");
   const navigate = useNavigate();
+  const { isAdmin } = usePermission();
+
+  const visibleCards = CARDS.filter((c) => !c.adminOnly || isAdmin());
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -91,7 +97,7 @@ const DocsIndex = () => {
 
       {/* Cards */}
       <div className="space-y-3">
-        {CARDS.map(
+        {visibleCards.map(
           ({ icon: Icon, iconBg, label, desc, to, badge, badgeColor }) => (
             <button
               key={to}

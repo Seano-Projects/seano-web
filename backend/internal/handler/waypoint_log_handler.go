@@ -308,7 +308,7 @@ func (h *WaypointLogHandler) ExportWaypointLogs(c *fiber.Ctx) error {
 	}
 
 	// No limit for export
-	query.Limit = 0
+	query.Limit = 50000
 	query.Order = "asc"
 
 	// Get all logs matching query

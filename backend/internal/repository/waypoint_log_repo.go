@@ -47,6 +47,8 @@ func (r *WaypointLogRepository) GetWaypointLogs(query model.WaypointLogQuery) ([
 	}
 	if query.Limit > 0 {
 		db = db.Limit(query.Limit)
+	} else {
+		db = db.Limit(500)
 	}
 	if query.Offset > 0 {
 		db = db.Offset(query.Offset)

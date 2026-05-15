@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { FaTrash, FaDownload } from "react-icons/fa";
+import { FaTrash } from "react-icons/fa";
 import { DataTable as BaseDataTable } from "../../ui";
 import axios from "../../../utils/axiosConfig";
 import { API_ENDPOINTS } from "../../../config";
@@ -274,21 +274,6 @@ const DataTable = ({
     }
   };
 
-  // Handle export single row
-  const handleExport = (row) => {
-    const dataStr = JSON.stringify(row, null, 2);
-    const dataBlob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${selectedDataType}-${row.id}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success(t("pages.data.table.exportSuccess"));
-  };
-
   // Get columns based on data type
   const getColumns = () => {
     const checkboxColumn = {
@@ -335,18 +320,11 @@ const DataTable = ({
     const actionsColumn = {
       header: "Actions",
       accessorKey: "actions",
-      className: "text-center w-32",
+      className: "text-center w-24",
       cellClassName: "text-center whitespace-nowrap",
       sortable: false,
       cell: (row) => (
-        <div className="flex items-center justify-center gap-3 w-full h-full">
-          <button
-            onClick={() => handleExport(row)}
-            className="inline-flex items-center justify-center p-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 transition-colors rounded hover:bg-green-50 dark:hover:bg-green-900/20"
-            title="Export"
-          >
-            <FaDownload size={16} />
-          </button>
+        <div className="flex items-center justify-center w-full h-full">
           <button
             onClick={() => handleDelete(row.id)}
             className="inline-flex items-center justify-center p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors rounded hover:bg-red-50 dark:hover:bg-red-900/20"

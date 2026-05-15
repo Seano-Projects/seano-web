@@ -16,8 +16,8 @@ const TableSkeleton = ({ rows = 2 }) => {
           </div>
         }
       >
-        <div className="overflow-x-auto scrollbar-hide">
-          <table className="min-w-full text-sm text-left">
+        <div className="w-full max-w-full overflow-x-auto scrollbar-hide">
+          <table className="w-full min-w-max text-sm text-left">
             {/* Table Header */}
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">

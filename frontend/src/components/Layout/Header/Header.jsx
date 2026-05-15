@@ -157,6 +157,13 @@ const Header = ({ darkMode, toggleDarkMode }) => {
     return () => window.removeEventListener("alert-count-refresh", handler);
   }, [fetchAlertCount]);
 
+  // Listen for global notification-count-refresh event (e.g. after mark all read from Notification page)
+  useEffect(() => {
+    const handler = () => fetchUnreadCount();
+    window.addEventListener("notification-count-refresh", handler);
+    return () => window.removeEventListener("notification-count-refresh", handler);
+  }, [fetchUnreadCount]);
+
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);

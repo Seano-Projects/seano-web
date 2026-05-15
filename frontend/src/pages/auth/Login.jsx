@@ -214,6 +214,16 @@ export default function Login({ darkMode, toggleDarkMode }) {
               )}
             </div>
 
+            {/* Forgot Password Link */}
+            <div className="flex justify-end -mt-2">
+              <Link
+                to="/auth/forgot-password"
+                className="text-sm text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
+              >
+                {t("auth.forgotPassword.link")}
+              </Link>
+            </div>
+
             {/* Submit */}
             <button
               type="submit"
