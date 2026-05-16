@@ -237,7 +237,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
 
   return (
     <div
-      className={`fixed z-30 top-13 right-0 bg-white
+      className={`fixed z-[1001] top-13 right-0 bg-white
                   py-2 border-b border-gray-200
                   dark:bg-black dark:border-gray-700
                   px-4 md:px-8 lg:px-12

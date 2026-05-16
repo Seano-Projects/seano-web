@@ -150,8 +150,10 @@ func (l *RawLogListener) processMessage(msg mqtt.Message) {
 
 	if l.saveToDB {
 		// Create raw log with vehicle prefix and vehicle ID
+		payloadSize := len(msg.Payload())
 		rawLog := &model.RawLog{
-			Logs: formattedLog,
+			Logs:             formattedLog,
+			PayloadSizeBytes: &payloadSize,
 		}
 
 		// Set VehicleID if vehicle found

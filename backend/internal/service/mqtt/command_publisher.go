@@ -272,7 +272,7 @@ func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType,
 
 	if cp.commandLogRepo != nil {
 		publishedAt := time.Now().UTC()
-		if err := cp.commandLogRepo.UpdateCommandLogPublishedAtByRequestID(requestID, publishedAt); err != nil {
+		if err := cp.commandLogRepo.UpdateCommandLogPublishedAtByRequestID(requestID, publishedAt, len(payload)); err != nil {
 			log.Printf("⚠️  Failed to update mqtt_published_at for request_id=%s: %v", requestID, err)
 		}
 	}

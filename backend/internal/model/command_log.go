@@ -19,6 +19,7 @@ type CommandLog struct {
 	ResolvedAt      *time.Time `json:"resolved_at,omitempty"` // when command marked final
 	WsSentAt        *time.Time `json:"ws_sent_at,omitempty" gorm:"type:timestamptz;index"` // when backend pushed command update to websocket
 	WsReceivedAt    *time.Time `json:"ws_received_at,omitempty" gorm:"type:timestamptz;index"` // when frontend ACK reached backend
+	PayloadSizeBytes *int      `json:"payload_size_bytes,omitempty" gorm:"type:int"` // command payload size in bytes
 	CreatedAt       time.Time  `json:"created_at" gorm:"autoCreateTime;index"`
 }
 

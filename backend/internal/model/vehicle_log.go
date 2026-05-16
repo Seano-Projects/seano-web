@@ -70,6 +70,7 @@ type VehicleLog struct {
 	MqttReceivedAt     *time.Time `json:"mqtt_received_at,omitempty" gorm:"type:timestamptz;index"` // when backend received MQTT
 	WsSentAt           *time.Time `json:"ws_sent_at,omitempty" gorm:"type:timestamptz;index"` // when backend pushed to websocket
 	WsReceivedAt       *time.Time `json:"ws_received_at,omitempty" gorm:"type:timestamptz;index"` // when frontend reported websocket receive
+	PayloadSizeBytes   *int       `json:"payload_size_bytes,omitempty" gorm:"type:int"` // MQTT payload size in bytes
 	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime;not null;index"`
 }
 

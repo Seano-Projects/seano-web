@@ -15,6 +15,7 @@ type WaypointLog struct {
 	Message     string    `json:"message" gorm:"type:text"`
 	InitiatedAt time.Time `json:"initiated_at" gorm:"not null;index"` // when upload button was clicked
 	ResolvedAt  *time.Time `json:"resolved_at,omitempty"`              // when ack was received
+	PayloadSizeBytes *int  `json:"payload_size_bytes,omitempty" gorm:"type:int"` // mission payload size in bytes
 	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime;index"`
 }
 

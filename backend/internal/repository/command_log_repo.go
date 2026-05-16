@@ -20,12 +20,16 @@ func (r *CommandLogRepository) CreateCommandLog(log *model.CommandLog) error {
 	return r.db.Create(log).Error
 }
 
-func (r *CommandLogRepository) UpdateCommandLogPublishedAtByRequestID(requestID string, publishedAt time.Time) error {
+func (r *CommandLogRepository) UpdateCommandLogPublishedAtByRequestID(requestID string, publishedAt time.Time, payloadSize ...int) error {
+	updates := map[string]interface{}{
+		"mqtt_published_at": publishedAt,
+	}
+	if len(payloadSize) > 0 {
+		updates["payload_size_bytes"] = payloadSize[0]
+	}
 	return r.db.Model(&model.CommandLog{}).
 		Where("request_id = ?", requestID).
-		Updates(map[string]interface{}{
-			"mqtt_published_at": publishedAt,
-		}).Error
+		Updates(updates).Error
 }
 
 func (r *CommandLogRepository) GetCommandLogs(query model.CommandLogQuery) ([]model.CommandLog, error) {

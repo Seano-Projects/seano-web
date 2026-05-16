@@ -150,13 +150,15 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 	}
 
 	// Create sensor log
+	payloadSize := len(msg.Payload())
 	sensorLog := &model.SensorLog{
-		VehicleID:      vehicle.ID,
-		SensorID:       sensor.ID,
-		Data:           dataJSON,
-		CreatedAt:      createdAt,
-		UsvTimestamp:   usvTimestamp,
-		MqttReceivedAt: &mqttReceivedAt,
+		VehicleID:        vehicle.ID,
+		SensorID:         sensor.ID,
+		Data:             dataJSON,
+		CreatedAt:        createdAt,
+		UsvTimestamp:     usvTimestamp,
+		MqttReceivedAt:   &mqttReceivedAt,
+		PayloadSizeBytes: &payloadSize,
 	}
 
 	// Auto-detect active mission for this vehicle

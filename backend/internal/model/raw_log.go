@@ -8,6 +8,7 @@ type RawLog struct {
 	VehicleID *uint     `json:"vehicle_id,omitempty" gorm:"index"` // Optional vehicle association
 	Vehicle   *Vehicle  `json:"vehicle,omitempty" gorm:"foreignKey:VehicleID;constraint:OnDelete:SET NULL"`
 	Logs      string    `json:"logs" gorm:"type:text;not null"` // Raw log text (changed to text for longer logs)
+	PayloadSizeBytes *int `json:"payload_size_bytes,omitempty" gorm:"type:int"` // MQTT payload size in bytes
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime;index"`
 }
 

@@ -457,6 +457,12 @@ func (h *MissionHandler) UploadMissionToVehicle(c *fiber.Ctx) error {
 		})
 	}
 
+	// Store payload size
+	if payloadBytes, err := json.Marshal(payload); err == nil {
+		size := len(payloadBytes)
+		h.db.Model(&model.WaypointLog{}).Where("id = ?", logEntry.ID).Update("payload_size_bytes", size)
+	}
+
 	resolvedAt := time.Now()
 	_ = h.waypointLogRepo.UpdateWaypointLogStatusByID(logEntry.ID, "success", "published", resolvedAt)
 

@@ -183,6 +183,7 @@ func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 	}
 
 	// Create vehicle log
+	payloadSize := len(msg.Payload())
 	vehicleLog := &model.VehicleLog{
 		VehicleID:         vehicle.ID,
 		MissionID:         missionID,
@@ -206,6 +207,7 @@ func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 		TemperatureSystem: tempSystem,
 		UsvTimestamp:      usvTimestamp,
 		MqttReceivedAt:    &mqttReceivedAt,
+		PayloadSizeBytes:  &payloadSize,
 	}
 	
 	if err := l.vehicleLogRepo.CreateVehicleLog(vehicleLog); err != nil {
