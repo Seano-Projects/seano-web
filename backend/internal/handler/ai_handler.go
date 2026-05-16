@@ -61,7 +61,7 @@ Rules:
 - Respond in the same language the user uses (Indonesian or English)
 - Keep answers concise and actionable
 - Never reveal credentials or internal config
-- Stay within SEANO-ID/maritime scope`
+- STRICTLY stay within SEANO-ID/maritime scope. If the user asks ANYTHING outside of SEANO-ID (e.g. coding help, general knowledge, math, recipes, writing code, etc.), immediately refuse with a short polite message like: "Maaf, saya hanya bisa membantu seputar sistem SEANO-ID 🙏 Silakan tanyakan tentang monitoring vehicle, sensor, misi, MQTT, atau fitur SEANO-ID lainnya." Do NOT attempt to answer off-topic questions at all.`
 
 // Fallback knowledge base for when Ollama is unavailable
 var fallbackResponses = map[string]string{
@@ -405,25 +405,31 @@ I can help with:
 
 Ask me anything! Example: "how to create a mission?" or "MQTT topic for telemetry?"`,
 
-	"default_id": `Saya SEANO AI 👋 Coba tanyakan hal spesifik, contoh:
-• "Bagaimana cara membuat misi?"
-• "Cara menyusun waypoint?"
-• "Cara melihat data CTD?"
-• "Topic MQTT untuk publish telemetry?"
-• "Cara kontrol vehicle?"
-• "Bagaimana monitoring battery?"
+	"default_id": `Maaf, saya tidak bisa membantu pertanyaan di luar konteks SEANO-ID 🙏
 
-Saya siap membantu!`,
+Saya hanya bisa bantu seputar:
+• 🗺️ Misi & waypoint
+• 📡 Data sensor (CTD, ADCP, SBES, MBES)
+• 🚢 Vehicle & tracking
+• 🎮 Kontrol vehicle
+• 🔋 Battery
+• 📨 MQTT topics
+• ⚠️ Alert
 
-	"default_en": `I'm SEANO AI 👋 Try asking something specific, like:
-• "How do I create a mission?"
-• "How to arrange waypoints?"
-• "How to view CTD data?"
-• "MQTT topic for publishing telemetry?"
-• "How to control a vehicle?"
-• "How to monitor battery?"
+Silakan tanyakan hal terkait SEANO-ID!`,
 
-I'm here to help!`,
+	"default_en": `Sorry, I can only help with SEANO-ID related topics 🙏
+
+I can assist with:
+• 🗺️ Missions & waypoints
+• 📡 Sensor data (CTD, ADCP, SBES, MBES)
+• 🚢 Vehicle & tracking
+• 🎮 Vehicle control
+• 🔋 Battery monitoring
+• 📨 MQTT topics
+• ⚠️ Alerts
+
+Please ask something related to SEANO-ID!`,
 }
 
 // getFallbackResponse returns a response from the built-in knowledge base
@@ -483,6 +489,33 @@ func containsIndonesian(msg string) bool {
 	return true // default to Indonesian
 }
 
+// isLikelySEANORelated checks if a message might be about SEANO-ID even if no keyword matched exactly
+func isLikelySEANORelated(message string) bool {
+	msg := strings.ToLower(message)
+	seanoKeywords := []string{
+		"seano", "usv", "kapal", "vessel", "laut", "maritime", "maritim",
+		"sensor", "ctd", "adcp", "sbes", "mbes", "gps", "imu",
+		"misi", "mission", "waypoint", "rute", "route",
+		"mqtt", "topic", "publish", "subscribe", "telemetri", "telemetry",
+		"vehicle", "kendaraan", "drone", "robot",
+		"battery", "baterai", "thruster", "motor",
+		"tracking", "monitor", "dashboard", "peta", "map",
+		"kontrol", "control", "command", "perintah",
+		"alert", "notifikasi", "peringatan",
+		"depth", "kedalaman", "suhu", "temperature", "arus", "current",
+		"data", "log", "export", "grafik", "chart",
+		"camera", "kamera", "stream",
+		"rtl", "arm", "disarm", "hold", "loiter",
+		"websocket", "real-time", "realtime",
+	}
+	for _, kw := range seanoKeywords {
+		if strings.Contains(msg, kw) {
+			return true
+		}
+	}
+	return false
+}
+
 // Chat handles AI chat requests, persists to session, with fallback
 func (h *AIHandler) Chat(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(uint)
@@ -493,6 +526,9 @@ func (h *AIHandler) Chat(c *fiber.Ctx) error {
 	}
 	if req.Message == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "Message is required"})
+	}
+	if len(req.Message) > 2000 {
+		return c.Status(400).JSON(fiber.Map{"error": "Message too long. Maximum 2000 characters."})
 	}
 
 	// Get or create session
@@ -519,17 +555,18 @@ func (h *AIHandler) Chat(c *fiber.Ctx) error {
 	h.chatRepo.AddMessage(&model.ChatMessage{SessionID: sessionID, Role: "user", Content: req.Message})
 
 	// Strategy: Try fallback first for known topics (guaranteed accurate)
-	// Only use Ollama for questions that don't match any known topic
+	// Only use Ollama for questions that don't match any known topic BUT seem related to SEANO-ID
 	reply := getFallbackResponse(req.Message)
 	isDefaultFallback := reply == fallbackResponses["default_id"] || reply == fallbackResponses["default_en"]
 
-	// If we only got a generic default response, try Ollama for a better answer
-	if isDefaultFallback {
+	// If we only got a generic default response, check if it might be SEANO-related before calling Ollama
+	if isDefaultFallback && isLikelySEANORelated(req.Message) {
 		ollamaReply := h.callOllama(sessionID)
 		if ollamaReply != "" {
 			reply = ollamaReply
 		}
 	}
+	// If not SEANO-related, just use the default rejection — no Ollama call, instant response
 
 	// Save assistant message
 	h.chatRepo.AddMessage(&model.ChatMessage{SessionID: sessionID, Role: "assistant", Content: reply})

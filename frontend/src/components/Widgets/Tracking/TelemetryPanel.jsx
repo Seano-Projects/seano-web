@@ -17,13 +17,13 @@ const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
     const updateSize = () => {
       const width = window.innerWidth;
       if (width < 640) {
-        setIndicatorSize(Math.min(width * 0.75, 240)); // Mobile - increased
+        setIndicatorSize(Math.min(width * 0.35, 160));
       } else if (width < 768) {
-        setIndicatorSize(280); // Small tablet - increased
+        setIndicatorSize(180);
       } else if (width < 1024) {
-        setIndicatorSize(300); // Tablet - increased
+        setIndicatorSize(200);
       } else {
-        setIndicatorSize(320); // Desktop - increased
+        setIndicatorSize(180);
       }
     };
 
@@ -84,9 +84,9 @@ const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
       : effectiveLog?.yaw) ?? 0;
 
   return (
-    <div className="h-full p-3 md:p-6 flex flex-col items-center justify-center">
+    <div className="h-full p-3 md:p-4 flex flex-col items-center justify-center">
       {/* Flight Indicators - Vertical Layout */}
-      <div className="flex flex-col items-center gap-3 md:gap-6 w-full">
+      <div className="flex flex-col items-center gap-2 md:gap-4 w-full">
         {/* Attitude Indicator */}
         <div className="flex justify-center w-full">
           <AttitudeIndicator

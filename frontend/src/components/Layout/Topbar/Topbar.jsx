@@ -238,11 +238,12 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   return (
     <div
       className={`fixed z-30 top-13 right-0 bg-white
-                  py-2 px-3 border-b border-gray-200
+                  py-2 border-b border-gray-200
                   dark:bg-black dark:border-gray-700
-                  flex items-center justify-between gap-2
+                  px-4 md:px-8 lg:px-12
                   ${isSidebarOpen ? "md:left-64 left-0" : "md:left-16 left-0"}`}
     >
+      <div className="max-w-8xl mx-auto flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 dark:text-white text-sm min-w-0">
         <div className="flex items-center gap-2 shrink-0">
           <span
@@ -357,6 +358,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
             {location}
           </span>
         </div>
+      </div>
       </div>
     </div>
   );

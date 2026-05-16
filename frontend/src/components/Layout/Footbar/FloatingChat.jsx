@@ -36,7 +36,7 @@ const FloatingChat = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-10 right-14 z-[10051] w-80 sm:w-96 h-[480px] bg-white dark:bg-[#0a0a0a] border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed bottom-10 right-14 z-[10051] w-80 sm:w-96 h-[480px] bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
       {/* Header - solid blue */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-blue-600">
         <div className="flex items-center gap-2">
@@ -70,7 +70,7 @@ const FloatingChat = ({ isOpen, onClose }) => {
         {/* History Sidebar */}
         {showHistory && (
           <div className="absolute inset-0 z-10 flex">
-            <div className="w-64 bg-white dark:bg-[#111] border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
+            <div className="w-64 bg-white dark:bg-black border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
               <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                 <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">
                   History
@@ -129,10 +129,8 @@ const FloatingChat = ({ isOpen, onClose }) => {
         <div className="flex-1 overflow-y-auto p-3 space-y-3 chat-scrollbar">
           {messages.length === 0 && (
             <div className="text-center text-gray-400 dark:text-gray-500 text-sm mt-8">
-              <p className="font-medium">👋 Halo! Saya SEANO AI</p>
-              <p className="mt-1 text-xs">
-                Tanya apa saja tentang sistem SEANO-ID
-              </p>
+              <p className="font-medium">Halo! Saya SEANO AI</p>
+              <p className="mt-1 text-xs">Tanya apa saja tentang SeaPortal</p>
             </div>
           )}
           {messages.map((msg, i) => (
@@ -155,9 +153,18 @@ const FloatingChat = ({ isOpen, onClose }) => {
             <div className="flex justify-start">
               <div className="bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg rounded-bl-sm">
                 <div className="flex gap-1">
-                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <span
+                    className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  />
                 </div>
               </div>
             </div>
@@ -176,6 +183,7 @@ const FloatingChat = ({ isOpen, onClose }) => {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          maxLength={2000}
           placeholder="Ketik pesan..."
           className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
           disabled={loading}

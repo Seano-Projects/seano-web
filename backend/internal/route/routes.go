@@ -1,6 +1,8 @@
 package route
 
 import (
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/gofiber/contrib/websocket"
@@ -65,8 +67,10 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	thrusterCommandHandler := handler.NewThrusterCommandHandler(thrusterCommandRepo, vehicleRepo, db)
 	wsHandler := wsocket.NewWebSocketHandler(wsHub)
 
-	// Swagger route
-	app.Get("/swagger/*", swagger.HandlerDefault)
+	// Swagger route (disabled in production)
+	if os.Getenv("ENVIRONMENT") != "production" {
+		app.Get("/swagger/*", swagger.HandlerDefault)
+	}
 
 	// Auth routes (public)
 	// Rate limiter for auth endpoints
@@ -259,8 +263,19 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	// AI Assistant routes (protected)
 	chatRepo := repository.NewChatRepository(db)
 	aiHandler := handler.NewAIHandler(chatRepo)
+	aiLimiter := limiter.New(limiter.Config{
+		Max:        20,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			userID, _ := c.Locals("user_id").(uint)
+			return fmt.Sprintf("ai_%d", userID)
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(429).JSON(fiber.Map{"error": "AI rate limit exceeded. Please wait a moment."})
+		},
+	})
 	ai := app.Group("/ai", middleware.AuthRequired())
-	ai.Post("/chat", aiHandler.Chat)
+	ai.Post("/chat", aiLimiter, aiHandler.Chat)
 	ai.Get("/sessions", aiHandler.GetSessions)
 	ai.Get("/sessions/:id/messages", aiHandler.GetMessages)
 	ai.Delete("/sessions/:id", aiHandler.DeleteSession)

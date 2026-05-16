@@ -84,7 +84,7 @@ const MissionUploadModal = ({
               getItemKey={(item) => item.id}
               renderSelectedItem={(vehicle) => (
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {vehicle.name} ({vehicle.code})
+                  {vehicle.name}
                 </span>
               )}
               renderItem={(vehicle, isSelected) => (

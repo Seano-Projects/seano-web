@@ -4,6 +4,7 @@
 @theme {
   --font-openSans: "Plus Jakarta Sans", sans-serif;
   /* --font-openSans: "Outfit", sans-serif; */
+  --max-width-8xl: 88rem;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));

@@ -233,9 +233,13 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
         </span>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-3 md:gap-4 items-center">
+      <div className={`flex-1 grid gap-3 md:gap-4 items-center ${
+        batteryCount === 1 ? "grid-cols-1 lg:grid-cols-5" : "grid-cols-1"
+      }`}>
         {/* Left Side - Battery Tanks */}
-        <div className="lg:col-span-2 flex items-center justify-center order-2 lg:order-1">
+        <div className={`flex items-center justify-center ${
+          batteryCount === 1 ? "lg:col-span-2 order-2 lg:order-1" : "order-1"
+        }`}>
           <div className="flex gap-4 md:gap-6">
             {displayBatteries.map((battery, index) =>
               renderBattery(battery, index),
@@ -244,7 +248,9 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
         </div>
 
         {/* Right Side - Battery Stats */}
-        <div className="lg:col-span-3 flex flex-col space-y-3 md:space-y-5 order-1 lg:order-2">
+        <div className={`flex flex-col space-y-3 md:space-y-5 ${
+          batteryCount === 1 ? "lg:col-span-3 order-1 lg:order-2" : "order-2"
+        }`}>
           {/* Individual Battery Details */}
           <div
             className={`grid grid-cols-1 gap-2 md:gap-3 ${
