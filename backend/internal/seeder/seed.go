@@ -2,6 +2,7 @@ package seeder
 
 import (
 	"log"
+	"os"
 
 	"go-fiber-pgsql/internal/model"
 
@@ -173,7 +174,7 @@ func SeedAdminUser(db *gorm.DB) {
 			}
 
 			
-			hashedPassword, err := bcrypt.GenerateFromPassword([]byte("Seano2025*"), bcrypt.DefaultCost)
+			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(getSeederPassword()), bcrypt.DefaultCost)
 			if err != nil {
 				log.Printf("Failed to hash admin password: %v", err)
 				return
@@ -210,7 +211,7 @@ func SeedRegularUser(db *gorm.DB) {
 				return
 			}
 
-			hashedPassword, err := bcrypt.GenerateFromPassword([]byte("Seano2025*"), bcrypt.DefaultCost)
+			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(getSeederPassword()), bcrypt.DefaultCost)
 			if err != nil {
 				log.Printf("Failed to hash user password: %v", err)
 				return
@@ -266,3 +267,10 @@ func SeedSensors(db *gorm.DB) {
 	log.Println("Sensor seeding skipped - manage sensors via API")
 }
 
+
+func getSeederPassword() string {
+	if pw := os.Getenv("SEED_ADMIN_PASSWORD"); pw != "" {
+		return pw
+	}
+	return "ChangeMe!2025"
+}

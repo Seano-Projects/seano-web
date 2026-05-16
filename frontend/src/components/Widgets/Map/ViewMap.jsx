@@ -625,6 +625,7 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
       <MapContainer
         ref={mapRef}
         scrollWheelZoom
+        zoomControl={false}
         center={initialCenter}
         zoom={15}
         style={{ height: "100%", width: "100%" }}

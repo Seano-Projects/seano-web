@@ -10,7 +10,7 @@ import useTitle from "../hooks/useTitle";
 import useTranslation from "../hooks/useTranslation";
 import useVehicleData from "../hooks/useVehicleData";
 import { toast } from "../components/ui";
-import Dropdown from "../components/Widgets/Dropdown";
+import { VehicleDropdown } from "../components/Widgets";
 
 const normalizeStreamName = (rawValue = "") => {
   const normalized = rawValue
@@ -30,8 +30,9 @@ const Camera = () => {
   const { t } = useTranslation();
   useTitle(t("control.camera.title"));
 
-  const { vehicles } = useVehicleData();
-  const [streamName, setStreamName] = useState("");
+  const { vehicles, selectedVehicleId, setSelectedVehicleId } = useVehicleData();
+  const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId) || null;
+
   const [cameraConnected, setCameraConnected] = useState(false);
   const [cameraConnecting, setCameraConnecting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -39,27 +40,10 @@ const Camera = () => {
   const pcRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Auto-fill stream name to first vehicle on initial load
-  useEffect(() => {
-    if (!vehicles || vehicles.length === 0) {
-      setStreamName("");
-      return;
-    }
-
-    const streamOptions = vehicles.map((vehicle) => {
-      const code = vehicle?.code ?? vehicle?.name ?? "";
-      return normalizeStreamName(code);
-    });
-
-    if (!streamName) {
-      setStreamName(streamOptions[0]);
-      return;
-    }
-
-    if (!streamOptions.includes(streamName)) {
-      setStreamName(streamOptions[0]);
-    }
-  }, [vehicles, streamName]);
+  // Derive stream name from selected vehicle
+  const streamName = selectedVehicle
+    ? normalizeStreamName(selectedVehicle.code || selectedVehicle.name || "")
+    : "";
 
   const disconnectCamera = useCallback(() => {
     if (pcRef.current) {
@@ -180,63 +164,22 @@ const Camera = () => {
           </p>
         </div>
 
-        {/* Vehicle quick-select + Guide button */}
+        {/* Vehicle quick-select */}
         <div className="flex items-center gap-2">
-          {vehicles?.length > 0 &&
-            (() => {
-              const vehicleItems = vehicles.map((v) => ({
-                id: v.id,
-                name: v.name ?? v.code,
-                vehicleCode: v.code,
-                code:
-                  "live/" +
-                  (v.code ?? v.name ?? "").toLowerCase().replace(/\s+/g, "-"),
-              }));
-              const selectedVehicleItem =
-                vehicleItems.find((v) => v.code === streamName) || null;
-              return (
-                <Dropdown
-                  items={vehicleItems}
-                  selectedItem={selectedVehicleItem}
-                  onItemChange={(v) => {
-                    setStreamName(v.code);
-                    if (cameraConnected) disconnectCamera();
-                  }}
-                  placeholder={t("control.camera.selectVehicle")}
-                  getItemKey={(item) => item.id}
-                  className="w-52"
-                  renderSelectedItem={(vehicle) => (
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {vehicle.name}
-                    </span>
-                  )}
-                  renderItem={(vehicle, isSelected) => (
-                    <>
-                      <div className="flex-1">
-                        <div className="text-gray-900 dark:text-white font-medium">
-                          {vehicle.name}
-                        </div>
-                      </div>
-                      {isSelected && (
-                        <div className="text-blue-600 dark:text-white">
-                          <svg
-                            className="w-4 h-4"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </div>
-                      )}
-                    </>
-                  )}
-                />
-              );
-            })()}
+          {vehicles?.length > 0 && (
+            <VehicleDropdown
+              vehicles={vehicles}
+              selectedVehicle={selectedVehicle}
+              onVehicleChange={(vehicle) => {
+                if (vehicle) {
+                  setSelectedVehicleId(vehicle.id);
+                  if (cameraConnected) disconnectCamera();
+                }
+              }}
+              placeholder={t("control.camera.selectVehicle")}
+              className="w-52"
+            />
+          )}
         </div>
       </div>
 
@@ -290,13 +233,9 @@ const Camera = () => {
         <input
           type="text"
           value={streamName}
-          onChange={(e) => setStreamName(e.target.value)}
-          onBlur={(e) => setStreamName(normalizeStreamName(e.target.value))}
-          onKeyDown={(e) =>
-            e.key === "Enter" && !cameraConnected && connectCamera(streamName)
-          }
+          readOnly
           placeholder={t("control.camera.streamPlaceholder")}
-          className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 text-sm outline-none"
         />
         <button
           type="button"

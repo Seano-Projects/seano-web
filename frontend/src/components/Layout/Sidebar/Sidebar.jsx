@@ -6,7 +6,7 @@ import MenuGroup from "./MenuGroup";
 import { useAlertData } from "../../../hooks/useAlertData";
 import useNotificationData from "../../../hooks/useNotificationData";
 import { useAuthContext } from "../../../hooks/useAuthContext";
-import { FaRegUser, FaChevronUp, FaChevronDown } from "react-icons/fa";
+import { FaRegUser, FaChevronUp, FaChevronDown, FaCog } from "react-icons/fa";
 import { FiLogOut } from "react-icons/fi";
 import useTranslation from "../../../hooks/useTranslation";
 import QuickSearch from "./QuickSearch";
@@ -252,6 +252,26 @@ const Sidebar = ({ isSidebarOpen, onHoverChange, onClose }) => {
                         className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${isExpanded ? "max-w-full opacity-100" : "max-w-0 opacity-0"}`}
                       >
                         {t("nav.profile")}
+                      </span>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/settings"
+                      onClick={() => setIsAccountOpen(false)}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${
+                        !isExpanded ? "justify-center px-2" : ""
+                      }`}
+                      title={!isExpanded ? t("header.settings") : undefined}
+                    >
+                      <FaCog
+                        className="shrink-0 text-base"
+                        aria-hidden="true"
+                      />
+                      <span
+                        className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${isExpanded ? "max-w-full opacity-100" : "max-w-0 opacity-0"}`}
+                      >
+                        {t("header.settings")}
                       </span>
                     </Link>
                   </li>

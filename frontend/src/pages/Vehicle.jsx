@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import useTitle from "../hooks/useTitle";
 import { Title } from "../components/ui";
 import { WidgetCardSkeleton } from "../components/Skeleton";
-import { WidgetCard, VehicleTable, VehicleModal } from "../components/Widgets";
+import { WidgetCard, VehicleCards, VehicleModal } from "../components/Widgets";
 import { AddVehicleWizard } from "../components/Widgets/Vehicle";
 import { ConfirmModal } from "../components/ui";
 import { getWidgetData } from "../constant";
@@ -429,7 +429,8 @@ const Vehicle = () => {
   };
 
   return (
-    <div className="p-4">
+    <div className="px-4 pt-4 pb-8">
+      <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <Title
@@ -456,13 +457,12 @@ const Vehicle = () => {
             ))}
       </div>
 
-      <VehicleTable
+      <VehicleCards
         vehicleData={vehicles}
         loading={loading}
         onEdit={handleEditVehicle}
         onDelete={handleDeleteVehicle}
         onBulkDelete={handleBulkDelete}
-        wsConnected={ws && ws.readyState === WebSocket.OPEN}
       />
 
       {/* Vehicle Modal */}
@@ -503,6 +503,7 @@ const Vehicle = () => {
         type="danger"
         isLoading={isDeleting}
       />
+      </div>
     </div>
   );
 };

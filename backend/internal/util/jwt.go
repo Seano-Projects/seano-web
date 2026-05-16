@@ -42,9 +42,12 @@ func GenerateAccessToken(userID uint, email, role string) (string, error) {
 }
 
 func GenerateRefreshToken(userID uint, email, role string) (string, error) {
-	secret := os.Getenv("JWT_SECRET")
+	secret := os.Getenv("REFRESH_SECRET")
 	if secret == "" {
-		panic("JWT_SECRET environment variable is required")
+		secret = os.Getenv("JWT_SECRET")
+	}
+	if secret == "" {
+		panic("REFRESH_SECRET or JWT_SECRET environment variable is required")
 	}
 
 	claims := middleware.JWTClaims{

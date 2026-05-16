@@ -5,7 +5,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: appuser
-      POSTGRES_PASSWORD: apppass
+      POSTGRES_PASSWORD: S3an0_Db!2025secure
       POSTGRES_DB: appdb
       PGDATA: /var/lib/postgresql/data
       TZ: Asia/Jakarta
@@ -71,8 +71,6 @@ services:
     image: ollama/ollama:latest
     container_name: seano_ollama
     restart: always
-    ports:
-      - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
       - ./ollama:/ollama

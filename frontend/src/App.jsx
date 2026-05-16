@@ -570,7 +570,7 @@ function App() {
               <Route
                 path="/user"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute adminOnly>
                     <User darkMode={darkMode} />
                   </ProtectedRoute>
                 }
@@ -578,7 +578,7 @@ function App() {
               <Route
                 path="/role"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute adminOnly>
                     <Role darkMode={darkMode} />
                   </ProtectedRoute>
                 }
@@ -586,7 +586,7 @@ function App() {
               <Route
                 path="/permission"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute adminOnly>
                     <Permission darkMode={darkMode} />
                   </ProtectedRoute>
                 }

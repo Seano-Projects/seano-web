@@ -46,6 +46,7 @@ const useAIChat = () => {
 
   // Send message
   const sendMessage = useCallback(async (text) => {
+    if (!text || text.length > 2000) return
     const userMsg = { role: 'user', content: text }
     setMessages(prev => [...prev, userMsg])
     setLoading(true)

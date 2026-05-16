@@ -1,7 +1,8 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import useTitle from "../hooks/useTitle";
 import useTranslation from "../hooks/useTranslation";
 import { ViewMap } from "../components/Widgets";
+import { FaShip, FaChevronLeft } from "react-icons/fa";
 import {
   VehicleStatusPanel,
   TelemetryPanel,
@@ -15,40 +16,69 @@ const Tracking = memo(
   ({ darkMode, selectedVehicle }) => {
     const { t } = useTranslation();
     useTitle(t("nav.tracking"));
+    const [isStatusExpanded, setIsStatusExpanded] = useState(false);
 
     return (
-      <div className="w-full grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-5">
-        <div className="col-span-4 grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-10">
-          {/* Left Side - Vehicle Status Panel */}
-          <div className="min-h-120 h-auto order-2 lg:order-1 lg:grid-cols-2 xl:col-span-2 w-full bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden">
-            <VehicleStatusPanel selectedVehicle={selectedVehicle} />
+      <div className="w-full flex flex-col gap-3 md:gap-4 pb-5">
+        {/* Row 1 - Full width map with floating panels */}
+        <div className="relative w-full h-[36rem] lg:h-[40rem] rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
+          <ViewMap darkMode={darkMode} selectedVehicle={selectedVehicle} />
+
+          {/* Floating Vehicle Status Panel - collapsible, top left */}
+          <div className="hidden lg:block absolute top-3 left-3 z-[1000] pointer-events-auto">
+            {!isStatusExpanded ? (
+              <button
+                onClick={() => setIsStatusExpanded(true)}
+                className="w-12 h-12 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title={t("tracking.vehicleStatus.title")}
+              >
+                <FaShip className="text-blue-500 text-lg" />
+              </button>
+            ) : (
+              <div className="w-72 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-black/90 backdrop-blur-md border border-gray-200 dark:border-gray-700 shadow-lg">
+                <button
+                  onClick={() => setIsStatusExpanded(false)}
+                  className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                >
+                  <FaChevronLeft className="text-gray-500 text-xs" />
+                </button>
+                <VehicleStatusPanel selectedVehicle={selectedVehicle} />
+              </div>
+            )}
           </div>
-          {/* Center - Map */}
-          <div className="z-0 min-h-120 h-full col-span-1 order-1 lg:order-2 md:col-span-2 lg:col-span-6 bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden flex flex-col">
-            <ViewMap darkMode={darkMode} selectedVehicle={selectedVehicle} />
-          </div>
-          {/* Right Side - Telemetry Panel */}
-          <div className="min-h-120 h-auto order-2 lg:order-3 lg:grid-cols-2 xl:col-span-2 w-full bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden">
+
+          {/* Floating Telemetry (Compass) - bottom right, no card */}
+          <div className="hidden lg:flex absolute bottom-3 right-3 z-[1000] flex-col items-center gap-1 pointer-events-none">
             <TelemetryPanel selectedVehicle={selectedVehicle} />
           </div>
         </div>
-        <div className="col-span-4 grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-6">
-          {/* Battery Monitoring */}
-          <div className="min-h-100 h-auto col-span-3 xl:col-span-3 bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden">
+
+        {/* Mobile: Vehicle Status & Telemetry below map */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 lg:hidden">
+          <div className="bg-white border border-gray-200 dark:bg-transparent dark:border-gray-700 rounded-2xl overflow-hidden">
+            <VehicleStatusPanel selectedVehicle={selectedVehicle} />
+          </div>
+          <div className="bg-white border border-gray-200 dark:bg-transparent dark:border-gray-700 rounded-2xl overflow-hidden">
+            <TelemetryPanel selectedVehicle={selectedVehicle} />
+          </div>
+        </div>
+
+        {/* Row 2 - Battery & Alerts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <div className="bg-white border border-gray-200 dark:bg-transparent dark:border-gray-700 rounded-2xl overflow-hidden">
             <BatteryMonitoring selectedVehicle={selectedVehicle} />
           </div>
-          {/* Latest Alerts */}
-          <div className="min-h-80 h-90 md:h-100 col-span-3 xl:col-span-3 bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden">
+          <div className="min-h-80 h-90 md:h-100 bg-white border border-gray-200 dark:bg-transparent dark:border-gray-700 rounded-2xl overflow-hidden">
             <LatestAlerts selectedVehicle={selectedVehicle} />
           </div>
         </div>
-        <div className="col-span-4 grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-4">
-          {/* Raw Data Log */}
-          <div className="min-h-70 h-72 md:h-80 col-span-3 xl:col-span-2 bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden">
+
+        {/* Row 3 - Data Logs */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <div className="min-h-70 h-72 md:h-80 bg-white border border-gray-200 dark:bg-transparent dark:border-gray-700 rounded-2xl overflow-hidden">
             <RawDataLog selectedVehicle={selectedVehicle} />
           </div>
-          {/* Sensor Data Log */}
-          <div className="min-h-70 h-72 md:h-80 col-span-3 xl:col-span-2 bg-white border border-gray-200 dark:bg-transparent dark:border dark:border-gray-700 rounded-2xl overflow-hidden">
+          <div className="min-h-70 h-72 md:h-80 bg-white border border-gray-200 dark:bg-transparent dark:border-gray-700 rounded-2xl overflow-hidden">
             <SensorDataLog selectedVehicle={selectedVehicle} />
           </div>
         </div>

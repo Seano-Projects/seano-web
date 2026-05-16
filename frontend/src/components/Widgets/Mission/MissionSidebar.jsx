@@ -600,7 +600,10 @@ const MissionSidebar = ({
             }))}
             selectedItem={
               selectedVehicleId
-                ? vehicles.find((v) => v.id === parseInt(selectedVehicleId))
+                ? (() => {
+                    const v = vehicles.find((v) => v.id === parseInt(selectedVehicleId));
+                    return v ? { ...v, mqttStatus: v.code ? getVehicleStatus(v.code) : "unknown" } : null;
+                  })()
                 : null
             }
             onItemChange={(vehicle) => {
@@ -621,7 +624,7 @@ const MissionSidebar = ({
                   }`}
                 />
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {vehicle.name} ({vehicle.code})
+                  {vehicle.name}
                 </span>
               </>
             )}

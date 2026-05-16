@@ -7,6 +7,7 @@ import {
   FaExclamationTriangle,
   FaExpand,
   FaCompress,
+  FaCog,
 } from "react-icons/fa";
 
 import { FiLogOut } from "react-icons/fi";
@@ -375,6 +376,16 @@ const Header = ({ darkMode, toggleDarkMode }) => {
                         >
                           <FaRegUser />
                           <span>{t("header.profile")}</span>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to="/settings"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white font-medium rounded px-3 py-2 transition"
+                        >
+                          <FaCog />
+                          <span>{t("header.settings") || "Settings"}</span>
                         </Link>
                       </li>
                     </ul>
