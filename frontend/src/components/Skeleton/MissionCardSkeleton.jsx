@@ -2,7 +2,7 @@ import React from "react";
 
 const MissionCardSkeleton = () => {
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-200 dark:border-slate-600 rounded-xl p-4 animate-pulse">
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-slate-600 rounded-xl p-4 animate-pulse">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex-1">

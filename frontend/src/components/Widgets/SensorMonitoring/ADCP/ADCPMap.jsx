@@ -91,7 +91,7 @@ const ADCPMap = ({ adcpData }) => {
   if (!latest) {
     return (
       <div
-        className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl overflow-hidden"
+        className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl overflow-hidden"
         style={{ height: "100%", minHeight: "360px" }}
       >
         <div className="flex items-center justify-center h-full text-sm text-gray-500 dark:text-gray-400">
@@ -103,7 +103,7 @@ const ADCPMap = ({ adcpData }) => {
 
   return (
     <div
-      className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl overflow-hidden"
+      className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl overflow-hidden"
       style={{ height: "100%", minHeight: "360px" }}
     >
       <MapContainer

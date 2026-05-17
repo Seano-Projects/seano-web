@@ -160,7 +160,7 @@ const DataTable = ({
             placeholder={searchPlaceholder || `${t("common.search")}...`}
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent transition-colors duration-200"
+            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 hover:bg-gray-50 dark:hover:bg-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent transition-colors duration-200"
           />
         </div>
 
@@ -173,7 +173,7 @@ const DataTable = ({
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsPageSizeOpen(!isPageSizeOpen)}
-              className="min-w-20 px-4 py-3 bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent transition-colors duration-200 cursor-pointer flex items-center justify-between gap-2"
+              className="min-w-20 px-4 py-3 bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent transition-colors duration-200 cursor-pointer flex items-center justify-between gap-2"
             >
               <span>{pageSize}</span>
               <FaChevronDown
@@ -223,7 +223,7 @@ const DataTable = ({
           className="w-full divide-y divide-gray-200 dark:divide-gray-700"
           style={{ minWidth: tableMinWidth }}
         >
-          <thead className="bg-gray-50 dark:bg-transparent">
+          <thead className="bg-gray-50 dark:bg-black">
             <tr>
               {columns.map((column, index) => {
                 const headerKey = column.accessorKey || column.header || index;
@@ -256,7 +256,7 @@ const DataTable = ({
               })}
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-transparent divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-white dark:bg-black divide-y divide-gray-200 dark:divide-gray-700">
             {loading && SkeletonComponent ? (
               <SkeletonComponent rows={skeletonRows} columns={columns} />
             ) : paginatedData.length === 0 ? (

@@ -133,7 +133,7 @@ const MenuGroup = ({
     createPortal(
       <div
         ref={popupRef}
-        className="min-w-44 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden py-1"
+        className="min-w-44 bg-white dark:bg-black rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden py-1"
         style={{ ...popupStyle, visibility: popupStyle.left != null ? "visible" : "hidden" }}
       >
         <p className="px-3 pt-1.5 pb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-200 dark:border-gray-700">

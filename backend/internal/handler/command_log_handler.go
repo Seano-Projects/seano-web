@@ -212,19 +212,20 @@ func (h *CommandLogHandler) CreateCommandLog(c *fiber.Ctx) error {
 	}
 
 	entry := &model.CommandLog{
-		VehicleID:       req.VehicleID,
-		VehicleCode:     req.VehicleCode,
-		RequestID:       req.RequestID,
-		Command:         req.Command,
-		Status:          req.Status,
-		Message:         req.Message,
-		InitiatedAt:     req.InitiatedAt,
-		MqttPublishedAt: req.MqttPublishedAt,
-		UsvAckAt:        req.UsvAckAt,
-		AckReceivedAt:   req.AckReceivedAt,
-		ResolvedAt:      req.ResolvedAt,
-		WsSentAt:        req.WsSentAt,
-		WsReceivedAt:    req.WsReceivedAt,
+		VehicleID:        req.VehicleID,
+		VehicleCode:      req.VehicleCode,
+		RequestID:        req.RequestID,
+		Command:          req.Command,
+		Status:           req.Status,
+		Message:          req.Message,
+		InitiatedAt:      req.InitiatedAt,
+		MqttPublishedAt:  req.MqttPublishedAt,
+		UsvAckAt:         req.UsvAckAt,
+		AckReceivedAt:    req.AckReceivedAt,
+		ResolvedAt:       req.ResolvedAt,
+		WsSentAt:         req.WsSentAt,
+		WsReceivedAt:     req.WsReceivedAt,
+		PayloadSizeBytes: req.PayloadSizeBytes,
 	}
 
 	if err := h.repo.CreateCommandLog(entry); err != nil {
@@ -440,7 +441,7 @@ func (h *CommandLogHandler) ExportCommandLogs(c *fiber.Ctx) error {
 	}
 
 	// Build CSV content
-	csvHeader := []string{"Timestamp", "Vehicle", "VehicleCode", "RequestID", "Command", "Status", "Message", "InitiatedAt", "MqttPublishedAt", "UsvAckAt", "AckReceivedAt", "ResolvedAt", "WsSentAt", "WsReceivedAt"}
+	csvHeader := []string{"Timestamp", "Vehicle", "VehicleCode", "RequestID", "Command", "Status", "Message", "PayloadSizeBytes", "InitiatedAt", "MqttPublishedAt", "UsvAckAt", "AckReceivedAt", "ResolvedAt", "WsSentAt", "WsReceivedAt"}
 	var b strings.Builder
 	b.WriteString(strings.Join(csvHeader, ","))
 	b.WriteString("\n")
@@ -490,6 +491,11 @@ func (h *CommandLogHandler) ExportCommandLogs(c *fiber.Ctx) error {
 			wsReceivedAtStr = log.WsReceivedAt.Format("2006-01-02T15:04:05.000Z07:00")
 		}
 
+		payloadSizeStr := ""
+		if log.PayloadSizeBytes != nil {
+			payloadSizeStr = strconv.Itoa(*log.PayloadSizeBytes)
+		}
+
 		row := []string{
 			esc(ts),
 			esc(vehicleDisp),
@@ -498,6 +504,7 @@ func (h *CommandLogHandler) ExportCommandLogs(c *fiber.Ctx) error {
 			esc(log.Command),
 			esc(log.Status),
 			esc(log.Message),
+			esc(payloadSizeStr),
 			esc(initiatedAtStr),
 			esc(mqttPublishedAtStr),
 			esc(usvAckAtStr),

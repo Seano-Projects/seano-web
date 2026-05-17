@@ -235,7 +235,7 @@ const Camera = () => {
           value={streamName}
           readOnly
           placeholder={t("control.camera.streamPlaceholder")}
-          className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 text-sm outline-none"
+          className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-black text-gray-900 dark:text-white placeholder-gray-400 text-sm outline-none"
         />
         <button
           type="button"

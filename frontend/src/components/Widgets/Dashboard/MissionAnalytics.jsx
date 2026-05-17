@@ -14,7 +14,7 @@ const MissionAnalytics = () => {
 
   if (loading) {
     return (
-      <div className="bg-white dark:bg-transparent border border-gray-200 dark:border-slate-600 p-8 rounded-3xl">
+      <div className="bg-white dark:bg-black border border-gray-200 dark:border-slate-600 p-8 rounded-3xl">
         <div className="flex items-center gap-2 mb-6">
           <FaChartLine size={30} className="text-blue-500" />
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -34,7 +34,7 @@ const MissionAnalytics = () => {
   }
 
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-200 dark:border-slate-600 p-8 rounded-xl">
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-slate-600 p-8 rounded-xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">

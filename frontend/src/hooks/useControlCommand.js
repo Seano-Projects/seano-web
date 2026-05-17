@@ -4,7 +4,7 @@ import axios from '../utils/axiosConfig'
 import { API_ENDPOINTS } from '../config'
 import { REALTIME_MODE } from '../utils/realtimeConfig'
 
-const postCommandLog = async (vehicleCode, command, status, message, initiatedAt, resolvedAt, mqttPublishedAt, usvAckAt, ackReceivedAt) => {
+const postCommandLog = async (vehicleCode, command, status, message, initiatedAt, resolvedAt, mqttPublishedAt, usvAckAt, ackReceivedAt, payloadSizeBytes) => {
   try {
     const body = {
       vehicle_code: vehicleCode,
@@ -17,6 +17,7 @@ const postCommandLog = async (vehicleCode, command, status, message, initiatedAt
     if (mqttPublishedAt) body.mqtt_published_at = mqttPublishedAt
     if (usvAckAt) body.usv_ack_at = usvAckAt
     if (ackReceivedAt) body.ack_received_at = ackReceivedAt
+    if (payloadSizeBytes) body.payload_size_bytes = payloadSizeBytes
     await axios.post(API_ENDPOINTS.COMMAND_LOGS.CREATE, body)
   } catch {
     // log failure is non-blocking
@@ -164,7 +165,7 @@ const publishCommandToMqtt = async (vehicleCode, command, topicSuffix = 'command
     }),
     timeout(MQTT_PUBLISH_TIMEOUT_MS, 'MQTT publish timeout')
   ])
-  return new Date().toISOString()
+  return { publishedAt: new Date().toISOString(), payloadSizeBytes: new Blob([payload]).size }
 }
 
 const normalizeText = value =>
@@ -317,7 +318,7 @@ const useControlCommand = () => {
         setIsLoading(true)
         const initiatedAt = new Date().toISOString()
         const topicSuffix = calibrationCommand ? 'battery/cmd' : 'command'
-        const mqttPublishedAt = await publishCommandToMqtt(vehicleCode, mqttCommand, topicSuffix)
+        const { publishedAt: mqttPublishedAt, payloadSizeBytes } = await publishCommandToMqtt(vehicleCode, mqttCommand, topicSuffix)
 
         // For ARM/DISARM/mode commands, wait for hardware ACK to confirm execution.
         // Calibration commands remain fire-and-forget.
@@ -327,22 +328,22 @@ const useControlCommand = () => {
             const ackResult = await waitForCommandAck(client, vehicleCode, mqttCommand)
             const resolvedAt = new Date().toISOString()
             if (ackResult.success) {
-              postCommandLog(vehicleCode, mqttCommand, 'success', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt)
+              postCommandLog(vehicleCode, mqttCommand, 'success', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt, null, payloadSizeBytes)
               return { success: true, message: ackResult.message }
             } else {
-              postCommandLog(vehicleCode, mqttCommand, 'failed', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt)
+              postCommandLog(vehicleCode, mqttCommand, 'failed', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt, null, payloadSizeBytes)
               return { success: false, error: ackResult.error || 'hardware_error', message: ackResult.message }
             }
           } catch {
             // ACK timeout – hardware did not respond
             const resolvedAt = new Date().toISOString()
-            postCommandLog(vehicleCode, mqttCommand, 'timeout', 'No ACK from hardware', initiatedAt, resolvedAt, mqttPublishedAt)
+            postCommandLog(vehicleCode, mqttCommand, 'timeout', 'No ACK from hardware', initiatedAt, resolvedAt, mqttPublishedAt, null, null, payloadSizeBytes)
             return { success: false, error: 'timeout', message: 'No ACK from hardware' }
           }
         }
 
         const resolvedAt = new Date().toISOString()
-        postCommandLog(vehicleCode, mqttCommand, 'success', 'Command sent via MQTT', initiatedAt, resolvedAt, mqttPublishedAt)
+        postCommandLog(vehicleCode, mqttCommand, 'success', 'Command sent via MQTT', initiatedAt, resolvedAt, mqttPublishedAt, null, null, payloadSizeBytes)
         return { success: true, message: 'Command sent via MQTT' }
       }
 

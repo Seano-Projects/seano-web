@@ -108,7 +108,7 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
 
   if (!stats) {
     return (
-      <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-full">
+      <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-full">
         <div className="flex items-center gap-2 mb-3">
           <FaInfoCircle className="text-gray-500 dark:text-gray-400" />
           <h3 className="text-lg font-semibold text-black dark:text-white">
@@ -123,7 +123,7 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
   }
 
   return (
-    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-full">
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-full">
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="flex items-center gap-2 mr-auto">
           <FaInfoCircle className="text-gray-500 dark:text-gray-400" />

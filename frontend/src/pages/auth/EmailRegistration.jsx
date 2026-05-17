@@ -128,7 +128,7 @@ export default function EmailRegistration({ darkMode, toggleDarkMode }) {
                 required
                 autoComplete="email"
                 placeholder={t("auth.register.emailPlaceholder")}
-                className={`w-full rounded-xl py-3 px-4 border text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 transition-all ${
+                className={`w-full rounded-xl py-3 px-4 border text-black dark:text-white bg-white dark:bg-black focus:outline-none focus:ring-2 transition-all ${
                   errors.email
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"

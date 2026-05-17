@@ -39,15 +39,16 @@ type WaypointLogQuery struct {
 
 // CreateWaypointLogRequest is the request body for creating a waypoint log
 type CreateWaypointLogRequest struct {
-	VehicleID     uint       `json:"vehicle_id"`
-	VehicleCode   string     `json:"vehicle_code"`
-	MissionID     *uint      `json:"mission_id,omitempty"`
-	MissionName   string     `json:"mission_name"`
-	WaypointCount int        `json:"waypoint_count"`
-	Status        string     `json:"status"`
-	Message       string     `json:"message"`
-	InitiatedAt   time.Time  `json:"initiated_at"`
-	ResolvedAt    *time.Time `json:"resolved_at,omitempty"`
+	VehicleID        uint       `json:"vehicle_id"`
+	VehicleCode      string     `json:"vehicle_code"`
+	MissionID        *uint      `json:"mission_id,omitempty"`
+	MissionName      string     `json:"mission_name"`
+	WaypointCount    int        `json:"waypoint_count"`
+	Status           string     `json:"status"`
+	Message          string     `json:"message"`
+	InitiatedAt      time.Time  `json:"initiated_at"`
+	ResolvedAt       *time.Time `json:"resolved_at,omitempty"`
+	PayloadSizeBytes *int       `json:"payload_size_bytes,omitempty"`
 }
 
 // CreateWaypointAckRequest is the request body for waypoint upload ACK updates from USV

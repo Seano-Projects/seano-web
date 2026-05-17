@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	wsocket "go-fiber-pgsql/internal/websocket"
 )
@@ -118,29 +117,11 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 
 		updated, err := cp.commandLogRepo.UpdateLatestPendingCommandLog(vehicleCode, strings.TrimSpace(ack.RequestID), ack.Command, finalStatus, ack.Message, usvAckAt, ackReceivedAt, resolvedAt)
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) && cp.vehicleRepo != nil {
-				vehicle, err := cp.vehicleRepo.GetVehicleByCode(vehicleCode)
-				if err == nil {
-					entry := &model.CommandLog{
-						VehicleID:     vehicle.ID,
-						VehicleCode:   vehicleCode,
-						RequestID:     strings.TrimSpace(ack.RequestID),
-						Command:       ack.Command,
-						Status:        finalStatus,
-						Message:       ack.Message,
-						InitiatedAt:   ackReceivedAt,
-						UsvAckAt:      usvAckAt,
-						AckReceivedAt: &ackReceivedAt,
-						ResolvedAt:    &resolvedAt,
-					}
-					if err := cp.commandLogRepo.CreateCommandLog(entry); err != nil {
-						log.Printf("⚠️  Failed to create command log from ACK: %v", err)
-					} else {
-						updated = entry
-					}
-				} else {
-					log.Printf("⚠️  Vehicle not found for ACK update: %s", vehicleCode)
-				}
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				// ACK arrived but no pending record found. This typically means the
+				// record was already resolved (e.g. duplicate ACK from hardware).
+				// Skip creating a new entry to avoid duplicate N/A logs.
+				log.Printf("ℹ️  No pending command log for ACK: vehicle=%s request_id=%s command=%s (already resolved or unknown)", vehicleCode, ack.RequestID, ack.Command)
 			} else {
 				log.Printf("⚠️  Failed to update command log from ACK: %v", err)
 			}

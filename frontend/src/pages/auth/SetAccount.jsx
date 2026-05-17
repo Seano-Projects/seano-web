@@ -154,7 +154,7 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
                   setUsername(e.target.value);
                   setErrors({ ...errors, username: false });
                 }}
-                className={`w-full border rounded-xl py-3 px-4 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 transition-all ${
+                className={`w-full border rounded-xl py-3 px-4 text-black dark:text-white bg-white dark:bg-black focus:outline-none focus:ring-2 transition-all ${
                   errors.username
                     ? "border-red-500 focus:ring-red-500"
                     : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"
@@ -188,7 +188,7 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
                     setPassword(e.target.value);
                     setErrors({ ...errors, password: false });
                   }}
-                  className={`w-full border rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 transition-all ${
+                  className={`w-full border rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-black focus:outline-none focus:ring-2 transition-all ${
                     errors.password
                       ? "border-red-500 focus:ring-red-500"
                       : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"
@@ -235,7 +235,7 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
                     setConfirm(e.target.value);
                     setErrors({ ...errors, confirm: false });
                   }}
-                  className={`w-full border rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 transition-all ${
+                  className={`w-full border rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-black focus:outline-none focus:ring-2 transition-all ${
                     errors.confirm
                       ? "border-red-500 focus:ring-red-500"
                       : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"

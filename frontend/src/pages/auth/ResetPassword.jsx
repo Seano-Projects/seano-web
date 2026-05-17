@@ -107,7 +107,7 @@ export default function ResetPassword({ darkMode, toggleDarkMode }) {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-700 rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  className="w-full border border-gray-300 dark:border-gray-700 rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-black focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   placeholder={t("auth.resetPassword.passwordPlaceholder")}
                   required
                   autoComplete="new-password"
@@ -134,7 +134,7 @@ export default function ResetPassword({ darkMode, toggleDarkMode }) {
                   type={showConfirm ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-700 rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  className="w-full border border-gray-300 dark:border-gray-700 rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-black focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   placeholder={t("auth.resetPassword.confirmPasswordPlaceholder")}
                   required
                   autoComplete="new-password"

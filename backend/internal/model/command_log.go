@@ -56,6 +56,7 @@ type CreateCommandLogRequest struct {
 	ResolvedAt      *time.Time `json:"resolved_at,omitempty"`
 	WsSentAt        *time.Time `json:"ws_sent_at,omitempty"`
 	WsReceivedAt    *time.Time `json:"ws_received_at,omitempty"`
+	PayloadSizeBytes *int      `json:"payload_size_bytes,omitempty"`
 }
 
 // CreateCommandAckRequest is the request body for ACK updates from USV

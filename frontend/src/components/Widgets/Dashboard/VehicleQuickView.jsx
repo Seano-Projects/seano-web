@@ -207,7 +207,7 @@ const VehicleQuickView = ({
   ];
 
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-200 dark:border-slate-600 p-8 rounded-xl">
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-slate-600 p-8 rounded-xl">
       <div className="flex items-center gap-2 mb-4">
         <FaShip size={30} className="text-blue-500" />
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">

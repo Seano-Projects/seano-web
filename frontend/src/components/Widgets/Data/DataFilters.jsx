@@ -96,7 +96,7 @@ const DataFilters = ({
     : allSensorOption;
 
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>

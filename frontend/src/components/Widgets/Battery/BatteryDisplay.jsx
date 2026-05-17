@@ -162,7 +162,7 @@ const BatteryDisplay = ({ unit, battery, vehicleCode, compact = false }) => {
             value={calibrationInput}
             onChange={(e) => setCalibrationInput(e.target.value)}
             placeholder="12.7"
-            className="flex-1 h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400/60"
+            className="flex-1 h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-black px-3 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-400/60"
           />
           <button
             type="button"

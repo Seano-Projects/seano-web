@@ -1,6 +1,6 @@
 const WidgetCardSkeleton = () => {
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6 animate-pulse">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6 animate-pulse">
       <div className="flex items-center justify-between mb-3">
         {/* Icon container skeleton */}
         <div className="p-1.5 bg-gray-200 dark:bg-gray-800 rounded-lg">

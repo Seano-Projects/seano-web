@@ -26,7 +26,7 @@ const formatDuration = (seconds) => {
 };
 
 const StatCard = ({ icon, label, value, iconColor, iconBg }) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-transparent">
+  <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-black">
     <div className="mb-3 flex items-center gap-2.5">
       <span
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm ${iconBg} ${iconColor}`}

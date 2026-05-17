@@ -95,7 +95,7 @@ const AlertsTable = ({ alerts, loading, onAcknowledge, formatTimestamp, t }) => 
   ];
 
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6 custom-scrollbar">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6 custom-scrollbar">
       <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
         {t("pages.alerts.history")}
       </h2>

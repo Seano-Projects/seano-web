@@ -166,7 +166,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
   };
 
   return (
-    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl pt-4 px-4 pb-2 h-full flex flex-col">
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl pt-4 px-4 pb-2 h-full flex flex-col">
       <div className="flex flex-wrap items-start gap-2 mb-3">
         <div className="mr-auto">
           <h3 className="text-base font-semibold text-black dark:text-white">

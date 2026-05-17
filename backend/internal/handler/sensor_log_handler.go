@@ -443,7 +443,7 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 	}
 
 	// Build CSV content
-	csvHeader := []string{"Timestamp", "Vehicle", "Sensor", "Mission", "Data", "UsvTimestamp", "MqttReceivedAt", "WsSentAt", "WsReceivedAt"}
+	csvHeader := []string{"Timestamp", "Vehicle", "Sensor", "Mission", "Data", "PayloadSizeBytes", "UsvTimestamp", "MqttReceivedAt", "WsSentAt", "WsReceivedAt"}
 	var b strings.Builder
 	b.WriteString(strings.Join(csvHeader, ","))
 	b.WriteString("\n")
@@ -513,12 +513,18 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 			return "\"" + s + "\""
 		}
 
+		payloadSizeStr := ""
+		if log.PayloadSizeBytes != nil {
+			payloadSizeStr = strconv.Itoa(*log.PayloadSizeBytes)
+		}
+
 		row := []string{
 			esc(ts),
 			esc(vehicleDisp),
 			esc(sensorDisp),
 			esc(missionDisp),
 			esc(log.Data),
+			esc(payloadSizeStr),
 			esc(usvTs),
 			esc(mqttTs),
 			esc(wsSentAt),

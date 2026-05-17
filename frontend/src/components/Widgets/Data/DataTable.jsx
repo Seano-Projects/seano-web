@@ -667,7 +667,7 @@ const DataTable = ({
   const config = DATA_TYPE_CONFIG[selectedDataType];
 
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">

@@ -39,7 +39,7 @@ const MissionLogs = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
   const filterPopoverRef = useRef(null);
-  const itemsPerPage = 10;
+  const itemsPerPage = 3;
 
   const selectedVessel =
     propSelectedVessel !== undefined ? propSelectedVessel : null;
@@ -226,7 +226,7 @@ const MissionLogs = ({
   };
 
   return (
-    <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6 h-full flex flex-col">
       <div ref={filterPopoverRef}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -346,7 +346,7 @@ const MissionLogs = ({
       </div>
 
       {/* Card List */}
-      <div className="space-y-4">
+      <div className="flex-1 overflow-y-auto space-y-4">
         {loading ? (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             {t("missionComponents.logs.loading")}
@@ -356,7 +356,7 @@ const MissionLogs = ({
             {t("missionComponents.logs.noMissions")}
           </div>
         ) : (
-          <div className="overflow-y-auto max-h-150 custom-scrollbar pr-3 space-y-3">
+          <div className="space-y-3">
             {paginatedMissions.map((mission, index) => (
               <div
                 key={index}

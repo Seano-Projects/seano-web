@@ -63,7 +63,7 @@ const MissionStats = () => {
         {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
-            className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6 animate-pulse"
+            className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6 animate-pulse"
           >
             <div className="flex items-center justify-between">
               <div className="flex-1">
@@ -85,7 +85,7 @@ const MissionStats = () => {
         return (
           <div
             key={index}
-            className="dark:bg-black border border-gray-300 dark:border-gray-600 rounded-xl p-6"
+            className="bg-white dark:bg-black border border-gray-300 dark:border-gray-600 rounded-xl p-6"
           >
             <div className="flex items-center justify-between">
               <div>

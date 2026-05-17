@@ -57,7 +57,7 @@ const BatteryLog = ({ selectedVehicle }) => {
   };
 
   return (
-    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-black dark:text-white">
           {t("pages.battery.widgets.log.title")}

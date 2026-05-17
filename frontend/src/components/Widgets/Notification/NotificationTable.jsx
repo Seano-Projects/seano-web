@@ -119,7 +119,7 @@ const NotificationTable = ({ notifications, loading, markAsRead, formatTimestamp
   ];
 
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
       <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
         {t("pages.notifications.history")}
       </h2>

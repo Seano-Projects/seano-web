@@ -509,7 +509,7 @@ const DataCharts = ({ data, selectedDataType }) => {
   if (!data || data.length === 0) {
     return (
       <div className="px-4">
-        <div className="bg-white dark:bg-transparent border border-gray-200 dark:border-slate-600 rounded-xl p-6">
+        <div className="bg-white dark:bg-black border border-gray-200 dark:border-slate-600 rounded-xl p-6">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {t("pages.data.charts.empty")}
           </p>

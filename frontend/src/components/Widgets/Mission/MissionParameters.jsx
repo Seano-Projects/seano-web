@@ -12,7 +12,7 @@ const MissionParameters = ({ missionParams, setMissionParams }) => {
   ];
   return (
     <div
-      className="w-full p-4 bg-white dark:bg-transparent border-t border-gray-200 dark:border-slate-600"
+      className="w-full p-4 bg-white dark:bg-black border-t border-gray-200 dark:border-slate-600"
       style={{ height: "200px" }}
     >
       {/* Parameter Header */}

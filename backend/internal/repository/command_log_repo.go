@@ -143,8 +143,8 @@ func (r *CommandLogRepository) UpdateLatestPendingCommandLog(vehicleCode, reques
 	query := r.db.Model(&model.CommandLog{}).Where("vehicle_code = ? AND status = ?", vehicleCode, "pending")
 	if requestID != "" {
 		query = query.Where("request_id = ?", requestID)
-	}
-	if command != "" {
+	} else if command != "" {
+		// Only filter by command when request_id is not available
 		query = query.Where("command = ?", command)
 	}
 

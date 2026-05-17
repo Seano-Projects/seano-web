@@ -29,7 +29,7 @@ const WidgetCard = ({
   };
 
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6 hover:bg-gray-50 dark:hover:bg-slate-600/30 transition-colors duration-200 group">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6 hover:bg-gray-50 dark:hover:bg-slate-600/30 transition-colors duration-200 group">
       <div className="flex items-center justify-between mb-4">
         <div
           className={`p-1.5 ${getIconBgColor()} rounded-lg group-hover:scale-105 transition-transform duration-200`}

@@ -50,7 +50,7 @@ const BeamVelocityBars = ({ v1, v2, v3, v4 }) => {
   ];
 
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-5">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-5">
       <h3 className="text-base font-semibold text-gray-900 dark:text-white">
         {t("pages.adcp.beamVelocity")}
       </h3>

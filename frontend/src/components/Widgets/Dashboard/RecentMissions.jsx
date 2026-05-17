@@ -26,7 +26,7 @@ const RecentMissions = () => {
   const missions = getRecentMissions ? getRecentMissions(3) : [];
 
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-200 dark:border-slate-600 p-8 rounded-xl">
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-slate-600 p-8 rounded-xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
@@ -95,7 +95,7 @@ const RecentMissions = () => {
           missions.map((mission) => (
             <div
               key={mission.id}
-              className="bg-white dark:bg-transparent border border-gray-200 dark:border-slate-600 rounded-xl p-4 hover:shadow-md dark:hover:shadow-lg transition-shadow"
+              className="bg-white dark:bg-black border border-gray-200 dark:border-slate-600 rounded-xl p-4 hover:shadow-md dark:hover:shadow-lg transition-shadow"
             >
               <div className="flex items-center justify-between mb-3">
                 <div>

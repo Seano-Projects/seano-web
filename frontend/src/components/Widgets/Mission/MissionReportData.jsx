@@ -100,7 +100,7 @@ const SensorSection = ({ sensor, logs }) => {
             {Object.entries(stats).map(([key, s], i) => {
               const c = colorPalette[i % colorPalette.length];
               return (
-                <div key={key} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-transparent">
+                <div key={key} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-black">
                   <div className={`mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide truncate ${c.icon}`}>
                     <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${c.bg}`}>
                       <FaFlask size={9} />

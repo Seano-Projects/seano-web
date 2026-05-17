@@ -4,9 +4,9 @@ import mqtt from 'mqtt'
 import { API_ENDPOINTS } from '../config'
 import { REALTIME_MODE } from '../utils/realtimeConfig'
 
-const postWaypointLog = async (vehicleCode, missionId, missionName, waypointCount, status, message, initiatedAt, resolvedAt) => {
+const postWaypointLog = async (vehicleCode, missionId, missionName, waypointCount, status, message, initiatedAt, resolvedAt, payloadSizeBytes) => {
   try {
-    await axios.post(API_ENDPOINTS.WAYPOINT_LOGS.CREATE, {
+    const body = {
       vehicle_code: vehicleCode,
       mission_id: missionId || null,
       mission_name: missionName || '',
@@ -15,7 +15,9 @@ const postWaypointLog = async (vehicleCode, missionId, missionName, waypointCoun
       message: message || '',
       initiated_at: initiatedAt,
       resolved_at: resolvedAt || null
-    })
+    }
+    if (payloadSizeBytes) body.payload_size_bytes = payloadSizeBytes
+    await axios.post(API_ENDPOINTS.WAYPOINT_LOGS.CREATE, body)
   } catch {
     // log failure is non-blocking
   }
@@ -124,6 +126,8 @@ const publishWaypointToMqtt = async (client, vehicleCode, payload) => {
     }),
     timeout(MQTT_PUBLISH_TIMEOUT_MS, 'MQTT waypoint publish timeout')
   ])
+
+  return new Blob([data]).size
 }
 
 const normalizeText = value =>
@@ -407,11 +411,11 @@ const useMissionUpload = () => {
         ])
 
         // Publish waypoint to vehicle
-        await publishWaypointToMqtt(client, vehicleCode, waypointPayload)
+        const payloadSizeBytes = await publishWaypointToMqtt(client, vehicleCode, waypointPayload)
 
         // Log mission upload
         const resolvedAt = new Date().toISOString()
-        postWaypointLog(vehicleCode, missionId, missionName, waypointCount, 'success', 'Mission uploaded to vehicle', initiatedAt, resolvedAt)
+        postWaypointLog(vehicleCode, missionId, missionName, waypointCount, 'success', 'Mission uploaded to vehicle', initiatedAt, resolvedAt, payloadSizeBytes)
 
         // Update mission record: set vehicle_id and status to Ongoing
         try {

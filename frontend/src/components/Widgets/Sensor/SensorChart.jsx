@@ -14,7 +14,7 @@ const SensorChart = ({ vehicles, selectedVehicle, sensorData }) => {
   )?.name;
 
   return (
-    <div className="bg-white dark:bg-transparent dark:border-1 dark:border-gray-700 rounded-3xl shadow py-4 px-8 h-96 col-span-3">
+    <div className="bg-white dark:bg-black dark:border-1 dark:border-gray-700 rounded-3xl shadow py-4 px-8 h-96 col-span-3">
       <h3 className="text-lg text-black font-bold mb-4 dark:text-white">
         Sensor Data{" "}
         {selectedVehicle && selectedVehicleName && `- ${selectedVehicleName}`}

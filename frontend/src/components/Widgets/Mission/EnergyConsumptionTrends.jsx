@@ -74,7 +74,7 @@ const EnergyConsumptionTrends = () => {
   }, [filter, missionData]);
 
   return (
-    <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
           <h3 className="text-xl font-semibold text-black dark:text-white">

@@ -30,7 +30,7 @@ const SystemHealth = ({ selectedVehicle, batteryData = {} }) => {
     soh >= 90 ? "text-green-500" : soh >= 70 ? "text-yellow-500" : "text-orange-500";
 
   return (
-    <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6 h-full flex flex-col">
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6 h-full flex flex-col">
       <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">SYSTEM HEALTH (SOH)</h3>
       <div className="text-5xl font-bold text-black dark:text-white mb-2">{soh.toFixed(1)}%</div>
       <div className={`text-sm font-medium ${statusColor} mb-1`}>{status}</div>

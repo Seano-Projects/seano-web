@@ -45,7 +45,7 @@ const MissionSuccessRate = () => {
   // Show loading or placeholder if stats not available yet
   if (loading || !stats) {
     return (
-      <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+      <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
         <h3 className="text-xl font-semibold text-black dark:text-white mb-6">
           {t("dashboard.missionSuccessRate.title")}
         </h3>
@@ -57,7 +57,7 @@ const MissionSuccessRate = () => {
   }
 
   return (
-    <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+    <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
       <h3 className="text-xl font-semibold text-black dark:text-white mb-6">
         {t("dashboard.missionSuccessRate.title")}
       </h3>

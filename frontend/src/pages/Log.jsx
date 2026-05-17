@@ -90,7 +90,7 @@ const Log = () => {
     <div className="p-4" key={`logs-root-${isRealtimePaused ? "paused" : "live"}`}>
       <LogHeader t={t} vehicles={vehicles} selectedVehicle={selectedVehicle} setSelectedVehicleId={setSelectedVehicleId} vehicleLoading={vehicleLoading} isRealtimePaused={isRealtimePaused} setIsRealtimePaused={setIsRealtimePaused} />
       <LogStatsWidgets widgets={widgets} shouldShowSkeleton={shouldShowSkeleton} />
-      <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl my-4">
+      <div className="bg-white dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl my-4">
         <LogTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} />
         {activeTab === "vehicle" && (
           <LogTableTab tabKey="vehicle" isRealtimePaused={isRealtimePaused} allKeys={VEHICLE_COL_KEYS} labels={VEHICLE_COL_LABELS} visibleKeys={vehicleVisibleKeys} onToggle={makeToggle(setVehicleVisibleKeys, VEHICLE_MAX)} onReset={() => setVehicleVisibleKeys(new Set(VEHICLE_COL_DEFAULT))} maxColumns={VEHICLE_MAX} columns={vehicleLogColumns} data={filteredVehicleLogs} searchPlaceholder={t("pages.logs.searchVehicle")} searchKeys={["vehicle_code", "system_status"]} emptyMessage={t("pages.logs.emptyVehicle")} />

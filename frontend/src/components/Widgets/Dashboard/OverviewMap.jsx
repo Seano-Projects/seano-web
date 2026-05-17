@@ -6,7 +6,7 @@ import useTranslation from "../../../hooks/useTranslation";
 const OverviewMap = ({ darkMode, vehicles, selectedVehicleId }) => {
   const { t } = useTranslation();
   return (
-    <div className="bg-white dark:bg-transparent border border-gray-200 dark:border-slate-600 p-8 rounded-xl">
+    <div className="bg-white dark:bg-black border border-gray-200 dark:border-slate-600 p-8 rounded-xl">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <FaLocationArrow size={30} className="text-green-500" />

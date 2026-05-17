@@ -132,7 +132,7 @@ const QuickSearch = ({ isSidebarOpen }) => {
     <button
       onClick={open}
       aria-label="Quick search"
-      className={`w-full flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 ${
+      className={`w-full flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-black hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 ${
         isSidebarOpen ? "px-3 py-2" : "px-2 py-2 justify-center"
       }`}
     >

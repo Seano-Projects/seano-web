@@ -36,7 +36,7 @@ const FloatingChat = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-10 right-14 z-[10051] w-80 sm:w-96 h-[480px] bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed bottom-10 right-14 z-10051 w-80 sm:w-96 h-120 bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden">
       {/* Header - solid blue */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-blue-600">
         <div className="flex items-center gap-2">
@@ -185,7 +185,7 @@ const FloatingChat = ({ isOpen, onClose }) => {
           onChange={(e) => setInput(e.target.value)}
           maxLength={2000}
           placeholder="Ketik pesan..."
-          className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-black text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
           disabled={loading}
         />
         <button

@@ -129,15 +129,16 @@ func (h *WaypointLogHandler) CreateWaypointLog(c *fiber.Ctx) error {
 	}
 
 	entry := &model.WaypointLog{
-		VehicleID:     req.VehicleID,
-		VehicleCode:   req.VehicleCode,
-		MissionID:     req.MissionID,
-		MissionName:   req.MissionName,
-		WaypointCount: req.WaypointCount,
-		Status:        req.Status,
-		Message:       req.Message,
-		InitiatedAt:   req.InitiatedAt,
-		ResolvedAt:    req.ResolvedAt,
+		VehicleID:        req.VehicleID,
+		VehicleCode:      req.VehicleCode,
+		MissionID:        req.MissionID,
+		MissionName:      req.MissionName,
+		WaypointCount:    req.WaypointCount,
+		Status:           req.Status,
+		Message:          req.Message,
+		InitiatedAt:      req.InitiatedAt,
+		ResolvedAt:       req.ResolvedAt,
+		PayloadSizeBytes: req.PayloadSizeBytes,
 	}
 
 	if err := h.repo.CreateWaypointLog(entry); err != nil {
@@ -320,7 +321,7 @@ func (h *WaypointLogHandler) ExportWaypointLogs(c *fiber.Ctx) error {
 	}
 
 	// Build CSV content
-	csvHeader := []string{"Timestamp", "Vehicle", "VehicleCode", "Mission", "MissionName", "WaypointCount", "Status", "Message", "InitiatedAt", "ResolvedAt"}
+	csvHeader := []string{"Timestamp", "Vehicle", "VehicleCode", "Mission", "MissionName", "WaypointCount", "Status", "Message", "PayloadSizeBytes", "InitiatedAt", "ResolvedAt"}
 	var b strings.Builder
 	b.WriteString(strings.Join(csvHeader, ","))
 	b.WriteString("\n")
@@ -364,6 +365,12 @@ func (h *WaypointLogHandler) ExportWaypointLogs(c *fiber.Ctx) error {
 			esc(strconv.Itoa(log.WaypointCount)),
 			esc(log.Status),
 			esc(log.Message),
+			esc(func() string {
+				if log.PayloadSizeBytes != nil {
+					return strconv.Itoa(*log.PayloadSizeBytes)
+				}
+				return ""
+			}()),
 			esc(initiatedAtStr),
 			esc(resolvedAtStr),
 		}

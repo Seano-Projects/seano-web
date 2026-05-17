@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import useTitle from "../hooks/useTitle";
 import { Title } from "../components/ui";
 import {
-  EnergyConsumptionTrends,
   MissionSuccessRate,
   MissionLogs,
   MissionStats,
@@ -54,25 +53,23 @@ const Mission = () => {
       {/* Mission Stats Widget */}
       <MissionStats />
 
-      {/* Row 1: Mission Success Rate + Energy Consumption Trends (2 columns) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Mission Success Rate - Donut Chart */}
-        <MissionSuccessRate />
-
-        {/* Energy Consumption Trends */}
-        <EnergyConsumptionTrends />
+      {/* Mission Success Rate (2 col) + Mission Logs (3 col) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="lg:col-span-2">
+          <MissionSuccessRate />
+        </div>
+        <div className="lg:col-span-3">
+          <MissionLogs
+            vehicles={vehicles || []}
+            selectedVessel={null}
+            startDate={startDate}
+            endDate={endDate}
+            onVesselChange={setSelectedVessel}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+          />
+        </div>
       </div>
-
-      {/* Mission Logs */}
-      <MissionLogs
-        vehicles={vehicles || []}
-        selectedVessel={selectedVessel}
-        startDate={startDate}
-        endDate={endDate}
-        onVesselChange={setSelectedVessel}
-        onStartDateChange={setStartDate}
-        onEndDateChange={setEndDate}
-      />
 
       {/* Mission Table - Detail View */}
       <MissionTable />
