@@ -39,3 +39,7 @@ data/
 CLAUDE.md
 
 ollama/
+
+frontend/.env.*
+
+docs/
