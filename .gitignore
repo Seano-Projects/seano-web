@@ -21,6 +21,15 @@ venv/
 
 # Build artifacts
 backend/app
+backend/server
+backend/main
+
+# Infrastructure configs
+docker-compose.yml
+nginx.conf
+
+# Lock files
+frontend/bun.lock
 
 # Local runtime data
 postgres_data/
