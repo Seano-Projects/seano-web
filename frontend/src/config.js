@@ -5,7 +5,7 @@ const useProxy = import.meta.env.VITE_USE_PROXY === 'true'
 
 export const API_BASE_URL =
   useProxy || isProduction
-    ? '/api' // Relative path - proxied by nginx/vite
+    ? '/api'
     : import.meta.env.VITE_API_URL || 'https://api.seano.cloud'
 
 // WebSocket URL
@@ -214,6 +214,28 @@ export const API_ENDPOINTS = {
     DELETE: id => `${API_BASE_URL}/command-logs/${id}`,
     EXPORT: `${API_BASE_URL}/command-logs/export`,
     IMPORT: `${API_BASE_URL}/command-logs/import`
+  },
+
+  // Publications endpoints
+  PUBLICATIONS: {
+    LIST:       `${API_BASE_URL}/publications`,
+    BY_ID:      id => `${API_BASE_URL}/publications/${id}`,
+    CREATE:     `${API_BASE_URL}/publications`,
+    UPDATE:     id => `${API_BASE_URL}/publications/${id}`,
+    DELETE:     id => `${API_BASE_URL}/publications/${id}`,
+    UPLOAD_PDF: `${API_BASE_URL}/publications/upload-pdf`,
+    DELETE_PDF: filename => `${API_BASE_URL}/publications/upload-pdf/${filename}`,
+  },
+
+  // Team Members endpoints
+  TEAM: {
+    LIST:         `${API_BASE_URL}/team`,
+    BY_ID:        id => `${API_BASE_URL}/team/${id}`,
+    CREATE:       `${API_BASE_URL}/team`,
+    UPDATE:       id => `${API_BASE_URL}/team/${id}`,
+    DELETE:       id => `${API_BASE_URL}/team/${id}`,
+    UPLOAD_PHOTO: `${API_BASE_URL}/team/upload-photo`,
+    DELETE_PHOTO: filename => `${API_BASE_URL}/team/upload-photo/${filename}`,
   },
 
   // Waypoint Logs endpoints
