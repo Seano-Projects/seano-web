@@ -91,6 +91,12 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 		{Name: "sensor_logs.read", Description: "View sensor log data"},
 		{Name: "raw_logs.read", Description: "View raw log data"},
 		{Name: "raw_logs.delete", Description: "Delete raw log data"},
+
+		// Publications
+		{Name: "publications.manage", Description: "Create, update, and delete publications"},
+
+		// Team
+		{Name: "team.manage", Description: "Create, update, and delete team members"},
 	}
 
 	for _, permission := range permissions {
@@ -108,20 +114,29 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 		}
 	}
 
-	// ─── Admin: assign ALL permissions on fresh install only ───────────────────
-	// After fresh install, admin manages role permissions via web UI.
+	// ─── Admin: assign all permissions, top-up any new ones added by seeder ────
 	var adminRole model.Role
 	if err := db.Where("name = ?", "admin").Preload("Permissions").First(&adminRole).Error; err == nil {
-		if len(adminRole.Permissions) == 0 {
-			var allPermissions []model.Permission
-			db.Find(&allPermissions)
-			if err := db.Model(&adminRole).Association("Permissions").Append(&allPermissions); err != nil {
-				log.Printf("Failed to assign permissions to admin: %v", err)
+		existing := make(map[string]bool, len(adminRole.Permissions))
+		for _, p := range adminRole.Permissions {
+			existing[p.Name] = true
+		}
+		var allPermissions []model.Permission
+		db.Find(&allPermissions)
+		var missing []model.Permission
+		for _, p := range allPermissions {
+			if !existing[p.Name] {
+				missing = append(missing, p)
+			}
+		}
+		if len(missing) > 0 {
+			if err := db.Model(&adminRole).Association("Permissions").Append(&missing); err != nil {
+				log.Printf("Failed to top-up admin permissions: %v", err)
 			} else {
-				log.Printf("Admin role assigned %d permissions (fresh install)", len(allPermissions))
+				log.Printf("Admin role: added %d new permission(s)", len(missing))
 			}
 		} else {
-			log.Printf("Admin role already has %d permissions, skipping (manage via web UI)", len(adminRole.Permissions))
+			log.Printf("Admin role already has all %d permissions", len(adminRole.Permissions))
 		}
 	}
 
