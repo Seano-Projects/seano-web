@@ -37,8 +37,8 @@ const Dropdown = ({
     if (isOpen && useFixedPositioning && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       setDropdownPosition({
-        top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX,
+        top: rect.bottom + 8,
+        left: rect.left,
         width: rect.width,
       });
     }

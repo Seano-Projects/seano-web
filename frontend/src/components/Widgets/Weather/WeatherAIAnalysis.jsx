@@ -18,21 +18,28 @@ export const WeatherAIAnalysis = ({ weather, forecast }) => {
       setError(null);
 
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          setError("Authentication required. Please login first.");
+          return;
+        }
+
         const payload = {
-          temperature: weather.main?.temp || 0,
-          wind_speed: weather.wind?.speed || 0,
-          wind_gust: weather.wind?.gust || 0,
-          humidity: weather.main?.humidity || 0,
-          pressure: weather.main?.pressure || 0,
-          description: weather.weather?.[0]?.description || "",
-          forecast: (forecast?.list || []).slice(0, 8).map((item) => ({
-            temp: item.main?.temp,
-            pop: item.pop || 0,
-            rain: item.rain?.["3h"] || 0,
-            dt: item.dt,
+          temperature: parseFloat(weather.main?.temp || 0),
+          wind_speed: parseFloat(weather.wind?.speed || 0),
+          wind_gust: parseFloat(weather.wind?.gust || 0),
+          humidity: parseInt(weather.main?.humidity || 0),
+          pressure: parseInt(weather.main?.pressure || 0),
+          description: String(weather.weather?.[0]?.description || ""),
+          forecast: (forecast?.list || []).slice(0, 8).filter(item => item.main?.temp).map((item) => ({
+            temp: parseFloat(item.main.temp),
+            pop: parseFloat(item.pop || 0),
+            rain: parseFloat(item.rain?.["3h"] || 0),
+            dt: String(item.dt),
           })),
         };
+
+        console.log("Sending payload:", payload);
 
         const response = await fetch(`${API_BASE_URL}/ai/weather-analysis`, {
           method: "POST",
@@ -43,11 +50,15 @@ export const WeatherAIAnalysis = ({ weather, forecast }) => {
           body: JSON.stringify(payload),
         });
 
-        if (!response.ok) throw new Error("Failed to fetch analysis");
+        if (!response.ok) {
+          const errData = await response.text();
+          throw new Error(`API Error ${response.status}: ${errData || "Unknown error"}`);
+        }
 
         const data = await response.json();
         setAnalysis(data);
       } catch (err) {
+        console.error("Weather analysis error:", err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -87,9 +98,9 @@ export const WeatherAIAnalysis = ({ weather, forecast }) => {
 
   return (
     <Card className="px-5 py-4">
-      <div className="flex items-center gap-2 mb-3">
-        <FaRobot className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-        <SectionTitle className="mb-0">AI Operational Analysis</SectionTitle>
+      <div className="flex items-center gap-2 mb-4">
+        <FaRobot className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+        <p className="text-sm font-semibold text-blue-500 dark:text-blue-400">AI Operational Analysis</p>
       </div>
 
       {loading && (

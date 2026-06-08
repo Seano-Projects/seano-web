@@ -574,7 +574,7 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
         <button
           onClick={focusToVehicle}
           onMouseDown={(e) => e.stopPropagation()}
-          className="absolute top-4 right-4 z-9999 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer pointer-events-auto border-2 border-white dark:border-gray-800"
+          className="absolute top-4 right-4 z-1500 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer pointer-events-auto border-2 border-white dark:border-gray-800"
           title="Kembali ke posisi kapal"
           type="button"
           aria-label="Focus to vehicle"
@@ -592,7 +592,7 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
         onMouseDown={(e) => e.stopPropagation()}
         className={`absolute top-4 ${
           shouldShowFocusButton ? "right-20" : "right-4"
-        } z-9999 w-14 h-14 rounded-full ${
+        } z-1500 w-14 h-14 rounded-full ${
           showTrails
             ? "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
             : "bg-gray-600 hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600"
