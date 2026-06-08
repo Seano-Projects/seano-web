@@ -47,7 +47,7 @@ const Modal = ({
       }}
     >
       <div
-        className={`max-h-[min(100dvh-1.5rem,44rem)] overflow-y-auto bg-white dark:bg-black border-2 border-gray-300 dark:border-slate-600 rounded-2xl p-5 sm:p-6 ${
+        className={`max-h-[90dvh] overflow-y-auto bg-white dark:bg-black border-2 border-gray-300 dark:border-slate-600 rounded-2xl p-5 sm:p-6 ${
           sizeClasses[size]
         } shadow-2xl ${className} transition-all duration-300 ease-out transform ${
           isAnimating

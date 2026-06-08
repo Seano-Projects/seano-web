@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { dashboardLink, menuGroups } from "../../../constant";
+import { dashboardLink, chatsLink, menuGroups } from "../../../constant";
 import LinkItem from "./LinkItem";
 import MenuGroup from "./MenuGroup";
 import { useAlertData } from "../../../hooks/useAlertData";
@@ -172,6 +172,7 @@ const Sidebar = ({ isSidebarOpen, onHoverChange, onClose }) => {
             <div className="mb-3 mt-2">
               <ul className="space-y-2 font-semibold">
                 <LinkItem isSidebarOpen={isExpanded} {...dashboardLink} />
+                <LinkItem isSidebarOpen={isExpanded} {...chatsLink} />
               </ul>
             </div>
 

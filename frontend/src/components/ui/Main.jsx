@@ -2,7 +2,7 @@ import React from "react";
 import { useLocation } from "react-router-dom";
 import { Topbar } from "../Layout";
 
-const fullWidthRoutes = ["/mission-planner", "/control"];
+const fullWidthRoutes = ["/mission-planner", "/control", "/chats"];
 
 const Main = ({
   children,
