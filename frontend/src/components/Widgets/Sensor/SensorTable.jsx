@@ -133,17 +133,6 @@ const SensorTable = ({
       ),
     },
     {
-      header: "Status",
-      accessorKey: "status",
-      cell: (row) => (
-        <span
-          className={`px-4 py-1 text-xs font-medium rounded-full ${row.statusColor}`}
-        >
-          {row.status}
-        </span>
-      ),
-    },
-    {
       header: "Type",
       accessorKey: "type",
       cell: (row) => (
@@ -255,7 +244,7 @@ const SensorTable = ({
         columns={columns}
         data={transformedData}
         searchPlaceholder="Search sensors by brand, model, code, or type..."
-        searchKeys={["brand", "model", "displayName", "code", "type", "status"]}
+        searchKeys={["brand", "model", "displayName", "code", "type"]}
         pageSize={10}
         showPagination={true}
         emptyMessage="No sensors found. Click 'Add Sensor' to create one."

@@ -318,7 +318,7 @@
       "waitingData": "Waiting for data..."
     },
     "rawLog": {
-      "title": "Detailed Data",
+      "title": "Raw Data",
       "live": "Live",
       "allVehicles": "All Vehicles",
       "levelError": "ERROR",
@@ -374,8 +374,8 @@
       "speed": "SPEED",
       "altitude": "ALTITUDE",
       "gpsPosition": "GPS POSITION",
-      "gpsFix": "GPS Locked",
-      "gpsNoFix": "GPS Not Locked",
+      "gpsFix": "GPS Fix",
+      "gpsNoFix": "No Fix",
       "gpsUnknown": "GPS Unavailable",
       "rssi": "Signal Strength",
       "batteryVoltage": "Bat. Voltage",

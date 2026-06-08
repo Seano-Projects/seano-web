@@ -1,0 +1,161 @@
+import React, { useState, useEffect } from "react";
+import useTranslation from "../../../hooks/useTranslation";
+import { Card, SectionTitle } from "./WeatherPrimitives";
+import { FaRobot, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSpinner } from "react-icons/fa";
+import { API_BASE_URL } from "../../../config";
+
+export const WeatherAIAnalysis = ({ weather, forecast }) => {
+  const { t } = useTranslation();
+  const [analysis, setAnalysis] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!weather) return;
+
+    const fetchAnalysis = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const token = localStorage.getItem("token");
+        const payload = {
+          temperature: weather.main?.temp || 0,
+          wind_speed: weather.wind?.speed || 0,
+          wind_gust: weather.wind?.gust || 0,
+          humidity: weather.main?.humidity || 0,
+          pressure: weather.main?.pressure || 0,
+          description: weather.weather?.[0]?.description || "",
+          forecast: (forecast?.list || []).slice(0, 8).map((item) => ({
+            temp: item.main?.temp,
+            pop: item.pop || 0,
+            rain: item.rain?.["3h"] || 0,
+            dt: item.dt,
+          })),
+        };
+
+        const response = await fetch(`${API_BASE_URL}/ai/weather-analysis`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) throw new Error("Failed to fetch analysis");
+
+        const data = await response.json();
+        setAnalysis(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const timer = setTimeout(fetchAnalysis, 500);
+    return () => clearTimeout(timer);
+  }, [weather, forecast]);
+
+  const getRiskColor = (level) => {
+    const colors = {
+      LOW: "text-green-600 dark:text-green-400",
+      MEDIUM: "text-amber-600 dark:text-amber-400",
+      HIGH: "text-red-600 dark:text-red-400",
+    };
+    return colors[level] || colors.MEDIUM;
+  };
+
+  const getRiskBg = (level) => {
+    const colors = {
+      LOW: "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800",
+      MEDIUM: "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800",
+      HIGH: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800",
+    };
+    return colors[level] || colors.MEDIUM;
+  };
+
+  const getStatusIcon = (level) => {
+    const icons = {
+      LOW: <FaCheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />,
+      MEDIUM: <FaExclamationTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />,
+      HIGH: <FaTimesCircle className="w-5 h-5 text-red-600 dark:text-red-400" />,
+    };
+    return icons[level] || icons.MEDIUM;
+  };
+
+  return (
+    <Card className="px-5 py-4">
+      <div className="flex items-center gap-2 mb-3">
+        <FaRobot className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+        <SectionTitle className="mb-0">AI Operational Analysis</SectionTitle>
+      </div>
+
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+          <FaSpinner className="w-5 h-5 animate-spin mr-2" />
+          <span className="text-sm">Analyzing weather conditions...</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs">
+          <p>{error}</p>
+        </div>
+      )}
+
+      {analysis && !loading && (
+        <div className="space-y-4">
+          {/* Risk Level Badge */}
+          <div className={`flex items-start gap-3 p-3 rounded-lg border ${getRiskBg(analysis.risk_level)}`}>
+            {getStatusIcon(analysis.risk_level)}
+            <div className="flex-1">
+              <p className={`text-sm font-semibold ${getRiskColor(analysis.risk_level)}`}>
+                {analysis.risk_level === "LOW" && "✓ Safe to Operate"}
+                {analysis.risk_level === "MEDIUM" && "⚠ Operate with Caution"}
+                {analysis.risk_level === "HIGH" && "✗ Do Not Operate"}
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{analysis.analysis}</p>
+            </div>
+          </div>
+
+          {/* Safety Indicator */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-800">
+            <span className="text-xs text-gray-600 dark:text-gray-400">USV Operation Status</span>
+            <span className={`text-xs font-semibold ${analysis.safe_to_operate ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+              {analysis.safe_to_operate ? "SAFE" : "NOT SAFE"}
+            </span>
+          </div>
+
+          {/* Recommendations */}
+          {analysis.recommendations && analysis.recommendations.length > 0 && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">Recommendations</p>
+              <ul className="space-y-1.5">
+                {analysis.recommendations.map((rec, idx) => (
+                  <li key={idx} className="flex gap-2 text-xs text-gray-700 dark:text-gray-300">
+                    <span className="text-blue-500 dark:text-blue-400 font-bold shrink-0">•</span>
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Confidence */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+            <span>Analysis Confidence</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{analysis.confidence}</span>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && !analysis && (
+        <div className="py-6 text-center text-gray-400 dark:text-gray-600 text-sm">
+          <p>No weather data available</p>
+        </div>
+      )}
+    </Card>
+  );
+};

@@ -1,8 +1,10 @@
 import axios from 'axios'
 import { API_ENDPOINTS } from '../config'
+import { clearCachedWebSocketToken } from './wsAuth'
 
 // Create axios instance
 const axiosInstance = axios.create()
+axiosInstance.defaults.withCredentials = true
 
 // Decode JWT to get expiration time
 function getTokenExpiration (token) {
@@ -34,45 +36,35 @@ async function refreshAccessToken () {
 
   refreshPromise = (async () => {
     try {
-      const refreshToken = localStorage.getItem('refresh_token')
-      if (!refreshToken) {
-        throw new Error('No refresh token available')
-      }
-
       const response = await axios.post(
         API_ENDPOINTS.AUTH.REFRESH,
-        { refresh_token: refreshToken },
+        {},
         {
           headers: { 'Content-Type': 'application/json' },
           withCredentials: true
         }
       )
 
-      const { access_token, refresh_token: newRefreshToken } = response.data
+      const { access_token } = response.data
 
       // Always save the new access token
       if (access_token) {
         localStorage.setItem('access_token', access_token)
       }
 
-      // Always save the new refresh token if provided
-      if (newRefreshToken) {
-        localStorage.setItem('refresh_token', newRefreshToken)
-      }
-
       return access_token
     } catch (error) {
       // Only clear tokens and redirect if it's not a sessions endpoint
       // Sessions endpoint might return 401 for non-admin users, which is expected
-      const isSessionsEndpoint = refreshToken && 
-        (window.location.pathname.includes('/user') || 
-         error.config?.url?.includes('/auth/sessions'));
+      const isSessionsEndpoint =
+        window.location.pathname.includes('/user') ||
+        error.config?.url?.includes('/auth/sessions')
       
       if (!isSessionsEndpoint) {
         // Clear tokens and redirect to login
         localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
         localStorage.removeItem('user')
+        clearCachedWebSocketToken()
         window.location.href = '/auth/login'
       }
       throw error

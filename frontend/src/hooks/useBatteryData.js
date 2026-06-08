@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLogData } from './useLogData'
+import { useLogDataContext } from '../contexts/LogDataContext'
 
 const BATTERY_LOG_STORAGE_KEY = 'batteryLogs'
 
@@ -39,7 +39,7 @@ const loadStoredBatteryLogs = () => {
  * }
  */
 const useBatteryData = () => {
-  const { batteryData: batteryDataFromLog } = useLogData()
+  const { batteryData: batteryDataFromLog } = useLogDataContext()
   const [batteryLogs, setBatteryLogs] = useState(loadStoredBatteryLogs) // Store battery history
   const [lastUpdate, setLastUpdate] = useState(null)
 

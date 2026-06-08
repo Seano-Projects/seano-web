@@ -7,7 +7,7 @@ import { AddVehicleWizard } from "../components/Widgets/Vehicle";
 import { ConfirmModal } from "../components/ui";
 import { getWidgetData } from "../constant";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
-import { useLogData } from "../hooks/useLogData";
+import { useLogDataContext } from "../contexts/LogDataContext";
 import { useVehicleConnectionStatus } from "../hooks";
 import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
@@ -35,7 +35,7 @@ const Vehicle = () => {
   const widgetData = getWidgetData(stats, vehicles);
 
   // Real-time data from WebSocket
-  const { vehicleLogs, ws } = useLogData();
+  const { vehicleLogs, ws } = useLogDataContext();
 
   // MQTT LWT realtime connection status
   const { getVehicleStatus, isVehicleOnline } = useVehicleConnectionStatus();

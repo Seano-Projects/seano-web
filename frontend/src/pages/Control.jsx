@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import axios from "axios";
+import axiosInstance from "../utils/axiosConfig";
 import useTitle from "../hooks/useTitle";
 import useTranslation from "../hooks/useTranslation";
 import useControlCommand from "../hooks/useControlCommand";
 import useVehicleData from "../hooks/useVehicleData";
-import { useLogData } from "../hooks/useLogData";
+import { useLogDataContext } from "../contexts/LogDataContext";
 import useMissionData from "../hooks/useMissionData";
 import useDeviceLock from "../hooks/useDeviceLock";
 import { API_BASE_URL } from "../config";
@@ -178,15 +178,7 @@ const Control = () => {
   const deviceLockId = selectedVehicle?.id ? `control-${selectedVehicle.id}` : null;
   const { isLocked, isLockOwner, lockedBySession } = useDeviceLock(deviceLockId);
   const isControlDisabled = isLocked && !isLockOwner;
-  const { vehicleLogs, waypointLogs } = useLogData({
-    enableStats: false,
-    enableChartData: false,
-    enableSensorLogs: false,
-    enableRawLogs: false,
-    enableCommandLogs: false,
-    enableWaypointLogs: true, // listen for mission-upload events
-    enableBatteryData: false,
-  });
+  const { vehicleLogs, waypointLogs } = useLogDataContext();
   const {
     missionData,
     getActiveMissions,
@@ -212,11 +204,9 @@ const Control = () => {
       setFetchedVehicleLog(null);
       return;
     }
-    const token = localStorage.getItem("access_token");
-    axios
+    axiosInstance
       .get(
         `${API_BASE_URL}/vehicle-logs?vehicle_id=${selectedVehicle.id}&limit=1`,
-        { headers: { Authorization: `Bearer ${token}` } },
       )
       .then((res) => {
         const data = res.data?.data || res.data || [];
@@ -767,13 +757,9 @@ const Control = () => {
   const handleClearMission = async (missionId) => {
     if (!missionId) return;
     try {
-      const token = localStorage.getItem("access_token");
-      await axios.patch(
+      await axiosInstance.patch(
         `${API_BASE_URL}/missions/${missionId}/clear`,
         {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
       );
       toast.success(t("control.missionControl.clearMission") + " success");
       refreshMissionData();
@@ -1039,22 +1025,17 @@ const Control = () => {
           <button
             onClick={() => setShowTrails(!showTrails)}
             onMouseDown={(e) => e.stopPropagation()}
-            className={`w-14 h-14 rounded-full ${
+            className={`w-12 h-12 rounded-full ${
               showTrails
-                ? "bg-green-600 hover:bg-green-700"
-                : "bg-gray-600 hover:bg-gray-700"
-            } text-white shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer pointer-events-auto border-2 border-white`}
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+            } shadow-lg flex items-center justify-center transition-colors cursor-pointer pointer-events-auto border border-gray-200 dark:border-gray-600`}
             title={showTrails ? "Sembunyikan jalur" : "Tampilkan jalur"}
             type="button"
             aria-label="Toggle trail"
-            style={{
-              boxShadow: showTrails
-                ? "0 10px 25px rgba(34, 197, 94, 0.5)"
-                : "0 10px 25px rgba(75, 85, 99, 0.5)",
-            }}
           >
             <svg
-              className="w-7 h-7"
+              className={`w-5 h-5 ${showTrails ? "text-white" : "text-blue-500"}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

@@ -318,7 +318,7 @@
       "waitingData": "Menunggu data..."
     },
     "rawLog": {
-      "title": "Data Detail",
+      "title": "Raw Data",
       "live": "Live",
       "allVehicles": "Semua Kendaraan",
       "levelError": "ERROR",
@@ -374,8 +374,8 @@
       "speed": "KECEPATAN",
       "altitude": "KETINGGIAN",
       "gpsPosition": "POSISI GPS",
-      "gpsFix": "GPS Terkunci",
-      "gpsNoFix": "GPS Belum Terkunci",
+      "gpsFix": "GPS Fix",
+      "gpsNoFix": "No Fix",
       "gpsUnknown": "GPS Tidak Tersedia",
       "rssi": "Kekuatan Sinyal",
       "batteryVoltage": "Tegangan Baterai",

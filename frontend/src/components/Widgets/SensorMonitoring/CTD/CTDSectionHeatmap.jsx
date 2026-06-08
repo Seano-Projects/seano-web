@@ -1,292 +1,1250 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  FaArrowTrendDown,
+  FaArrowTrendUp,
+  FaLayerGroup,
+  FaTemperatureHalf,
+  FaWaveSquare,
+} from "react-icons/fa6";
 import useTranslation from "../../../../hooks/useTranslation";
-import Dropdown from "../../Dropdown";
+import DataCard from "../../DataCard";
+import WidgetCard from "../../WidgetCard";
 
-const DISTANCE_BIN_KM = 0.05; // 50 m bins
-const DEPTH_BIN_M = 1; // 1 m bins
-const CANVAS_HEIGHT = 260;
+const DISTANCE_BIN_KM = 0.05;
+const DEPTH_BIN_M = 2;
+const PLOT_HEIGHT = 400;
+const PLOT_MIN_WIDTH = 640;
+const CONTOUR_LEVELS = 6;
 
-// Color stops: blue → cyan → green → yellow → orange → red
-const COLOR_STOPS = [
-  [0.0, [53, 92, 255]],
-  [0.125, [35, 139, 255]],
-  [0.25, [0, 199, 242]],
-  [0.5, [32, 214, 111]],
-  [0.625, [185, 229, 38]],
-  [0.75, [246, 211, 45]],
-  [0.875, [247, 154, 47]],
-  [1.0, [240, 73, 52]],
-];
-
-const valueToRgb = (t) => {
-  const clamp = Math.max(0, Math.min(1, t));
-  for (let i = 1; i < COLOR_STOPS.length; i++) {
-    if (clamp <= COLOR_STOPS[i][0]) {
-      const [t0, c0] = COLOR_STOPS[i - 1];
-      const [t1, c1] = COLOR_STOPS[i];
-      const f = (clamp - t0) / (t1 - t0);
-      return [
-        Math.round(c0[0] + f * (c1[0] - c0[0])),
-        Math.round(c0[1] + f * (c1[1] - c0[1])),
-        Math.round(c0[2] + f * (c1[2] - c0[2])),
-      ];
-    }
-  }
-  return COLOR_STOPS[COLOR_STOPS.length - 1][1];
+const METRIC_DEFINITIONS = {
+  temperature: {
+    key: "temperature",
+    label: "Temperature (C)",
+    unit: "C",
+    legendLabel: "Cool to warm water",
+    colormap: [
+      "#1f3c88",
+      "#225ea8",
+      "#1d91c0",
+      "#41b6c4",
+      "#7fcdbb",
+      "#c7e9b4",
+      "#fddc6c",
+      "#f07c4a",
+      "#c83e4d",
+    ],
+  },
+  salinity: {
+    key: "salinity",
+    label: "Salinity (PSU)",
+    unit: "PSU",
+    legendLabel: "Fresh to saline water",
+    colormap: [
+      "#102a43",
+      "#1f5f8b",
+      "#2c7fb8",
+      "#41b6c4",
+      "#7fcdbb",
+      "#b8e186",
+      "#f6d55c",
+      "#f29e4c",
+      "#d1495b",
+    ],
+  },
+  density: {
+    key: "density",
+    label: "Density (kg/m3)",
+    unit: "kg/m3",
+    legendLabel: "Light to dense water",
+    colormap: [
+      "#13293d",
+      "#1f4e79",
+      "#2a6f97",
+      "#3f88c5",
+      "#58a4b0",
+      "#78c091",
+      "#d9d44a",
+      "#f4a259",
+      "#d95d39",
+    ],
+  },
+  conductivity: {
+    key: "conductivity",
+    label: "Conductivity (mS/cm)",
+    unit: "mS/cm",
+    legendLabel: "Low to high conductivity",
+    colormap: [
+      "#0b2545",
+      "#134074",
+      "#2c7da0",
+      "#468faf",
+      "#61a5c2",
+      "#89c2d9",
+      "#d9ed92",
+      "#f9c74f",
+      "#f3722c",
+    ],
+  },
+  sound_velocity: {
+    key: "sound_velocity",
+    label: "Sound Velocity (m/s)",
+    unit: "m/s",
+    legendLabel: "Slow to fast propagation",
+    colormap: [
+      "#1d3557",
+      "#2874a6",
+      "#2a9d8f",
+      "#52b788",
+      "#95d5b2",
+      "#d8f3dc",
+      "#f9c74f",
+      "#f9844a",
+      "#e63946",
+    ],
+  },
 };
 
-const CTDSectionHeatmap = ({ ctdData }) => {
+const METRICS_FOR_TOOLTIP = [
+  { key: "temperature", label: "Temperature", unit: "C", digits: 2 },
+  { key: "salinity", label: "Salinity", unit: "PSU", digits: 2 },
+  { key: "conductivity", label: "Conductivity", unit: "mS/cm", digits: 2 },
+  { key: "density", label: "Density", unit: "kg/m3", digits: 2 },
+];
+
+const SENSOR_THRESHOLDS = {
+  temperature: { min: -2, max: 40, spike: 2.2 },
+  salinity: { min: 0, max: 45, spike: 2.5 },
+  conductivity: { min: 0, max: 80, spike: 5 },
+  density: { min: 990, max: 1050, spike: 3.5 },
+};
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const formatNumber = (value, digits = 2) =>
+  Number.isFinite(value) ? value.toFixed(digits) : "--";
+
+const formatDistanceLabel = (value) => {
+  if (!Number.isFinite(value)) return "-- km";
+  if (value < 0.1) return `${value.toFixed(3)} km`;
+  if (value < 1) return `${value.toFixed(2)} km`;
+  return `${value.toFixed(1)} km`;
+};
+
+const hexToRgb = (hex) => {
+  const normalized = hex.replace("#", "");
+  const value = Number.parseInt(normalized, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+};
+
+const interpolateColor = (colors, t) => {
+  const safe = clamp(t, 0, 1);
+  const scaled = safe * (colors.length - 1);
+  const index = Math.floor(scaled);
+  const nextIndex = Math.min(colors.length - 1, index + 1);
+  const mix = scaled - index;
+  const start = hexToRgb(colors[index]);
+  const end = hexToRgb(colors[nextIndex]);
+  return [
+    Math.round(start[0] + (end[0] - start[0]) * mix),
+    Math.round(start[1] + (end[1] - start[1]) * mix),
+    Math.round(start[2] + (end[2] - start[2]) * mix),
+  ];
+};
+
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const buildDisplayGrid = ({ values, counts, tooltipData, xBins, yBins }) => {
+  const displayValues = new Float32Array(values);
+  const displayCounts = new Uint16Array(counts);
+  const displayTooltipData = [...tooltipData];
+  const imputedMask = new Uint8Array(values.length);
+
+  const getIndex = (x, y) => y * xBins + x;
+
+  for (let y = 0; y < yBins; y += 1) {
+    for (let x = 0; x < xBins; x += 1) {
+      const index = getIndex(x, y);
+      if (counts[index] > 0) {
+        continue;
+      }
+
+      const leftIndex = x > 0 ? getIndex(x - 1, y) : -1;
+      const rightIndex = x < xBins - 1 ? getIndex(x + 1, y) : -1;
+      const upIndex = y > 0 ? getIndex(x, y - 1) : -1;
+      const downIndex = y < yBins - 1 ? getIndex(x, y + 1) : -1;
+
+      const horizontalReady =
+        leftIndex >= 0 &&
+        rightIndex >= 0 &&
+        counts[leftIndex] > 0 &&
+        counts[rightIndex] > 0;
+      const verticalReady =
+        upIndex >= 0 &&
+        downIndex >= 0 &&
+        counts[upIndex] > 0 &&
+        counts[downIndex] > 0;
+
+      if (!horizontalReady && !verticalReady) {
+        continue;
+      }
+
+      const sourceIndices = [
+        ...(horizontalReady ? [leftIndex, rightIndex] : []),
+        ...(verticalReady ? [upIndex, downIndex] : []),
+      ];
+
+      const meanValue =
+        sourceIndices.reduce(
+          (sum, sourceIndex) => sum + values[sourceIndex],
+          0,
+        ) / sourceIndices.length;
+
+      const sourceTooltip = sourceIndices
+        .map((sourceIndex) => tooltipData[sourceIndex])
+        .filter(Boolean);
+
+      displayValues[index] = meanValue;
+      displayCounts[index] = 1;
+      imputedMask[index] = 1;
+
+      if (sourceTooltip.length) {
+        const averagedTooltip = {
+          interpolated: true,
+          value:
+            sourceTooltip.reduce((sum, item) => sum + item.value, 0) /
+            sourceTooltip.length,
+          temperature:
+            sourceTooltip.reduce((sum, item) => sum + item.temperature, 0) /
+            sourceTooltip.length,
+          salinity:
+            sourceTooltip.reduce((sum, item) => sum + item.salinity, 0) /
+            sourceTooltip.length,
+          conductivity:
+            sourceTooltip.reduce((sum, item) => sum + item.conductivity, 0) /
+            sourceTooltip.length,
+          density:
+            sourceTooltip.reduce((sum, item) => sum + item.density, 0) /
+            sourceTooltip.length,
+          sound_velocity:
+            sourceTooltip.reduce((sum, item) => sum + item.sound_velocity, 0) /
+            sourceTooltip.length,
+          sample: null,
+        };
+        displayTooltipData[index] = averagedTooltip;
+      }
+    }
+  }
+
+  return { displayValues, displayCounts, displayTooltipData, imputedMask };
+};
+
+const computeContourSegments = ({
+  values,
+  counts,
+  xBins,
+  yBins,
+  maxDistance,
+  maxDepth,
+  minValue,
+  maxValue,
+}) => {
+  const segments = [];
+  const usableLevels = [];
+  const range = maxValue - minValue;
+  if (!Number.isFinite(range) || range <= 0) {
+    return { segments, levels: usableLevels };
+  }
+
+  for (let i = 1; i <= CONTOUR_LEVELS; i += 1) {
+    usableLevels.push(minValue + (range * i) / (CONTOUR_LEVELS + 1));
+  }
+
+  const interpolatePoint = (xA, yA, valueA, xB, yB, valueB, threshold) => {
+    const delta = valueB - valueA;
+    const ratio = Math.abs(delta) < 1e-9 ? 0.5 : (threshold - valueA) / delta;
+    return {
+      x:
+        ((xA + (xB - xA) * ratio) / Math.max(1, xBins - 1)) *
+        Math.max(maxDistance, DISTANCE_BIN_KM),
+      y:
+        ((yA + (yB - yA) * ratio) / Math.max(1, yBins - 1)) *
+        Math.max(maxDepth, DEPTH_BIN_M),
+    };
+  };
+
+  for (const level of usableLevels) {
+    for (let y = 0; y < yBins - 1; y += 1) {
+      for (let x = 0; x < xBins - 1; x += 1) {
+        const topLeftIndex = y * xBins + x;
+        const topRightIndex = topLeftIndex + 1;
+        const bottomLeftIndex = topLeftIndex + xBins;
+        const bottomRightIndex = bottomLeftIndex + 1;
+
+        if (
+          counts[topLeftIndex] === 0 ||
+          counts[topRightIndex] === 0 ||
+          counts[bottomLeftIndex] === 0 ||
+          counts[bottomRightIndex] === 0
+        ) {
+          continue;
+        }
+
+        const topLeft = values[topLeftIndex];
+        const topRight = values[topRightIndex];
+        const bottomLeft = values[bottomLeftIndex];
+        const bottomRight = values[bottomRightIndex];
+        const intersections = [];
+
+        if (topLeft >= level !== topRight >= level) {
+          intersections.push(
+            interpolatePoint(x, y, topLeft, x + 1, y, topRight, level),
+          );
+        }
+        if (topRight >= level !== bottomRight >= level) {
+          intersections.push(
+            interpolatePoint(
+              x + 1,
+              y,
+              topRight,
+              x + 1,
+              y + 1,
+              bottomRight,
+              level,
+            ),
+          );
+        }
+        if (bottomRight >= level !== bottomLeft >= level) {
+          intersections.push(
+            interpolatePoint(
+              x + 1,
+              y + 1,
+              bottomRight,
+              x,
+              y + 1,
+              bottomLeft,
+              level,
+            ),
+          );
+        }
+        if (bottomLeft >= level !== topLeft >= level) {
+          intersections.push(
+            interpolatePoint(x, y + 1, bottomLeft, x, y, topLeft, level),
+          );
+        }
+
+        if (intersections.length === 2) {
+          segments.push({
+            level,
+            from: intersections[0],
+            to: intersections[1],
+          });
+        } else if (intersections.length === 4) {
+          segments.push({
+            level,
+            from: intersections[0],
+            to: intersections[1],
+          });
+          segments.push({
+            level,
+            from: intersections[2],
+            to: intersections[3],
+          });
+        }
+      }
+    }
+  }
+
+  return { segments, levels: usableLevels };
+};
+
+const mean = (values) => {
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+};
+
+const getLayerStrength = (delta, gradient) => {
+  if (!Number.isFinite(delta) || !Number.isFinite(gradient))
+    return "Insufficient";
+  const magnitude = Math.abs(delta) + Math.abs(gradient) * 4;
+  if (magnitude >= 5) return "Strong";
+  if (magnitude >= 2.5) return "Moderate";
+  return "Weak";
+};
+
+const CTDSectionHeatmap = ({
+  ctdData,
+  metric: controlledMetric = "temperature",
+}) => {
   const { t } = useTranslation();
-  const [metric, setMetric] = useState("temperature");
-  const canvasRef = useRef(null);
+  const [tooltip, setTooltip] = useState(null);
+  const [activeColumn, setActiveColumn] = useState(null);
   const containerRef = useRef(null);
+  const heatmapCanvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
 
-  const metrics = useMemo(
-    () => ({
-      temperature: {
-        key: "temperature",
-        label: `${t("pages.data.charts.temperature")} (C)`,
-        unit: "C",
-      },
-      salinity: {
-        key: "salinity",
-        label: `${t("pages.data.charts.salinity")} (PSU)`,
-        unit: "PSU",
-      },
-      density: {
-        key: "density",
-        label: `${t("pages.ctd.charts.density")} (kg/m3)`,
-        unit: "kg/m3",
-      },
-      conductivity: {
-        key: "conductivity",
-        label: `${t("pages.data.charts.conductivity")} (mS/cm)`,
-        unit: "mS/cm",
-      },
-      sound_velocity: {
-        key: "sound_velocity",
-        label: `${t("pages.ctd.charts.soundVelocity")} (m/s)`,
-        unit: "m/s",
-      },
-    }),
-    [t],
-  );
+  const activeMetric =
+    METRIC_DEFINITIONS[controlledMetric] || METRIC_DEFINITIONS.temperature;
 
-  const metricConfig = metrics[metric] || metrics.temperature;
-
-  const dataSummary = useMemo(() => {
-    if (!ctdData || ctdData.length === 0) {
-      return {
-        points: [],
-        minValue: 0,
-        maxValue: 1,
-        maxDepth: 0,
-        maxDistance: 0,
-      };
+  const preparedData = useMemo(() => {
+    if (!ctdData?.length) {
+      return null;
     }
 
     const sorted = [...ctdData].sort(
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
     );
 
-    // Collect valid raw points first
-    const raw = [];
+    let cumulativeDistance = 0;
+    let previousPoint = null;
+    const samples = [];
+
     for (const item of sorted) {
       const lat = Number(item.latitude);
       const lon = Number(item.longitude);
       const depth = Number(item.depth);
-      const value = Number(item[metricConfig.key]);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-      if (!Number.isFinite(depth) || !Number.isFinite(value)) continue;
-      raw.push({ lat, lon, depth, value });
+      const metricValue = Number(item[activeMetric.key]);
+
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lon) ||
+        !Number.isFinite(depth) ||
+        !Number.isFinite(metricValue)
+      ) {
+        continue;
+      }
+
+      if (previousPoint) {
+        const stepKm = haversineKm(
+          previousPoint.lat,
+          previousPoint.lon,
+          lat,
+          lon,
+        );
+        if (Number.isFinite(stepKm) && stepKm < 5) {
+          cumulativeDistance += stepKm;
+        }
+      }
+
+      samples.push({
+        lat,
+        lon,
+        depth_m: depth,
+        distance_km: cumulativeDistance,
+        timestamp: item.timestamp,
+        temperature: Number(item.temperature),
+        salinity: Number(item.salinity),
+        conductivity: Number(item.conductivity),
+        density: Number(item.density),
+        sound_velocity: Number(item.sound_velocity),
+        value: metricValue,
+      });
+
+      previousPoint = { lat, lon };
     }
 
-    if (!raw.length) {
-      return {
-        points: [],
-        minValue: 0,
-        maxValue: 1,
-        maxDepth: 0,
-        maxDistance: 0,
+    if (!samples.length) {
+      return null;
+    }
+
+    const maxDepth = Math.max(...samples.map((sample) => sample.depth_m));
+    const maxDistance = Math.max(
+      ...samples.map((sample) => sample.distance_km),
+    );
+    const xBins = Math.max(2, Math.ceil(maxDistance / DISTANCE_BIN_KM) + 1);
+    const yBins = Math.max(2, Math.ceil(maxDepth / DEPTH_BIN_M) + 1);
+    const totalCells = xBins * yBins;
+
+    const counts = new Uint16Array(totalCells);
+    const metricSums = new Float32Array(totalCells);
+    const temperatureSums = new Float32Array(totalCells);
+    const salinitySums = new Float32Array(totalCells);
+    const conductivitySums = new Float32Array(totalCells);
+    const densitySums = new Float32Array(totalCells);
+    const soundVelocitySums = new Float32Array(totalCells);
+    const latestSampleIndexByCell = new Int32Array(totalCells).fill(-1);
+    const columnCounts = new Uint16Array(xBins);
+
+    samples.forEach((sample, sampleIndex) => {
+      const x = clamp(
+        Math.floor(sample.distance_km / DISTANCE_BIN_KM),
+        0,
+        xBins - 1,
+      );
+      const y = clamp(Math.floor(sample.depth_m / DEPTH_BIN_M), 0, yBins - 1);
+      const index = y * xBins + x;
+
+      counts[index] += 1;
+      columnCounts[x] += 1;
+      metricSums[index] += sample.value;
+      temperatureSums[index] += Number.isFinite(sample.temperature)
+        ? sample.temperature
+        : 0;
+      salinitySums[index] += Number.isFinite(sample.salinity)
+        ? sample.salinity
+        : 0;
+      conductivitySums[index] += Number.isFinite(sample.conductivity)
+        ? sample.conductivity
+        : 0;
+      densitySums[index] += Number.isFinite(sample.density)
+        ? sample.density
+        : 0;
+      soundVelocitySums[index] += Number.isFinite(sample.sound_velocity)
+        ? sample.sound_velocity
+        : 0;
+      latestSampleIndexByCell[index] = sampleIndex;
+    });
+
+    const averageValues = new Float32Array(totalCells);
+    const temperatureAverageValues = new Float32Array(totalCells);
+    const salinityAverageValues = new Float32Array(totalCells);
+    const tooltipData = new Array(totalCells).fill(null);
+    const validValues = [];
+
+    for (let index = 0; index < totalCells; index += 1) {
+      if (counts[index] === 0) {
+        continue;
+      }
+
+      averageValues[index] = metricSums[index] / counts[index];
+      temperatureAverageValues[index] = temperatureSums[index] / counts[index];
+      salinityAverageValues[index] = salinitySums[index] / counts[index];
+      validValues.push(averageValues[index]);
+
+      tooltipData[index] = {
+        value: averageValues[index],
+        temperature: temperatureAverageValues[index],
+        salinity: salinityAverageValues[index],
+        conductivity: conductivitySums[index] / counts[index],
+        density: densitySums[index] / counts[index],
+        sound_velocity: soundVelocitySums[index] / counts[index],
+        sample: samples[latestSampleIndexByCell[index]],
       };
     }
 
-    // Find geographic bounding box
-    const minLon = Math.min(...raw.map((p) => p.lon));
-    const maxLon = Math.max(...raw.map((p) => p.lon));
-    const meanLat = raw.reduce((s, p) => s + p.lat, 0) / raw.length;
+    if (!validValues.length) {
+      return null;
+    }
 
-    // Project each point to x = east-west km from min longitude
-    // This avoids cumulative-path blowup when data from different tracks is mixed
-    const degToKm = (dLon) =>
-      Math.abs(dLon) * 111.32 * Math.cos((meanLat * Math.PI) / 180);
+    const minValue = Math.min(...validValues);
+    const maxValue = Math.max(...validValues);
+    const dataCoverage = validValues.length / totalCells;
 
-    const totalDistanceKm = degToKm(maxLon - minLon) || 1;
+    let strongestGradient = null;
+    const thermoclinePointsRaw = [];
 
-    const points = raw.map((p) => ({
-      distance_km: degToKm(p.lon - minLon),
-      depth_m: p.depth,
-      value: p.value,
-    }));
+    for (let x = 0; x < xBins; x += 1) {
+      let columnGradient = null;
 
-    const maxDepth = Math.max(...points.map((p) => p.depth_m));
-    const minValue = Math.min(...points.map((p) => p.value));
-    const maxValue = Math.max(...points.map((p) => p.value));
+      for (let y = 1; y < yBins; y += 1) {
+        const currentIndex = y * xBins + x;
+        const aboveIndex = currentIndex - xBins;
+        if (counts[currentIndex] === 0 || counts[aboveIndex] === 0) {
+          continue;
+        }
+
+        const activeGradient =
+          (averageValues[currentIndex] - averageValues[aboveIndex]) /
+          DEPTH_BIN_M;
+
+        if (
+          !strongestGradient ||
+          Math.abs(activeGradient) > Math.abs(strongestGradient.gradient)
+        ) {
+          strongestGradient = {
+            gradient: activeGradient,
+            depth: y * DEPTH_BIN_M,
+            distance: x * DISTANCE_BIN_KM,
+          };
+        }
+
+        const temperatureGradient =
+          (temperatureAverageValues[currentIndex] -
+            temperatureAverageValues[aboveIndex]) /
+          DEPTH_BIN_M;
+
+        if (
+          !columnGradient ||
+          Math.abs(temperatureGradient) > Math.abs(columnGradient.gradient)
+        ) {
+          columnGradient = {
+            gradient: temperatureGradient,
+            depth: y * DEPTH_BIN_M,
+            distance: x * DISTANCE_BIN_KM,
+          };
+        }
+      }
+
+      if (columnGradient) {
+        thermoclinePointsRaw.push(columnGradient);
+      }
+    }
+
+    const thermoclinePoints = thermoclinePointsRaw.map((point, index) => {
+      const windowPoints = thermoclinePointsRaw.slice(
+        Math.max(0, index - 1),
+        Math.min(thermoclinePointsRaw.length, index + 2),
+      );
+      return {
+        ...point,
+        depth: mean(windowPoints.map((item) => item.depth)) ?? point.depth,
+        gradient:
+          mean(windowPoints.map((item) => item.gradient)) ?? point.gradient,
+      };
+    });
+
+    const thermocline = thermoclinePoints.length
+      ? {
+          meanDepth: mean(thermoclinePoints.map((point) => point.depth)),
+          maxGradient:
+            thermoclinePoints.reduce((max, point) => {
+              if (!max || Math.abs(point.gradient) > Math.abs(max.gradient)) {
+                return point;
+              }
+              return max;
+            }, null) || null,
+          strength:
+            mean(thermoclinePoints.map((point) => Math.abs(point.gradient))) ??
+            null,
+          points: thermoclinePoints,
+        }
+      : null;
+
+    let latestColumnIndex = 0;
+    for (let x = xBins - 1; x >= 0; x -= 1) {
+      if (columnCounts[x] > 0) {
+        latestColumnIndex = x;
+        break;
+      }
+    }
+
+    const buildColumnProfile = (columnIndex) => {
+      const points = [];
+      for (let y = 0; y < yBins; y += 1) {
+        const index = y * xBins + columnIndex;
+        if (counts[index] === 0 || !tooltipData[index]) {
+          continue;
+        }
+        points.push({
+          depth: y * DEPTH_BIN_M,
+          value: averageValues[index],
+          ...tooltipData[index],
+        });
+      }
+      return points;
+    };
+
+    const surfaceTemperature = mean(
+      samples
+        .filter((sample) => sample.depth_m <= 5)
+        .map((sample) => sample.temperature),
+    );
+    const bottomTemperature = mean(
+      samples
+        .filter((sample) => sample.depth_m >= Math.max(5, maxDepth - 5))
+        .map((sample) => sample.temperature),
+    );
+    const surfaceSalinity = mean(
+      samples
+        .filter((sample) => sample.depth_m <= 5)
+        .map((sample) => sample.salinity),
+    );
+    const bottomSalinity = mean(
+      samples
+        .filter((sample) => sample.depth_m >= Math.max(5, maxDepth - 5))
+        .map((sample) => sample.salinity),
+    );
+
+    const temperatureDelta =
+      Number.isFinite(surfaceTemperature) && Number.isFinite(bottomTemperature)
+        ? bottomTemperature - surfaceTemperature
+        : null;
+    const salinityDelta =
+      Number.isFinite(surfaceSalinity) && Number.isFinite(bottomSalinity)
+        ? bottomSalinity - surfaceSalinity
+        : null;
+
+    const anomalyMessages = [];
+    samples.forEach((sample, index) => {
+      for (const [key, config] of Object.entries(SENSOR_THRESHOLDS)) {
+        const value = Number(sample[key]);
+        if (!Number.isFinite(value)) {
+          continue;
+        }
+
+        if (value < config.min || value > config.max) {
+          anomalyMessages.push(
+            `${key} out of range near ${formatNumber(sample.distance_km, 2)} km / ${formatNumber(sample.depth_m, 0)} m`,
+          );
+          break;
+        }
+
+        const previous = samples[index - 1];
+        if (!previous) continue;
+        const previousValue = Number(previous[key]);
+        if (
+          Number.isFinite(previousValue) &&
+          Math.abs(value - previousValue) > config.spike &&
+          Math.abs(sample.depth_m - previous.depth_m) <= 2
+        ) {
+          anomalyMessages.push(
+            `${key} spike around ${formatNumber(sample.depth_m, 0)} m depth`,
+          );
+          break;
+        }
+      }
+    });
+
+    const displayGrid = buildDisplayGrid({
+      values: averageValues,
+      counts,
+      tooltipData,
+      xBins,
+      yBins,
+    });
+
+    const contourResult = computeContourSegments({
+      values: displayGrid.displayValues,
+      counts: displayGrid.displayCounts,
+      xBins,
+      yBins,
+      maxDistance,
+      maxDepth,
+      minValue,
+      maxValue,
+    });
 
     return {
-      points,
+      samples,
+      counts,
+      averageValues,
+      tooltipData,
+      displayValues: displayGrid.displayValues,
+      displayCounts: displayGrid.displayCounts,
+      displayTooltipData: displayGrid.displayTooltipData,
+      imputedMask: displayGrid.imputedMask,
       minValue,
       maxValue,
       maxDepth,
-      maxDistance: totalDistanceKm,
+      maxDistance,
+      xBins,
+      yBins,
+      dataCoverage,
+      strongestGradient,
+      contourSegments: contourResult.segments,
+      contourLevels: contourResult.levels,
+      thermocline,
+      latestColumnIndex,
+      buildColumnProfile,
+      temperatureDelta,
+      salinityDelta,
+      surfaceTemperature,
+      bottomTemperature,
+      surfaceSalinity,
+      bottomSalinity,
+      anomalyMessages: [...new Set(anomalyMessages)].slice(0, 3),
     };
-  }, [ctdData, metricConfig.key]);
+  }, [ctdData, activeMetric]);
 
-  // Single effect: sets up draw + ResizeObserver. Re-runs when data changes
-  // so containerRef.current is guaranteed to exist (canvas div only renders with data).
   useEffect(() => {
-    const canvas = canvasRef.current;
+    if (!preparedData) {
+      setActiveColumn(null);
+      return;
+    }
+
+    setActiveColumn((current) =>
+      Number.isInteger(current) ? current : preparedData.latestColumnIndex,
+    );
+  }, [preparedData]);
+
+  useEffect(() => {
+    const heatmapCanvas = heatmapCanvasRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container) return;
+    if (!preparedData || !heatmapCanvas || !overlayCanvas || !container) {
+      return undefined;
+    }
 
-    const draw = () => {
-      const width = container.clientWidth;
-      if (width <= 0) return;
+    const render = () => {
+      const width = Math.max(container.clientWidth, PLOT_MIN_WIDTH);
+      const height = PLOT_HEIGHT;
+      heatmapCanvas.width = width;
+      heatmapCanvas.height = height;
+      overlayCanvas.width = width;
+      overlayCanvas.height = height;
 
-      canvas.width = width;
-      canvas.height = CANVAS_HEIGHT;
+      const heatmapCtx = heatmapCanvas.getContext("2d");
+      const overlayCtx = overlayCanvas.getContext("2d");
+      const {
+        displayValues,
+        displayCounts,
+        minValue,
+        maxValue,
+        xBins,
+        yBins,
+        maxDistance,
+        maxDepth,
+        contourSegments,
+        thermocline,
+      } = preparedData;
 
-      const ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, width, CANVAS_HEIGHT);
+      const cellWidth = width / xBins;
+      const cellHeight = height / yBins;
+      const valueRange = Math.max(1e-6, maxValue - minValue);
 
-      const { points, minValue, maxValue, maxDepth, maxDistance } = dataSummary;
-      if (!points.length || maxDistance === 0 || maxDepth === 0) return;
+      heatmapCtx.clearRect(0, 0, width, height);
+      overlayCtx.clearRect(0, 0, width, height);
 
-      const valueRange = maxValue - minValue || 1;
+      heatmapCtx.fillStyle = "rgba(248, 250, 252, 0.96)";
+      heatmapCtx.fillRect(0, 0, width, height);
 
-      // Radius: fill gap between consecutive depth levels and station spacing
-      const pxPerKm = width / maxDistance;
-      const pxPerM = CANVAS_HEIGHT / maxDepth;
-      // Cover half the distance to the next station (horizontally) and next depth (vertically)
-      const stationSpacingKm =
-        maxDistance /
-        Math.max(
-          1,
-          new Set(points.map((p) => Math.round(p.distance_km * 10))).size - 1,
-        );
-      const depthStepM =
-        maxDepth /
-        Math.max(1, new Set(points.map((p) => Math.round(p.depth_m))).size - 1);
-      const radX = Math.max(8, (stationSpacingKm / 2) * pxPerKm * 1.4);
-      const radY = Math.max(8, (depthStepM / 2) * pxPerM * 1.4);
-      const RADIUS = Math.max(radX, radY);
+      for (let y = 0; y < yBins; y += 1) {
+        for (let x = 0; x < xBins; x += 1) {
+          const index = y * xBins + x;
+          const left = x * cellWidth;
+          const top = y * cellHeight;
 
-      // Draw each point as a soft radial gradient blob
-      for (const pt of points) {
-        const x = (pt.distance_km / maxDistance) * width;
-        const y = (pt.depth_m / maxDepth) * CANVAS_HEIGHT;
-        const t = (pt.value - minValue) / valueRange;
-        const [r, g, b] = valueToRgb(t);
+          if (displayCounts[index] === 0) {
+            heatmapCtx.fillStyle = "rgba(226, 232, 240, 0.82)";
+            heatmapCtx.fillRect(
+              left,
+              top,
+              Math.ceil(cellWidth) + 1,
+              Math.ceil(cellHeight) + 1,
+            );
+            continue;
+          }
 
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, RADIUS);
-        grad.addColorStop(0, `rgba(${r},${g},${b},1)`);
-        grad.addColorStop(0.5, `rgba(${r},${g},${b},0.85)`);
-        grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(x, y, RADIUS, 0, Math.PI * 2);
-        ctx.fill();
+          const ratio = clamp(
+            (displayValues[index] - minValue) / valueRange,
+            0,
+            1,
+          );
+          const [r, g, b] = interpolateColor(activeMetric.colormap, ratio);
+          heatmapCtx.fillStyle = `rgb(${r} ${g} ${b})`;
+          heatmapCtx.fillRect(
+            left,
+            top,
+            Math.ceil(cellWidth) + 1,
+            Math.ceil(cellHeight) + 1,
+          );
+        }
       }
+
+      if (thermocline?.meanDepth) {
+        const bandTop =
+          (clamp(thermocline.meanDepth - 1.5, 0, maxDepth) /
+            Math.max(maxDepth, DEPTH_BIN_M)) *
+          height;
+        const bandBottom =
+          (clamp(thermocline.meanDepth + 1.5, 0, maxDepth) /
+            Math.max(maxDepth, DEPTH_BIN_M)) *
+          height;
+        overlayCtx.fillStyle = "rgba(37, 99, 235, 0.08)";
+        overlayCtx.fillRect(
+          0,
+          bandTop,
+          width,
+          Math.max(6, bandBottom - bandTop),
+        );
+      }
+
+      overlayCtx.strokeStyle = "rgba(15, 23, 42, 0.22)";
+      overlayCtx.lineWidth = 1;
+      overlayCtx.setLineDash([4, 4]);
+      contourSegments.forEach((segment) => {
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(
+          (segment.from.x / Math.max(maxDistance, DISTANCE_BIN_KM)) * width,
+          (segment.from.y / Math.max(maxDepth, DEPTH_BIN_M)) * height,
+        );
+        overlayCtx.lineTo(
+          (segment.to.x / Math.max(maxDistance, DISTANCE_BIN_KM)) * width,
+          (segment.to.y / Math.max(maxDepth, DEPTH_BIN_M)) * height,
+        );
+        overlayCtx.stroke();
+      });
+      overlayCtx.setLineDash([]);
+
+      overlayCtx.strokeStyle = "rgba(148, 163, 184, 0.32)";
+      overlayCtx.lineWidth = 1;
+      for (let i = 1; i < 5; i += 1) {
+        const y = (height / 5) * i;
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(0, y);
+        overlayCtx.lineTo(width, y);
+        overlayCtx.stroke();
+      }
+      for (let i = 1; i < 6; i += 1) {
+        const x = (width / 6) * i;
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(x, 0);
+        overlayCtx.lineTo(x, height);
+        overlayCtx.stroke();
+      }
+
+      const highlightedColumn = Number.isInteger(activeColumn)
+        ? activeColumn
+        : preparedData.latestColumnIndex;
+      const highlightLeft = highlightedColumn * cellWidth;
+      overlayCtx.fillStyle = "rgba(37, 99, 235, 0.09)";
+      overlayCtx.fillRect(highlightLeft, 0, Math.max(2, cellWidth), height);
+      overlayCtx.strokeStyle = "rgba(37, 99, 235, 0.45)";
+      overlayCtx.lineWidth = 1.4;
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(highlightLeft, 0);
+      overlayCtx.lineTo(highlightLeft, height);
+      overlayCtx.stroke();
     };
 
-    draw();
-
-    const observer = new ResizeObserver(draw);
+    render();
+    const observer = new ResizeObserver(render);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [dataSummary]);
+  }, [preparedData, activeMetric, activeColumn]);
 
-  const metricItems = Object.entries(metrics).map(([key, config]) => ({
-    id: key,
-    name: config.label,
-  }));
+  const axisTicks = useMemo(() => {
+    if (!preparedData) return { x: [], y: [] };
 
-  const fmt = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : "--");
+    const x = Array.from({ length: 6 }, (_, index) => {
+      const ratio = index / 5;
+      return {
+        label: formatDistanceLabel(preparedData.maxDistance * ratio),
+        ratio,
+      };
+    });
+    const y = Array.from({ length: 5 }, (_, index) => {
+      const ratio = index / 4;
+      return {
+        label: `${formatNumber(preparedData.maxDepth * ratio, 0)} m`,
+        ratio,
+      };
+    });
 
-  const legendGradient =
-    "linear-gradient(90deg,#355CFF 0%,#238BFF 12.5%,#00C7F2 25%,#20D66F 37.5%,#B9E526 50%,#F6D32D 62.5%,#F79A2F 75%,#F04934 100%)";
+    return { x, y };
+  }, [preparedData]);
+
+  const legendTicks = useMemo(() => {
+    if (!preparedData) return [];
+    return Array.from({ length: 5 }, (_, index) => {
+      const ratio = index / 4;
+      return {
+        ratio,
+        value:
+          preparedData.minValue +
+          (preparedData.maxValue - preparedData.minValue) * ratio,
+      };
+    });
+  }, [preparedData]);
+
+  const handlePointerMove = (event) => {
+    if (!preparedData || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = clamp(event.clientX - rect.left, 0, rect.width - 1);
+    const y = clamp(event.clientY - rect.top, 0, rect.height - 1);
+    const xBin = clamp(
+      Math.floor((x / rect.width) * preparedData.xBins),
+      0,
+      preparedData.xBins - 1,
+    );
+    const yBin = clamp(
+      Math.floor((y / rect.height) * preparedData.yBins),
+      0,
+      preparedData.yBins - 1,
+    );
+    const index = yBin * preparedData.xBins + xBin;
+    const data = preparedData.displayTooltipData[index];
+    const distanceStep =
+      preparedData.xBins > 1
+        ? Math.max(preparedData.maxDistance, DISTANCE_BIN_KM) /
+          (preparedData.xBins - 1)
+        : 0;
+    const distance = Math.min(
+      preparedData.maxDistance,
+      xBin * distanceStep,
+    );
+
+    setActiveColumn(xBin);
+    setTooltip({
+      left: x,
+      top: y,
+      xBin,
+      distance,
+      depth: yBin * DEPTH_BIN_M,
+      data,
+    });
+  };
+
+  const handlePointerLeave = () => {
+    setTooltip(null);
+    setActiveColumn(preparedData?.latestColumnIndex ?? null);
+  };
+
+  const summary = preparedData
+    ? {
+        thermoclineDepth: preparedData.thermocline?.meanDepth,
+        thermoclineStrength: preparedData.thermocline?.strength,
+        tempLayerStrength: getLayerStrength(
+          preparedData.temperatureDelta,
+          preparedData.thermocline?.strength,
+        ),
+        salinityLayerStrength: getLayerStrength(
+          preparedData.salinityDelta,
+          preparedData.thermocline?.strength,
+        ),
+      }
+    : null;
+
+  const summaryCards = preparedData
+    ? [
+        {
+          title: "Surface Temp",
+          value: `${formatNumber(preparedData.surfaceTemperature, 2)} C`,
+          icon: (
+            <FaTemperatureHalf
+              className="text-blue-600 dark:text-blue-400"
+              size={22}
+            />
+          ),
+          trendIcon: <FaArrowTrendUp className="text-emerald-500" size={12} />,
+          trendText: "Upper 0-5 m average",
+          iconBgColor: "bg-blue-100 dark:bg-blue-900/30",
+        },
+        {
+          title: "Bottom Temp",
+          value: `${formatNumber(preparedData.bottomTemperature, 2)} C`,
+          icon: (
+            <FaTemperatureHalf
+              className="text-cyan-600 dark:text-cyan-400"
+              size={22}
+            />
+          ),
+          trendIcon: <FaArrowTrendDown className="text-sky-500" size={12} />,
+          trendText: "Deepest 5 m average",
+          iconBgColor: "bg-cyan-100 dark:bg-cyan-900/30",
+        },
+        {
+          title: "Thermocline",
+          value: summary?.thermoclineDepth
+            ? `${formatNumber(summary.thermoclineDepth, 1)} m`
+            : "--",
+          icon: (
+            <FaLayerGroup
+              className="text-purple-600 dark:text-purple-400"
+              size={22}
+            />
+          ),
+          trendIcon: <FaArrowTrendUp className="text-purple-500" size={12} />,
+          trendText: `Strength ${summary?.tempLayerStrength || "Insufficient"}`,
+          iconBgColor: "bg-purple-100 dark:bg-purple-900/30",
+        },
+        {
+          title: "Gradient",
+          value: preparedData.strongestGradient
+            ? `${formatNumber(preparedData.strongestGradient.gradient, 2)} ${activeMetric.unit}/m`
+            : "--",
+          icon: (
+            <FaWaveSquare
+              className="text-emerald-600 dark:text-emerald-400"
+              size={22}
+            />
+          ),
+          trendIcon: <FaArrowTrendUp className="text-emerald-500" size={12} />,
+          trendText: "Sharpest vertical change",
+          iconBgColor: "bg-emerald-100 dark:bg-emerald-900/30",
+        },
+        {
+          title: "Coverage",
+          value: `${formatNumber(preparedData.dataCoverage * 100, 1)}%`,
+          icon: (
+            <FaLayerGroup
+              className="text-orange-600 dark:text-orange-400"
+              size={22}
+            />
+          ),
+          trendIcon: preparedData.anomalyMessages.length ? (
+            <FaArrowTrendDown className="text-amber-500" size={12} />
+          ) : (
+            <FaArrowTrendUp className="text-emerald-500" size={12} />
+          ),
+          trendText: preparedData.anomalyMessages.length
+            ? `${preparedData.anomalyMessages.length} data flags`
+            : "Sampling coverage",
+          iconBgColor: "bg-orange-100 dark:bg-orange-900/30",
+        },
+      ]
+    : [];
 
   return (
-    <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-        <div>
-          <h3 className="text-xl font-semibold text-black dark:text-white">
-            {t("pages.ctd.charts.sectionHeatmapTitle")}
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {t("pages.ctd.charts.sectionHeatmapSubtitle")}
-          </p>
-        </div>
-        <div className="w-full lg:w-64">
-          <Dropdown
-            items={metricItems}
-            selectedItem={{ id: metric, name: metricConfig.label }}
-            onItemChange={(item) => setMetric(item.id)}
-            getItemKey={(item) => item.id}
-          />
-        </div>
-      </div>
-
-      {dataSummary.points.length === 0 ? (
-        <div className="flex items-center justify-center h-64 text-sm text-gray-500 dark:text-gray-400">
+    <div className="space-y-5">
+      {!preparedData ? (
+        <div className="flex h-72 items-center justify-center text-sm text-gray-500 dark:text-gray-400">
           {t("pages.ctd.charts.sectionHeatmapNoData")}
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-[auto,1fr] gap-3 items-stretch">
-            <div className="flex flex-col justify-between text-xs text-gray-500 dark:text-gray-400 py-1">
-              <span>0 m</span>
-              <span>{fmt(dataSummary.maxDepth, 0)} m</span>
-            </div>
-            <div
-              ref={containerRef}
-              className="w-full overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700"
-              style={{ height: CANVAS_HEIGHT }}
-            >
-              <canvas
-                ref={canvasRef}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: CANVAS_HEIGHT,
-                }}
-              />
-            </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {summaryCards.map((card) => (
+              <WidgetCard key={card.title} {...card} />
+            ))}
           </div>
 
-          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span>0 km</span>
-            <span>{fmt(dataSummary.maxDistance, 2)} km</span>
-          </div>
+          <div className="grid gap-4">
+            <DataCard showHeader={false}>
+              <div className="pb-0">
+                <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <span>Depth (m)</span>
+                  <span>
+                    {summary?.thermoclineDepth
+                      ? `Thermocline around ${formatNumber(summary.thermoclineDepth, 1)} m`
+                      : "No stable thermocline detected"}
+                  </span>
+                </div>
+                <div
+                  ref={containerRef}
+                  className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50 dark:border-slate-600 dark:bg-black"
+                  style={{ height: PLOT_HEIGHT }}
+                  onMouseMove={handlePointerMove}
+                  onMouseLeave={handlePointerLeave}
+                >
+                  <canvas
+                    ref={heatmapCanvasRef}
+                    className="absolute inset-0 h-full w-full"
+                  />
+                  <canvas
+                    ref={overlayCanvasRef}
+                    className="pointer-events-none absolute inset-0 h-full w-full"
+                  />
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {fmt(dataSummary.minValue, 2)} {metricConfig.unit}
-            </span>
-            <div
-              className="h-2 flex-1 rounded-full"
-              style={{ background: legendGradient }}
-            />
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {fmt(dataSummary.maxValue, 2)} {metricConfig.unit}
-            </span>
-          </div>
+                  <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-white/90 px-2 py-1 text-[11px] font-medium text-gray-600 backdrop-blur dark:bg-black/90 dark:text-gray-300">
+                    0 m
+                  </div>
+                  <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-white/90 px-2 py-1 text-[11px] font-medium text-gray-600 backdrop-blur dark:bg-black/90 dark:text-gray-300">
+                    {formatNumber(preparedData.maxDepth, 0)} m
+                  </div>
 
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            {t("pages.ctd.charts.sectionHeatmapBinsLabel")}:{" "}
-            {Math.round(DISTANCE_BIN_KM * 1000)}m × {DEPTH_BIN_M} m
+                  {tooltip && (
+                    <div
+                      className="pointer-events-none absolute z-20 min-w-[220px] rounded-xl border border-gray-200 bg-white/96 p-3 shadow-xl backdrop-blur dark:border-gray-700 dark:bg-slate-950/96"
+                      style={{
+                        left: `${clamp(
+                          tooltip.left + 14,
+                          10,
+                          Math.max(
+                            10,
+                            (containerRef.current?.clientWidth || 0) - 240,
+                          ),
+                        )}px`,
+                        top: `${clamp(tooltip.top + 14, 10, PLOT_HEIGHT - 188)}px`,
+                      }}
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-3 border-b border-gray-200 pb-2 dark:border-gray-800">
+                        <div>
+                          <div className="text-sm font-semibold text-black dark:text-white">
+                            {formatNumber(tooltip.distance, 2)} km
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Depth {formatNumber(tooltip.depth, 0)} m
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-semibold text-black dark:text-white">
+                            {tooltip.data
+                              ? `${formatNumber(tooltip.data.value, 2)} ${activeMetric.unit}`
+                              : "No Data"}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {activeMetric.label}
+                          </div>
+                        </div>
+                      </div>
+
+                      {tooltip.data ? (
+                        <div className="space-y-1.5">
+                          {METRICS_FOR_TOOLTIP.map((item) => (
+                            <div
+                              key={item.key}
+                              className="flex items-center justify-between gap-3 text-xs"
+                            >
+                              <span className="text-gray-500 dark:text-gray-400">
+                                {item.label}
+                              </span>
+                              <span className="font-medium text-black dark:text-white">
+                                {formatNumber(
+                                  tooltip.data[item.key],
+                                  item.digits,
+                                )}{" "}
+                                {item.unit}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="mt-2 border-t border-gray-200 pt-2 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                            {tooltip.data.interpolated
+                              ? "Interpolated from adjacent valid bins"
+                              : `Source sample: ${tooltip.data.sample?.timestamp || "live stream"}`}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          No valid measurement in this bin. Hatched cells mark
+                          unsampled or missing water column coverage.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <div className="space-y-4">
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                    {axisTicks.x.map((tick) => (
+                      <span key={tick.ratio}>{tick.label}</span>
+                    ))}
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-slate-600 dark:bg-black">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {activeMetric.label}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {activeMetric.legendLabel}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Grid 50 m x 1 m
+                      </div>
+                    </div>
+
+                    <div
+                      className="h-3 rounded-full"
+                      style={{
+                        background: `linear-gradient(90deg, ${activeMetric.colormap.join(", ")})`,
+                      }}
+                    />
+
+                    <div className="mt-3 flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                      {legendTicks.map((tick) => (
+                        <span key={tick.ratio}>
+                          {formatNumber(tick.value, 2)} {activeMetric.unit}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DataCard>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

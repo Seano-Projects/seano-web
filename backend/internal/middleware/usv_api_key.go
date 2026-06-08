@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,7 +44,7 @@ func AuthOrVehicleAPIKey(vehicleRepo *repository.VehicleRepository) fiber.Handle
 			return nil
 		}
 
-		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || apiKey != *vehicle.ApiKey {
+		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || subtle.ConstantTimeCompare([]byte(apiKey), []byte(*vehicle.ApiKey)) != 1 {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid API key",
 			})
@@ -81,7 +82,7 @@ func AuthOrVehicleAPIKeyFromQuery(vehicleRepo *repository.VehicleRepository) fib
 			return nil
 		}
 
-		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || apiKey != *vehicle.ApiKey {
+		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || subtle.ConstantTimeCompare([]byte(apiKey), []byte(*vehicle.ApiKey)) != 1 {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid API key",
 			})
@@ -131,7 +132,7 @@ func AuthOrVehicleAPIKeyByMissionID(missionRepo *repository.MissionRepository, v
 			})
 		}
 
-		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || apiKey != *vehicle.ApiKey {
+		if vehicle.ApiKey == nil || *vehicle.ApiKey == "" || subtle.ConstantTimeCompare([]byte(apiKey), []byte(*vehicle.ApiKey)) != 1 {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid API key",
 			})

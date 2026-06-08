@@ -2,11 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { HiOutlineMenuAlt2, HiX } from "react-icons/hi";
 import { FiBook, FiX } from "react-icons/fi";
 import { FaRocket, FaBroadcastTower, FaCode, FaCog, FaMap, FaGamepad } from "react-icons/fa";
-import { BsStars } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import useTranslation from "../../../hooks/useTranslation";
 import { usePermission } from "../../../hooks/usePermission";
-import FloatingChat from "./FloatingChat";
 
 const MENU_ITEMS = [
   {
@@ -65,7 +63,6 @@ const Footbar = ({ isSidebarOpen, toggleSidebar }) => {
   const { t } = useTranslation();
   const { isAdmin } = usePermission();
   const [showMenu, setShowMenu] = useState(false);
-  const [showChat, setShowChat] = useState(false);
   const menuRef = useRef(null);
   const btnRef = useRef(null);
   const navigate = useNavigate();
@@ -110,9 +107,6 @@ const Footbar = ({ isSidebarOpen, toggleSidebar }) => {
 
   return (
     <>
-      {/* Floating AI Chat */}
-      <FloatingChat isOpen={showChat} onClose={() => setShowChat(false)} />
-
       {/* Floating Guide Menu */}
       {showMenu && (
         <div
@@ -173,22 +167,11 @@ const Footbar = ({ isSidebarOpen, toggleSidebar }) => {
           )}
         </button>
 
-        {/* Right: AI + Guide menu toggle */}
+        {/* Right: Guide menu toggle */}
         <div className="flex items-center">
           <button
-            onClick={() => { setShowChat((v) => !v); setShowMenu(false); }}
-            title="AI Assistant"
-            className={`flex items-center gap-1.5 px-2 py-0.5 h-full rounded transition-colors text-xs ${
-              showChat
-                ? "bg-gray-100 dark:bg-gray-800 text-blue-500 dark:text-blue-400"
-                : "hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
-            }`}
-          >
-            <BsStars className="text-base" aria-hidden="true" />
-          </button>
-          <button
             ref={btnRef}
-            onClick={() => { setShowMenu((v) => !v); setShowChat(false); }}
+            onClick={() => setShowMenu((v) => !v)}
             title={t("helpResources.title")}
             className={`flex items-center gap-1.5 px-2 py-0.5 h-full rounded transition-colors text-xs ${
               showMenu

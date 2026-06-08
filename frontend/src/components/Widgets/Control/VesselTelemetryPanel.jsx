@@ -4,7 +4,6 @@ import {
   FaChevronUp,
   FaBolt,
   FaTachometerAlt,
-  FaSignal,
   FaTrashAlt,
 } from "react-icons/fa";
 import { MdMyLocation } from "react-icons/md";
@@ -170,17 +169,6 @@ const VesselTelemetryPanel = ({
 
           {/* Sensor readings */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className={`flex items-center gap-2 ${muteCls}`}>
-                <FaSignal className="text-blue-500" />{" "}
-                {t("control.vesselTelemetry.rssi")}
-              </span>
-              <span className={textCls}>
-                {selectedVehicle && telemetryData.rssi !== null
-                  ? `${telemetryData.rssi} dBm`
-                  : "N/A"}
-              </span>
-            </div>
             <div className="flex items-center justify-between text-sm">
               <span className={`flex items-center gap-2 ${muteCls}`}>
                 <FaBolt className="text-blue-500" />{" "}

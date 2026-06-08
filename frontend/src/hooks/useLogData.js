@@ -5,6 +5,7 @@ import {
   REALTIME_POLL_INTERVAL_MS
 } from '../utils/realtimeConfig'
 import { API_BASE_URL, WS_URL as CONFIG_WS_URL } from '../config'
+import { getAuthenticatedWebSocketUrl } from '../utils/wsAuth'
 
 const LOG_LIMIT = 200
 const WS_FLUSH_INTERVAL_MS = 250
@@ -110,19 +111,9 @@ const getWsUrl = () => {
 const WS_URL = getWsUrl()
 const BATTERY_STORAGE_KEY = 'batteryData'
 
-const ackWsReceipt = (endpoint, wsReceivedAt) => {
-  const token = localStorage.getItem('access_token')
-  if (!token) {
-    return
-  }
-
-  axios
-    .post(
-      `${API_URL}${endpoint}`,
-      { ws_received_at: wsReceivedAt },
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    .catch(() => {})
+const ackWsReceipt = () => {
+  // Disabled: ws_received_at UPDATEs were causing massive DB load
+  // (337% CPU on PostgreSQL with 13+ concurrent UPDATE connections)
 }
 
 const normalizeBatteryMap = rawBatteryMap => {
@@ -216,6 +207,7 @@ export const useLogData = (options = {}) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [ws, setWs] = useState(null)
+  const [wsConnected, setWsConnected] = useState(false)
   const vehicleQueueRef = useRef([])
   const sensorQueueRef = useRef([])
   const rawQueueRef = useRef([])
@@ -673,22 +665,25 @@ export const useLogData = (options = {}) => {
     let isIntentionalClose = false
 
     const connect = () => {
-      const wsUrl = `${WS_URL}/ws/logs?token=${token}`
+      ;(async () => {
+        const wsUrl = await getAuthenticatedWebSocketUrl(WS_URL, '/ws/logs')
+        if (!wsUrl || isIntentionalClose) return
 
-      websocket = new WebSocket(wsUrl)
+        websocket = new WebSocket(wsUrl)
 
-      websocket.onopen = () => {
-        // Send ping every 30 seconds to keep connection alive
-        pingInterval = setInterval(() => {
-          if (websocket?.readyState === WebSocket.OPEN) {
-            websocket.send(JSON.stringify({ type: 'ping' }))
-          }
-        }, 30000)
-      }
+        websocket.onopen = () => {
+          setWsConnected(true)
+          // Send ping every 30 seconds to keep connection alive
+          pingInterval = setInterval(() => {
+            if (websocket?.readyState === WebSocket.OPEN) {
+              websocket.send(JSON.stringify({ type: 'ping' }))
+            }
+          }, 30000)
+        }
 
-      websocket.onmessage = event => {
-        try {
-          const message = JSON.parse(event.data)
+        websocket.onmessage = event => {
+          try {
+            const message = JSON.parse(event.data)
 
           // Ignore pong messages
           if (message.type === 'pong') return
@@ -796,29 +791,33 @@ export const useLogData = (options = {}) => {
               return newData
             })
           }
-        } catch (err) {
-          // Failed to parse WebSocket message
-        }
-      }
-
-      websocket.onerror = error => {}
-
-      websocket.onclose = event => {
-        // Clear ping interval
-        if (pingInterval) {
-          clearInterval(pingInterval)
-          pingInterval = null
+          } catch (err) {
+            // Failed to parse WebSocket message
+          }
         }
 
-        // Auto-reconnect after 3 seconds if not intentional close
-        if (!isIntentionalClose) {
-          reconnectTimeout = setTimeout(() => {
-            connect()
-          }, 3000)
-        }
-      }
+        websocket.onerror = () => {}
 
-      setWs(websocket)
+        websocket.onclose = () => {
+          setWsConnected(false)
+          // Clear ping interval
+          if (pingInterval) {
+            clearInterval(pingInterval)
+            pingInterval = null
+          }
+
+          // Auto-reconnect after 3 seconds if not intentional close
+          if (!isIntentionalClose) {
+            reconnectTimeout = setTimeout(() => {
+              connect()
+            }, 3000)
+          }
+        }
+
+        setWs(websocket)
+      })().catch(() => {
+        setWsConnected(false)
+      })
     }
 
     connect()
@@ -874,6 +873,7 @@ export const useLogData = (options = {}) => {
     loading,
     error,
     ws,
+    wsConnected,
     refetch: () => {
       fetchStats()
       fetchChartData()

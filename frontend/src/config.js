@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
     RESEND_VERIFICATION: `${API_BASE_URL}/auth/resend-verification`,
     ME: `${API_BASE_URL}/auth/me`,
     REFRESH: `${API_BASE_URL}/auth/refresh`,
+    WS_TOKEN: `${API_BASE_URL}/auth/ws-token`,
     LOGOUT: `${API_BASE_URL}/auth/logout`,
     FORGOT_PASSWORD: `${API_BASE_URL}/auth/forgot-password`,
     RESET_PASSWORD: `${API_BASE_URL}/auth/reset-password`

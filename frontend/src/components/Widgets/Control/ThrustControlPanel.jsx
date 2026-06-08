@@ -185,7 +185,8 @@ const ThrustControlPanel = ({
   const controlDisabled =
     disabled || !isArmed || !selectedVehicle?.code || activeMode !== "MANUAL";
   const noVehicle = !selectedVehicle?.code;
-  const confirmActive = showDisarmConfirm || showArmConfirm || !!pendingMode;
+  const showForceArm = !isArmed && !showArmConfirm && !!lastArmFailureMessage;
+  const confirmActive = showDisarmConfirm || showArmConfirm || !!pendingMode || showForceArm;
 
   const openFullscreen = () => {
     prevModeRef.current = activeMode;
@@ -466,6 +467,29 @@ const ThrustControlPanel = ({
                     {t("control.missionControl.cancel")}
                   </button>
                 </>
+              )}
+              {showForceArm && !showDisarmConfirm && !pendingMode && (
+                <div className="space-y-3">
+                  <p className="text-xs text-red-500 text-center">{lastArmFailureMessage}</p>
+                  <button
+                    type="button"
+                    disabled={commandLoading || noVehicle}
+                    onClick={onForceArm}
+                    className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors ${
+                      noVehicle || commandLoading
+                        ? "bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed opacity-60"
+                        : "bg-amber-500 hover:bg-amber-400 text-black"
+                    }`}
+                  >
+                    FORCE ARM
+                  </button>
+                  <button
+                    onClick={() => setShowArmConfirm(true)}
+                    className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 w-full text-center py-1 transition-colors"
+                  >
+                    {t("control.missionControl.cancel")}
+                  </button>
+                </div>
               )}
               {pendingMode &&
                 !showDisarmConfirm &&

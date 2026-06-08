@@ -30,20 +30,6 @@ type AIChatRequest struct {
 	SessionID *uint  `json:"session_id"`
 }
 
-type ollamaMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type ollamaRequest struct {
-	Model    string          `json:"model"`
-	Messages []ollamaMessage `json:"messages"`
-	Stream   bool            `json:"stream"`
-}
-
-type ollamaResponse struct {
-	Message ollamaMessage `json:"message"`
-}
 
 const systemPrompt = `You are SEANO AI, the intelligent assistant for SEANO-ID Maritime Monitoring System built into SeaPortal.
 
@@ -555,18 +541,18 @@ func (h *AIHandler) Chat(c *fiber.Ctx) error {
 	h.chatRepo.AddMessage(&model.ChatMessage{SessionID: sessionID, Role: "user", Content: req.Message})
 
 	// Strategy: Try fallback first for known topics (guaranteed accurate)
-	// Only use Ollama for questions that don't match any known topic BUT seem related to SEANO-ID
+	// Only use OpenRouter for questions that don't match any known topic BUT seem related to SEANO-ID
 	reply := getFallbackResponse(req.Message)
 	isDefaultFallback := reply == fallbackResponses["default_id"] || reply == fallbackResponses["default_en"]
 
-	// If we only got a generic default response, check if it might be SEANO-related before calling Ollama
+	// If we only got a generic default response, check if it might be SEANO-related before calling AI
 	if isDefaultFallback && isLikelySEANORelated(req.Message) {
-		ollamaReply := h.callOllama(sessionID)
-		if ollamaReply != "" {
-			reply = ollamaReply
+		aiReply := h.callOpenRouter(sessionID)
+		if aiReply != "" {
+			reply = aiReply
 		}
 	}
-	// If not SEANO-related, just use the default rejection — no Ollama call, instant response
+	// If not SEANO-related, just use the default rejection — no AI call, instant response
 
 	// Save assistant message
 	h.chatRepo.AddMessage(&model.ChatMessage{SessionID: sessionID, Role: "assistant", Content: reply})
@@ -577,34 +563,36 @@ func (h *AIHandler) Chat(c *fiber.Ctx) error {
 	})
 }
 
-func (h *AIHandler) callOllama(sessionID uint) string {
-	ollamaURL := os.Getenv("OLLAMA_URL")
-	if ollamaURL == "" {
-		ollamaURL = "http://ollama:11434"
-	}
-	ollamaModel := os.Getenv("OLLAMA_MODEL")
-	if ollamaModel == "" {
-		ollamaModel = "seano-ai"
+func (h *AIHandler) callOpenRouter(sessionID uint) string {
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		apiKey = "sk-6cf8ef6f5319af40-u90b27-48e54382"
 	}
 
-	// Build messages with history
 	history, _ := h.chatRepo.GetMessages(sessionID)
-	ollamaMsgs := []ollamaMessage{{Role: "system", Content: systemPrompt}}
+	msgs := []OpenRouterMessage{{Role: "system", Content: systemPrompt}}
 
-	// Only include last 10 messages to keep context manageable for 3B model
 	startIdx := 0
 	if len(history) > 10 {
 		startIdx = len(history) - 10
 	}
 	for _, msg := range history[startIdx:] {
-		ollamaMsgs = append(ollamaMsgs, ollamaMessage{Role: msg.Role, Content: msg.Content})
+		msgs = append(msgs, OpenRouterMessage{Role: msg.Role, Content: msg.Content})
 	}
 
-	payload := ollamaRequest{Model: ollamaModel, Messages: ollamaMsgs, Stream: false}
+	payload := OpenRouterRequest{
+		Model:     "daily-ai",
+		Messages:  msgs,
+		MaxTokens: 2048,
+	}
 	body, _ := json.Marshal(payload)
 
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Post(fmt.Sprintf("%s/api/chat", ollamaURL), "application/json", bytes.NewReader(body))
+	req, _ := http.NewRequest("POST", "https://router.mservs.org/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return ""
 	}
@@ -619,12 +607,16 @@ func (h *AIHandler) callOllama(sessionID uint) string {
 		return ""
 	}
 
-	var ollamaResp ollamaResponse
-	if err := json.Unmarshal(respBody, &ollamaResp); err != nil {
+	var orResp OpenRouterResponse
+	if err := json.Unmarshal(respBody, &orResp); err != nil {
 		return ""
 	}
 
-	return ollamaResp.Message.Content
+	if len(orResp.Choices) > 0 {
+		return orResp.Choices[0].Message.Content
+	}
+
+	return ""
 }
 
 // GetSessions returns all chat sessions for the current user
@@ -668,4 +660,186 @@ func (h *AIHandler) DeleteSession(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete session"})
 	}
 	return c.JSON(fiber.Map{"message": "Session deleted"})
+}
+
+type WeatherAnalysisRequest struct {
+	Temperature float64 `json:"temperature"`
+	WindSpeed   float64 `json:"wind_speed"`
+	WindGust    float64 `json:"wind_gust"`
+	Humidity    int     `json:"humidity"`
+	Pressure    int     `json:"pressure"`
+	Description string  `json:"description"`
+	Forecast    []struct {
+		Temp     float64 `json:"temp"`
+		Pop      float64 `json:"pop"`
+		Rain     float64 `json:"rain"`
+		DateTime string  `json:"dt"`
+	} `json:"forecast"`
+}
+
+type WeatherAnalysisResponse struct {
+	Analysis       string   `json:"analysis"`
+	Recommendations []string `json:"recommendations"`
+	RiskLevel      string   `json:"risk_level"`
+	SafeToOperate  bool     `json:"safe_to_operate"`
+	Confidence     string   `json:"confidence"`
+}
+
+// WeatherAnalysis analyzes weather data and provides USV operation recommendations
+func (h *AIHandler) WeatherAnalysis(c *fiber.Ctx) error {
+	var req WeatherAnalysisRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	// Build weather analysis prompt
+	prompt := fmt.Sprintf(`Analisis kondisi cuaca berikut untuk operasi USV (Unmanned Surface Vehicle) dan berikan rekomendasi operasional:
+
+KONDISI CUACA SAAT INI:
+- Suhu: %.1f°C
+- Kecepatan angin: %.1f m/s
+- Angin terpucuk: %.1f m/s
+- Kelembaban: %d%%
+- Tekanan: %d hPa
+- Deskripsi: %s
+
+INSTRUKSI:
+1. Analisis SINGKAT (max 2-3 kalimat) tentang kondisi cuaca untuk operasi USV
+2. Berikan 3-5 rekomendasi operasional spesifik (dengan bullet points)
+3. Tentukan RISK LEVEL: LOW, MEDIUM, atau HIGH
+4. Tentukan apakah SAFE_TO_OPERATE: true atau false
+
+KRITERIA KEAMANAN USV:
+- SAFE jika: angin < 8 m/s, tekanan stabil, kelembaban normal, tidak ada hujan berat
+- CAUTION jika: angin 8-12 m/s, tekanan fluktuatif, kelembaban > 90%
+- UNSAFE jika: angin > 12 m/s, tekanan turun drastis, hujan lebat, badai
+
+Berikan response dalam format JSON yang bisa di-parse:
+{
+  "analysis": "string",
+  "risk_level": "LOW|MEDIUM|HIGH",
+  "safe_to_operate": boolean,
+  "recommendations": ["rec1", "rec2", "rec3"],
+  "confidence": "HIGH|MEDIUM|LOW"
+}`, req.Temperature, req.WindSpeed, req.WindGust, req.Humidity, req.Pressure, req.Description)
+
+	// Call AI model
+	reply := h.callWeatherAnalysisAI(prompt)
+
+	// Parse JSON response
+	var result WeatherAnalysisResponse
+	if err := json.Unmarshal([]byte(reply), &result); err != nil {
+		// Fallback if AI doesn't return valid JSON
+		result = h.generateFallbackAnalysis(req)
+	}
+
+	return c.JSON(result)
+}
+
+type OpenRouterMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type OpenRouterRequest struct {
+	Model    string                `json:"model"`
+	Messages []OpenRouterMessage   `json:"messages"`
+	MaxTokens int                  `json:"max_tokens"`
+}
+
+type OpenRouterResponse struct {
+	Choices []struct {
+		Message OpenRouterMessage `json:"message"`
+	} `json:"choices"`
+}
+
+func (h *AIHandler) callWeatherAnalysisAI(prompt string) string {
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		apiKey = "sk-6cf8ef6f5319af40-u90b27-48e54382"
+	}
+
+	msgs := []OpenRouterMessage{
+		{Role: "system", Content: "Kamu adalah ahli meteorologi maritim dan operasi USV. Jawab dalam JSON yang valid dan dapat di-parse."},
+		{Role: "user", Content: prompt},
+	}
+
+	payload := OpenRouterRequest{
+		Model:     "daily-ai",
+		Messages:  msgs,
+		MaxTokens: 1024,
+	}
+	body, _ := json.Marshal(payload)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, _ := http.NewRequest("POST", "https://router.mservs.org/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+
+	var orResp OpenRouterResponse
+	if err := json.Unmarshal(respBody, &orResp); err != nil {
+		return ""
+	}
+
+	if len(orResp.Choices) > 0 {
+		return orResp.Choices[0].Message.Content
+	}
+
+	return ""
+}
+
+func (h *AIHandler) generateFallbackAnalysis(req WeatherAnalysisRequest) WeatherAnalysisResponse {
+	riskLevel := "LOW"
+	safeToOperate := true
+	recommendations := []string{
+		"Monitor kecepatan angin terus-menerus selama operasi",
+		"Pastikan battery USV dalam kondisi penuh sebelum launch",
+		"Siapkan rencana contingency jika cuaca memburuk",
+	}
+
+	if req.WindSpeed > 12 || req.WindGust > 15 {
+		riskLevel = "HIGH"
+		safeToOperate = false
+		recommendations = []string{
+			"❌ JANGAN operasikan USV - angin terlalu kuat (>12 m/s)",
+			"Tunggu cuaca membaik sebelum meluncurkan misi",
+			"Jika USV sudah di laut, aktifkan RTL (Return to Launch)",
+			"Monitor tekanan angin dan arah perubahan cuaca",
+		}
+	} else if req.WindSpeed > 8 || req.Humidity > 90 {
+		riskLevel = "MEDIUM"
+		safeToOperate = true
+		recommendations = []string{
+			"⚠️ Operasi dapat dilakukan dengan hati-hati",
+			"Batasi durasi misi - hindari operasi terlalu lama",
+			"Pastikan operator siap untuk kontrol manual jika diperlukan",
+			"Jangan lakukan misi autonomous yang terlalu jauh",
+			"Siapkan launch point yang terlindung dari angin",
+		}
+	}
+
+	return WeatherAnalysisResponse{
+		Analysis: fmt.Sprintf("Kondisi cuaca %s untuk operasi USV. Suhu %.1f°C, angin %.1f m/s.",
+			map[string]string{"LOW": "optimal", "MEDIUM": "acceptable", "HIGH": "berbahaya"}[riskLevel],
+			req.Temperature, req.WindSpeed),
+		Recommendations: recommendations,
+		RiskLevel:      riskLevel,
+		SafeToOperate:  safeToOperate,
+		Confidence:     "HIGH",
+	}
 }

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { AttitudeIndicator, HeadingIndicator } from "react-flight-indicators";
-import { useLogData } from "../../../hooks/useLogData";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
 import useVehicleConnectionStatus from "../../../hooks/useVehicleConnectionStatus";
 import useTranslation from "../../../hooks/useTranslation";
 
 const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
   const { t } = useTranslation();
-  const { vehicleLogs, ws } = useLogData();
+  const { vehicleLogs, ws } = useLogDataContext();
   const { isVehicleOnline } = useVehicleConnectionStatus();
   const [loading, setLoading] = useState(true);
   const [showTimeout, setShowTimeout] = useState(false);

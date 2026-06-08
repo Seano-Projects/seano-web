@@ -12,7 +12,7 @@ import useTitle from "../../../hooks/useTitle";
 import useMissionData from "../../../hooks/useMissionData";
 import useNotify from "../../../hooks/useNotify";
 import { useVehicleData } from "../../../hooks";
-import { useLogData } from "../../../hooks/useLogData";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
 import { LoadingDots } from "../../ui";
 import {
   calculateTotalDistance,
@@ -72,7 +72,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
   // Get vehicle position for auto-home
   const { vehicles, selectedVehicleId, setSelectedVehicleId } =
     useVehicleData();
-  const { vehicleLogs } = useLogData();
+  const { vehicleLogs } = useLogDataContext();
 
   // Auto-set home location to selected vehicle position when vehicle is selected
   // Only applies when: vehicle just selected, no home set yet (or mission just created)

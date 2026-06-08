@@ -178,6 +178,7 @@ const FitMapBounds = ({ points }) => {
 
 const MissionJourneyMap = ({ mission, journeyPoints }) => {
   const { t } = useTranslation();
+  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
   const executionWaypoints = useMemo(
     () =>
       (mission?.waypoints || []).filter(

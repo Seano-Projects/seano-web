@@ -52,35 +52,18 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
 
     if (allLogs.length === 0) return [];
 
-    // Only keep logs from the last 2 hours to avoid stale data stretching the X-axis
-    const cutoff = Date.now() - 2 * 60 * 60 * 1000;
-    const logs = allLogs.filter(
-      (log) => new Date(log.timestamp).getTime() >= cutoff,
-    );
+    // Take the most recent logs (newest first from getVehicleLogs), reverse to chronological
+    const recentLogs = allLogs.slice(0, 50).reverse();
 
-    // Fallback: if nothing in last 2h, use the 20 most recent logs only
-    const recentLogs = logs.length > 0 ? logs : allLogs.slice(-20);
-
-    // Group by minute and keep latest sample for each battery in each minute bucket.
+    // Group by timestamp (seconds precision) per battery, keep last 10 time points
     const timeGroups = {};
 
     recentLogs.forEach((log) => {
       const time = new Date(log.timestamp);
-      if (Number.isNaN(time.getTime())) {
-        return;
-      }
+      if (Number.isNaN(time.getTime())) return;
 
-      const timeKey = `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`;
-      const epoch =
-        new Date(
-          time.getFullYear(),
-          time.getMonth(),
-          time.getDate(),
-          time.getHours(),
-          time.getMinutes(),
-          0,
-          0,
-        ).getTime() / 1000;
+      const timeKey = `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}:${String(time.getSeconds()).padStart(2, "0")}`;
+      const epoch = time.getTime() / 1000;
 
       if (!timeGroups[timeKey]) {
         timeGroups[timeKey] = {
@@ -109,10 +92,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
     return Object.values(timeGroups)
       .sort((a, b) => a.epoch - b.epoch)
       .slice(-10)
-      .map((item) => {
-        const { epoch: _epoch, ...rest } = item;
-        return rest;
-      });
+      .map(({ epoch: _epoch, ...rest }) => rest);
   }, [getVehicleLogs, selectedVehicle]);
 
   const average = (values) => {

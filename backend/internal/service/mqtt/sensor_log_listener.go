@@ -167,16 +167,12 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 		}
 	}
 
+	wsSentAt := time.Now()
+	sensorLog.WsSentAt = &wsSentAt
+
 	if err := l.sensorLogRepo.CreateSensorLog(sensorLog); err != nil {
 		log.Printf("Failed to save sensor log: %v", err)
 		return
-	}
-
-	wsSentAt := time.Now()
-	if err := l.sensorLogRepo.UpdateWSSentAt(sensorLog.ID, wsSentAt); err != nil {
-		log.Printf("Failed to update sensor ws_sent_at: %v", err)
-	} else {
-		sensorLog.WsSentAt = &wsSentAt
 	}
 	
 	log.Printf("✓ Sensor log saved: vehicle=%s, sensor=%s, id=%d", vehicleCode, sensorCode, sensorLog.ID)

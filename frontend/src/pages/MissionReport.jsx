@@ -87,6 +87,7 @@ const actualIcon = L.divIcon({
 });
 
 const MissionTrajectoryMap = ({ journeyLogs, mission }) => {
+  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
   const actualPoints = useMemo(
     () =>
       (journeyLogs || [])
@@ -348,7 +349,9 @@ const SensorSection = ({ sensor, logs }) => {
                     >
                       {log._parsed?.[k] !== undefined &&
                       log._parsed?.[k] !== null
-                        ? String(log._parsed[k])
+                        ? typeof log._parsed[k] === "object"
+                          ? JSON.stringify(log._parsed[k])
+                          : String(log._parsed[k])
                         : "-"}
                     </td>
                   ))}
@@ -645,7 +648,7 @@ const MissionReport = () => {
           {
             icon: <FaCheckCircle />,
             label: "Total Data Sensor",
-            value: sensorLogs.toLocaleString?.() || sensorLogs.length,
+            value: sensorLogs.length.toLocaleString(),
             iconColor: "text-emerald-500",
             iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
           },

@@ -2,7 +2,8 @@ import React, { useEffect, useState, useMemo } from "react";
 import useVehicleData from "../../../hooks/useVehicleData";
 import useMissionData from "../../../hooks/useMissionData";
 import useBatteryData from "../../../hooks/useBatteryData";
-import { useLogData, useVehicleConnectionStatus } from "../../../hooks";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
+import { useVehicleConnectionStatus } from "../../../hooks";
 import { VehicleDropdown } from "../../Widgets";
 import {
   FaBatteryEmpty,
@@ -11,7 +12,6 @@ import {
   FaBatteryThreeQuarters,
   FaBatteryFull,
   FaMapMarkerAlt,
-  FaWifi,
   FaRoute,
 } from "react-icons/fa";
 import { FaLocationDot, FaLocationPin, FaMapLocation } from "react-icons/fa6";
@@ -23,7 +23,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const [location, setLocation] = useState(t("tracking.topbar.waitingGps"));
   const { vehicles, loading } = useVehicleData();
   const { missionData, getActiveMissions } = useMissionData();
-  const { vehicleLogs } = useLogData();
+  const { vehicleLogs } = useLogDataContext();
   const { getVehicleStatus } = useVehicleConnectionStatus();
   const { batteryData = {} } = useBatteryData() || {};
 
@@ -88,14 +88,6 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
     return getVehicleStatus(selectedVehicle.code) || "offline";
   }, [selectedVehicle, getVehicleStatus]);
 
-  // Get real RSSI from vehicle log (only when online)
-  const rssiLevel = useMemo(() => {
-    if (usvStatus !== "online") return null;
-    if (vehicleLog?.rssi !== undefined && vehicleLog?.rssi !== null) {
-      return vehicleLog.rssi;
-    }
-    return null;
-  }, [vehicleLog, usvStatus]);
 
   // Get current active mission for selected vehicle - match by ID (vehicle field is an object from API)
   const currentMission = useMemo(() => {
@@ -138,56 +130,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
     return { current, total: 0 };
   }, [currentMission]);
 
-  const renderRssiIcon = () => {
-    if (rssiLevel === null) {
-      return (
-        <FaWifi
-          size={20}
-          className="text-gray-400"
-          title={t("tracking.topbar.signal.noData")}
-        />
-      );
-    }
-    if (rssiLevel >= -50)
-      return (
-        <FaWifi
-          size={20}
-          className="text-green-500"
-          title={t("tracking.topbar.signal.excellent")}
-        />
-      );
-    if (rssiLevel >= -60)
-      return (
-        <FaWifi
-          size={20}
-          className="text-green-400"
-          title={t("tracking.topbar.signal.good")}
-        />
-      );
-    if (rssiLevel >= -70)
-      return (
-        <FaWifi
-          size={20}
-          className="text-yellow-500"
-          title={t("tracking.topbar.signal.fair")}
-        />
-      );
-    if (rssiLevel >= -80)
-      return (
-        <FaWifi
-          size={20}
-          className="text-orange-500"
-          title={t("tracking.topbar.signal.poor")}
-        />
-      );
-    return (
-      <FaWifi
-        size={20}
-        className="text-red-500"
-        title={t("tracking.topbar.signal.veryPoor")}
-      />
-    );
-  };
+
 
   // Reverse geocoding untuk mendapatkan lokasi dari koordinat
   useEffect(() => {
@@ -237,7 +180,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
 
   return (
     <div
-      className={`fixed z-30 top-13 right-0 bg-white
+      className={`fixed z-[1100] top-13 right-0 bg-white
                   py-2 border-b border-gray-200
                   dark:bg-black dark:border-gray-700
                   px-4 md:px-8 lg:px-12
@@ -336,13 +279,6 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
             {currentWaypointProgress
               ? `${currentWaypointProgress.current}/${currentWaypointProgress.total}`
               : "--/--"}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 sm:gap-2">
-          {renderRssiIcon()}
-          <span className="hidden sm:inline">
-            {rssiLevel !== null ? `${rssiLevel} dBm` : "-- dBm"}
           </span>
         </div>
 

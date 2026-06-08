@@ -5,8 +5,10 @@ import (
 	"os"
 	"strings"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"go-fiber-pgsql/internal/config"
 	"go-fiber-pgsql/internal/model"
@@ -148,8 +150,6 @@ func main() {
 				// Get shared MQTT client for all listeners
 				mqttClient := mqttListener.GetClient()
 
-				// Create all listeners (they will auto-resubscribe on reconnect via paho library)
-
 				// Vehicle Log Listener
 				vehicleLogListener := mqttservice.NewVehicleLogListener(mqttClient, vehicleLogRepo, vehicleRepo, missionRepo, wsHub)
 				if err := vehicleLogListener.Start(); err != nil {
@@ -193,9 +193,6 @@ func main() {
 
 				// Command Publisher (for control commands arm/disarm/mode)
 				cmdPublisher = mqttservice.NewCommandPublisher(mqttClient, commandLogRepo, vehicleRepo, wsHub)
-				// Subscribe to the wildcard ACK topic once, persistently.
-				// This avoids the race condition where per-command subscribe/unsubscribe
-				// could remove another concurrent command's handler for the same vehicle.
 				if err := cmdPublisher.SubscribeACK(); err != nil {
 					log.Printf("Warning: Failed to subscribe to ACK topic: %v", err)
 				}
@@ -206,6 +203,37 @@ func main() {
 				if err := waypointListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start waypoint listener: %v", err)
 				}
+
+				// Register reconnect callbacks so all listeners re-subscribe after MQTT reconnect.
+				// With CleanSession=true, the broker discards subscriptions on disconnect.
+				mqttListener.RegisterReconnectCallback(func(_ mqtt.Client) {
+					log.Println("🔄 Re-subscribing all MQTT listeners after reconnect...")
+					if err := vehicleLogListener.Start(); err != nil {
+						log.Printf("❌ Failed to re-subscribe vehicle log listener: %v", err)
+					}
+					if err := sensorLogListener.Start(); err != nil {
+						log.Printf("❌ Failed to re-subscribe sensor log listener: %v", err)
+					}
+					if err := rawLogListener.Start(); err != nil {
+						log.Printf("❌ Failed to re-subscribe raw log listener: %v", err)
+					}
+					if err := batteryListener.Start(); err != nil {
+						log.Printf("❌ Failed to re-subscribe battery listener: %v", err)
+					}
+					if err := alertListener.Start(); err != nil {
+						log.Printf("❌ Failed to re-subscribe alert listener: %v", err)
+					}
+					if err := statusListener.Start(); err != nil {
+						log.Printf("❌ Failed to re-subscribe status listener: %v", err)
+					}
+					if err := cmdPublisher.SubscribeACK(); err != nil {
+						log.Printf("❌ Failed to re-subscribe command ACK: %v", err)
+					}
+					if err := waypointListener.Start(); err != nil {
+						log.Printf("❌ Failed to re-subscribe waypoint listener: %v", err)
+					}
+					log.Println("✓ All MQTT listeners re-subscribed successfully")
+				})
 
 				log.Println("✓ All MQTT listeners started successfully")
 			}
@@ -218,6 +246,7 @@ func main() {
 
 	app := fiber.New()
 
+	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "http://72.61.141.126:5177,http://localhost:5173,http://localhost:5177,https://seano.cloud,https://api.seano.cloud",
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",

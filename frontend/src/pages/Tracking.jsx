@@ -2,7 +2,8 @@ import { memo, useState } from "react";
 import useTitle from "../hooks/useTitle";
 import useTranslation from "../hooks/useTranslation";
 import { ViewMap } from "../components/Widgets";
-import { FaShip, FaChevronLeft } from "react-icons/fa";
+import { FaChevronLeft } from "react-icons/fa";
+import { MdMyLocation } from "react-icons/md";
 import {
   VehicleStatusPanel,
   TelemetryPanel,
@@ -32,7 +33,7 @@ const Tracking = memo(
                 className="w-12 h-12 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
                 title={t("tracking.vehicleStatus.title")}
               >
-                <FaShip className="text-blue-500 text-lg" />
+                <MdMyLocation className="text-blue-500 text-lg" />
               </button>
             ) : (
               <div className="w-72 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-black/90 backdrop-blur-md border border-gray-200 dark:border-gray-700 shadow-lg">
@@ -68,7 +69,7 @@ const Tracking = memo(
           <div className="bg-white border border-gray-200 dark:bg-transparent dark:border-gray-700 rounded-2xl overflow-hidden">
             <BatteryMonitoring selectedVehicle={selectedVehicle} />
           </div>
-          <div className="min-h-80 h-90 md:h-100 bg-white border border-gray-200 dark:bg-transparent dark:border-gray-700 rounded-2xl overflow-hidden">
+          <div className="bg-white border border-gray-200 dark:bg-transparent dark:border-gray-700 rounded-2xl overflow-hidden">
             <LatestAlerts selectedVehicle={selectedVehicle} />
           </div>
         </div>

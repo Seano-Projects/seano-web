@@ -9,11 +9,15 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
+// ReconnectCallback is called after MQTT reconnects to re-subscribe topics
+type ReconnectCallback func(client mqtt.Client)
+
 // MQTTListener handles MQTT connections and subscriptions for MIDAS 3000 sensors
 type MQTTListener struct {
-	client      mqtt.Client
-	handler     *DataHandler
-	topicPrefix string // e.g., "seano"
+	client             mqtt.Client
+	handler            *DataHandler
+	topicPrefix        string // e.g., "seano"
+	reconnectCallbacks []ReconnectCallback
 }
 
 // MQTTConfig contains MQTT connection configuration
@@ -53,11 +57,6 @@ func NewMQTTListener(config MQTTConfig, handler *DataHandler) (*MQTTListener, er
 		log.Printf("⚠️  MQTT connection lost: %v - Will auto-reconnect...", err)
 	})
 
-	// Set on connect handler
-	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		log.Println("✓ MQTT connected successfully")
-	})
-
 	client := mqtt.NewClient(opts)
 
 	listener := &MQTTListener{
@@ -65,6 +64,26 @@ func NewMQTTListener(config MQTTConfig, handler *DataHandler) (*MQTTListener, er
 		handler:     handler,
 		topicPrefix: config.TopicPrefix,
 	}
+
+	// Set on connect handler to re-subscribe all topics after reconnect
+	opts.SetOnConnectHandler(func(c mqtt.Client) {
+		log.Println("✓ MQTT connected successfully")
+		// Re-subscribe own topic
+		topic := fmt.Sprintf("%s/+/+/data", listener.topicPrefix)
+		if token := c.Subscribe(topic, 1, listener.messageHandler); token.Wait() && token.Error() != nil {
+			log.Printf("❌ Failed to re-subscribe to %s: %v", topic, token.Error())
+		} else {
+			log.Printf("✓ Re-subscribed to topic: %s", topic)
+		}
+		// Re-subscribe all registered listeners
+		for _, cb := range listener.reconnectCallbacks {
+			cb(c)
+		}
+	})
+
+	// Recreate client with updated opts (OnConnectHandler references listener)
+	client = mqtt.NewClient(opts)
+	listener.client = client
 
 	return listener, nil
 }

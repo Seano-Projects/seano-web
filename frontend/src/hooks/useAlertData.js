@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { API_BASE_URL, WS_URL } from '../config'
+import { getAuthenticatedWebSocketUrl } from '../utils/wsAuth'
 import {
   REALTIME_MODE,
   REALTIME_POLL_INTERVAL_MS
@@ -72,9 +73,12 @@ export const useAlertData = (options = {}) => {
       setLoading(true)
       const token = localStorage.getItem('access_token')
       const params = buildDateRangeParams({ startDate, endDate, startTime, endTime })
+      if (!startDate && !endDate) {
+        params.set('limit', '200')
+      }
       const queryString = params.toString()
       const response = await axios.get(
-        queryString ? `${API_BASE_URL}/alerts?${queryString}` : `${API_BASE_URL}/alerts`,
+        `${API_BASE_URL}/alerts?${queryString}`,
         {
         headers: { Authorization: `Bearer ${token}` }
         }
@@ -108,7 +112,7 @@ export const useAlertData = (options = {}) => {
       setAlerts(sortedAlerts)
       calculateStats(sortedAlerts)
       setError(null)
-    } catch (err) {
+    } catch {
       setError('Failed to load alerts')
       setAlerts([])
     } finally {
@@ -132,24 +136,24 @@ export const useAlertData = (options = {}) => {
 
     const connectWebSocket = () => {
       try {
-        const token = localStorage.getItem('access_token')
-        if (!token) {
-          setConnectionStatus('disconnected')
-          return
-        }
+        ;(async () => {
+          const wsUrl = await getAuthenticatedWebSocketUrl(WS_URL, '/ws/alerts')
+          if (!wsUrl) {
+            setConnectionStatus('disconnected')
+            return
+          }
 
-        // Connect to WebSocket - alerts endpoint
-        websocket = new WebSocket(`${WS_URL}/ws/alerts?token=${token}`)
+          websocket = new WebSocket(wsUrl)
 
-        websocket.onopen = () => {
-          setConnectionStatus('connected')
-          setWs(websocket)
-          reconnectAttempts = 0
-        }
+          websocket.onopen = () => {
+            setConnectionStatus('connected')
+            setWs(websocket)
+            reconnectAttempts = 0
+          }
 
-        websocket.onmessage = event => {
-          try {
-            const data = JSON.parse(event.data)
+          websocket.onmessage = event => {
+            try {
+              const data = JSON.parse(event.data)
 
             // Handle different message types
             if (data.type === 'alert') {
@@ -183,24 +187,28 @@ export const useAlertData = (options = {}) => {
                 return updated
               })
             }
-          } catch (err) {}
-        }
-
-        websocket.onerror = error => {
-          setConnectionStatus('error')
-        }
-
-        websocket.onclose = () => {
-          setConnectionStatus('disconnected')
-          setWs(null)
-
-          // Attempt to reconnect
-          if (reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++
-            reconnectTimeout = setTimeout(connectWebSocket, reconnectDelay)
+            } catch {
+              // Ignore malformed alert payloads from the stream.
+            }
           }
-        }
-      } catch (err) {
+
+          websocket.onerror = () => {
+            setConnectionStatus('error')
+          }
+
+          websocket.onclose = () => {
+            setConnectionStatus('disconnected')
+            setWs(null)
+
+            if (reconnectAttempts < maxReconnectAttempts) {
+              reconnectAttempts++
+              reconnectTimeout = setTimeout(connectWebSocket, reconnectDelay)
+            }
+          }
+        })().catch(() => {
+          setConnectionStatus('error')
+        })
+      } catch {
         setConnectionStatus('error')
       }
     }
@@ -254,7 +262,7 @@ export const useAlertData = (options = {}) => {
       )
 
       return true
-    } catch (err) {
+    } catch {
       return false
     }
   }, [])
@@ -270,7 +278,7 @@ export const useAlertData = (options = {}) => {
       )
       setAlerts(prev => prev.map(alert => ({ ...alert, acknowledged: true })))
       return { success: true }
-    } catch (err) {
+    } catch {
       return { success: false }
     }
   }, [])

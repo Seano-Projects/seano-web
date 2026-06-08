@@ -10,6 +10,7 @@ import {
 } from "react-icons/fa";
 import { API_BASE_URL } from "../../../config";
 import config from "../../../config";
+import { getAuthenticatedWebSocketUrl } from "../../../utils/wsAuth";
 import { LoadingDots } from "../../ui";
 import useTranslation from "../../../hooks/useTranslation";
 
@@ -34,45 +35,54 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
   useEffect(() => {
     if (!isOpen) return;
 
-    const token = localStorage.getItem("access_token");
-    if (!token) return;
+    let ws = null;
+    let isClosed = false;
 
-    const wsUrl = `${config.wsBaseUrl || "ws://localhost:8080"}/ws/alerts?token=${token}`;
-    const ws = new WebSocket(wsUrl);
+    (async () => {
+      const wsUrl = await getAuthenticatedWebSocketUrl(
+        config.wsBaseUrl || "ws://localhost:8080",
+        "/ws/alerts",
+      );
+      if (!wsUrl || isClosed) return;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const messageType = data.message_type || data.type;
+      ws = new WebSocket(wsUrl);
 
-        if (messageType === "alert") {
-          const newAlert = data;
-          // Add new alert to the list
-          setAlerts((prev) => [newAlert, ...prev.slice(0, 9)]);
-          fetchStats(); // Update stats
-          if (onUpdate) onUpdate();
-        } else if (messageType === "alert_update") {
-          setAlerts((prev) =>
-            prev.map((alert) =>
-              alert.id === data.id
-                ? { ...alert, ...(data.updates || {}) }
-                : alert,
-            ),
-          );
-          fetchStats();
-          if (onUpdate) onUpdate();
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const messageType = data.message_type || data.type;
+
+          if (messageType === "alert") {
+            const newAlert = data;
+            setAlerts((prev) => [newAlert, ...prev.slice(0, 9)]);
+            fetchStats();
+            if (onUpdate) onUpdate();
+          } else if (messageType === "alert_update") {
+            setAlerts((prev) =>
+              prev.map((alert) =>
+                alert.id === data.id
+                  ? { ...alert, ...(data.updates || {}) }
+                  : alert,
+              ),
+            );
+            fetchStats();
+            if (onUpdate) onUpdate();
+          }
+        } catch (error) {
+          console.error("Error parsing alert WebSocket message:", error);
         }
-      } catch (error) {
-        console.error("Error parsing alert WebSocket message:", error);
-      }
-    };
+      };
 
-    ws.onerror = (error) => {
-      console.error("🚨 Alert WebSocket error:", error);
-    };
+      ws.onerror = (error) => {
+        console.error("🚨 Alert WebSocket error:", error);
+      };
+    })().catch((error) => {
+      console.error("🚨 Alert WebSocket auth error:", error);
+    });
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
+      isClosed = true;
+      if (ws?.readyState === WebSocket.OPEN) {
         ws.close();
       }
     };

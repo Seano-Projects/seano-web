@@ -13,7 +13,7 @@ import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import L from "leaflet";
 import { MdMyLocation } from "react-icons/md";
 import useVehicleData from "../../../hooks/useVehicleData";
-import { useLogData } from "../../../hooks/useLogData";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
 import usvPointIcon from "../../../assets/usv-point.webp";
 
 // Memoized Vehicle Marker Component for better performance
@@ -153,7 +153,7 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
 
   const { vehicles: hookVehicles } = useVehicleData();
   const vehicles = propVehicles || hookVehicles;
-  const { vehicleLogs } = useLogData();
+  const { vehicleLogs } = useLogDataContext();
 
   // Get latest vehicle log for each vehicle
   const vehicleLogsMap = useMemo(() => {

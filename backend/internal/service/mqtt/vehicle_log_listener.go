@@ -208,16 +208,12 @@ func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 		MqttReceivedAt:    &mqttReceivedAt,
 	}
 	
+	wsSentAt := time.Now()
+	vehicleLog.WsSentAt = &wsSentAt
+
 	if err := l.vehicleLogRepo.CreateVehicleLog(vehicleLog); err != nil {
 		log.Printf("Failed to save vehicle log: %v", err)
 		return
-	}
-
-	wsSentAt := time.Now()
-	if err := l.vehicleLogRepo.UpdateWSSentAt(vehicleLog.ID, wsSentAt); err != nil {
-		log.Printf("Failed to update vehicle ws_sent_at: %v", err)
-	} else {
-		vehicleLog.WsSentAt = &wsSentAt
 	}
 	
 	log.Printf("✓ Vehicle log saved: vehicle=%s, id=%d", vehicleCode, vehicleLog.ID)

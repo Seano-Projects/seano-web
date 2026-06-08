@@ -65,6 +65,10 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	commandLogHandler := handler.NewCommandLogHandler(commandLogRepo, vehicleRepo, db, wsHub)
 	waypointLogHandler := handler.NewWaypointLogHandler(waypointLogRepo, vehicleRepo, db, wsHub)
 	thrusterCommandHandler := handler.NewThrusterCommandHandler(thrusterCommandRepo, vehicleRepo, db)
+	publicationRepo := repository.NewPublicationRepository(db)
+	publicationHandler := handler.NewPublicationHandler(publicationRepo)
+	teamMemberRepo := repository.NewTeamMemberRepository(db)
+	teamMemberHandler := handler.NewTeamMemberHandler(teamMemberRepo)
 	wsHandler := wsocket.NewWebSocketHandler(wsHub)
 
 	// Swagger route (disabled in production)
@@ -97,6 +101,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 
 	// Auth routes (protected)
 	auth.Get("/me", middleware.AuthRequired(), authHandler.GetMe)
+	auth.Get("/ws-token", middleware.AuthRequired(), authHandler.CreateWebSocketToken)
 	auth.Post("/logout", middleware.AuthRequired(), authHandler.Logout)
 	auth.Get("/sessions", middleware.AuthRequired(), authHandler.GetActiveSessions)
 	auth.Delete("/sessions/:id", middleware.AuthRequired(), authHandler.LogoutSession)
@@ -105,8 +110,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	users := app.Group("/users", middleware.AuthRequired())
 	users.Post("/", middleware.CheckPermission(db, "users.create"), userHandler.CreateUser)
 	users.Get("/", middleware.CheckPermission(db, "users.read"), userHandler.GetAllUsers)
-	users.Get("/:user_id", userHandler.GetUserByID)    // Ownership check in handler
-	users.Put("/:user_id", userHandler.UpdateUser)     // Ownership check in handler
+	users.Get("/:user_id", userHandler.GetUserByID) // Ownership check in handler
+	users.Put("/:user_id", userHandler.UpdateUser)  // Ownership check in handler
 	users.Delete("/:user_id", middleware.CheckPermission(db, "users.delete"), userHandler.DeleteUser)
 
 	// Role management routes (protected, admin only)
@@ -138,7 +143,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	// Sensor master data routes (admin-only for CUD, all users can read)
 	sensors := app.Group("/sensors", middleware.AuthRequired())
 	sensors.Post("/", middleware.CheckPermission(db, "sensors.manage"), sensorHandler.CreateSensor)
-	sensors.Get("/", sensorHandler.GetAllSensors) // All users can view sensor master data
+	sensors.Get("/", sensorHandler.GetAllSensors)                    // All users can view sensor master data
 	sensors.Get("/status", vehicleSensorHandler.GetAllSensorsStatus) // Get all vehicle-sensor status
 	sensors.Get("/:sensor_id", sensorHandler.GetSensorByID)
 	sensors.Get("/code/:sensor_code", sensorHandler.GetSensorByCode)
@@ -148,17 +153,17 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	// Vehicle management routes (protected, ownership-based)
 	vehicles := app.Group("/vehicles", middleware.AuthRequired())
 	vehicles.Post("/", vehicleHandler.CreateVehicle)
-	vehicles.Get("/", vehicleHandler.GetAllVehicles)                    // Returns own vehicles for regular users
-	vehicles.Get("/batteries", vehicleHandler.GetAllVehicles)           // For batteries endpoint compatibility
+	vehicles.Get("/", vehicleHandler.GetAllVehicles)                                  // Returns own vehicles for regular users
+	vehicles.Get("/batteries", vehicleHandler.GetAllVehicles)                         // For batteries endpoint compatibility
 	vehicles.Get("/connection-statuses", vehicleHandler.GetVehicleConnectionStatuses) // Get MQTT LWT connection statuses
-	vehicles.Get("/:vehicle_id", vehicleHandler.GetVehicleByID)         // Ownership check in handler
-	vehicles.Put("/:vehicle_id", vehicleHandler.UpdateVehicle)          // Ownership check in handler
-	vehicles.Post("/:vehicle_id/api-key", vehicleHandler.GenerateVehicleAPIKey) // Generate per-vehicle API key
-	vehicles.Delete("/:vehicle_id", vehicleHandler.DeleteVehicle)       // Ownership check in handler
-	vehicles.Get("/:vehicle_id/battery", vehicleHandler.GetVehicleBatteryStatus)  // Get latest battery status
-	vehicles.Get("/:vehicle_id/battery-logs", vehicleHandler.GetBatteryLogs)      // Get battery history/logs
-	vehicles.Get("/:vehicle_id/alerts", vehicleHandler.GetVehicleByID)  // Placeholder for alerts
-	
+	vehicles.Get("/:vehicle_id", vehicleHandler.GetVehicleByID)                       // Ownership check in handler
+	vehicles.Put("/:vehicle_id", vehicleHandler.UpdateVehicle)                        // Ownership check in handler
+	vehicles.Post("/:vehicle_id/api-key", vehicleHandler.GenerateVehicleAPIKey)       // Generate per-vehicle API key
+	vehicles.Delete("/:vehicle_id", vehicleHandler.DeleteVehicle)                     // Ownership check in handler
+	vehicles.Get("/:vehicle_id/battery", vehicleHandler.GetVehicleBatteryStatus)      // Get latest battery status
+	vehicles.Get("/:vehicle_id/battery-logs", vehicleHandler.GetBatteryLogs)          // Get battery history/logs
+	vehicles.Get("/:vehicle_id/alerts", vehicleHandler.GetVehicleByID)                // Placeholder for alerts
+
 	// Battery routes
 	app.Get("/vehicle-batteries/latest", middleware.AuthRequired(), vehicleHandler.GetAllLatestBatteryStatus)
 	app.Get("/vehicle-batteries/export", middleware.AuthRequired(), vehicleHandler.ExportBatteryLogs)
@@ -166,7 +171,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 
 	// Vehicle status routes
 	app.Post("/vehicle-status", middleware.AuthOrVehicleAPIKey(vehicleRepo), vehicleHandler.CreateVehicleStatus)
-	
+
 	// Vehicle-Sensor assignment routes (users can assign sensors to their vehicles)
 	vehicles.Post("/:vehicle_id/sensors", vehicleSensorHandler.AssignSensorToVehicle)
 	vehicles.Get("/:vehicle_id/sensors", vehicleSensorHandler.GetVehicleSensors)
@@ -176,8 +181,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 
 	// Sensor Logs routes
 	sensorLogs := app.Group("/sensor-logs")
-	sensorLogs.Get("/", middleware.AuthRequired(), sensorLogHandler.GetSensorLogs) // Query by vehicle_id, sensor_id, time range
-	sensorLogs.Get("/export", middleware.AuthRequired(), sensorLogHandler.ExportSensorLogs) // Export to CSV
+	sensorLogs.Get("/", middleware.AuthRequired(), sensorLogHandler.GetSensorLogs)           // Query by vehicle_id, sensor_id, time range
+	sensorLogs.Get("/export", middleware.AuthRequired(), sensorLogHandler.ExportSensorLogs)  // Export to CSV
 	sensorLogs.Post("/import", middleware.AuthRequired(), sensorLogHandler.ImportSensorLogs) // Import from CSV
 	sensorLogs.Get("/:id", middleware.AuthRequired(), sensorLogHandler.GetSensorLogByID)
 	sensorLogs.Post("/:id/ws-received", middleware.AuthRequired(), sensorLogHandler.MarkWSReceivedAt)
@@ -188,7 +193,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	vehicleLogs := app.Group("/vehicle-logs")
 	vehicleLogs.Get("/", middleware.AuthRequired(), vehicleLogHandler.GetVehicleLogs) // Query by vehicle_id, time range
 
-	vehicleLogs.Get("/export", middleware.AuthRequired(), vehicleLogHandler.ExportVehicleLogs) // Export to CSV
+	vehicleLogs.Get("/export", middleware.AuthRequired(), vehicleLogHandler.ExportVehicleLogs)  // Export to CSV
 	vehicleLogs.Post("/import", middleware.AuthRequired(), vehicleLogHandler.ImportVehicleLogs) // Import from CSV
 	vehicleLogs.Get("/:id", middleware.AuthRequired(), vehicleLogHandler.GetVehicleLogByID)
 	vehicleLogs.Get("/latest/:vehicle_id", middleware.AuthRequired(), vehicleLogHandler.GetLatestVehicleLog)
@@ -200,7 +205,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	rawLogs := app.Group("/raw-logs")
 	rawLogs.Get("/", middleware.AuthRequired(), rawLogHandler.GetRawLogs) // Query by search, time range
 	rawLogs.Get("/stats", middleware.AuthRequired(), rawLogHandler.GetRawLogStats)
-	rawLogs.Get("/export", middleware.AuthRequired(), rawLogHandler.ExportRawLogs) // Export to CSV
+	rawLogs.Get("/export", middleware.AuthRequired(), rawLogHandler.ExportRawLogs)  // Export to CSV
 	rawLogs.Post("/import", middleware.AuthRequired(), rawLogHandler.ImportRawLogs) // Import from CSV
 	rawLogs.Get("/:id", middleware.AuthRequired(), rawLogHandler.GetRawLogByID)
 	rawLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), rawLogHandler.CreateRawLog)
@@ -214,18 +219,18 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	// Mission management routes
 	missions := app.Group("/missions")
 	missions.Post("/", middleware.AuthRequired(), missionHandler.CreateMission)
-	missions.Get("/", middleware.AuthRequired(), missionHandler.GetAllMissions)                  // Returns own missions for regular users
+	missions.Get("/", middleware.AuthRequired(), missionHandler.GetAllMissions) // Returns own missions for regular users
 	missions.Get("/stats", middleware.AuthRequired(), missionHandler.GetMissionStats)
-	missions.Get("/ongoing", middleware.AuthRequired(), missionHandler.GetOngoingMissions)       // Get all ongoing missions
+	missions.Get("/ongoing", middleware.AuthRequired(), missionHandler.GetOngoingMissions) // Get all ongoing missions
 	// Static routes MUST come before dynamic /:mission_id to avoid being swallowed
 	missions.Get("/pending-upload", middleware.AuthOrVehicleAPIKeyFromQuery(vehicleRepo), missionHandler.GetPendingMissionUploads)
 	missions.Post("/waypoint-reached", middleware.AuthOrVehicleAPIKey(vehicleRepo), missionHandler.UpdateMissionProgressFromWaypoint) // USV waypoint reached
-	missions.Get("/:mission_id", middleware.AuthRequired(), missionHandler.GetMissionByID)       // Ownership check in handler
-	missions.Put("/:mission_id", middleware.AuthRequired(), missionHandler.UpdateMission)        // Ownership check in handler
+	missions.Get("/:mission_id", middleware.AuthRequired(), missionHandler.GetMissionByID)                                            // Ownership check in handler
+	missions.Put("/:mission_id", middleware.AuthRequired(), missionHandler.UpdateMission)                                             // Ownership check in handler
 	missions.Post("/:mission_id/upload-to-vehicle", middleware.AuthRequired(), missionHandler.UploadMissionToVehicle)
 	missions.Patch("/:mission_id/clear", middleware.AuthRequired(), missionHandler.ClearMission)
 	missions.Put("/:id/progress", middleware.AuthOrVehicleAPIKeyByMissionID(missionRepo, vehicleRepo), missionHandler.UpdateMissionProgress) // Update mission progress
-	missions.Delete("/:mission_id", middleware.AuthRequired(), missionHandler.DeleteMission)     // Ownership check in handler
+	missions.Delete("/:mission_id", middleware.AuthRequired(), missionHandler.DeleteMission)                                                 // Ownership check in handler
 
 	// Alert management routes
 	alerts := app.Group("/alerts")
@@ -233,7 +238,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	alerts.Get("/stats", middleware.AuthRequired(), alertHandler.GetAlertStats)
 	alerts.Get("/recent", middleware.AuthRequired(), alertHandler.GetRecentAlerts)
 	alerts.Get("/unacknowledged", middleware.AuthRequired(), alertHandler.GetUnacknowledgedAlerts)
-	alerts.Get("/export", middleware.AuthRequired(), alertHandler.ExportAlerts) // Export to CSV
+	alerts.Get("/export", middleware.AuthRequired(), alertHandler.ExportAlerts)  // Export to CSV
 	alerts.Post("/import", middleware.AuthRequired(), alertHandler.ImportAlerts) // Import from CSV
 	alerts.Get("/:id", middleware.AuthRequired(), alertHandler.GetAlertByID)
 	alerts.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), alertHandler.CreateAlert)
@@ -276,6 +281,9 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	})
 	ai := app.Group("/ai", middleware.AuthRequired())
 	ai.Post("/chat", aiLimiter, aiHandler.Chat)
+	ai.Post("/chat/stream", aiLimiter, aiHandler.ChatStream)
+	ai.Post("/weather-analysis", aiLimiter, aiHandler.WeatherAnalysis)
+	ai.Post("/battery-analysis", aiLimiter, aiHandler.BatteryAnalysis)
 	ai.Get("/sessions", aiHandler.GetSessions)
 	ai.Get("/sessions/:id/messages", aiHandler.GetMessages)
 	ai.Delete("/sessions/:id", aiHandler.DeleteSession)
@@ -318,6 +326,26 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 
 	// Waypoint ACK routes
 	app.Post("/waypoint-acks", middleware.AuthOrVehicleAPIKey(vehicleRepo), waypointLogHandler.CreateWaypointAck)
+
+	// Publications routes — GET public, CUD protected
+	app.Get("/publications", publicationHandler.GetAll)
+	app.Get("/publications/:id", publicationHandler.GetByID)
+	publications := app.Group("/publications", middleware.AuthRequired())
+	publications.Post("/upload-pdf", middleware.CheckPermission(db, "publications.manage"), publicationHandler.UploadPDF)
+	publications.Delete("/upload-pdf/:filename", middleware.CheckPermission(db, "publications.manage"), publicationHandler.DeletePDF)
+	publications.Post("/", middleware.CheckPermission(db, "publications.manage"), publicationHandler.Create)
+	publications.Put("/:id", middleware.CheckPermission(db, "publications.manage"), publicationHandler.Update)
+	publications.Delete("/:id", middleware.CheckPermission(db, "publications.manage"), publicationHandler.Delete)
+
+	// Team Members routes — GET public, CUD protected
+	app.Get("/team", teamMemberHandler.GetAll)
+	app.Get("/team/:id", teamMemberHandler.GetByID)
+	team := app.Group("/team", middleware.AuthRequired())
+	team.Post("/upload-photo", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.UploadPhoto)
+	team.Delete("/upload-photo/:filename", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.DeletePhoto)
+	team.Post("/", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.Create)
+	team.Put("/:id", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.Update)
+	team.Delete("/:id", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.Delete)
 
 	// WebSocket routes — token validated from ?token= query param (WS can't set custom headers)
 	wsAuth := middleware.WSAuthRequired()

@@ -2,6 +2,7 @@ import { MdOutlineRadar } from "react-icons/md";
 import { Link } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { HiDotsVertical } from "react-icons/hi";
+import { FaEye } from "react-icons/fa";
 import useMissionData from "../../../hooks/useMissionData";
 import { MissionCardSkeleton } from "../../Skeleton";
 import useTranslation from "../../../hooks/useTranslation";
@@ -51,8 +52,8 @@ const RecentMissions = () => {
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors"
                 >
-                  <MdOutlineRadar
-                    size={12}
+                  <FaEye
+                    size={18}
                     className="text-gray-400 dark:text-gray-500"
                   />
                   {t("dashboard.recentMissions.viewAll")}

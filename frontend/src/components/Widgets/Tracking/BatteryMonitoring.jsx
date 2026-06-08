@@ -10,13 +10,13 @@ import {
   FaExclamationTriangle,
   FaCheckCircle,
 } from "react-icons/fa";
-import { useLogData } from "../../../hooks/useLogData";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
 import useVehicleConnectionStatus from "../../../hooks/useVehicleConnectionStatus";
 import useTranslation from "../../../hooks/useTranslation";
 
 const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
   const { t } = useTranslation();
-  const { batteryData, ws } = useLogData();
+  const { batteryData, ws } = useLogDataContext();
   const { isVehicleOnline } = useVehicleConnectionStatus();
   const [showTimeout, setShowTimeout] = useState(false);
 

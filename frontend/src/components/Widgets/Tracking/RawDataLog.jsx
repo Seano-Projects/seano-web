@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { LogSkeleton } from "../../Skeleton";
 import useLoadingTimeout from "../../../hooks/useLoadingTimeout";
-import { useLogData } from "../../../hooks/useLogData";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
 import useTranslation from "../../../hooks/useTranslation";
 
 /**
@@ -22,7 +22,7 @@ import useTranslation from "../../../hooks/useTranslation";
  */
 const RawDataLog = ({ selectedVehicle }) => {
   const { t } = useTranslation();
-  const { rawLogs, ws } = useLogData(); // Ambil dari useLogData
+  const { rawLogs, ws } = useLogDataContext(); // Ambil dari context
   const [hasNewData, setHasNewData] = useState(false);
   const { loading } = useLoadingTimeout(true, 2000);
   const updateTimeoutRef = useRef(null);
@@ -141,15 +141,7 @@ const RawDataLog = ({ selectedVehicle }) => {
           return (
             <div
               key={log._client_id || log.id || `${log.created_at || log._received_at || "raw"}-${index}`}
-              className={`p-2 md:p-2.5 rounded-md border-l-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                level === "ERROR"
-                  ? "border-red-500"
-                  : level === "WARN"
-                    ? "border-yellow-500"
-                    : level === "INFO"
-                      ? "border-blue-500"
-                      : "border-gray-400"
-              }`}
+              className={`p-2 md:p-2.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors`}
             >
               <div className="flex items-start justify-between gap-2 mb-1">
                 <span className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 shrink-0">

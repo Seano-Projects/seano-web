@@ -4,6 +4,7 @@ import axios from '../utils/axiosConfig'
 import config from '../config'
 import useNotify from './useNotify'
 import { NOTIFICATION_ACTIONS } from '../utils/notificationService'
+import { getAuthenticatedWebSocketUrl } from '../utils/wsAuth'
 import {
   REALTIME_MODE,
   REALTIME_POLL_INTERVAL_MS
@@ -113,7 +114,9 @@ const useMissionData = () => {
         API_ENDPOINTS.MISSIONS.STATS || '/missions/stats'
       )
       setStats(response.data)
-    } catch (err) {}
+    } catch {
+      // Non-critical stats refresh failure.
+    }
   }
 
   // Format time elapsed
@@ -156,22 +159,24 @@ const useMissionData = () => {
     }
 
     // Setup WebSocket untuk real-time updates
+    let reconnectTimeout = null
+    let isCancelled = false
+
     const connectWebSocket = () => {
-      const token =
-        localStorage.getItem('access_token') || localStorage.getItem('token')
-      if (!token) return
+      ;(async () => {
+        const wsUrl = await getAuthenticatedWebSocketUrl(
+          config.wsBaseUrl || 'ws://localhost:8080',
+          '/ws/missions'
+        )
+        if (!wsUrl || isCancelled) return
 
-      const wsUrl = `${
-        config.wsBaseUrl || 'ws://localhost:8080'
-      }/ws/missions?token=${token}`
+        wsRef.current = new WebSocket(wsUrl)
 
-      wsRef.current = new WebSocket(wsUrl)
+        wsRef.current.onopen = () => {}
 
-      wsRef.current.onopen = () => {}
-
-      wsRef.current.onmessage = event => {
-        try {
-          const data = JSON.parse(event.data)
+        wsRef.current.onmessage = event => {
+          try {
+            const data = JSON.parse(event.data)
 
           if (data.message_type === 'mission_progress') {
             // Update mission in the list (robust matching: mission id and vehicle code)
@@ -223,19 +228,26 @@ const useMissionData = () => {
               fetchMissionStats()
             }
           }
-        } catch (err) {}
-      }
+          } catch {
+            // Ignore malformed mission websocket payloads.
+          }
+        }
 
-      wsRef.current.onerror = error => {}
+        wsRef.current.onerror = () => {}
 
-      wsRef.current.onclose = () => {
-        setTimeout(connectWebSocket, 3000)
-      }
+        wsRef.current.onclose = () => {
+          if (!isCancelled) {
+            reconnectTimeout = setTimeout(connectWebSocket, 3000)
+          }
+        }
+      })().catch(() => {})
     }
 
     connectWebSocket()
 
     return () => {
+      isCancelled = true
+      if (reconnectTimeout) clearTimeout(reconnectTimeout)
       if (wsRef.current) {
         wsRef.current.close()
       }

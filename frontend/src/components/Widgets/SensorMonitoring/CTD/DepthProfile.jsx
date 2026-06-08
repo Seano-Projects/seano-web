@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { FaFilter } from "react-icons/fa";
 import { Dropdown } from "../../index";
 import {
@@ -13,9 +13,12 @@ import useTranslation from "../../../../hooks/useTranslation";
 
 const MAX_POINTS = 60;
 
-const DepthProfile = ({ ctdData }) => {
+const DepthProfile = ({
+  ctdData,
+  selectedParameter = "temperature",
+  onParameterChange,
+}) => {
   const { t } = useTranslation();
-  const [selectedParameter, setSelectedParameter] = useState("temperature");
 
   const profileData = useMemo(() => {
     if (!ctdData || ctdData.length === 0) return [];
@@ -89,7 +92,7 @@ const DepthProfile = ({ ctdData }) => {
           <Dropdown
             items={parameters}
             selectedItem={parameters.find((p) => p.key === selectedParameter)}
-            onItemChange={(item) => setSelectedParameter(item.key)}
+            onItemChange={(item) => onParameterChange?.(item.key)}
             getItemKey={(item) => item.key}
             renderSelectedItem={(item) => (
               <div className="flex items-center gap-2 text-sm">

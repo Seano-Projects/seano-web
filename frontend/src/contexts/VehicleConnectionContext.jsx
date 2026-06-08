@@ -10,6 +10,7 @@ import {
   REALTIME_MODE,
   REALTIME_POLL_INTERVAL_MS,
 } from "../utils/realtimeConfig";
+import { getAuthenticatedWebSocketUrl } from "../utils/wsAuth";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -88,65 +89,73 @@ export const VehicleConnectionProvider = ({ children }) => {
     let reconnectDelay = 1000;
 
     const connect = () => {
-      // Use existing WebSocket endpoint (logs endpoint can handle all message types)
-      const wsUrl = `${WS_URL}/ws/logs?token=${token}`;
+      let pingInterval = null;
 
-      const websocket = new WebSocket(wsUrl);
-      wsRef.current = websocket;
+      (async () => {
+        const wsUrl = await getAuthenticatedWebSocketUrl(WS_URL, "/ws/logs");
+        if (!wsUrl) return;
 
-      websocket.onopen = () => {
-        setIsConnected(true);
-        setError(null);
-        reconnectDelay = 1000;
+        const websocket = new WebSocket(wsUrl);
+        wsRef.current = websocket;
 
-        // Send ping to keep connection alive
-        const pingInterval = setInterval(() => {
-          if (websocket?.readyState === WebSocket.OPEN) {
-            websocket.send(JSON.stringify({ type: "ping" }));
-          } else {
+        websocket.onopen = () => {
+          setIsConnected(true);
+          setError(null);
+          reconnectDelay = 1000;
+
+          // Send ping to keep connection alive
+          pingInterval = setInterval(() => {
+            if (websocket?.readyState === WebSocket.OPEN) {
+              websocket.send(JSON.stringify({ type: "ping" }));
+            } else {
+              clearInterval(pingInterval);
+            }
+          }, 30000);
+        };
+
+        websocket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+
+            // Handle vehicle status updates from MQTT LWT
+            if (data.type === "vehicle_status") {
+              setVehicleStatuses((prev) => ({
+                ...prev,
+                [data.vehicle_code]: {
+                  status: data.status,
+                  timestamp: data.timestamp,
+                  vehicle_code: data.vehicle_code,
+                },
+              }));
+            } else if (data.type === "error") {
+              setError(data.message);
+            }
+          } catch (err) {
+            console.error("Error parsing WebSocket message:", err);
+          }
+        };
+
+        websocket.onerror = () => {
+          setIsConnected(false);
+          setError("WebSocket connection error");
+        };
+
+        websocket.onclose = () => {
+          setIsConnected(false);
+          if (pingInterval) {
             clearInterval(pingInterval);
           }
-        }, 30000);
-      };
 
-      websocket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          // Handle vehicle status updates from MQTT LWT
-          if (data.type === "vehicle_status") {
-            setVehicleStatuses((prev) => ({
-              ...prev,
-              [data.vehicle_code]: {
-                status: data.status,
-                timestamp: data.timestamp,
-                vehicle_code: data.vehicle_code,
-              },
-            }));
-          } else if (data.type === "pong") {
-            // Heartbeat response
-          } else if (data.type === "error") {
-            setError(data.message);
-          }
-        } catch (err) {
-          console.error("Error parsing WebSocket message:", err);
-        }
-      };
-
-      websocket.onerror = () => {
+          // Reconnect with exponential backoff
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+            connect();
+          }, reconnectDelay);
+        };
+      })().catch(() => {
         setIsConnected(false);
-        setError("WebSocket connection error");
-      };
-
-      websocket.onclose = () => {
-        setIsConnected(false);
-
-        // Reconnect with exponential backoff
-        reconnectTimeoutRef.current = setTimeout(() => {
-          reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
-          connect();
-        }, reconnectDelay);
-      };
+        setError("WebSocket authentication failed");
+      });
     };
 
     connect();
@@ -160,7 +169,7 @@ export const VehicleConnectionProvider = ({ children }) => {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [fetchInitialStatuses]);
+  }, []);
 
   useEffect(() => {
     // Load initial statuses from backend on mount
@@ -179,12 +188,7 @@ export const VehicleConnectionProvider = ({ children }) => {
     // Then connect WebSocket for real-time updates
     const cleanup = connectWebSocket();
     return cleanup;
-  }, [
-    fetchInitialStatuses,
-    connectWebSocket,
-    isPollingMode,
-    REALTIME_POLL_INTERVAL_MS,
-  ]);
+  }, [fetchInitialStatuses, connectWebSocket, isPollingMode]);
 
   // Re-fetch statuses when user logs in (token becomes available)
   useEffect(() => {

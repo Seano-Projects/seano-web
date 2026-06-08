@@ -4,6 +4,7 @@ import {
   REALTIME_MODE,
   REALTIME_POLL_INTERVAL_MS
 } from '../utils/realtimeConfig'
+import { getAuthenticatedWebSocketUrl } from '../utils/wsAuth'
 
 const toNumber = value => {
   const num = Number(value)
@@ -154,9 +155,6 @@ export const useADCPData = (vehicle = null) => {
   }, [fetchHistoricalData])
 
   const connectWebSocket = useCallback(() => {
-    const token = localStorage.getItem('access_token')
-    if (!token) return
-
     let websocket = null
     let pingInterval = null
     let reconnectTimeout = null
@@ -165,28 +163,30 @@ export const useADCPData = (vehicle = null) => {
     let reconnectDelay = 1000
 
     const connect = () => {
-      const wsUrl = `${WS_URL}/ws/logs?token=${token}`
-      websocket = new WebSocket(wsUrl)
+      ;(async () => {
+        const wsUrl = await getAuthenticatedWebSocketUrl(WS_URL, '/ws/logs')
+        if (!wsUrl || isIntentionalClose) return
+        websocket = new WebSocket(wsUrl)
 
-      websocket.onopen = () => {
-        setIsConnected(true)
-        setError(null)
-        reconnectDelay = 1000
+        websocket.onopen = () => {
+          setIsConnected(true)
+          setError(null)
+          reconnectDelay = 1000
 
-        if (websocket?.readyState === WebSocket.OPEN) {
-          websocket.send(JSON.stringify({ type: 'subscribe' }))
+          if (websocket?.readyState === WebSocket.OPEN) {
+            websocket.send(JSON.stringify({ type: 'subscribe' }))
+          }
+
+          pingInterval = setInterval(() => {
+            if (websocket?.readyState === WebSocket.OPEN) {
+              websocket.send(JSON.stringify({ type: 'ping' }))
+            } else {
+              clearInterval(pingInterval)
+            }
+          }, 30000)
         }
 
-        pingInterval = setInterval(() => {
-          if (websocket?.readyState === WebSocket.OPEN) {
-            websocket.send(JSON.stringify({ type: 'ping' }))
-          } else {
-            clearInterval(pingInterval)
-          }
-        }, 30000)
-      }
-
-      websocket.onmessage = event => {
+        websocket.onmessage = event => {
         try {
           const data = JSON.parse(event.data)
           const messageType = data.message_type || data.type
@@ -243,26 +243,30 @@ export const useADCPData = (vehicle = null) => {
         } catch {
           // Ignore malformed websocket messages
         }
-      }
-
-      websocket.onerror = () => {
-        setIsConnected(false)
-        setError('WebSocket connection error')
-      }
-
-      websocket.onclose = () => {
-        setIsConnected(false)
-        if (pingInterval) {
-          clearInterval(pingInterval)
-          pingInterval = null
         }
-        if (!isIntentionalClose) {
-          reconnectTimeout = setTimeout(() => {
-            reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay)
-            connect()
-          }, reconnectDelay)
+
+        websocket.onerror = () => {
+          setIsConnected(false)
+          setError('WebSocket connection error')
         }
-      }
+
+        websocket.onclose = () => {
+          setIsConnected(false)
+          if (pingInterval) {
+            clearInterval(pingInterval)
+            pingInterval = null
+          }
+          if (!isIntentionalClose) {
+            reconnectTimeout = setTimeout(() => {
+              reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay)
+              connect()
+            }, reconnectDelay)
+          }
+        }
+      })().catch(() => {
+        setIsConnected(false)
+        setError('WebSocket authentication failed')
+      })
     }
 
     connect()

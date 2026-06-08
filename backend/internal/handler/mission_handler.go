@@ -183,7 +183,7 @@ func (h *MissionHandler) GetMissionByID(c *fiber.Ctx) error {
 	// Check ownership
 	userID := c.Locals("user_id").(uint)
 	role := c.Locals("role").(string)
-	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
+	if role != "admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to view this mission",
 		})
@@ -225,7 +225,7 @@ func (h *MissionHandler) UpdateMission(c *fiber.Ctx) error {
 	// Check ownership
 	userID := c.Locals("user_id").(uint)
 	role := c.Locals("role").(string)
-	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
+	if role != "admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to update this mission",
 		})
@@ -312,7 +312,7 @@ func (h *MissionHandler) UploadMissionToVehicle(c *fiber.Ctx) error {
 
 	userID := c.Locals("user_id").(uint)
 	role := c.Locals("role").(string)
-	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
+	if role != "admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to upload this mission",
 		})
@@ -338,7 +338,7 @@ func (h *MissionHandler) UploadMissionToVehicle(c *fiber.Ctx) error {
 		})
 	}
 
-	if role != "Admin" && vehicle.UserID != userID {
+	if role != "admin" && vehicle.UserID != userID {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to use this vehicle",
 		})
@@ -604,7 +604,7 @@ func (h *MissionHandler) ClearMission(c *fiber.Ctx) error {
 
 	userID := c.Locals("user_id").(uint)
 	role := c.Locals("role").(string)
-	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
+	if role != "admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to clear this mission",
 		})
@@ -646,7 +646,7 @@ func (h *MissionHandler) DeleteMission(c *fiber.Ctx) error {
 	// Check ownership
 	userID := c.Locals("user_id").(uint)
 	role := c.Locals("role").(string)
-	if role != "Admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
+	if role != "admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "You don't have permission to delete this mission",
 		})

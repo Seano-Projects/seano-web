@@ -10,7 +10,8 @@ import {
 } from "react-icons/fa6";
 import { VehicleDropdown } from "../";
 import useTranslation from "../../../hooks/useTranslation";
-import { useLogData, useVehicleConnectionStatus } from "../../../hooks";
+import { useVehicleConnectionStatus } from "../../../hooks";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
 
 const VehicleQuickView = ({
   vehicles,
@@ -18,7 +19,7 @@ const VehicleQuickView = ({
   setSelectedVehicleId,
 }) => {
   const { t } = useTranslation();
-  const { vehicleLogs, websocket } = useLogData();
+  const { vehicleLogs, websocket } = useLogDataContext();
   const { getVehicleStatus, isVehicleOnline } = useVehicleConnectionStatus();
 
   // Find selected vehicle from vehicles array
@@ -151,7 +152,7 @@ const VehicleQuickView = ({
 
     // Fallback to vehicle summary data (might be outdated)
     return {
-      status: selectedVehicle.status || t("dashboard.vehicleQuickView.unknown"),
+      status: connectionStatus.text,
       lastUpdate: formatTimeAgo(selectedVehicle.updated_at),
       battery: selectedVehicle.battery_level || 0,
       speed: selectedVehicle.speed ? `${selectedVehicle.speed} m/s` : "0 m/s",

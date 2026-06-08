@@ -20,7 +20,7 @@ import { FaHome, FaEdit, FaSearch } from "react-icons/fa";
 import { FaX } from "react-icons/fa6";
 import { toast } from "../../ui";
 import { useVehicleData } from "../../../hooks";
-import { useLogData } from "../../../hooks/useLogData";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
 import usvPointIcon from "../../../assets/usv-point.webp";
 
 // Fix default markers
@@ -247,7 +247,7 @@ const MissionMap = ({
   const { vehicles } = useVehicleData();
 
   // Get real-time vehicle logs for accurate heading
-  const { vehicleLogs } = useLogData();
+  const { vehicleLogs } = useLogDataContext();
 
   // Get selected vehicle object from vehicles list
   const selectedVehicle = selectedVehicleId

@@ -9,13 +9,14 @@ import {
 } from "react-icons/fa";
 import { MdGpsFixed, MdGpsNotFixed } from "react-icons/md";
 import useVehicleData from "../../../hooks/useVehicleData";
-import { useLogData, useVehicleConnectionStatus } from "../../../hooks";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
+import { useVehicleConnectionStatus } from "../../../hooks";
 import useTranslation from "../../../hooks/useTranslation";
 
 const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
   const { t } = useTranslation();
   const { vehicles, loading } = useVehicleData();
-  const { vehicleLogs } = useLogData(); // Get vehicle logs from WebSocket
+  const { vehicleLogs } = useLogDataContext(); // Get vehicle logs from WebSocket
   const { getVehicleStatus } = useVehicleConnectionStatus(); // MQTT LWT status
   const [showTimeout, setShowTimeout] = useState(false);
   const [isConnected, setIsConnected] = useState(false);

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { API_ENDPOINTS } from '../config'
+import { clearCachedWebSocketToken } from '../utils/wsAuth'
 
 const useAuth = () => {
   const [loading, setLoading] = useState(false)
@@ -19,6 +20,7 @@ const useAuth = () => {
 
       localStorage.setItem('access_token', res.data.access_token)
       localStorage.setItem('user', JSON.stringify(res.data.user))
+      clearCachedWebSocketToken()
 
       return { success: true, data: res.data }
     } catch (err) {
@@ -67,7 +69,7 @@ const useAuth = () => {
           error: errorMsg
         }
       }
-    } catch (err) {
+    } catch {
       const errorMessage = 'Unable to connect to server. Please check your internet connection and try again.'
       setError(errorMessage)
       return { success: false, error: errorMessage }
@@ -103,7 +105,7 @@ const useAuth = () => {
           error: data.detail || 'Verification failed'
         }
       }
-    } catch (err) {
+    } catch {
       const errorMessage = 'Server error. Please try again later.'
       setError(errorMessage)
       return { success: false, error: errorMessage }
@@ -143,7 +145,7 @@ const useAuth = () => {
           error: errorMsg
         }
       }
-    } catch (err) {
+    } catch {
       const errorMessage = 'Unable to connect to server. Please check your internet connection.'
       setError(errorMessage)
       return { success: false, error: errorMessage }
@@ -156,6 +158,7 @@ const useAuth = () => {
   const logout = () => {
     localStorage.removeItem('access_token')
     localStorage.removeItem('user')
+    clearCachedWebSocketToken()
   }
 
   // Get current user
@@ -163,7 +166,7 @@ const useAuth = () => {
     try {
       const user = localStorage.getItem('user')
       return user ? JSON.parse(user) : null
-    } catch (err) {
+    } catch {
       return null
     }
   }

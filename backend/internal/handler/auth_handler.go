@@ -18,6 +18,18 @@ func isSecureCookie() bool {
 	return os.Getenv("COOKIE_SECURE") == "true" || os.Getenv("APP_ENV") == "production"
 }
 
+func buildRefreshCookie(value string, maxAge int) *fiber.Cookie {
+	return &fiber.Cookie{
+		Name:     "refresh_token",
+		Value:    value,
+		MaxAge:   maxAge,
+		HTTPOnly: true,
+		Secure:   isSecureCookie(),
+		SameSite: "Lax",
+		Path:     "/",
+	}
+}
+
 type AuthHandler struct {
 	DB           *gorm.DB
 	EmailService *util.EmailService
@@ -65,7 +77,6 @@ func (h *AuthHandler) RegisterEmail(c *fiber.Ctx) error {
 
 	if err := h.EmailService.SendVerificationEmail(user.Email, token); err != nil {
 		log.Printf("Failed to send email: %v", err)
-		log.Printf("Verification token for %s: %s", user.Email, token)
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to send verification email. Please contact support.",
 		})
@@ -153,9 +164,9 @@ func (h *AuthHandler) SetCredentials(c *fiber.Ctx) error {
 			"error": "Password is required.",
 		})
 	}
-	if len(req.Password) < 6 {
+	if len(req.Password) < 8 {
 		return c.Status(400).JSON(fiber.Map{
-			"error": "Password must be at least 6 characters long.",
+			"error": "Password must be at least 8 characters long.",
 		})
 	}
 
@@ -205,24 +216,16 @@ func (h *AuthHandler) SetCredentials(c *fiber.Ctx) error {
 	// Get client info
 	ipAddress := c.IP()
 	userAgent := c.Get("User-Agent")
-	
+
 	repository.UpdateRefreshTokenWithContext(h.DB, user.ID, refreshToken, ipAddress, userAgent)
 
 	// Set refresh token as HTTP-only cookie
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		MaxAge:   7 * 24 * 60 * 60, // 7 days in seconds
-		HTTPOnly: true,
-		Secure:   isSecureCookie(),
-		SameSite: "Lax",
-	})
+	c.Cookie(buildRefreshCookie(refreshToken, 7*24*60*60))
 
 	return c.Status(201).JSON(model.LoginResponse{
-		User:         model.ToUserResponse(user),
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken, // Also return in body for localStorage
-		TokenType:    "bearer",
+		User:        model.ToUserResponse(user),
+		AccessToken: accessToken,
+		TokenType:   "bearer",
 	})
 }
 
@@ -265,7 +268,6 @@ func (h *AuthHandler) ResendVerification(c *fiber.Ctx) error {
 
 	if err := h.EmailService.SendVerificationEmail(req.Email, token); err != nil {
 		log.Printf("Failed to send email: %v", err)
-		log.Printf("New verification token for %s: %s", req.Email, token)
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to send verification email"})
 	}
 
@@ -333,24 +335,16 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	// Get client info
 	ipAddress := c.IP()
 	userAgent := c.Get("User-Agent")
-	
+
 	repository.UpdateRefreshTokenWithContext(h.DB, user.ID, refreshToken, ipAddress, userAgent)
 
 	// Set refresh token as HTTP-only cookie
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		MaxAge:   7 * 24 * 60 * 60, // 7 days in seconds
-		HTTPOnly: true,
-		Secure:   isSecureCookie(),
-		SameSite: "Lax",
-	})
+	c.Cookie(buildRefreshCookie(refreshToken, 7*24*60*60))
 
 	return c.JSON(model.LoginResponse{
-		User:         model.ToUserResponse(user),
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken, // Also return in body for localStorage
-		TokenType:    "bearer",
+		User:        model.ToUserResponse(user),
+		AccessToken: accessToken,
+		TokenType:   "bearer",
 	})
 }
 
@@ -388,7 +382,7 @@ func (h *AuthHandler) GetMe(c *fiber.Ctx) error {
 func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 	// Try to get refresh token from cookie first, then from body
 	refreshToken := c.Cookies("refresh_token")
-	
+
 	if refreshToken == "" {
 		// Try to get from request body
 		var req struct {
@@ -398,7 +392,7 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 			refreshToken = req.RefreshToken
 		}
 	}
-	
+
 	if refreshToken == "" {
 		return c.Status(401).JSON(fiber.Map{"error": "Refresh token not found"})
 	}
@@ -413,12 +407,12 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 		roleName = user.Role.Name
 	}
 	accessToken, _ := util.GenerateAccessToken(user.ID, user.Email, roleName)
-	
+
 	// Don't create new refresh token every time - just return the same one
 	// Only create new refresh token if the old one is close to expiry (< 1 day)
 	var currentToken model.RefreshToken
-	h.DB.Where("token = ?", refreshToken).First(&currentToken)
-	
+	h.DB.Where("token = ?", util.HashToken(refreshToken)).First(&currentToken)
+
 	newRefreshToken := refreshToken // Keep same token
 	if time.Until(currentToken.ExpiresAt) < 24*time.Hour {
 		// Token expires soon, create new one
@@ -429,20 +423,12 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 	}
 
 	// Set new refresh token as HTTP-only cookie
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    newRefreshToken,
-		MaxAge:   7 * 24 * 60 * 60, // 7 days in seconds
-		HTTPOnly: true,
-		Secure:   isSecureCookie(),
-		SameSite: "Lax",
-	})
+	c.Cookie(buildRefreshCookie(newRefreshToken, 7*24*60*60))
 
 	return c.JSON(model.RefreshResponse{
-		User:         model.ToUserResponse(user),
-		AccessToken:  accessToken,
-		RefreshToken: newRefreshToken, // Return new refresh token
-		TokenType:    "bearer",
+		User:        model.ToUserResponse(user),
+		AccessToken: accessToken,
+		TokenType:   "bearer",
 	})
 }
 
@@ -477,14 +463,24 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	}
 
 	// Clear cookie
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    "",
-		MaxAge:   -1,
-		HTTPOnly: true,
-	})
+	c.Cookie(buildRefreshCookie("", -1))
 
 	return c.JSON(fiber.Map{"message": "Logged out successfully"})
+}
+
+func (h *AuthHandler) CreateWebSocketToken(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
+	email, _ := c.Locals("email").(string)
+	role, _ := c.Locals("role").(string)
+
+	wsToken, err := util.GenerateWebSocketToken(userID, email, role)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create WebSocket token",
+		})
+	}
+
+	return c.JSON(fiber.Map{"token": wsToken})
 }
 
 // ForgotPassword godoc
@@ -555,8 +551,8 @@ func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
 	if req.Token == "" || req.Password == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "Token and password are required."})
 	}
-	if len(req.Password) < 6 {
-		return c.Status(400).JSON(fiber.Map{"error": "Password must be at least 6 characters."})
+	if len(req.Password) < 8 {
+		return c.Status(400).JSON(fiber.Map{"error": "Password must be at least 8 characters."})
 	}
 
 	user, err := repository.GetUserByVerificationToken(h.DB, req.Token)

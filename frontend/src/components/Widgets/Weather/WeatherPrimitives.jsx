@@ -20,7 +20,7 @@ export const ForecastRow = ({ dayLabel, min, max, iconCode, allMin, allMax }) =>
       <span className="w-8 text-xs text-gray-500 dark:text-gray-400 shrink-0">{dayLabel}</span>
       <img src={OWM_ICON(iconCode, "")} alt="" className="w-6 h-6 shrink-0" />
       <span className="w-8 text-xs text-right text-gray-400 dark:text-gray-500 shrink-0">{min}°</span>
-      <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">``
+      <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
         <div
           className="absolute h-full bg-blue-700 dark:bg-blue-500 rounded-full"
           style={{ left: `${barLeft}%`, width: `${barWidth}%` }}

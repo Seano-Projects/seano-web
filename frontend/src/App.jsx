@@ -18,6 +18,7 @@ import {
   SelectedVehicleProvider,
   useSelectedVehicleContext,
 } from "./contexts/SelectedVehicleContext";
+import { LogDataProvider } from "./contexts/LogDataContext";
 
 // Setup React Query client dengan caching configuration
 const queryClient = new QueryClient({
@@ -655,7 +656,9 @@ const AppWithRouter = () => (
       <AuthProvider>
         <PermissionProvider>
           <SelectedVehicleProvider>
-            <App />
+            <LogDataProvider>
+              <App />
+            </LogDataProvider>
           </SelectedVehicleProvider>
         </PermissionProvider>
       </AuthProvider>

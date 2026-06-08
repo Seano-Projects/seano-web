@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { FaSun, FaMoon } from "react-icons/fa";
+import { MapContainer, TileLayer } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import useTitle from "../hooks/useTitle";
 import { Title, ConfirmModal } from "../components/ui";
 import useTranslation from "../hooks/useTranslation";
@@ -67,6 +69,12 @@ const Settings = ({ darkMode, toggleDarkMode }) => {
     { id: "dark", label: "Dark" },
   ];
 
+  const TILE_URLS = {
+    street: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  };
+
   const languages = [
     { id: "en", label: "English", flag: "gb" },
     { id: "id", label: "Bahasa Indonesia", flag: "id" },
@@ -131,6 +139,22 @@ const Settings = ({ darkMode, toggleDarkMode }) => {
                   {opt.label}
                 </button>
               ))}
+            </div>
+            <div className="mt-3 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700" style={{ height: 180 }}>
+              <MapContainer
+                key={mapTile}
+                center={[-6.2, 106.816]}
+                zoom={13}
+                className="w-full h-full"
+                style={{ height: "100%", width: "100%" }}
+                zoomControl={false}
+                dragging={false}
+                scrollWheelZoom={false}
+                doubleClickZoom={false}
+                attributionControl={false}
+              >
+                <TileLayer url={TILE_URLS[mapTile] || TILE_URLS.street} />
+              </MapContainer>
             </div>
           </div>
         </Card>

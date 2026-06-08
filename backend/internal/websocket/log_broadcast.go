@@ -110,7 +110,11 @@ func (h *Hub) BroadcastVehicleLog(data VehicleLogData, timestamp string, wsSentA
 		return err
 	}
 	
-	h.broadcast <- jsonData
+	select {
+	case h.broadcast <- jsonData:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping vehicle log ID=%d", data.ID)
+	}
 	log.Printf("Broadcasted vehicle log ID=%d to %d clients", data.ID, h.GetClientCount())
 	return nil
 }
@@ -134,7 +138,11 @@ func (h *Hub) BroadcastSensorLog(data SensorLogData, timestamp string, wsSentAt 
 		return err
 	}
 	
-	h.broadcast <- jsonData
+	select {
+	case h.broadcast <- jsonData:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping sensor log ID=%d", data.ID)
+	}
 	log.Printf("Broadcasted sensor log ID=%d to %d clients", data.ID, h.GetClientCount())
 	return nil
 }
@@ -153,7 +161,11 @@ func (h *Hub) BroadcastRawLog(data RawLogData, timestamp string) error {
 		return err
 	}
 	
-	h.broadcast <- jsonData
+	select {
+	case h.broadcast <- jsonData:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping raw log ID=%d", data.ID)
+	}
 	log.Printf("Broadcasted raw log ID=%d to %d clients", data.ID, h.GetClientCount())
 	return nil
 }
@@ -210,7 +222,11 @@ func (h *Hub) BroadcastCommandLog(data CommandLogData, wsSentAt string) error {
 		return err
 	}
 
-	h.broadcast <- jsonData
+	select {
+	case h.broadcast <- jsonData:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping command log")
+	}
 	return nil
 }
 
@@ -228,7 +244,11 @@ func (h *Hub) BroadcastWaypointLog(data WaypointLogData) error {
 		return err
 	}
 
-	h.broadcast <- jsonData
+	select {
+	case h.broadcast <- jsonData:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping waypoint log")
+	}
 	return nil
 }
 
@@ -240,7 +260,11 @@ func (h *Hub) BroadcastToVehicle(vehicleID uint, data interface{}) error {
 		return err
 	}
 
-	h.broadcast <- jsonData
+	select {
+	case h.broadcast <- jsonData:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping vehicle %d message", vehicleID)
+	}
 	log.Printf("Broadcasted to vehicle %d: %d clients", vehicleID, h.GetClientCount())
 	return nil
 }

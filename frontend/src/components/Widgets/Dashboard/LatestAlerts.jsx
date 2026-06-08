@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FaBell } from "react-icons/fa6";
+import { FaEye } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { useAlertData } from "../../../hooks/useAlertData";
 import { HiDotsVertical } from "react-icons/hi";
@@ -114,8 +115,8 @@ const LatestAlerts = () => {
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors"
                 >
-                  <FaBell
-                    size={12}
+                  <FaEye
+                    size={18}
                     className="text-gray-400 dark:text-gray-500"
                   />
                   {t("dashboard.latestAlerts.viewAll")}

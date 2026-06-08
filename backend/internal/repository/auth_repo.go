@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -8,6 +10,11 @@ import (
 
 	"gorm.io/gorm"
 )
+
+func hashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
 
 func CreateUserWithEmail(db *gorm.DB, email, token string) (*model.User, error) {
 	var count int64
@@ -18,8 +25,8 @@ func CreateUserWithEmail(db *gorm.DB, email, token string) (*model.User, error) 
 
 	user := &model.User{
 		Email:              email,
-		VerificationToken:  token,
-		VerificationExpiry: time.Now().Add(24 * time.Hour), 
+		VerificationToken:  hashToken(token),
+		VerificationExpiry: time.Now().Add(24 * time.Hour),
 		IsVerified:         false,
 	}
 
@@ -33,8 +40,8 @@ func CreateUserWithEmail(db *gorm.DB, email, token string) (*model.User, error) 
 
 func GetUserByVerificationToken(db *gorm.DB, token string) (*model.User, error) {
 	var user model.User
-	result := db.Where("verification_token = ? AND verification_expiry > ?", token, time.Now()).First(&user)
-	
+	result := db.Where("verification_token = ? AND verification_expiry > ?", hashToken(token), time.Now()).First(&user)
+
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, errors.New("invalid or expired token")
@@ -58,7 +65,7 @@ func SetUserCredentials(db *gorm.DB, userID uint, username, hashedPassword strin
 func GetUserByEmail(db *gorm.DB, email string) (*model.User, error) {
 	var user model.User
 	result := db.Preload("Role").Where("email = ?", email).First(&user)
-	
+
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -70,43 +77,45 @@ func GetUserByEmail(db *gorm.DB, email string) (*model.User, error) {
 }
 
 func CreateRefreshToken(db *gorm.DB, userID uint, refreshToken, deviceInfo, ipAddress, userAgent string) error {
+	hashedToken := hashToken(refreshToken)
+
 	// Clean expired tokens first
 	db.Where("expires_at < ?", time.Now()).Delete(&model.RefreshToken{})
-	
+
 	// Check if token already exists for this user from same IP/UserAgent
 	var existingToken model.RefreshToken
 	result := db.Where("user_id = ? AND ip_address = ? AND user_agent = ?", userID, ipAddress, userAgent).First(&existingToken)
-	
+
 	if result.Error == nil {
 		// Update existing token
-		existingToken.Token = refreshToken
+		existingToken.Token = hashedToken
 		existingToken.LastUsedAt = time.Now()
 		existingToken.ExpiresAt = time.Now().Add(7 * 24 * time.Hour)
 		return db.Save(&existingToken).Error
 	}
-	
+
 	// Count existing tokens for user
 	var count int64
 	db.Model(&model.RefreshToken{}).Where("user_id = ?", userID).Count(&count)
-	
+
 	// If user has 4+ tokens, remove oldest one
 	if count >= 4 {
 		var oldestToken model.RefreshToken
 		db.Where("user_id = ?", userID).Order("last_used_at ASC").First(&oldestToken)
 		db.Delete(&oldestToken)
 	}
-	
+
 	// Create new token
 	newToken := &model.RefreshToken{
 		UserID:     userID,
-		Token:      refreshToken,
+		Token:      hashedToken,
 		DeviceInfo: deviceInfo,
 		IPAddress:  ipAddress,
 		UserAgent:  userAgent,
 		ExpiresAt:  time.Now().Add(7 * 24 * time.Hour),
 		LastUsedAt: time.Now(),
 	}
-	
+
 	return db.Create(newToken).Error
 }
 
@@ -120,25 +129,25 @@ func UpdateRefreshTokenWithContext(db *gorm.DB, userID uint, refreshToken, ipAdd
 
 func GetUserByRefreshToken(db *gorm.DB, refreshToken string) (*model.User, error) {
 	var token model.RefreshToken
-	result := db.Where("token = ? AND expires_at > ?", refreshToken, time.Now()).First(&token)
-	
+	result := db.Where("token = ? AND expires_at > ?", hashToken(refreshToken), time.Now()).First(&token)
+
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, errors.New("invalid refresh token")
 		}
 		return nil, result.Error
 	}
-	
+
 	// Update last used time (don't create new token)
 	db.Model(&token).Update("last_used_at", time.Now())
-	
+
 	// Get user with role
 	var user model.User
 	result = db.Preload("Role").First(&user, token.UserID)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	
+
 	return &user, nil
 }
 
@@ -147,7 +156,7 @@ func ClearRefreshToken(db *gorm.DB, userID uint) error {
 }
 
 func ClearSpecificRefreshToken(db *gorm.DB, refreshToken string) error {
-	return db.Where("token = ?", refreshToken).Delete(&model.RefreshToken{}).Error
+	return db.Where("token = ?", hashToken(refreshToken)).Delete(&model.RefreshToken{}).Error
 }
 
 func GetActiveSessionsByUserID(db *gorm.DB, userID uint) ([]model.RefreshToken, error) {
@@ -166,7 +175,7 @@ func GetAllActiveSessions(db *gorm.DB) ([]model.RefreshToken, error) {
 
 func UpdateVerificationToken(db *gorm.DB, email, token string) error {
 	return db.Model(&model.User{}).Where("email = ?", email).Updates(map[string]interface{}{
-		"verification_token":  token,
+		"verification_token":  hashToken(token),
 		"verification_expiry": time.Now().Add(24 * time.Hour),
 	}).Error
 }

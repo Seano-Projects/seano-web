@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import useTitle from "../../hooks/useTitle";
 import { Title } from "../../components/ui";
 import {
@@ -33,6 +33,7 @@ const CTD = () => {
   const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [selectedMetric, setSelectedMetric] = useState("temperature");
 
   // Get CTD data from WebSocket + historical REST API
   const { ctdData, isConnected } = useCTDData(selectedVehicle);
@@ -181,12 +182,19 @@ const CTD = () => {
           <TimeSeriesChart ctdData={filteredData} />
         </div>
         <div className="min-w-0">
-          <DepthProfile ctdData={filteredData} />
+          <DepthProfile
+            ctdData={filteredData}
+            selectedParameter={selectedMetric}
+            onParameterChange={setSelectedMetric}
+          />
         </div>
       </div>
 
       <div className="mb-4">
-        <CTDSectionHeatmap ctdData={filteredData} />
+        <CTDSectionHeatmap
+          ctdData={filteredData}
+          metric={selectedMetric}
+        />
       </div>
 
       {/* CTD Table Component */}

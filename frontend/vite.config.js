@@ -16,7 +16,7 @@ export default defineConfig({
     tailwindcss(),
     commonjs({
       filter (id) {
-        if (id.includes('react-flight-indicators')) {
+        if (id.includes('react-flight-indicators') || id.includes('leaflet-draw')) {
           return true
         }
         return false
@@ -77,6 +77,10 @@ export default defineConfig({
       output: {
         manualChunks: undefined
       }
+    },
+    commonjsOptions: {
+      transformMixedEsModules: true,
+      include: [/node_modules/]
     },
     // Remove console and debugger in production
     esbuildOptions: {

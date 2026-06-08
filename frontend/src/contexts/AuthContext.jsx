@@ -1,7 +1,8 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_ENDPOINTS } from "../config";
 import axiosInstance from "../utils/axiosConfig";
+import { clearCachedWebSocketToken } from "../utils/wsAuth";
 import { toast } from "../components/ui";
 
 // Create Context
@@ -13,22 +14,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Check authentication on mount
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  // Periodic token refresh to prevent expiration
-  useEffect(() => {
-    const checkAndRefreshToken = async () => {
+  const checkAndRefreshToken = useCallback(async () => {
       const token = localStorage.getItem("access_token");
-      const refreshToken = localStorage.getItem("refresh_token");
 
-      // If no tokens, clear user state
-      if (!token || !refreshToken) {
+      // If no access token, clear in-memory state.
+      if (!token) {
         if (user) {
           setUser(null);
           localStorage.removeItem("user");
+          clearCachedWebSocketToken();
         }
         return;
       }
@@ -51,19 +45,85 @@ export function AuthProvider({ children }) {
             if (error.response?.status === 401) {
               setUser(null);
               localStorage.removeItem("access_token");
-              localStorage.removeItem("refresh_token");
               localStorage.removeItem("user");
+              clearCachedWebSocketToken();
             }
           }
         }
-      } catch (e) {
+      } catch {
         // If token is invalid, clear everything
         setUser(null);
         localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
         localStorage.removeItem("user");
+        clearCachedWebSocketToken();
       }
-    };
+    }, [user]);
+
+  // Function to check if user is authenticated
+  const checkAuth = useCallback(async () => {
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      // Try to restore user from localStorage if available
+      const savedUser = localStorage.getItem("user");
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {
+          localStorage.removeItem("user");
+        }
+      }
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Use axiosInstance instead of fetch to leverage auto-refresh interceptor
+      const response = await axiosInstance.get(API_ENDPOINTS.AUTH.ME);
+
+      if (response.status === 200) {
+        const userData = response.data;
+        // Store user with permissions in localStorage for quick access
+        localStorage.setItem("user", JSON.stringify(userData));
+        setUser(userData);
+      } else {
+        // Token invalid, clear storage
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("user");
+        clearCachedWebSocketToken();
+        setUser(null);
+      }
+    } catch (error) {
+      // Only clear storage if it's a 401 error (unauthorized)
+      // Other errors (network, etc.) shouldn't clear tokens
+      if (error.response?.status === 401) {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("user");
+        clearCachedWebSocketToken();
+        setUser(null);
+      } else {
+        // For network errors, try to restore user from localStorage
+        const savedUser = localStorage.getItem("user");
+        if (savedUser && !user) {
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // Check authentication on mount
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  // Periodic token refresh to prevent expiration
+  useEffect(() => {
 
     // Check every 2 minutes
     const interval = setInterval(checkAndRefreshToken, 2 * 60 * 1000);
@@ -92,65 +152,7 @@ export function AuthProvider({ children }) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
     };
-  }, []); // Remove user dependency - check based on tokens in localStorage
-
-  // Function to check if user is authenticated
-  const checkAuth = async () => {
-    const token = localStorage.getItem("access_token");
-
-    if (!token) {
-      // Try to restore user from localStorage if available
-      const savedUser = localStorage.getItem("user");
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch (e) {
-          localStorage.removeItem("user");
-        }
-      }
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Use axiosInstance instead of fetch to leverage auto-refresh interceptor
-      const response = await axiosInstance.get(API_ENDPOINTS.AUTH.ME);
-
-      if (response.status === 200) {
-        const userData = response.data;
-        // Store user with permissions in localStorage for quick access
-        localStorage.setItem("user", JSON.stringify(userData));
-        setUser(userData);
-      } else {
-        // Token invalid, clear storage
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        localStorage.removeItem("user");
-        setUser(null);
-      }
-    } catch (error) {
-      // Only clear storage if it's a 401 error (unauthorized)
-      // Other errors (network, etc.) shouldn't clear tokens
-      if (error.response?.status === 401) {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-        localStorage.removeItem("user");
-        setUser(null);
-      } else {
-        // For network errors, try to restore user from localStorage
-        const savedUser = localStorage.getItem("user");
-        if (savedUser && !user) {
-          try {
-            setUser(JSON.parse(savedUser));
-          } catch (e) {
-            // Ignore parse errors
-          }
-        }
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [checkAndRefreshToken]);
 
   // Login function
   const login = async (email, password) => {
@@ -165,9 +167,7 @@ export function AuthProvider({ children }) {
 
       // Save tokens to localStorage
       localStorage.setItem("access_token", data.access_token);
-      if (data.refresh_token) {
-        localStorage.setItem("refresh_token", data.refresh_token);
-      }
+      clearCachedWebSocketToken();
 
       // Check if user data is in the response
       if (data.user) {
@@ -257,13 +257,13 @@ export function AuthProvider({ children }) {
     try {
       // Use axiosInstance to leverage auto-refresh if token is expired
       await axiosInstance.post(API_ENDPOINTS.AUTH.LOGOUT);
-    } catch (error) {
+    } catch {
       // Continue with logout even if API call fails
     } finally {
       // Clear storage and state
       localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
+      clearCachedWebSocketToken();
       setUser(null);
 
       // Redirect to login

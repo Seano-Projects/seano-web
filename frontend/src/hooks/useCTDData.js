@@ -4,6 +4,7 @@ import {
   REALTIME_MODE,
   REALTIME_POLL_INTERVAL_MS
 } from '../utils/realtimeConfig'
+import { getAuthenticatedWebSocketUrl } from '../utils/wsAuth'
 
 const toNumber = value => {
   const num = Number(value)
@@ -13,7 +14,33 @@ const toNumber = value => {
 const sortLatestFirst = items =>
   [...items].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 
-const normalizeCTDData = (payload, fallback = {}) => {
+const makeKey = entry =>
+  [
+    entry.timestamp,
+    entry.vehicle_code,
+    entry.sensor_code,
+    entry.depth,
+    entry.latitude,
+    entry.longitude
+  ].join('|')
+
+const appendUnique = (existing, entries) => {
+  const incomingEntries = Array.isArray(entries) ? entries : [entries]
+  if (incomingEntries.length === 0) return existing
+
+  const existingKeys = new Set(existing.map(makeKey))
+  const uniqueIncoming = incomingEntries.filter(entry => {
+    const entryKey = makeKey(entry)
+    if (existingKeys.has(entryKey)) return false
+    existingKeys.add(entryKey)
+    return true
+  })
+
+  if (uniqueIncoming.length === 0) return existing
+  return [...uniqueIncoming, ...existing].slice(0, 1000)
+}
+
+const normalizeSingleCTDEntry = (payload, fallback = {}) => {
   const timestamp =
     payload?.timestamp || payload?.date_time || fallback.timestamp || null
   const vehicleCode =
@@ -32,14 +59,22 @@ const normalizeCTDData = (payload, fallback = {}) => {
   const soundVelocity = toNumber(
     payload?.sound_velocity ?? payload?.sound_velocity_ms
   )
-  const latitude = toNumber(payload?.latitude ?? payload?.lat)
-  const longitude = toNumber(payload?.longitude ?? payload?.lon)
-  const altitude = toNumber(payload?.altitude)
+  const latitude = toNumber(
+    payload?.latitude ?? payload?.lat ?? fallback.latitude ?? fallback.lat
+  )
+  const longitude = toNumber(
+    payload?.longitude ?? payload?.lon ?? fallback.longitude ?? fallback.lon
+  )
+  const altitude = toNumber(payload?.altitude ?? fallback.altitude)
   const gpsOk =
     typeof payload?.gps_ok === 'boolean'
       ? payload.gps_ok
       : typeof payload?.gps_ok === 'string'
       ? payload.gps_ok.toLowerCase() === 'true'
+      : typeof fallback?.gps_ok === 'boolean'
+      ? fallback.gps_ok
+      : typeof fallback?.gps_ok === 'string'
+      ? fallback.gps_ok.toLowerCase() === 'true'
       : null
 
   if (
@@ -76,6 +111,46 @@ const normalizeCTDData = (payload, fallback = {}) => {
   }
 }
 
+const normalizeCTDData = (payload, fallback = {}) => {
+  if (Array.isArray(payload?.profile) && payload.profile.length > 0) {
+    return payload.profile
+      .map((profileEntry, profileIndex) =>
+        normalizeSingleCTDEntry(profileEntry, {
+          ...fallback,
+          timestamp:
+            payload?.timestamp ||
+            payload?.date_time ||
+            fallback.timestamp ||
+            null,
+          vehicle_code:
+            payload?.vehicle_code ||
+            fallback.vehicle_code ||
+            fallback.vehicleCode ||
+            '',
+          sensor_code:
+            payload?.sensor_code ||
+            fallback.sensor_code ||
+            fallback.sensorCode ||
+            '',
+          sensor: payload?.sensor || fallback.sensor || null,
+          latitude: payload?.latitude ?? payload?.lat ?? fallback.latitude,
+          longitude: payload?.longitude ?? payload?.lon ?? fallback.longitude,
+          altitude: payload?.altitude ?? fallback.altitude,
+          gps_ok:
+            typeof payload?.gps_ok === 'boolean' ||
+            typeof payload?.gps_ok === 'string'
+              ? payload.gps_ok
+              : fallback.gps_ok,
+          profile_index: profileIndex
+        })
+      )
+      .filter(Boolean)
+  }
+
+  const normalized = normalizeSingleCTDEntry(payload, fallback)
+  return normalized ? [normalized] : []
+}
+
 export const useCTDData = (vehicle = null) => {
   const vehicleCode = vehicle?.code || null
   const vehicleId = vehicle?.id || null
@@ -88,16 +163,6 @@ export const useCTDData = (vehicle = null) => {
   const selectedVehicleCodeRef = useRef(null)
   const fetchRequestIdRef = useRef(0)
   const vehicleCacheRef = useRef(new Map())
-
-  const makeKey = entry =>
-    `${entry.timestamp}|${entry.vehicle_code}|${entry.sensor_code}`
-
-  const appendUnique = (existing, entry) => {
-    const entryKey = makeKey(entry)
-    const hasEntry = existing.some(item => makeKey(item) === entryKey)
-    if (hasEntry) return existing
-    return [entry, ...existing].slice(0, 1000)
-  }
 
   useEffect(() => {
     selectedVehicleCodeRef.current = vehicleCode
@@ -154,20 +219,20 @@ export const useCTDData = (vehicle = null) => {
             return null
           }
 
-          const n = normalizeCTDData(rawData, {
+          const normalizedEntries = normalizeCTDData(rawData, {
             timestamp: log.created_at,
             vehicle_code: log.vehicle?.code,
             sensor_code: log.sensor?.code
           })
-          if (!n) return null
-          if (
-            vehicleCode &&
-            n.vehicle_code.toUpperCase() !== vehicleCode.toUpperCase()
-          )
-            return null
-          return n
+          if (normalizedEntries.length === 0) return []
+          return normalizedEntries.filter(entry => {
+            if (!vehicleCode) return true
+            return (
+              entry.vehicle_code.toUpperCase() === vehicleCode.toUpperCase()
+            )
+          })
         })
-        .filter(Boolean)
+        .flat()
 
       const sorted = sortLatestFirst(normalized)
 
@@ -188,12 +253,6 @@ export const useCTDData = (vehicle = null) => {
   }, [fetchHistoricalData])
 
   const connectWebSocket = useCallback(() => {
-    const token = localStorage.getItem('access_token')
-
-    if (!token) {
-      return
-    }
-
     let websocket = null
     let pingInterval = null
     let reconnectTimeout = null
@@ -202,75 +261,91 @@ export const useCTDData = (vehicle = null) => {
     let reconnectDelay = 1000
 
     const connect = () => {
-      const wsUrl = `${WS_URL}/ws/logs?token=${token}`
+      ;(async () => {
+        const wsUrl = await getAuthenticatedWebSocketUrl(WS_URL, '/ws/logs')
+        if (!wsUrl || isIntentionalClose) return
 
-      websocket = new WebSocket(wsUrl)
+        websocket = new WebSocket(wsUrl)
 
-      websocket.onopen = () => {
-        setIsConnected(true)
-        setError(null)
-        reconnectDelay = 1000
+        websocket.onopen = () => {
+          setIsConnected(true)
+          setError(null)
+          reconnectDelay = 1000
 
-        if (websocket?.readyState === WebSocket.OPEN) {
-          websocket.send(JSON.stringify({ type: 'subscribe' }))
+          if (websocket?.readyState === WebSocket.OPEN) {
+            websocket.send(JSON.stringify({ type: 'subscribe' }))
+          }
+
+          pingInterval = setInterval(() => {
+            if (websocket?.readyState === WebSocket.OPEN) {
+              websocket.send(JSON.stringify({ type: 'ping' }))
+            } else {
+              clearInterval(pingInterval)
+            }
+          }, 30000)
         }
 
-        pingInterval = setInterval(() => {
-          if (websocket?.readyState === WebSocket.OPEN) {
-            websocket.send(JSON.stringify({ type: 'ping' }))
-          } else {
-            clearInterval(pingInterval)
-          }
-        }, 30000)
-      }
-
-      websocket.onmessage = event => {
-        try {
-          const data = JSON.parse(event.data)
-          const messageType = data.message_type || data.type
+        websocket.onmessage = event => {
+          try {
+            const data = JSON.parse(event.data)
+            const messageType = data.message_type || data.type
 
           if (messageType === 'sensor_data' && data.data) {
-            const normalized = normalizeCTDData(data.data, {
+            const normalizedEntries = normalizeCTDData(data.data, {
               timestamp: data.timestamp,
               vehicle_code: data.vehicle_code,
               sensor_code: data.sensor_code
             })
 
-            if (!normalized) {
+            if (normalizedEntries.length === 0) {
               return
             }
 
-            const isCTD = normalized.sensor_code.toUpperCase().includes('CTD')
-            if (!isCTD) {
+            const ctdEntries = normalizedEntries.filter(entry =>
+              entry.sensor_code.toUpperCase().includes('CTD')
+            )
+            if (ctdEntries.length === 0) {
               return
             }
 
-            const normalizedVehicleCode = normalized.vehicle_code.toUpperCase()
             const allCache = vehicleCacheRef.current.get('ALL') || []
-            vehicleCacheRef.current.set(
-              'ALL',
-              appendUnique(allCache, normalized)
-            )
-            const vehicleCache =
-              vehicleCacheRef.current.get(normalizedVehicleCode) || []
-            vehicleCacheRef.current.set(
-              normalizedVehicleCode,
-              appendUnique(vehicleCache, normalized)
-            )
+            vehicleCacheRef.current.set('ALL', appendUnique(allCache, ctdEntries))
+
+            const entriesByVehicle = ctdEntries.reduce((acc, entry) => {
+              const normalizedVehicleCode = entry.vehicle_code.toUpperCase()
+              if (!acc.has(normalizedVehicleCode)) {
+                acc.set(normalizedVehicleCode, [])
+              }
+              acc.get(normalizedVehicleCode).push(entry)
+              return acc
+            }, new Map())
+
+            entriesByVehicle.forEach((entries, normalizedVehicleCode) => {
+              const vehicleCache =
+                vehicleCacheRef.current.get(normalizedVehicleCode) || []
+              vehicleCacheRef.current.set(
+                normalizedVehicleCode,
+                appendUnique(vehicleCache, entries)
+              )
+            })
 
             const activeVehicleCode = selectedVehicleCodeRef.current
-            if (
-              activeVehicleCode &&
-              normalized.vehicle_code.toUpperCase() !== activeVehicleCode
-            ) {
-              return
-            }
+            const visibleEntries = activeVehicleCode
+              ? ctdEntries.filter(
+                  entry => entry.vehicle_code.toUpperCase() === activeVehicleCode
+                )
+              : ctdEntries
 
-            const key = makeKey(normalized)
-            if (!seenKeys.current.has(key)) {
+            const uniqueVisibleEntries = visibleEntries.filter(entry => {
+              const key = makeKey(entry)
+              if (seenKeys.current.has(key)) return false
               seenKeys.current.add(key)
+              return true
+            })
+
+            if (uniqueVisibleEntries.length > 0) {
               setCTDData(prevData => {
-                const newData = [normalized, ...prevData]
+                const newData = [...uniqueVisibleEntries, ...prevData]
                 return newData.slice(0, 1000)
               })
             }
@@ -286,78 +361,96 @@ export const useCTDData = (vehicle = null) => {
               return
             }
 
-            const normalized = normalizeCTDData(rawData, {
+            const normalizedEntries = normalizeCTDData(rawData, {
               timestamp: logPayload.created_at || data.timestamp,
               vehicle_code: logPayload.vehicle?.code,
               sensor_code: logPayload.sensor?.code
             })
 
-            if (!normalized) {
+            if (normalizedEntries.length === 0) {
               return
             }
 
-            const isCTD = normalized.sensor_code.toUpperCase().includes('CTD')
-            if (!isCTD) {
+            const ctdEntries = normalizedEntries.filter(entry =>
+              entry.sensor_code.toUpperCase().includes('CTD')
+            )
+            if (ctdEntries.length === 0) {
               return
             }
 
-            const normalizedVehicleCode = normalized.vehicle_code.toUpperCase()
             const allCache = vehicleCacheRef.current.get('ALL') || []
-            vehicleCacheRef.current.set(
-              'ALL',
-              appendUnique(allCache, normalized)
-            )
-            const vehicleCache =
-              vehicleCacheRef.current.get(normalizedVehicleCode) || []
-            vehicleCacheRef.current.set(
-              normalizedVehicleCode,
-              appendUnique(vehicleCache, normalized)
-            )
+            vehicleCacheRef.current.set('ALL', appendUnique(allCache, ctdEntries))
+
+            const entriesByVehicle = ctdEntries.reduce((acc, entry) => {
+              const normalizedVehicleCode = entry.vehicle_code.toUpperCase()
+              if (!acc.has(normalizedVehicleCode)) {
+                acc.set(normalizedVehicleCode, [])
+              }
+              acc.get(normalizedVehicleCode).push(entry)
+              return acc
+            }, new Map())
+
+            entriesByVehicle.forEach((entries, normalizedVehicleCode) => {
+              const vehicleCache =
+                vehicleCacheRef.current.get(normalizedVehicleCode) || []
+              vehicleCacheRef.current.set(
+                normalizedVehicleCode,
+                appendUnique(vehicleCache, entries)
+              )
+            })
 
             const activeVehicleCode = selectedVehicleCodeRef.current
-            if (
-              activeVehicleCode &&
-              normalized.vehicle_code.toUpperCase() !== activeVehicleCode
-            ) {
-              return
-            }
+            const visibleEntries = activeVehicleCode
+              ? ctdEntries.filter(
+                  entry => entry.vehicle_code.toUpperCase() === activeVehicleCode
+                )
+              : ctdEntries
 
-            const key = makeKey(normalized)
-            if (!seenKeys.current.has(key)) {
+            const uniqueVisibleEntries = visibleEntries.filter(entry => {
+              const key = makeKey(entry)
+              if (seenKeys.current.has(key)) return false
               seenKeys.current.add(key)
+              return true
+            })
+
+            if (uniqueVisibleEntries.length > 0) {
               setCTDData(prevData => {
-                const newData = [normalized, ...prevData]
+                const newData = [...uniqueVisibleEntries, ...prevData]
                 return newData.slice(0, 1000)
               })
             }
           } else if (messageType === 'error') {
             setError(data.message)
           }
-        } catch {
-          // Ignore malformed websocket messages
+          } catch {
+            // Ignore malformed websocket messages
+          }
         }
-      }
 
-      websocket.onerror = () => {
+        websocket.onerror = () => {
+          setIsConnected(false)
+          setError('WebSocket connection error')
+        }
+
+        websocket.onclose = () => {
+          setIsConnected(false)
+
+          if (pingInterval) {
+            clearInterval(pingInterval)
+            pingInterval = null
+          }
+
+          if (!isIntentionalClose) {
+            reconnectTimeout = setTimeout(() => {
+              reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay)
+              connect()
+            }, reconnectDelay)
+          }
+        }
+      })().catch(() => {
         setIsConnected(false)
-        setError('WebSocket connection error')
-      }
-
-      websocket.onclose = () => {
-        setIsConnected(false)
-
-        if (pingInterval) {
-          clearInterval(pingInterval)
-          pingInterval = null
-        }
-
-        if (!isIntentionalClose) {
-          reconnectTimeout = setTimeout(() => {
-            reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay)
-            connect()
-          }, reconnectDelay)
-        }
-      }
+        setError('WebSocket authentication failed')
+      })
     }
 
     connect()
@@ -391,7 +484,7 @@ export const useCTDData = (vehicle = null) => {
     }, REALTIME_POLL_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [fetchHistoricalData, isPollingMode, REALTIME_POLL_INTERVAL_MS])
+  }, [fetchHistoricalData, isPollingMode])
 
   const clearData = useCallback(() => {
     setCTDData([])

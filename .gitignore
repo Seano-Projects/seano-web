@@ -52,3 +52,6 @@ ollama/
 frontend/.env.*
 
 docs/
+
+# Private credentials (NEVER push)
+README-PRIVATE.md

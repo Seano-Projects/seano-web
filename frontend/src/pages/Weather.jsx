@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import useTitle from "../hooks/useTitle";
 import useVehicleData from "../hooks/useVehicleData";
-import { useLogData, useVehicleConnectionStatus } from "../hooks";
+import { useVehicleConnectionStatus } from "../hooks";
+import { useLogDataContext } from "../contexts/LogDataContext";
 import { useWeatherData } from "../hooks/useWeatherData";
 import useTranslation from "../hooks/useTranslation";
 import {
@@ -18,6 +19,7 @@ import {
   PrecipCard,
   CompareCard,
   WeatherCharts,
+  WeatherAIAnalysis,
 } from "../components/Widgets/Weather";
 import {
   OWM_API_KEY,
@@ -36,7 +38,7 @@ const Weather = () => {
     setSelectedVehicleId,
     loading: vehicleLoading,
   } = useVehicleData();
-  const { vehicleLogs } = useLogData();
+  const { vehicleLogs } = useLogDataContext();
   const { getVehicleStatus } = useVehicleConnectionStatus();
 
   const [browserCoords, setBrowserCoords] = useState(null);
@@ -323,6 +325,9 @@ const Weather = () => {
                 tempMax={tempMax}
               />
             )}
+
+            {/* ── AI Operational Analysis ────────────────────────────── */}
+            <WeatherAIAnalysis weather={weather} forecast={forecast} />
 
             <p className="text-xs text-gray-300 dark:text-gray-700 text-right">
               Data by{" "}

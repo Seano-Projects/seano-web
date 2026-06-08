@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { LogSkeleton } from "../../Skeleton";
 import useLoadingTimeout from "../../../hooks/useLoadingTimeout";
-import { useLogData } from "../../../hooks/useLogData";
+import { useLogDataContext } from "../../../contexts/LogDataContext";
 import useTranslation from "../../../hooks/useTranslation";
 
 /**
@@ -22,7 +22,7 @@ import useTranslation from "../../../hooks/useTranslation";
  */
 const SensorDataLog = ({ selectedVehicle }) => {
   const { t } = useTranslation();
-  const { sensorLogs, ws } = useLogData(); // Ambil dari useLogData
+  const { sensorLogs, ws } = useLogDataContext(); // Ambil dari context
   const [hasNewData, setHasNewData] = useState(false);
   const { loading } = useLoadingTimeout(true, 2000);
   const updateTimeoutRef = useRef(null);
@@ -139,19 +139,7 @@ const SensorDataLog = ({ selectedVehicle }) => {
           return (
             <div
               key={log._client_id || log.id || `${log.created_at || log._received_at || "sensor"}-${index}`}
-              className={`p-2 md:p-3 rounded-md border-l-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                sensorTypeName === "Environmental"
-                  ? "border-green-500"
-                  : sensorTypeName === "Accelerometer"
-                    ? "border-blue-500"
-                    : sensorTypeName === "Gyroscope"
-                      ? "border-purple-500"
-                      : sensorTypeName === "Depth"
-                        ? "border-cyan-500"
-                        : sensorTypeName === "GPS"
-                          ? "border-red-500"
-                          : "border-gray-400"
-              }`}
+              className={`p-2 md:p-3 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors`}
             >
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 mb-1.5 md:mb-2">
                 <div className="flex items-center gap-2 flex-wrap">

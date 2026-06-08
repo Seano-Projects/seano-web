@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { FaCheckCircle } from "react-icons/fa";
 import useMissionData from "../../../hooks/useMissionData";
 import useTranslation from "../../../hooks/useTranslation";
 import { LoadingDots, Modal } from "../../ui";
@@ -139,13 +140,13 @@ const MissionModals = ({
                         : "N/A"}
                     </span>
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
                         isCompleted
                           ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                           : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
                       }`}
                     >
-                      {isCompleted && "🔒 "}
+                      {isCompleted && <FaCheckCircle className="text-green-500" />}
                       {mission.status || t("missionComponents.modals.draft")}
                     </span>
                   </div>
