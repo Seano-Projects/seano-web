@@ -1,154 +1,125 @@
 import { HiArrowRight } from "react-icons/hi";
+import { HiPlay } from "react-icons/hi2";
+import { FaStar, FaCheck, FaBolt } from "react-icons/fa6";
 import { motion } from "framer-motion";
-import seanoBoat from "../../../assets/seanoBoat.webp";
-import Gradient1 from "../../../assets/Gradient1.webp";
+import SideRays from "./SideRays";
 
-/**
- * PANDUAN PENGATURAN ANIMASI (TUNING GUIDE):
- *
- * 1. Animasi Kapal Mengapung (motion.img):
- *    - animate={{ y: [0, -20, 0] }}: Mengatur gerakan vertikal. Ubah -20 menjadi -30 untuk gerakan yang lebih jauh.
- *    - transition={{ duration: 6, ... }}: Mengatur kecepatan. Angka lebih kecil = mengapung lebih cepat.
- *
- * 2. Animasi Teks Muncul (variants):
- *    - hidden: { opacity: 0, y: 30 }: Kondisi awal. Perbesar nilai y untuk efek geser ke atas yang lebih jauh.
- *    - visible: { opacity: 1, y: 0 }: Kondisi akhir (muncul sepenuhnya).
- *    - transition={{ duration: 0.8, delay: ... }}: Mengatur kecepatan muncul dan jeda antar elemen.
- */
+const badges = [
+  { icon: <FaStar  className="w-3.5 h-3.5 text-white" />, label: "Autonomous Navigation" },
+  { icon: <FaCheck className="w-3.5 h-3.5 text-white" />, label: "Open Sea Validated"    },
+  { icon: <FaBolt  className="w-3.5 h-3.5 text-white" />, label: "Real-Time Monitoring"  },
+];
 
-const Banner = () => {
-  // Animation variants for staggered text reveal
-  const fadeInUp = {
-    hidden: { opacity: 0, y: 30 },
-    visible: (custom) => ({
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.8,
-        ease: "easeOut",
-        delay: custom * 0.2, // Stagger delay based on index
-      },
-    }),
-  };
-
-  return (
-    <div className="relative min-h-screen w-full from-gray-950 via-gray-900 to-gray-950 overflow-hidden px-4">
-      {/* Content Container */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20">
-        <div className="flex flex-col items-center justify-between gap-12">
-          <div className="flex-1 lg:text-center text-start justify-center space-y-8">
-            {/* Badge */}
-            <motion.div
-              custom={0}
-              initial="hidden"
-              animate="visible"
-              variants={fadeInUp}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-transparent rounded-full border border-primary/30"
-            >
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              <span className="text-sm font-medium text-gray-200">
-                NEW FEATURE : REAL-TIME MONITORING
-              </span>
-            </motion.div>
-
-            {/* Main Heading */}
-            <motion.h1
-              custom={1}
-              initial="hidden"
-              animate="visible"
-              variants={fadeInUp}
-              className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight lg:text-center"
-            >
-              <span className="text-white">Autonomous Ocean</span>{" "}
-              <span className="bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-                Intelligence
-              </span>
-              <br />
-              <span className="text-white">
-                for{" "}
-                <span className="bg-gradient-to-b from-red-600 via-red-500 to-white bg-clip-text text-transparent font-extrabold">
-                  Indonesia
-                </span>{" "}
-                Maritime Future
-              </span>
-            </motion.h1>
-
-            {/* Description */}
-            <motion.p
-              custom={2}
-              initial="hidden"
-              animate="visible"
-              variants={fadeInUp}
-              className="text-lg sm:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed"
-            >
-              SEANO enables real-time ocean monitoring and autonomous missions
-              across Indonesian waters—supporting research, security, and
-              national resilience.
-            </motion.p>
-
-            {/* CTA Buttons */}
-            <motion.div
-              custom={3}
-              initial="hidden"
-              animate="visible"
-              variants={fadeInUp}
-              className="flex flex-row items-center justify-center gap-4 pt-4"
-            >
-              <a
-                href="#learn-more"
-                className="group relative px-3 py-4 bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_100%] bg-left hover:bg-right text-white rounded-full font-semibold shadow-xl hover:shadow-2xl transition-all duration-500 ease-in-out inline-flex items-center gap-2 w-full sm:w-auto justify-center transform hover:scale-105"
-              >
-                Learn More
-                <HiArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
-              </a>
-
-              <a
-                href="#watch-demo"
-                className="group px-3 py-4 bg-transparent border-2 border-gray-700 hover:border-primary text-white rounded-full font-semibold transition-all duration-300 ease-in-out inline-flex items-center gap-2 w-full sm:w-auto justify-center hover:shadow-lg"
-              >
-                Watch Demo
-                <HiArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
-              </a>
-            </motion.div>
-          </div>
-
-          <div className="flex-1 relative w-full mt-10">
-            <div className="relative">
-              {/* Boat Image with Floating Animation */}
-              <motion.img
-                src={seanoBoat}
-                alt="SEANO Autonomous Boat"
-                width={800}
-                height={600}
-                fetchpriority="high"
-                loading="eager"
-                decoding="async"
-                className="relative z-10 w-full h-auto drop-shadow-2xl scale-125"
-                animate={{ y: [0, -10, 0] }}
-                transition={{
-                  duration: 6,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-      <img
-        src={Gradient1}
-        alt="Ocean Gradient Background"
-        width={1920}
-        height={1080}
-        fetchpriority="high"
-        loading="eager"
-        decoding="async"
-        className="absolute inset-x-0 top-60 w-full h-full object-cover scale-130"
-      />
-      {/* Dark Gradient Overlay in Front of Boat (Bottom) */}
-      <div className="absolute inset-x-0 bottom-0 h-1/3 lg:h-3/3 bg-gradient-to-t from-black via-black/50 to-transparent z-20 pointer-events-none"></div>
-    </div>
-  );
+const fadeInUp = {
+  hidden:  { opacity: 0, y: 28 },
+  visible: (i) => ({
+    opacity: 1, y: 0,
+    transition: { duration: 0.75, ease: "easeOut", delay: i * 0.18 },
+  }),
 };
+
+const Banner = () => (
+  <div className="relative min-h-screen w-full overflow-hidden bg-black">
+
+    <SideRays
+      speed={2.5}
+      rayColor1="#0ea5e9"
+      rayColor2="#96c8ff"
+      intensity={2}
+      spread={2}
+      origin="top-right"
+      tilt={0}
+      saturation={1.5}
+      blend={0.75}
+      falloff={1.6}
+      opacity={1}
+    />
+
+    {/* Bottom fade */}
+    <div className="absolute inset-x-0 bottom-0 h-48 bg-linear-to-t from-black to-transparent z-10 pointer-events-none" />
+
+    {/* Content */}
+    <div className="relative z-20 flex flex-col items-center justify-center min-h-screen px-4 text-center">
+      <div className="flex flex-col items-center gap-6 max-w-4xl w-full">
+
+        {/* Title */}
+        <motion.h1
+          custom={0}
+          initial="hidden"
+          animate="visible"
+          variants={fadeInUp}
+          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight"
+        >
+          <span className="text-white">Autonomous Ocean </span>
+          <br className="hidden sm:block" />
+          <span className="bg-linear-to-r from-primary via-secondary to-cyan-400 bg-clip-text text-transparent">
+            Intelligence
+          </span>
+          <span className="text-white"> for </span>
+          <span className="bg-linear-to-b from-red-500 via-red-400 to-white bg-clip-text text-transparent font-extrabold">
+            Indonesia
+          </span>
+        </motion.h1>
+
+        {/* Description */}
+        <motion.p
+          custom={1}
+          initial="hidden"
+          animate="visible"
+          variants={fadeInUp}
+          className="text-gray-300 text-sm sm:text-lg max-w-2xl leading-relaxed px-2 sm:px-0"
+        >
+          SEANO enables real-time ocean monitoring and autonomous missions
+          across Indonesian waters — supporting research, security, and
+          national resilience.
+        </motion.p>
+
+        {/* CTA Buttons */}
+        <motion.div
+          custom={2}
+          initial="hidden"
+          animate="visible"
+          variants={fadeInUp}
+          className="flex flex-col sm:flex-row items-center gap-3 pt-2 w-full sm:w-auto"
+        >
+          <a
+            href="#learn-more"
+            className="group inline-flex items-center justify-center gap-2 w-full sm:w-auto px-7 py-3.5 bg-linear-to-r from-primary via-secondary to-primary bg-size-[200%_100%] bg-left hover:bg-right text-white font-semibold rounded-full shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-105 transition-all duration-500"
+          >
+            Learn More
+            <HiArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </a>
+
+          <a
+            href="#watch-demo"
+            className="group inline-flex items-center justify-center gap-2 w-full sm:w-auto px-7 py-3.5 bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 hover:border-white/40 text-white font-semibold rounded-full transition-all duration-300"
+          >
+            <HiPlay className="w-4 h-4" />
+            Watch Demo
+          </a>
+        </motion.div>
+
+        {/* Trust badges */}
+        <motion.div
+          custom={3}
+          initial="hidden"
+          animate="visible"
+          variants={fadeInUp}
+          className="flex flex-row flex-wrap justify-center gap-4 sm:gap-10 pt-4"
+        >
+          {badges.map((b, i) => (
+            <div key={i} className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                {b.icon}
+              </div>
+              <span className="text-gray-300 text-sm font-medium">{b.label}</span>
+            </div>
+          ))}
+        </motion.div>
+
+      </div>
+    </div>
+  </div>
+);
 
 export default Banner;

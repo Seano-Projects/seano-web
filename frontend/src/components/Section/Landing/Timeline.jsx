@@ -102,19 +102,12 @@ const timelineData = [
 ];
 
 const TimelineCard = ({ item, index, progress }) => {
-  // Calculate trigger points based on index
-  // Total 6 items. Range 0 to 1.
-  // We want the item to start appearing slightly before the line reaches it.
   const start = index / timelineData.length;
-  const end = start + 0.1; // Animation duration in terms of scroll progress
+  const end = start + 0.1;
 
   const opacity = useTransform(progress, [start, end], [0, 1]);
   const scale = useTransform(progress, [start, end], [0.5, 1]);
-  const x = useTransform(
-    progress,
-    [start, end],
-    [index % 2 === 0 ? -50 : 50, 0]
-  );
+  const x = useTransform(progress, [start, end], [index % 2 === 0 ? -50 : 50, 0]);
 
   return (
     <div
@@ -122,47 +115,42 @@ const TimelineCard = ({ item, index, progress }) => {
         index % 2 === 0 ? "lg:flex-row-reverse" : ""
       }`}
     >
-      {/* Empty Space for alignment */}
-      <div className="hidden lg:block w-5/12"></div>
+      {/* Empty space for desktop alignment */}
+      <div className="hidden lg:block w-5/12" />
 
-      {/* Center Dot */}
+      {/* Center Dot — desktop only */}
       <motion.div
         style={{ scale, opacity }}
-        className="absolute left-1/2 transform -translate-x-1/2 w-4 h-4 bg-primary rounded-full border-4 border-[#0B1120] z-10 hidden lg:block shadow-[0_0_10px_rgba(56,189,248,0.5)]"
-      ></motion.div>
+        className="absolute left-1/2 -translate-x-1/2 w-4 h-4 bg-primary rounded-full border-4 border-[#0B1120] z-10 hidden lg:block shadow-[0_0_10px_rgba(56,189,248,0.5)]"
+      />
 
       {/* Card */}
       <motion.div style={{ opacity, x }} className="w-full lg:w-5/12">
-        <div className="group relative bg-white/5 backdrop-blur-2xl border border-white/10 p-8 rounded-2xl hover:bg-white/10 transition-all duration-300 hover:border-white/20 shadow-lg">
+        <div className="group relative bg-white/5 backdrop-blur-2xl border border-white/10 p-5 sm:p-8 rounded-2xl hover:bg-white/10 transition-all duration-300 hover:border-white/20 shadow-lg">
           {/* Date Badge */}
-          <div className="absolute -top-4 right-8 bg-primary border border-primary/30 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-lg">
+          <div className="absolute -top-4 right-4 sm:right-8 bg-primary border border-primary/30 text-white px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-semibold shadow-lg whitespace-nowrap">
             {item.date}
           </div>
 
           <div className="space-y-4 mt-2">
             <div>
-              <h4 className="text-primary text-sm font-medium tracking-wide uppercase mb-1">
+              <h4 className="text-primary text-xs sm:text-sm font-medium tracking-wide uppercase mb-1">
                 {item.focus}
               </h4>
-              <h3 className="text-2xl font-bold text-white">{item.title}</h3>
+              <h3 className="text-xl sm:text-2xl font-bold text-white">{item.title}</h3>
             </div>
 
-            <p className="text-gray-400 text-sm leading-relaxed">
-              {item.description}
-            </p>
+            <p className="text-gray-400 text-sm leading-relaxed">{item.description}</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/5">
               <div>
                 <h5 className="text-white text-xs font-semibold uppercase tracking-wider mb-2 opacity-80">
                   Key Outputs
                 </h5>
                 <ul className="space-y-1">
                   {item.outputs.map((output, i) => (
-                    <li
-                      key={i}
-                      className="text-gray-400 text-xs flex items-start gap-2"
-                    >
-                      <span className="w-1 h-1 rounded-full bg-primary mt-1.5 flex-shrink-0"></span>
+                    <li key={i} className="text-gray-400 text-xs flex items-start gap-2">
+                      <span className="w-1 h-1 rounded-full bg-primary mt-1.5 shrink-0" />
                       {output}
                     </li>
                   ))}
@@ -174,11 +162,8 @@ const TimelineCard = ({ item, index, progress }) => {
                 </h5>
                 <ul className="space-y-1">
                   {item.targets.map((target, i) => (
-                    <li
-                      key={i}
-                      className="text-gray-400 text-xs flex items-start gap-2"
-                    >
-                      <span className="w-1 h-1 rounded-full bg-green-400 mt-1.5 flex-shrink-0"></span>
+                    <li key={i} className="text-gray-400 text-xs flex items-start gap-2">
+                      <span className="w-1 h-1 rounded-full bg-green-400 mt-1.5 shrink-0" />
                       {target}
                     </li>
                   ))}
@@ -207,24 +192,15 @@ const Timeline = () => {
 
   return (
     <div
-      className="relative min-h-screen w-full overflow-hidden px-8 lg:px-0 pt-20 pb-40"
+      className="relative min-h-screen w-full overflow-hidden px-4 sm:px-8 lg:px-0 pt-20 pb-40"
       id="timeline"
     >
-      {/* Gradient Background Left */}
-      <div className="absolute top-1/4 left-0 w-[800px] h-[800px] pointer-events-none z-0 opacity-40">
-        <img
-          src={Gradient1}
-          alt="Gradient"
-          className="w-full h-full object-contain blur-[100px]"
-        />
+      {/* Gradient backgrounds */}
+      <div className="absolute top-1/4 left-0 w-72 sm:w-150 lg:w-200 h-72 sm:h-150 lg:h-200 pointer-events-none z-0 opacity-40">
+        <img src={Gradient1} alt="" className="w-full h-full object-contain blur-[100px]" />
       </div>
-      {/* Gradient Background Right */}
-      <div className="absolute bottom-0 right-0 w-[800px] h-[800px] pointer-events-none z-0 opacity-40">
-        <img
-          src={Gradient1}
-          alt="Gradient"
-          className="w-full h-full object-contain blur-[100px]"
-        />
+      <div className="absolute bottom-0 right-0 w-72 sm:w-150 lg:w-200 h-72 sm:h-150 lg:h-200 pointer-events-none z-0 opacity-40">
+        <img src={Gradient1} alt="" className="w-full h-full object-contain blur-[100px]" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto">
@@ -234,17 +210,12 @@ const Timeline = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="textstart lg:text-center mb-20 space-y-4"
+          className="mb-12 sm:mb-20 text-center space-y-4"
         >
-          <div className="inline-block border border-gray-700 py-2 px-4 rounded-full bg-white/5 backdrop-blur-sm">
-            <h3 className="text-gray-400 text-sm font-semibold tracking-wider uppercase">
-              Roadmap
-            </h3>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-white">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white">
             SEANO Timeline
           </h1>
-          <p className="text-gray-400 max-w-2xl mx-auto">
+          <p className="text-gray-400 text-sm sm:text-base max-w-2xl mx-auto px-2 sm:px-0">
             A strategic roadmap from concept to open-sea deployment, ensuring
             precision, reliability, and innovation at every stage.
           </p>
@@ -252,16 +223,14 @@ const Timeline = () => {
 
         {/* Timeline Container */}
         <div ref={ref} className="relative">
-          {/* Vertical Line Background (Static) */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-0.5 bg-white/10 hidden lg:block"></div>
-
-          {/* Vertical Line Animated */}
+          {/* Vertical Line — desktop only */}
+          <div className="absolute left-1/2 -translate-x-1/2 h-full w-0.5 bg-white/10 hidden lg:block" />
           <motion.div
             style={{ scaleY, originY: 0 }}
-            className="absolute left-1/2 transform -translate-x-1/2 h-full w-0.5 bg-gradient-to-b from-primary via-blue-400 to-primary hidden lg:block shadow-[0_0_15px_rgba(56,189,248,0.6)]"
-          ></motion.div>
+            className="absolute left-1/2 -translate-x-1/2 h-full w-0.5 bg-linear-to-b from-primary via-blue-400 to-primary hidden lg:block shadow-[0_0_15px_rgba(56,189,248,0.6)]"
+          />
 
-          <div className="space-y-12 lg:space-y-0">
+          <div className="space-y-10 lg:space-y-0">
             {timelineData.map((item, index) => (
               <TimelineCard
                 key={index}

@@ -26,59 +26,51 @@ const Feature = () => {
 
   return (
     <div
-      className="relative min-h-screen w-full overflow-hidden px-8 lg:px-0"
+      className="relative min-h-screen w-full overflow-hidden px-4 sm:px-8 lg:px-0"
       id="about"
     >
-      {/* Gradient Background for Glass Effect */}
-      <div className="absolute top-0 right-0 w-[800px] h-[800px] pointer-events-none z-0 opacity-50">
-        <img
-          src={Gradient1}
-          alt="Gradient"
-          className="w-full h-full object-contain blur-[100px]"
-        />
+      {/* Gradient background */}
+      <div className="absolute top-0 right-0 w-96 sm:w-150 lg:w-200 h-96 sm:h-150 lg:h-200 pointer-events-none z-0 opacity-50">
+        <img src={Gradient1} alt="" className="w-full h-full object-contain blur-[100px]" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto pt-32 pb-20">
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-16">
+      <div className="relative z-10 max-w-7xl mx-auto pt-20 sm:pt-32 pb-20">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-16">
+
           {/* Left Content */}
-          <div className="flex-1 space-y-8">
-            <div className="border border-gray-700 flex-1 w-fit py-2 px-4 rounded-full bg-transparent backdrop-blur-sm">
-              <h3 className="text-gray-400 text-sm font-semibold tracking-wider">
-                TOP FEATURE
-              </h3>
-            </div>
-            <h1 className="text-4xl md:text-6xl leading-tight font-semibold text-white">
+          <div className="flex-1 space-y-6 sm:space-y-8 text-center lg:text-left">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight font-semibold text-white">
               Unleashing SEANO's Intelligence Through Advanced Features
             </h1>
-            <p className="text-lg text-gray-400 leading-relaxed max-w-xl">
+            <p className="text-base text-gray-400 leading-relaxed max-w-xl mx-auto lg:mx-0">
               SEANO is an autonomous surface vehicle platform designed for
               precision ocean observation and intelligent marine surveys.
               Equipped with advanced navigation, multi-sensor payloads, and
               real-time communication, SEANO transforms how marine data is
               collected, monitored, and controlled.
             </p>
-            <button className="relative px-8 py-3 text-white rounded-full font-medium shadow-lg hover:shadow-primary/25 transform hover:scale-105 transition-all duration-300 ease-in-out inline-block overflow-hidden bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_100%] bg-left hover:bg-right">
+            <button className="relative px-8 py-3 text-white rounded-full font-medium shadow-lg hover:shadow-primary/25 hover:scale-105 transition-all duration-300 ease-in-out inline-block overflow-hidden bg-linear-to-r from-primary via-secondary to-primary bg-size-[200%_100%] bg-left hover:bg-right">
               Explore Capabilities
             </button>
           </div>
 
           {/* Right Cards */}
-          <div className="flex-1 space-y-6 w-full">
+          <div className="flex-1 space-y-4 sm:space-y-6 w-full">
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="group relative bg-white/5 backdrop-blur-2xl border border-white/10 p-6 rounded-2xl hover:bg-white/10 transition-all duration-300 hover:border-white/20"
+                className="group relative bg-white/5 backdrop-blur-2xl border border-white/10 p-5 sm:p-6 rounded-2xl hover:bg-white/10 transition-all duration-300 hover:border-white/20"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="bg-white/10 p-3 rounded-xl backdrop-blur-md group-hover:bg-white/20 transition-colors">
                     {feature.icon}
                   </div>
                   <GoArrowUpRight
-                    size={30}
-                    className="text-gray-500 group-hover:text-white transition-colors transform group-hover:translate-x-1 group-hover:-translate-y-1"
+                    size={28}
+                    className="text-gray-500 group-hover:text-white transition-colors group-hover:translate-x-1 group-hover:-translate-y-1 transform"
                   />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">
+                <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">
                   {feature.title}
                 </h3>
                 <p className="text-gray-400 text-sm leading-relaxed">
