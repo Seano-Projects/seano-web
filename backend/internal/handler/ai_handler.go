@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/valyala/fasthttp"
 
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
@@ -31,23 +33,31 @@ type AIChatRequest struct {
 }
 
 
-const systemPrompt = `You are SEANO AI, the intelligent assistant for SEANO-ID Maritime Monitoring System built into SeaPortal.
+const systemPrompt = `You are Seano AI, the intelligent assistant for Seano ID Maritime Monitoring System built into SeaPortal.
 
-Your role: Help users operate the SEANO-ID platform — vessel monitoring, sensor data (CTD, GPS, IMU, ADCP), missions, alerts, and troubleshooting.
+About the team:
+- Founder of Seano: Setyawan Ajie Sukarno
+- Developer of SeaPortal: Ali Musthofa Baharudin
+- USV Hardware Development Team: Pepita Deindra, Raihan Ryandika, Haidar, Hisyam, Dzikri Ibnu, Jenaya, M Izharul Haq
+
+Your role: Help users operate the Seano ID platform — vessel monitoring, sensor data (CTD, GPS, IMU, ADCP), missions, alerts, battery, and troubleshooting.
 
 Key knowledge:
 - Maritime monitoring for USV (Unmanned Surface Vehicles)
 - MQTT topics: seano/{vehicle_code}/{type} (vehicle_log, sensor_log, raw_log, status, command)
-- Sensors: CTD (conductivity/temp/depth), ADCP (current), SBES/MBES (bathymetry), GPS, IMU
-- Mission system: waypoint-based, states draft→uploaded→in_progress→completed
+- Sensors: CTD (conductivity/temp/depth), ADCP (current profiler), SBES/MBES (bathymetry), GPS, IMU
+- Mission system: waypoint-based autonomous navigation, states: draft → uploaded → in_progress → completed
 - Control: thruster commands, device lock, modes (MANUAL/AUTO/HOLD/RTL)
-- Tech: Go Fiber backend, React frontend, PostgreSQL/TimescaleDB, MQTT, WebSocket
+- Battery monitoring: SOC, voltage, current, cell voltages, health analysis
+- Tech stack: Go Fiber backend, React frontend, PostgreSQL/TimescaleDB, MQTT broker, WebSocket
 
 Rules:
+- NEVER use emoji in your responses
 - Respond in the same language the user uses (Indonesian or English)
-- Keep answers concise and actionable
-- Never reveal credentials or internal config
-- STRICTLY stay within SEANO-ID/maritime scope. If the user asks ANYTHING outside of SEANO-ID (e.g. coding help, general knowledge, math, recipes, writing code, etc.), immediately refuse with a short polite message like: "Maaf, saya hanya bisa membantu seputar sistem SEANO-ID 🙏 Silakan tanyakan tentang monitoring vehicle, sensor, misi, MQTT, atau fitur SEANO-ID lainnya." Do NOT attempt to answer off-topic questions at all.`
+- Keep answers concise, clear, and actionable
+- Never reveal API keys, credentials, or internal config
+- If asked about topics completely unrelated to Seano ID or maritime operations (e.g. recipes, general math, unrelated coding), politely decline and redirect to Seano ID topics
+- If asked about team members or the project, answer based on the team info above`
 
 // Fallback knowledge base for when Ollama is unavailable
 var fallbackResponses = map[string]string{
@@ -540,19 +550,11 @@ func (h *AIHandler) Chat(c *fiber.Ctx) error {
 	// Save user message
 	h.chatRepo.AddMessage(&model.ChatMessage{SessionID: sessionID, Role: "user", Content: req.Message})
 
-	// Strategy: Try fallback first for known topics (guaranteed accurate)
-	// Only use OpenRouter for questions that don't match any known topic BUT seem related to SEANO-ID
-	reply := getFallbackResponse(req.Message)
-	isDefaultFallback := reply == fallbackResponses["default_id"] || reply == fallbackResponses["default_en"]
-
-	// If we only got a generic default response, check if it might be SEANO-related before calling AI
-	if isDefaultFallback && isLikelySEANORelated(req.Message) {
-		aiReply := h.callOpenRouter(sessionID)
-		if aiReply != "" {
-			reply = aiReply
-		}
+	// Always call AI directly - no fallback, no keyword filtering
+	reply := h.callOpenRouter(sessionID)
+	if reply == "" {
+		reply = "Maaf, saya sedang tidak dapat merespons saat ini. Silakan coba beberapa saat lagi."
 	}
-	// If not SEANO-related, just use the default rejection — no AI call, instant response
 
 	// Save assistant message
 	h.chatRepo.AddMessage(&model.ChatMessage{SessionID: sessionID, Role: "assistant", Content: reply})
@@ -563,10 +565,141 @@ func (h *AIHandler) Chat(c *fiber.Ctx) error {
 	})
 }
 
+// ChatStream handles streaming AI chat via SSE
+func (h *AIHandler) ChatStream(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(uint)
+
+	var req AIChatRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if req.Message == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Message is required"})
+	}
+	if len(req.Message) > 2000 {
+		return c.Status(400).JSON(fiber.Map{"error": "Message too long"})
+	}
+
+	// Get or create session
+	var sessionID uint
+	if req.SessionID != nil && *req.SessionID > 0 {
+		session, err := h.chatRepo.GetSession(*req.SessionID, userID)
+		if err != nil {
+			return c.Status(404).JSON(fiber.Map{"error": "Session not found"})
+		}
+		sessionID = session.ID
+	} else {
+		title := req.Message
+		if len(title) > 50 {
+			title = title[:50] + "..."
+		}
+		session := &model.ChatSession{UserID: userID, Title: title}
+		if err := h.chatRepo.CreateSession(session); err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to create session"})
+		}
+		sessionID = session.ID
+	}
+
+	// Save user message
+	h.chatRepo.AddMessage(&model.ChatMessage{SessionID: sessionID, Role: "user", Content: req.Message})
+
+	// Build messages for API
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "AI service not configured"})
+	}
+
+	history, _ := h.chatRepo.GetMessages(sessionID)
+	msgs := []OpenRouterMessage{{Role: "system", Content: systemPrompt}}
+	startIdx := 0
+	if len(history) > 10 {
+		startIdx = len(history) - 10
+	}
+	for _, msg := range history[startIdx:] {
+		msgs = append(msgs, OpenRouterMessage{Role: msg.Role, Content: msg.Content})
+	}
+
+	payload := OpenRouterRequest{
+		Model:     "daily-ai",
+		Messages:  msgs,
+		MaxTokens: 2048,
+		Stream:    true,
+	}
+	body, _ := json.Marshal(payload)
+
+	httpReq, _ := http.NewRequest("POST", "https://router.mservs.org/v1/chat/completions", bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return c.Status(502).JSON(fiber.Map{"error": "AI service unavailable"})
+	}
+
+	capturedSessionID := sessionID
+	capturedRepo := h.chatRepo
+
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+	c.Set("X-Accel-Buffering", "no")
+
+	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+		defer resp.Body.Close()
+
+		// Send session_id first so frontend can track it
+		fmt.Fprintf(w, "data: {\"session_id\":%d,\"type\":\"session\"}\n\n", capturedSessionID)
+		w.Flush()
+
+		var fullContent strings.Builder
+		scanner := bufio.NewScanner(resp.Body)
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			if !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				fmt.Fprintf(w, "data: [DONE]\n\n")
+				w.Flush()
+				break
+			}
+
+			var chunk OpenRouterResponse
+			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+				continue
+			}
+
+			if len(chunk.Choices) > 0 {
+				content := chunk.Choices[0].Delta.Content
+				if content != "" {
+					fullContent.WriteString(content)
+					escaped, _ := json.Marshal(content)
+					fmt.Fprintf(w, "data: {\"type\":\"chunk\",\"content\":%s}\n\n", string(escaped))
+					w.Flush()
+				}
+			}
+		}
+
+		// Save full AI response to DB
+		if fullContent.Len() > 0 {
+			capturedRepo.AddMessage(&model.ChatMessage{
+				SessionID: capturedSessionID,
+				Role:      "assistant",
+				Content:   strings.TrimSpace(fullContent.String()),
+			})
+		}
+	}))
+
+	return nil
+}
+
 func (h *AIHandler) callOpenRouter(sessionID uint) string {
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
-		apiKey = "sk-6cf8ef6f5319af40-u90b27-48e54382"
+		return ""
 	}
 
 	history, _ := h.chatRepo.GetMessages(sessionID)
@@ -607,13 +740,19 @@ func (h *AIHandler) callOpenRouter(sessionID uint) string {
 		return ""
 	}
 
+	// Strip trailing SSE lines like "data: [DONE]" before JSON parsing
+	rawStr := strings.TrimSpace(string(respBody))
+	if idx := strings.Index(rawStr, "\ndata:"); idx != -1 {
+		rawStr = strings.TrimSpace(rawStr[:idx])
+	}
+
 	var orResp OpenRouterResponse
-	if err := json.Unmarshal(respBody, &orResp); err != nil {
+	if err := json.Unmarshal([]byte(rawStr), &orResp); err != nil {
 		return ""
 	}
 
 	if len(orResp.Choices) > 0 {
-		return orResp.Choices[0].Message.Content
+		return strings.TrimSpace(orResp.Choices[0].Message.Content)
 	}
 
 	return ""
@@ -685,6 +824,52 @@ type WeatherAnalysisResponse struct {
 	Confidence     string   `json:"confidence"`
 }
 
+type BatteryAnalysisRequest struct {
+	VehicleID   uint   `json:"vehicle_id"`
+	VehicleCode string `json:"vehicle_code"`
+	BatteryCount int    `json:"battery_count"`
+	CurrentStatus struct {
+		Battery1 *struct {
+			Percentage   float64   `json:"percentage"`
+			Voltage      float64   `json:"voltage"`
+			Temperature  float64   `json:"temperature"`
+			Current      float64   `json:"current"`
+			CellVoltages []float64 `json:"cell_voltages"`
+			LastUpdate   string    `json:"last_update"`
+		} `json:"battery_1"`
+		Battery2 *struct {
+			Percentage   float64   `json:"percentage"`
+			Voltage      float64   `json:"voltage"`
+			Temperature  float64   `json:"temperature"`
+			Current      float64   `json:"current"`
+			CellVoltages []float64 `json:"cell_voltages"`
+			LastUpdate   string    `json:"last_update"`
+		} `json:"battery_2"`
+	} `json:"current_status"`
+	History []struct {
+		BatteryID  uint    `json:"battery_id"`
+		Percentage float64 `json:"percentage"`
+		Voltage    float64 `json:"voltage"`
+		Temperature float64 `json:"temperature"`
+		Current    float64 `json:"current"`
+		Timestamp  string  `json:"timestamp"`
+	} `json:"history"`
+}
+
+type BatteryMetric struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+type BatteryAnalysisResponse struct {
+	HealthStatus    string          `json:"health_status"`
+	Summary         string          `json:"summary"`
+	Metrics         []BatteryMetric `json:"metrics"`
+	Issues          []string        `json:"issues"`
+	Recommendations []string        `json:"recommendations"`
+	Confidence      string          `json:"confidence"`
+}
+
 // WeatherAnalysis analyzes weather data and provides USV operation recommendations
 func (h *AIHandler) WeatherAnalysis(c *fiber.Ctx) error {
 	var req WeatherAnalysisRequest
@@ -742,21 +927,25 @@ type OpenRouterMessage struct {
 }
 
 type OpenRouterRequest struct {
-	Model    string                `json:"model"`
-	Messages []OpenRouterMessage   `json:"messages"`
-	MaxTokens int                  `json:"max_tokens"`
+	Model     string             `json:"model"`
+	Messages  []OpenRouterMessage `json:"messages"`
+	MaxTokens int                `json:"max_tokens"`
+	Stream    bool               `json:"stream,omitempty"`
 }
 
 type OpenRouterResponse struct {
 	Choices []struct {
 		Message OpenRouterMessage `json:"message"`
+		Delta   struct {
+			Content string `json:"content"`
+		} `json:"delta"`
 	} `json:"choices"`
 }
 
 func (h *AIHandler) callWeatherAnalysisAI(prompt string) string {
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
-		apiKey = "sk-6cf8ef6f5319af40-u90b27-48e54382"
+		return ""
 	}
 
 	msgs := []OpenRouterMessage{
@@ -841,5 +1030,255 @@ func (h *AIHandler) generateFallbackAnalysis(req WeatherAnalysisRequest) Weather
 		RiskLevel:      riskLevel,
 		SafeToOperate:  safeToOperate,
 		Confidence:     "HIGH",
+	}
+}
+
+// BatteryAnalysis analyzes battery health and provides operational recommendations
+func (h *AIHandler) BatteryAnalysis(c *fiber.Ctx) error {
+	var req BatteryAnalysisRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	prompt := h.buildBatteryAnalysisPrompt(req)
+	reply := h.callBatteryAnalysisAI(prompt)
+
+	var result BatteryAnalysisResponse
+	if err := json.Unmarshal([]byte(reply), &result); err != nil {
+		result = h.generateFallbackBatteryAnalysis(req)
+	}
+
+	return c.JSON(result)
+}
+
+func (h *AIHandler) buildBatteryAnalysisPrompt(req BatteryAnalysisRequest) string {
+	var batteryInfo string
+
+	if req.CurrentStatus.Battery1 != nil {
+		b1 := req.CurrentStatus.Battery1
+		batteryInfo += fmt.Sprintf("BATTERY A (CURRENT):\n- Percentage: %.1f%%\n- Voltage: %.2fV\n- Temperature: %.1f°C\n- Current: %.2fA\n\n",
+			b1.Percentage, b1.Voltage, b1.Temperature, b1.Current)
+	}
+
+	if req.CurrentStatus.Battery2 != nil {
+		b2 := req.CurrentStatus.Battery2
+		batteryInfo += fmt.Sprintf("BATTERY B (CURRENT):\n- Percentage: %.1f%%\n- Voltage: %.2fV\n- Temperature: %.1f°C\n- Current: %.2fA\n\n",
+			b2.Percentage, b2.Voltage, b2.Temperature, b2.Current)
+	}
+
+	// Analyze trends from history
+	var trendInfo string
+	if len(req.History) > 1 {
+		percentages := make([]float64, 0)
+		temperatures := make([]float64, 0)
+		voltages := make([]float64, 0)
+
+		for _, h := range req.History {
+			if h.Percentage > 0 {
+				percentages = append(percentages, h.Percentage)
+			}
+			if h.Temperature > 0 {
+				temperatures = append(temperatures, h.Temperature)
+			}
+			if h.Voltage > 0 {
+				voltages = append(voltages, h.Voltage)
+			}
+		}
+
+		if len(percentages) > 1 {
+			dischargeTrend := percentages[0] - percentages[len(percentages)-1]
+			trendInfo += fmt.Sprintf("TREND ANALYSIS (dari %d data points):\n", len(req.History))
+			trendInfo += fmt.Sprintf("- Discharge trend: %.1f%% (%.2f%% per hour)\n", dischargeTrend, dischargeTrend/float64(len(percentages)))
+		}
+
+		if len(temperatures) > 0 {
+			maxTemp := temperatures[0]
+			minTemp := temperatures[0]
+			avgTemp := 0.0
+			for _, t := range temperatures {
+				if t > maxTemp {
+					maxTemp = t
+				}
+				if t < minTemp {
+					minTemp = t
+				}
+				avgTemp += t
+			}
+			avgTemp /= float64(len(temperatures))
+			trendInfo += fmt.Sprintf("- Temperature: min %.1f°C, avg %.1f°C, max %.1f°C\n", minTemp, avgTemp, maxTemp)
+		}
+
+		if len(voltages) > 1 {
+			voltageDrop := voltages[len(voltages)-1] - voltages[0]
+			trendInfo += fmt.Sprintf("- Voltage stability: change %.3fV (degradation trend)\n", voltageDrop)
+		}
+		trendInfo += "\n"
+	}
+
+	prompt := fmt.Sprintf(`Analisis kesehatan & trend battery USV berdasarkan data current dan historical:
+
+%s%s
+INSTRUKSI:
+1. Tentukan HEALTH STATUS: EXCELLENT, GOOD, FAIR, POOR, atau CRITICAL (berdasarkan current + trend)
+2. Buat ringkasan kesehatan (max 2 kalimat) - mention trend jika ada
+3. Ekstrak 4-5 metrik penting termasuk trend (label + value)
+4. Deteksi issues: discharge cepat, overheat, voltage drop, degradation, dll
+5. Berikan 4-5 rekomendasi spesifik berdasarkan kondisi & trend
+
+KRITERIA KESEHATAN:
+- EXCELLENT: >90%%, normal temp, stabil voltage, slow discharge
+- GOOD: 75-90%%, normal temp, moderate discharge rate
+- FAIR: 50-75%%, elevated temp (>45°C), voltage unstable atau discharge cepat
+- POOR: 25-50%%, tinggi temp (>50°C), voltage turun, fast discharge
+- CRITICAL: <25%%, sangat panas (>60°C), atau masalah serius/fast degradation
+
+ANALISIS TREND PENTING:
+- Cek discharge rate: jika cepat = ada beban atau efficiency issue
+- Cek temperature trend: naik = overload atau aging
+- Cek voltage drop: besar = cell degradation atau contact issue
+
+Berikan response dalam JSON:
+{
+  "health_status": "EXCELLENT|GOOD|FAIR|POOR|CRITICAL",
+  "summary": "string (mention trend)",
+  "metrics": [
+    {"label": "metric name", "value": "value with unit"}
+  ],
+  "issues": ["issue1", "issue2"],
+  "recommendations": ["rec1", "rec2"],
+  "confidence": "HIGH|MEDIUM|LOW"
+}`, batteryInfo, trendInfo)
+
+	return prompt
+}
+
+func (h *AIHandler) callBatteryAnalysisAI(prompt string) string {
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		return ""
+	}
+
+	msgs := []OpenRouterMessage{
+		{Role: "system", Content: "Kamu adalah ahli battery management dan operasi USV. Jawab dalam JSON yang valid dan dapat di-parse."},
+		{Role: "user", Content: prompt},
+	}
+
+	payload := OpenRouterRequest{
+		Model:     "daily-ai",
+		Messages:  msgs,
+		MaxTokens: 1024,
+	}
+	body, _ := json.Marshal(payload)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, _ := http.NewRequest("POST", "https://router.mservs.org/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+
+	var orResp OpenRouterResponse
+	if err := json.Unmarshal(respBody, &orResp); err != nil {
+		return ""
+	}
+
+	if len(orResp.Choices) > 0 {
+		return orResp.Choices[0].Message.Content
+	}
+
+	return ""
+}
+
+func (h *AIHandler) generateFallbackBatteryAnalysis(req BatteryAnalysisRequest) BatteryAnalysisResponse {
+	health := "GOOD"
+	var issues []string
+	var recommendations []string
+	var metrics []BatteryMetric
+
+	b1 := req.CurrentStatus.Battery1
+	if b1 != nil {
+		metrics = append(metrics, BatteryMetric{
+			Label: "Battery A",
+			Value: fmt.Sprintf("%.0f%% @ %.2fV", b1.Percentage, b1.Voltage),
+		})
+
+		if b1.Percentage < 25 {
+			health = "CRITICAL"
+			issues = append(issues, "Battery A sangat rendah - immediate charging required")
+		} else if b1.Percentage < 50 {
+			health = "POOR"
+			issues = append(issues, "Battery A rendah - segera charge sebelum operasi")
+		} else if b1.Percentage < 75 {
+			health = "FAIR"
+		}
+
+		if b1.Temperature > 50 {
+			issues = append(issues, "Battery A overheating - stop operasi dan cool down")
+		} else if b1.Temperature > 45 {
+			issues = append(issues, "Battery A temperature elevated")
+		}
+	}
+
+	b2 := req.CurrentStatus.Battery2
+	if b2 != nil {
+		metrics = append(metrics, BatteryMetric{
+			Label: "Battery B",
+			Value: fmt.Sprintf("%.0f%% @ %.2fV", b2.Percentage, b2.Voltage),
+		})
+
+		if b2.Percentage < 25 {
+			health = "CRITICAL"
+			issues = append(issues, "Battery B sangat rendah - immediate charging required")
+		} else if b2.Percentage < 50 {
+			health = "POOR"
+			issues = append(issues, "Battery B rendah - segera charge sebelum operasi")
+		}
+
+		if b2.Temperature > 50 {
+			issues = append(issues, "Battery B overheating")
+		}
+	}
+
+	if len(issues) == 0 {
+		recommendations = []string{
+			"Monitor battery level selama operasi",
+			"Maintain battery temperature di bawah 45°C",
+			"Schedule charging sebelum battery drop di bawah 30%",
+			"Check cell voltages regularly",
+		}
+	} else {
+		recommendations = []string{
+			"Segera addressing detected issues sebelum operasi",
+			"Reduce load atau durasi misi jika temperature tinggi",
+			"Charge battery secara prioritas",
+			"Monitor voltage stability selama charging",
+		}
+	}
+
+	metrics = append(metrics, BatteryMetric{
+		Label: "Status",
+		Value: "Monitoring",
+	})
+
+	return BatteryAnalysisResponse{
+		HealthStatus: health,
+		Summary:      fmt.Sprintf("Battery dalam kondisi %s. %d issue(s) detected.", strings.ToLower(health), len(issues)),
+		Metrics:      metrics,
+		Issues:       issues,
+		Recommendations: recommendations,
+		Confidence:   "MEDIUM",
 	}
 }

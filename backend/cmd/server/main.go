@@ -65,6 +65,8 @@ func main() {
 		&model.ThrusterCommand{},
 		&model.ChatSession{},
 		&model.ChatMessage{},
+		&model.Publication{},
+		&model.TeamMember{},
 	}
 
 	if saveRawLogsToDB {
@@ -244,11 +246,13 @@ func main() {
 		log.Println("MQTT not configured, skipping MQTT listener")
 	}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		BodyLimit: 25 * 1024 * 1024, // 25MB — allow PDF uploads up to 20MB + overhead
+	})
 
 	app.Use(recover.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://72.61.141.126:5177,http://localhost:5173,http://localhost:5177,https://seano.cloud,https://api.seano.cloud",
+		AllowOrigins:     "http://localhost:5173,http://localhost:5177,https://seano.cloud,https://api.seano.cloud",
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
 		AllowCredentials: true,
