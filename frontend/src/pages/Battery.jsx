@@ -10,6 +10,7 @@ import {
   IndividualCellVoltages,
   BatteryLog,
   BatteryStatusInfo,
+  BatteryAIAnalysis,
 } from "../components/Widgets/Battery";
 import useTranslation from "../hooks/useTranslation";
 
@@ -111,7 +112,12 @@ const Battery = () => {
         </div>
       </div>
 
-      {/* Row 2: Full-width Data Logs */}
+      {/* Row 2: AI Analysis */}
+      <div className="mt-3">
+        <BatteryAIAnalysis selectedVehicle={selectedVehicle} batteryData={batteryData} />
+      </div>
+
+      {/* Row 3: Full-width Data Logs */}
       <div className="mt-3">
         <BatteryLog selectedVehicle={selectedVehicle} />
       </div>

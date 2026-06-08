@@ -146,6 +146,7 @@
   },
   "nav": {
     "dashboard": "Overview",
+    "chats": "Chats",
     "dataOperations": "Operasi Data",
     "tracking": "Pelacakan",
     "control": "Kontrol",
@@ -168,10 +169,13 @@
     "sensor": "Sensor",
     "sensorType": "Tipe Sensor",
     "userManagement": "Manajemen Pengguna",
+    "publicationManagement": "Manajemen Publikasi",
+    "team": "Anggota Tim",
     "user": "Pengguna",
     "cam": "Live Stream",
     "role": "Peran",
     "permission": "Izin",
+    "publications": "Publikasi",
     "profile": "Profil",
     "logout": "Keluar",
     "weather": "Cuaca"

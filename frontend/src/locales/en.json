@@ -146,6 +146,7 @@
   },
   "nav": {
     "dashboard": "Overview",
+    "chats": "Chats",
     "dataOperations": "Data Operations",
     "tracking": "Tracking",
     "control": "Control",
@@ -168,10 +169,13 @@
     "sensor": "Sensor",
     "sensorType": "Sensor Type",
     "userManagement": "User Management",
+    "publicationManagement": "Publication Management",
+    "team": "Team Members",
     "user": "User",
     "cam": "Live Stream",
     "role": "Role",
     "permission": "Permission",
+    "publications": "Publications",
     "profile": "Profile",
     "logout": "Logout",
     "weather": "Weather"

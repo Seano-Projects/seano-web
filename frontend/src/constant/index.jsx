@@ -48,6 +48,8 @@ import {
   FaPen,
   FaTrash,
   FaRegUser,
+  FaComments,
+  FaBookOpen,
 } from "react-icons/fa6";
 import { HiOutlineStatusOffline, HiOutlineStatusOnline } from "react-icons/hi";
 import { RiRouteLine, RiShieldUserLine, RiUser3Line } from "react-icons/ri";
@@ -61,6 +63,14 @@ export const dashboardLink = {
   icon: TbLayoutDashboard,
   text: "nav.dashboard",
   size: sizeIcon,
+};
+
+export const chatsLink = {
+  href: "/chats",
+  icon: FaComments,
+  text: "nav.chats",
+  size: sizeIcon,
+  userOnly: true,
 };
 
 export const menuGroups = [
@@ -225,14 +235,6 @@ export const menuGroups = [
         size: sizeIcon,
         requiredPermission: "sensors.read",
       },
-      {
-        href: "/sensor-type",
-        icon: TbCategory,
-        text: "nav.sensorType",
-        size: sizeIcon,
-        requiredPermission: "sensor_types.read",
-        adminOnly: true,
-      },
     ],
   },
   {
@@ -263,6 +265,27 @@ export const menuGroups = [
         text: "nav.permission",
         size: sizeIcon,
         requiredPermission: "permissions.read",
+        adminOnly: true,
+      },
+    ],
+  },
+  {
+    title: "nav.publicationManagement",
+    icon: FaBookOpen,
+    adminOnly: true,
+    items: [
+      {
+        href: "/publications",
+        icon: FaBookOpen,
+        text: "nav.publications",
+        size: sizeIcon,
+        adminOnly: true,
+      },
+      {
+        href: "/team",
+        icon: RiUser3Line,
+        text: "nav.team",
+        size: sizeIcon,
         adminOnly: true,
       },
     ],
