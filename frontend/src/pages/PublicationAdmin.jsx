@@ -5,6 +5,7 @@ import { Modal, toast, Title } from '../components/ui'
 import { Dropdown } from '../components/Widgets'
 import DeleteConfirmModal from '../components/Widgets/DeleteConfirmModal'
 import usePublicationData from '../hooks/usePublicationData'
+import { useTranslation } from '../hooks/useTranslation'
 import { API_BASE_URL } from '../config'
 
 const TYPE_ITEMS = [
@@ -29,7 +30,7 @@ const FormField = ({ label, required, children }) => (
 )
 
 // ─── PDF Section ─────────────────────────────────────────────────────────────
-const PDFField = ({ pdfUrl, onChange, onUpload, uploading }) => {
+const PDFField = ({ pdfUrl, onChange, onUpload, uploading, t }) => {
   const [mode, setMode] = useState(pdfUrl?.startsWith('/uploads/') ? 'uploaded' : pdfUrl ? 'url' : 'upload')
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef(null)
@@ -37,11 +38,11 @@ const PDFField = ({ pdfUrl, onChange, onUpload, uploading }) => {
   const handleFile = async (file) => {
     if (!file) return
     if (file.type !== 'application/pdf') {
-      toast.error('Hanya file PDF yang diizinkan', { title: 'Format salah' })
+      toast.error(t('publications.form.pdfOnly'), { title: t('publications.form.formatError') })
       return
     }
     if (file.size > 20 * 1024 * 1024) {
-      toast.error('Ukuran file maksimal 20MB', { title: 'File terlalu besar' })
+      toast.error(t('publications.form.pdfMaxSize'), { title: t('publications.form.sizeError') })
       return
     }
     try {
@@ -50,10 +51,10 @@ const PDFField = ({ pdfUrl, onChange, onUpload, uploading }) => {
         onChange(res.url)
         setMode('uploaded')
       } else {
-        toast.error(res.message, { title: 'Upload gagal' })
+        toast.error(res.message, { title: t('publications.form.uploadError') })
       }
     } catch {
-      toast.error('Terjadi kesalahan saat upload', { title: 'Upload gagal' })
+      toast.error(t('publications.form.uploadGenericError'), { title: t('publications.form.uploadError') })
     }
   }
 
@@ -74,7 +75,6 @@ const PDFField = ({ pdfUrl, onChange, onUpload, uploading }) => {
     const fullUrl = pdfUrl.startsWith('http') ? pdfUrl : `${API_BASE_URL}${pdfUrl}`
     return (
       <div className="flex items-center gap-3 p-3 border border-gray-200 dark:border-slate-600 bg-gray-100 dark:bg-slate-700/60 rounded-xl">
-        {/* PDF thumbnail — scaled iframe of first page */}
         <div className="relative shrink-0 w-12 h-16 rounded-md overflow-hidden border border-gray-300 dark:border-slate-500 bg-white dark:bg-slate-900 shadow-sm">
           <iframe
             src={`${fullUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
@@ -91,22 +91,20 @@ const PDFField = ({ pdfUrl, onChange, onUpload, uploading }) => {
             }}
           />
         </div>
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
             <FaFilePdf className="text-red-500 w-3.5 h-3.5 shrink-0" />
             <span className="text-sm font-medium text-gray-800 dark:text-white truncate">{filename}</span>
           </div>
-          <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">PDF berhasil diupload</span>
+          <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{t('publications.form.pdfUploaded')}</span>
         </div>
-        {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
           <a
             href={fullUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 text-gray-500 dark:text-gray-400 hover:text-fourth transition-colors rounded-lg hover:bg-fourth/10"
-            title="Lihat PDF"
+            title={t('publications.openPdf')}
           >
             <FaEye className="w-4 h-4" />
           </a>
@@ -114,7 +112,7 @@ const PDFField = ({ pdfUrl, onChange, onUpload, uploading }) => {
             type="button"
             onClick={clearPDF}
             className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-500/10"
-            title="Hapus"
+            title={t('common.delete')}
           >
             <FaTimes className="w-3.5 h-3.5" />
           </button>
@@ -128,11 +126,11 @@ const PDFField = ({ pdfUrl, onChange, onUpload, uploading }) => {
       <div className="flex gap-1 p-1 bg-white/5 dark:bg-white/5 rounded-lg w-fit">
         <button type="button" onClick={() => setMode('upload')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === 'upload' ? 'bg-fourth text-white' : 'text-gray-400 hover:text-white'}`}>
-          <FaUpload className="w-3 h-3" /> Upload PDF
+          <FaUpload className="w-3 h-3" /> {t('publications.form.uploadPdf')}
         </button>
         <button type="button" onClick={() => setMode('url')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${mode === 'url' ? 'bg-fourth text-white' : 'text-gray-400 hover:text-white'}`}>
-          <FaLink className="w-3 h-3" /> URL Eksternal
+          <FaLink className="w-3 h-3" /> {t('publications.form.externalUrl')}
         </button>
       </div>
       {mode === 'upload' ? (
@@ -147,27 +145,27 @@ const PDFField = ({ pdfUrl, onChange, onUpload, uploading }) => {
           {uploading ? (
             <>
               <div className="w-5 h-5 border-2 border-fourth border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-gray-400">Mengupload...</span>
+              <span className="text-sm text-gray-400">{t('publications.form.uploading')}</span>
             </>
           ) : (
             <>
               <FaFilePdf className="w-7 h-7 text-red-400/60" />
               <div className="text-center">
-                <p className="text-sm text-gray-700 dark:text-white font-medium">Drag & drop atau klik untuk pilih</p>
-                <p className="text-xs text-gray-400 mt-0.5">PDF saja · maks 20MB</p>
+                <p className="text-sm text-gray-700 dark:text-white font-medium">{t('publications.form.dragDrop')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{t('publications.form.pdfHint')}</p>
               </div>
             </>
           )}
         </div>
       ) : (
-        <input className={inputCls} placeholder="https://doi.org/... atau link dokumen" value={pdfUrl} onChange={e => onChange(e.target.value)} />
+        <input className={inputCls} placeholder={t('publications.form.urlPlaceholder')} value={pdfUrl} onChange={e => onChange(e.target.value)} />
       )}
     </div>
   )
 }
 
 // ─── Form ─────────────────────────────────────────────────────────────────────
-const PublicationForm = ({ initial = emptyForm, onSubmit, onClose, loading, onUpload }) => {
+const PublicationForm = ({ initial = emptyForm, onSubmit, onClose, loading, onUpload, t }) => {
   const [form, setForm] = useState(initial)
   const [uploading, setUploading] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -185,16 +183,15 @@ const PublicationForm = ({ initial = emptyForm, onSubmit, onClose, loading, onUp
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const tags = form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+    const tags = form.tags ? form.tags.split(',').map(tag => tag.trim()).filter(Boolean) : []
     onSubmit({ ...form, tags })
   }
 
   return (
     <form onSubmit={handleSubmit}>
       <div className="grid grid-cols-2 gap-x-6 gap-y-4 items-stretch">
-        {/* ── Kolom Kiri: info bibliografi ── */}
         <div className="flex flex-col gap-4">
-          <FormField label="Type" required>
+          <FormField label={t('publications.form.type')} required>
             <Dropdown
               items={TYPE_ITEMS}
               selectedItem={form.type}
@@ -202,37 +199,36 @@ const PublicationForm = ({ initial = emptyForm, onSubmit, onClose, loading, onUp
               getItemKey={(item) => item.id}
             />
           </FormField>
-          <FormField label="Year">
+          <FormField label={t('publications.form.year')}>
             <input className={inputCls} placeholder="2025" value={form.year} onChange={e => set('year', e.target.value)} />
           </FormField>
-          <FormField label="Title" required>
-            <input className={inputCls} placeholder="Judul publikasi..." value={form.title} onChange={e => set('title', e.target.value)} required />
+          <FormField label={t('publications.form.title')} required>
+            <input className={inputCls} placeholder={t('publications.form.titlePlaceholder')} value={form.title} onChange={e => set('title', e.target.value)} required />
           </FormField>
-          <FormField label="Authors" required>
-            <input className={inputCls} placeholder="Nama Penulis, Nama Penulis 2" value={form.authors} onChange={e => set('authors', e.target.value)} required />
+          <FormField label={t('publications.form.authors')} required>
+            <input className={inputCls} placeholder={t('publications.form.authorsPlaceholder')} value={form.authors} onChange={e => set('authors', e.target.value)} required />
           </FormField>
-          <FormField label="Venue / Institusi">
-            <input className={inputCls} placeholder="Jurnal, konferensi, kampus..." value={form.venue} onChange={e => set('venue', e.target.value)} />
+          <FormField label={t('publications.form.venue')}>
+            <input className={inputCls} placeholder={t('publications.form.venuePlaceholder')} value={form.venue} onChange={e => set('venue', e.target.value)} />
           </FormField>
-          <FormField label="DOI / Link">
-            <input className={inputCls} placeholder="https://doi.org/..." value={form.doi} onChange={e => set('doi', e.target.value)} />
+          <FormField label={t('publications.form.doi')}>
+            <input className={inputCls} placeholder={t('publications.form.doiPlaceholder')} value={form.doi} onChange={e => set('doi', e.target.value)} />
           </FormField>
-          <FormField label="Tags (pisahkan dengan koma)">
-            <input className={inputCls} placeholder="ASV, IoT, CTD Sensor" value={form.tags} onChange={e => set('tags', e.target.value)} />
+          <FormField label={t('publications.form.tags')}>
+            <input className={inputCls} placeholder={t('publications.form.tagsPlaceholder')} value={form.tags} onChange={e => set('tags', e.target.value)} />
           </FormField>
         </div>
 
-        {/* ── Kolom Kanan: dokumen + abstrak (fill height) ── */}
         <div className="flex flex-col gap-4">
-          <FormField label="File PDF / URL Dokumen">
-            <PDFField pdfUrl={form.pdf} onChange={v => set('pdf', v)} onUpload={handleUpload} uploading={uploading} />
+          <FormField label={t('publications.form.pdf')}>
+            <PDFField pdfUrl={form.pdf} onChange={v => set('pdf', v)} onUpload={handleUpload} uploading={uploading} t={t} />
           </FormField>
           <div className="flex flex-col gap-1 flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">Abstract</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">{t('publications.form.abstract')}</label>
             <textarea
               className={`${inputCls} resize-none flex-1 h-full`}
               style={{ minHeight: 0 }}
-              placeholder="Abstrak singkat..."
+              placeholder={t('publications.form.abstractPlaceholder')}
               value={form.abstract}
               onChange={e => set('abstract', e.target.value)}
             />
@@ -240,15 +236,14 @@ const PublicationForm = ({ initial = emptyForm, onSubmit, onClose, loading, onUp
         </div>
       </div>
 
-      {/* ── Action buttons ── */}
       <div className="flex gap-3 pt-5 mt-1">
         <button type="button" onClick={onClose}
           className="flex-1 px-4 py-2.5 text-white bg-red-600 border border-red-500 rounded-xl hover:bg-red-700 transition-colors font-medium">
-          Batal
+          {t('publications.form.cancel')}
         </button>
         <button type="submit" disabled={loading || uploading}
           className="flex-1 px-4 py-2.5 bg-fourth text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium">
-          {loading ? 'Menyimpan...' : 'Simpan'}
+          {loading ? t('publications.form.saving') : t('publications.form.save')}
         </button>
       </div>
     </form>
@@ -273,14 +268,13 @@ const typeBg = {
 }
 
 // ─── Single publication card ──────────────────────────────────────────────────
-const PubCard = ({ pub, onEdit, onDelete }) => {
+const PubCard = ({ pub, onEdit, onDelete, t }) => {
   const pdfUrl = pub.pdf?.startsWith('/uploads/')
     ? `${API_BASE_URL}${pub.pdf}`
     : pub.pdf || null
 
   return (
     <div className="group relative flex flex-col rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:shadow-xl hover:shadow-black/20 dark:hover:shadow-black/50 transition-all duration-300 hover:-translate-y-1">
-      {/* ── Cover ── */}
       <div className="relative w-full aspect-3/4 overflow-hidden bg-slate-900">
         {pdfUrl ? (
           <iframe
@@ -298,32 +292,30 @@ const PubCard = ({ pub, onEdit, onDelete }) => {
           </div>
         )}
 
-        {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 p-4">
           <Link
             to={`/publications/${pub.id}`}
             className="w-full py-2.5 bg-fourth text-white rounded-xl text-sm font-semibold text-center hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
           >
-            <FaEye size={13} /> Lihat Detail
+            <FaEye size={13} /> {t('publications.viewDetail')}
           </Link>
           <div className="flex gap-2">
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(pub) }}
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-600/80 hover:bg-blue-600 text-white text-xs rounded-lg transition-colors"
             >
-              <FaEdit size={12} /> Edit
+              <FaEdit size={12} /> {t('publications.edit')}
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(pub) }}
               className="flex items-center gap-1.5 px-3 py-2 bg-red-600/80 hover:bg-red-600 text-white text-xs rounded-lg transition-colors"
             >
-              <FaTrash size={12} /> Hapus
+              <FaTrash size={12} /> {t('publications.delete').replace('?', '')}
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Info below cover ── */}
       <div className="p-3 flex flex-col gap-1.5">
         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${typeColor[pub.type] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
           {pub.type}
@@ -338,6 +330,7 @@ const PubCard = ({ pub, onEdit, onDelete }) => {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PublicationAdmin() {
+  const { t } = useTranslation()
   const { publications, loading, actions } = usePublicationData()
   const [showCreate, setShowCreate]   = useState(false)
   const [editItem, setEditItem]       = useState(null)
@@ -345,7 +338,6 @@ export default function PublicationAdmin() {
   const [submitting, setSubmitting]   = useState(false)
   const [search, setSearch]           = useState('')
 
-  // Track uploaded-but-not-yet-saved PDF to clean up on cancel
   const originalPdfRef = useRef('')
   const pendingPdfRef  = useRef('')
 
@@ -389,11 +381,11 @@ export default function PublicationAdmin() {
     const res = await actions.addPublication(payload)
     setSubmitting(false)
     if (res.success) {
-      pendingPdfRef.current = '' // committed
+      pendingPdfRef.current = ''
       setShowCreate(false)
-      toast.success('Publikasi berhasil ditambahkan', { title: 'Berhasil' })
+      toast.success(t('publications.toast.added'), { title: t('publications.toast.success') })
     } else {
-      toast.error(res.message, { title: 'Gagal' })
+      toast.error(res.message, { title: t('publications.toast.failed') })
     }
   }
 
@@ -402,17 +394,16 @@ export default function PublicationAdmin() {
     const res = await actions.updatePublication(editItem.id, payload)
     setSubmitting(false)
     if (res.success) {
-      // If PDF was replaced, delete the old one
       const oldPdf = originalPdfRef.current
       const newPdf = payload.pdf
       if (oldPdf && oldPdf !== newPdf && oldPdf.startsWith('/uploads/')) {
         actions.deletePDF(oldPdf.split('/').pop())
       }
-      pendingPdfRef.current = '' // committed
+      pendingPdfRef.current = ''
       setEditItem(null)
-      toast.success('Publikasi berhasil diupdate', { title: 'Berhasil' })
+      toast.success(t('publications.toast.updated'), { title: t('publications.toast.success') })
     } else {
-      toast.error(res.message, { title: 'Gagal' })
+      toast.error(res.message, { title: t('publications.toast.failed') })
     }
   }
 
@@ -424,9 +415,9 @@ export default function PublicationAdmin() {
     if (res.success) {
       if (target.pdf?.startsWith('/uploads/')) actions.deletePDF(target.pdf.split('/').pop())
       setDeleteItem(null)
-      toast.success('Publikasi berhasil dihapus', { title: 'Berhasil' })
+      toast.success(t('publications.toast.deleted'), { title: t('publications.toast.success') })
     } else {
-      toast.error(res.message, { title: 'Gagal' })
+      toast.error(res.message, { title: t('publications.toast.failed') })
     }
   }
 
@@ -437,31 +428,28 @@ export default function PublicationAdmin() {
 
   return (
     <div className="p-4">
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
-        <Title title="Publications" subtitle="Kelola publikasi ilmiah dan karya tulis" />
+        <Title title={t('publications.title')} subtitle={t('publications.subtitle')} />
         <button
           onClick={openCreate}
           className="font-semibold flex items-center gap-2 px-3 py-2 rounded-lg text-white hover:bg-blue-700 transition duration-300 cursor-pointer hover:shadow-lg hover:shadow-fourth/50 bg-fourth"
         >
           <FaPlus size={16} />
-          Tambah Publikasi
+          {t('publications.add')}
         </button>
       </div>
 
-      {/* Search bar */}
       <div className="relative mb-5 max-w-sm">
         <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
         <input
           type="text"
-          placeholder="Cari judul, penulis, venue..."
+          placeholder={t('publications.searchPlaceholder')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent transition-colors"
         />
       </div>
 
-      {/* Card grid */}
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-7 h-7 border-2 border-fourth border-t-transparent rounded-full animate-spin" />
@@ -470,7 +458,7 @@ export default function PublicationAdmin() {
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <FaBookOpen className="w-10 h-10 text-gray-300 dark:text-gray-600" />
           <p className="text-gray-500 dark:text-gray-400 text-sm">
-            {search ? 'Tidak ada publikasi yang cocok.' : 'Belum ada publikasi. Klik "Tambah Publikasi" untuk menambahkan.'}
+            {search ? t('publications.emptySearch') : t('publications.emptyState')}
           </p>
         </div>
       ) : (
@@ -481,30 +469,28 @@ export default function PublicationAdmin() {
               pub={pub}
               onEdit={openEdit}
               onDelete={p => setDeleteItem(p)}
+              t={t}
             />
           ))}
         </div>
       )}
 
-      {/* Create Modal */}
-      <Modal isOpen={showCreate} onClose={cancelCreate} title="Tambah Publikasi" size="xl">
-        <PublicationForm onSubmit={handleCreate} onClose={cancelCreate} loading={submitting}
+      <Modal isOpen={showCreate} onClose={cancelCreate} title={t('publications.add')} size="xl">
+        <PublicationForm onSubmit={handleCreate} onClose={cancelCreate} loading={submitting} t={t}
           onUpload={async (f) => { const r = await actions.uploadPDF(f); if (r.success) trackPdfUpload(r.url); return r }} />
       </Modal>
 
-      {/* Edit Modal */}
-      <Modal isOpen={!!editItem} onClose={cancelEdit} title="Edit Publikasi" size="xl">
-        <PublicationForm initial={editItem ?? emptyForm} onSubmit={handleEdit} onClose={cancelEdit} loading={submitting}
+      <Modal isOpen={!!editItem} onClose={cancelEdit} title={t('publications.edit')} size="xl">
+        <PublicationForm initial={editItem ?? emptyForm} onSubmit={handleEdit} onClose={cancelEdit} loading={submitting} t={t}
           onUpload={async (f) => { const r = await actions.uploadPDF(f); if (r.success) trackPdfUpload(r.url); return r }} />
       </Modal>
 
-      {/* Delete Confirm */}
       <DeleteConfirmModal
         isOpen={!!deleteItem}
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
-        title="Hapus Publikasi?"
-        message={`"${deleteItem?.title}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`}
+        title={t('publications.delete')}
+        message={`"${deleteItem?.title}" ${t('publications.deleteMessage')}`}
       />
     </div>
   )

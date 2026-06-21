@@ -153,34 +153,31 @@ const Camera = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] p-4 gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
+      <div className="shrink-0 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <FaVideo className="text-blue-500" />
             {t("control.camera.title")}
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {t("control.camera.subtitle")}
           </p>
         </div>
 
-        {/* Vehicle quick-select */}
-        <div className="flex items-center gap-2">
-          {vehicles?.length > 0 && (
-            <VehicleDropdown
-              vehicles={vehicles}
-              selectedVehicle={selectedVehicle}
-              onVehicleChange={(vehicle) => {
-                if (vehicle) {
-                  setSelectedVehicleId(vehicle.id);
-                  if (cameraConnected) disconnectCamera();
-                }
-              }}
-              placeholder={t("control.camera.selectVehicle")}
-              className="w-52"
-            />
-          )}
-        </div>
+        {vehicles?.length > 0 && (
+          <VehicleDropdown
+            vehicles={vehicles}
+            selectedVehicle={selectedVehicle}
+            onVehicleChange={(vehicle) => {
+              if (vehicle) {
+                setSelectedVehicleId(vehicle.id);
+                if (cameraConnected) disconnectCamera();
+              }
+            }}
+            placeholder={t("control.camera.selectVehicle")}
+            className="w-52"
+          />
+        )}
       </div>
 
       {/* Video Container */}
@@ -234,8 +231,9 @@ const Camera = () => {
           type="text"
           value={streamName}
           readOnly
+          disabled
           placeholder={t("control.camera.streamPlaceholder")}
-          className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 text-sm outline-none"
+          className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 placeholder-gray-400 text-sm outline-none cursor-not-allowed select-none"
         />
         <button
           type="button"

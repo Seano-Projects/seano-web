@@ -23,7 +23,7 @@ const InfoRow = ({ label, value, status }) => (
     <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
     <span className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
       {status && (
-        <span className={`w-2 h-2 rounded-full ${status === "green" ? "bg-green-500" : "bg-red-500"}`} />
+        <span className={`w-2 h-2 rounded-full ${status === "green" ? "bg-green-500 animate-breathe" : "bg-red-500"}`} />
       )}
       {value}
     </span>

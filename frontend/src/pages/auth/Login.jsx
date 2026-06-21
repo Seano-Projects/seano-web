@@ -15,6 +15,7 @@ export default function Login({ darkMode, toggleDarkMode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ email: false, password: false });
+  const [credentialsError, setCredentialsError] = useState(false);
 
   // Check for registration success flag
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function Login({ darkMode, toggleDarkMode }) {
 
     // Reset errors
     setErrors({ email: false, password: false });
+    setCredentialsError(false);
 
     // Validation
     if (!email || !password) {
@@ -70,9 +72,8 @@ export default function Login({ darkMode, toggleDarkMode }) {
         duration: 5000,
       });
 
-      // Only highlight password field if email format is valid
-      // This provides better UX without revealing which field is wrong for security
       setErrors({ email: false, password: true });
+      setCredentialsError(true);
     }
   };
 
@@ -150,6 +151,7 @@ export default function Login({ darkMode, toggleDarkMode }) {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setErrors({ ...errors, email: false });
+                  setCredentialsError(false);
                 }}
                 className={`w-full border rounded-xl py-3 px-4 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 transition-all ${
                   errors.email
@@ -162,7 +164,9 @@ export default function Login({ darkMode, toggleDarkMode }) {
               />
               {errors.email && (
                 <p className="text-red-500 text-sm mt-1">
-                  {t("auth.login.errors.invalidEmail")}
+                  {!email
+                    ? t("auth.login.errors.emailFieldRequired")
+                    : t("auth.login.errors.invalidEmail")}
                 </p>
               )}
             </div>
@@ -184,6 +188,7 @@ export default function Login({ darkMode, toggleDarkMode }) {
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setErrors({ ...errors, password: false });
+                    setCredentialsError(false);
                   }}
                   className={`w-full border rounded-xl py-3 px-4 pr-12 text-black dark:text-white bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 transition-all ${
                     errors.password
@@ -209,7 +214,9 @@ export default function Login({ darkMode, toggleDarkMode }) {
               </div>
               {errors.password && (
                 <p className="text-red-500 text-sm mt-1">
-                  {t("auth.login.errors.emailRequired")}
+                  {credentialsError
+                    ? t("auth.login.errors.wrongCredentials")
+                    : t("auth.login.errors.passwordRequired")}
                 </p>
               )}
             </div>

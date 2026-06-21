@@ -136,7 +136,9 @@ export default function EmailRegistration({ darkMode, toggleDarkMode }) {
               />
               {errors.email && (
                 <p className="text-red-500 text-sm mt-1">
-                  {t("auth.register.errors.invalidEmail")}
+                  {!email.trim()
+                    ? t("auth.register.errors.emailRequired")
+                    : t("auth.register.errors.invalidEmail")}
                 </p>
               )}
             </div>

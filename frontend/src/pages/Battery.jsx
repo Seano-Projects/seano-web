@@ -57,14 +57,14 @@ const Battery = () => {
   const batteryUnits = ["A", "B"].slice(0, batteryCount);
 
   return (
-    <div className="p-4">
+    <div className="p-4 overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <Title
           title={t("pages.battery.title")}
           subtitle={t("pages.battery.subtitle")}
         />
-        <div className="w-44 flex-shrink-0">
+        <div className="w-44 shrink-0">
           <VehicleDropdown
             vehicles={vehicles || []}
             selectedVehicle={selectedVehicle}

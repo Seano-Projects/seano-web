@@ -12,7 +12,7 @@ import useTitle from "../hooks/useTitle";
 import useVehicleData from "../hooks/useVehicleData";
 import useMissionData from "../hooks/useMissionData";
 import { useAlertData } from "../hooks/useAlertData";
-import { Title, LoadingDots } from "../components/ui";
+import { Title } from "../components/ui";
 import { WidgetCardSkeleton } from "../components/Skeleton";
 import useLoadingTimeout from "../hooks/useLoadingTimeout";
 import { getOverviewCardsData } from "../constant";
@@ -81,7 +81,7 @@ function Dashboard({ darkMode }) {
       <Title title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
 
       {/* Widget Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 pb-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 pb-4">
         {shouldShowSkeleton
           ? // Skeleton Loading with timeout
             Array.from({ length: 5 }).map((_, idx) => (
@@ -99,9 +99,7 @@ function Dashboard({ darkMode }) {
         />
         <Suspense
           fallback={
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 h-96 flex items-center justify-center">
-              <LoadingDots size="md" />
-            </div>
+            <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl h-96 animate-pulse" />
           }
         >
           <OverviewMap

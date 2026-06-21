@@ -11,6 +11,10 @@ import {
   DepthProfile,
   TimeSeriesChart,
   CTDSectionHeatmap,
+  MultiCastChart,
+  CastMiniMap,
+  CastInfoBar,
+  CTDInfoPanel,
 } from "../../components/Widgets/SensorMonitoring/CTD";
 import { useVehicleData, useCTDData } from "../../hooks";
 import useTranslation from "../../hooks/useTranslation";
@@ -71,6 +75,7 @@ const CTD = () => {
         <Title
           title={t("pages.ctd.title")}
           subtitle={t("pages.ctd.subtitle")}
+          titleSuffix={<CTDInfoPanel />}
         />
 
         {/* Filters Section */}
@@ -176,6 +181,15 @@ const CTD = () => {
         </div>
       </div>
 
+      {/* Cast location map */}
+      <CastMiniMap
+        lat={filteredData.find((d) => d.latitude != null)?.latitude ?? null}
+        lon={filteredData.find((d) => d.longitude != null)?.longitude ?? null}
+      />
+
+      {/* Active Cast Info Bar */}
+      <CastInfoBar ctdData={filteredData} />
+
       {/* CTD Visualizations */}
       <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="min-w-0">
@@ -190,11 +204,13 @@ const CTD = () => {
         </div>
       </div>
 
+      {/* Multi-cast / multi-coordinate history chart */}
       <div className="mb-4">
-        <CTDSectionHeatmap
-          ctdData={filteredData}
-          metric={selectedMetric}
-        />
+        <MultiCastChart ctdData={filteredData} />
+      </div>
+
+      <div className="mb-4">
+        <CTDSectionHeatmap ctdData={filteredData} metric={selectedMetric} />
       </div>
 
       {/* CTD Table Component */}

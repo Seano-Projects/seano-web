@@ -213,7 +213,9 @@ export default function SetAccount({ darkMode, toggleDarkMode }) {
               </div>
               {errors.password && (
                 <p className="text-red-500 text-sm mt-1">
-                  {t("auth.setAccount.errors.passwordRequired")}
+                  {password.length >= 6
+                    ? t("auth.setAccount.errors.passwordMismatch")
+                    : t("auth.setAccount.errors.passwordRequired")}
                 </p>
               )}
             </div>

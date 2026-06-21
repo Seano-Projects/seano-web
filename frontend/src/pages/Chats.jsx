@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
 import useTitle from "../hooks/useTitle";
 import { API_BASE_URL } from "../config";
+import { useTranslation } from "../hooks/useTranslation";
 import {
   FaPlus,
   FaSpinner,
   FaPaperPlane,
   FaEllipsisV,
   FaTrash,
+  FaBars,
+  FaTimes,
 } from "react-icons/fa";
 import DeleteConfirmModal from "../components/Widgets/DeleteConfirmModal";
 
 const Chats = () => {
   useTitle("Chats");
+  const { t } = useTranslation();
 
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -20,6 +24,7 @@ const Chats = () => {
   const [loading, setLoading] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState(null);
   const messagesEndRef = useRef(null);
@@ -88,11 +93,9 @@ const Chats = () => {
     setInput("");
     setLoading(true);
 
-    // Optimistically add user message
     const userMsg = { role: "user", content: userText };
     setMessages((prev) => [...prev, userMsg]);
 
-    // Placeholder for streaming assistant response
     const assistantPlaceholder = { role: "assistant", content: "" };
     setMessages((prev) => [...prev, assistantPlaceholder]);
 
@@ -115,7 +118,7 @@ const Chats = () => {
           const next = [...prev];
           next[next.length - 1] = {
             role: "assistant",
-            content: "Failed to get response.",
+            content: t("chats.failedResponse"),
           };
           return next;
         });
@@ -134,7 +137,7 @@ const Chats = () => {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
-        buffer = lines.pop(); // keep incomplete line
+        buffer = lines.pop();
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
@@ -163,7 +166,6 @@ const Chats = () => {
         }
       }
 
-      // Refresh sessions list after stream ends
       await fetchSessions();
       if (streamedSessionId) setSelectedSession(streamedSessionId);
     } catch (err) {
@@ -172,7 +174,7 @@ const Chats = () => {
         const next = [...prev];
         next[next.length - 1] = {
           role: "assistant",
-          content: "Connection error.",
+          content: t("chats.connectionError"),
         };
         return next;
       });
@@ -217,25 +219,34 @@ const Chats = () => {
     setSelectedSession(null);
     setMessages([]);
     setInput("");
+    setSidebarOpen(false);
   };
 
   return (
-    // -mx-4 -mt-4 removes the padding from Main.jsx content wrapper (same as Mission Planner)
-    // h-[calc(100vh-3.5rem)] fills the exact content height
-    <div className="flex -mx-4 -mt-4 h-[calc(100vh-3.5rem-2.25rem)] overflow-hidden">
-      {/* LEFT PANEL - Sessions list, same concept as MissionSidebar */}
-      <div className="w-72 h-full py-3 shrink-0 flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-black overflow-x-visible overflow-y-hidden">
-        {/* New Chat */}
+    <div className="flex -mx-4 -mt-4 h-[calc(100vh-3.5rem-2.25rem)] overflow-hidden relative">
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* LEFT PANEL */}
+      <div
+        className={`${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:translate-x-0 fixed md:relative z-40 md:z-auto w-72 h-full py-3 shrink-0 flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-black overflow-x-visible overflow-y-hidden transition-transform duration-200`}
+      >
         <div className="px-4 pt-4 pb-3 shrink-0">
           <button
             onClick={startNewChat}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition"
           >
-            <FaPlus size={12} /> New chat
+            <FaPlus size={12} /> {t("chats.newChat")}
           </button>
         </div>
 
-        {/* Sessions - scrollable */}
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-3 space-y-0.5">
           {sessionsLoading ? (
             <div className="flex justify-center py-8">
@@ -243,7 +254,7 @@ const Chats = () => {
             </div>
           ) : sessions.length === 0 ? (
             <p className="text-xs text-center text-gray-500 py-8">
-              No chats yet
+              {t("chats.noChats")}
             </p>
           ) : (
             sessions.map((s) => (
@@ -257,6 +268,7 @@ const Chats = () => {
                 onClick={() => {
                   setSelectedSession(s.id);
                   fetchMessages(s.id);
+                  setSidebarOpen(false);
                 }}
               >
                 <p className="flex-1 text-sm truncate text-gray-900 dark:text-gray-100">
@@ -287,7 +299,7 @@ const Chats = () => {
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
                       >
-                        <FaTrash size={11} /> Delete
+                        <FaTrash size={11} /> {t("chats.delete")}
                       </button>
                     </div>
                   )}
@@ -300,14 +312,25 @@ const Chats = () => {
 
       {/* RIGHT - Chat area */}
       <div className="flex-1 h-full flex flex-col overflow-hidden bg-white dark:bg-black">
-        {/* EMPTY STATE - centered like Claude.ai */}
+        {/* Mobile header with sidebar toggle */}
+        <div className="md:hidden flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0">
+          <button
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition text-gray-600 dark:text-gray-300"
+          >
+            {sidebarOpen ? <FaTimes size={16} /> : <FaBars size={16} />}
+          </button>
+          <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate max-w-45">
+            {sessions.find((s) => s.id === selectedSession)?.title || t("chats.newChat")}
+          </span>
+        </div>
+
         {messages.length === 0 && !selectedSession ? (
-          <div className="flex-1 flex flex-col items-center justify-center px-32">
+          <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-32">
             <div className="w-full max-w-2xl flex flex-col items-center">
               <h2 className="text-3xl font-bold mb-8 text-gray-900 dark:text-gray-100">
-                How can I help?
+                {t("chats.howCanIHelp")}
               </h2>
-              {/* Input centered in the middle */}
               <div className="w-full flex gap-3 items-center bg-gray-100 dark:bg-black rounded-2xl px-4 py-3 border border-gray-200 dark:border-gray-700">
                 <input
                   type="text"
@@ -319,7 +342,7 @@ const Chats = () => {
                       sendMessage();
                     }
                   }}
-                  placeholder="How can I help you today?"
+                  placeholder={t("chats.emptyPlaceholder")}
                   className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
                 />
                 <button
@@ -338,8 +361,7 @@ const Chats = () => {
           </div>
         ) : (
           <>
-            {/* Messages - scrollable */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-32 py-6 space-y-4">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-32 py-6 space-y-4">
               {messages.map((msg, idx) => {
                 const isLastMsg = idx === messages.length - 1;
                 const isStreamingPlaceholder =
@@ -354,18 +376,9 @@ const Chats = () => {
                   >
                     {isStreamingPlaceholder ? (
                       <div className="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3.5 rounded-2xl rounded-bl-sm flex items-center gap-1">
-                        <span
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0ms" }}
-                        />
-                        <span
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "150ms" }}
-                        />
-                        <span
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "300ms" }}
-                        />
+                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                       </div>
                     ) : (
                       <div
@@ -384,8 +397,7 @@ const Chats = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input - fixed at bottom */}
-            <div className="shrink-0 px-32 py-3">
+            <div className="shrink-0 px-4 md:px-32 py-3">
               <div className="flex gap-3 items-center bg-gray-100 dark:bg-black rounded-2xl px-4 py-3 border border-gray-200 dark:border-gray-700">
                 <input
                   type="text"
@@ -397,7 +409,7 @@ const Chats = () => {
                       sendMessage();
                     }
                   }}
-                  placeholder="Write a message..."
+                  placeholder={t("chats.inputPlaceholder")}
                   className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
                 />
                 <button
@@ -424,8 +436,8 @@ const Chats = () => {
           setSessionToDelete(null);
         }}
         onConfirm={confirmDelete}
-        title="Delete Conversation"
-        message="Are you sure you want to delete this conversation? This action cannot be undone."
+        title={t("chats.deleteTitle")}
+        message={t("chats.deleteMessage")}
       />
     </div>
   );

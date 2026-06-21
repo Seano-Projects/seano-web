@@ -51,15 +51,18 @@ const Control = lazy(() => import("./pages/Control"));
 const Camera = lazy(() => import("./pages/Camera"));
 const Battery = lazy(() => import("./pages/Battery"));
 const Sensor = lazy(() => import("./pages/Sensor"));
-const SensorType = lazy(() => import("./pages/SensorType"));
 const Notification = lazy(() => import("./pages/Notification"));
 const User = lazy(() => import("./pages/User"));
 const Role = lazy(() => import("./pages/Role"));
 const Permission = lazy(() => import("./pages/Permission"));
 const PublicationAdmin = lazy(() => import("./pages/PublicationAdmin"));
 const PublicationDetail = lazy(() => import("./pages/PublicationDetail"));
-const PublicationPublicDetail = lazy(() => import("./pages/PublicationPublicDetail"));
-const PublicationsPublicList = lazy(() => import("./pages/PublicationsPublicList"));
+const PublicationPublicDetail = lazy(
+  () => import("./pages/PublicationPublicDetail"),
+);
+const PublicationsPublicList = lazy(
+  () => import("./pages/PublicationsPublicList"),
+);
 const TeamAdmin = lazy(() => import("./pages/TeamAdmin"));
 const MissionsPlanner = lazy(() => import("./pages/MissionPlanner"));
 const MissionDetails = lazy(() => import("./pages/MissionDetails"));
@@ -78,18 +81,20 @@ const MissionPlannerDocs = lazy(
 );
 const ControlDocs = lazy(() => import("./pages/docs/ControlDocs"));
 
-// Auth Pages - eager load (small, needed immediately)
-import Login from "./pages/auth/Login";
-import EmailRegistration from "./pages/auth/EmailRegistration";
-import SetAccount from "./pages/auth/SetAccount";
-import CheckEmailVerification from "./pages/auth/CheckEmailVerification";
-import VerifyEmail from "./pages/auth/VerifyEmail";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import ResetPassword from "./pages/auth/ResetPassword";
+// Auth Pages - lazy load (only needed on /auth/* routes)
+const Login = lazy(() => import("./pages/auth/Login"));
+const EmailRegistration = lazy(() => import("./pages/auth/EmailRegistration"));
+const SetAccount = lazy(() => import("./pages/auth/SetAccount"));
+const CheckEmailVerification = lazy(() => import("./pages/auth/CheckEmailVerification"));
+const VerifyEmail = lazy(() => import("./pages/auth/VerifyEmail"));
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
 
-// Other - eager load (lightweight)
-import Landing from "./pages/Landing";
+// Landing / Demo - lazy load (heavy: framer-motion, many landing components)
+const Landing = lazy(() => import("./pages/Landing"));
+const Demo = lazy(() => import("./pages/Demo"));
 import ErrorPage from "./components/Error/ErrorPage";
+import AlertModal from "./components/ui/AlertModal";
 
 // Loading fallback for lazy-loaded pages
 import { LoadingDots } from "./components/ui";
@@ -98,6 +103,43 @@ const PageLoader = () => (
     <LoadingDots size="lg" />
   </div>
 );
+
+// Prefetch all page chunks in background after initial render.
+// Called once on idle so navigation feels instant after first load.
+const prefetchAllPages = () => {
+  const chunks = [
+    () => import("./pages/Dashboard"),
+    () => import("./pages/Tracking"),
+    () => import("./pages/Missions"),
+    () => import("./pages/MissionPlanner"),
+    () => import("./pages/MissionDetails"),
+    () => import("./pages/MissionReport"),
+    () => import("./pages/Control"),
+    () => import("./pages/Data"),
+    () => import("./pages/Log"),
+    () => import("./pages/Battery"),
+    () => import("./pages/Weather"),
+    () => import("./pages/Alerts"),
+    () => import("./pages/Vehicle"),
+    () => import("./pages/Sensor"),
+    () => import("./pages/Chats"),
+    () => import("./pages/Camera"),
+    () => import("./pages/Profile"),
+    () => import("./pages/Settings"),
+    () => import("./pages/Notification"),
+    () => import("./pages/User"),
+    () => import("./pages/Role"),
+    () => import("./pages/Permission"),
+    () => import("./pages/SensorMonitoring/CTD"),
+    () => import("./pages/SensorMonitoring/ADCP"),
+    () => import("./pages/SensorMonitoring/SBES"),
+    () => import("./pages/SensorMonitoring/MBES"),
+  ];
+  // Stagger prefetch so we don't spike network on page load
+  chunks.forEach((load, i) => {
+    setTimeout(() => { load().catch(() => {}) }, 300 + i * 100);
+  });
+};
 
 function App() {
   const location = useLocation();
@@ -158,6 +200,15 @@ function App() {
     }
   }, []);
 
+  // Prefetch all page chunks after app is mounted and idle
+  useEffect(() => {
+    if ("requestIdleCallback" in window) {
+      requestIdleCallback(prefetchAllPages, { timeout: 3000 });
+    } else {
+      setTimeout(prefetchAllPages, 1000);
+    }
+  }, []);
+
   // Close sidebar when thrust control enters fullscreen (consistent cross-platform)
   useEffect(() => {
     const handler = () => {
@@ -206,6 +257,7 @@ function App() {
     "/auth/forgot-password",
     "/auth/reset-password",
     "/verify-email",
+    "/demo",
   ];
 
   const protectedRoutes = [
@@ -224,7 +276,7 @@ function App() {
     "/data",
     "/profile",
     "/sensor",
-    "/sensor-type",
+
     "/logs",
     "/settings",
     "/vehicle",
@@ -239,7 +291,10 @@ function App() {
     "/weather",
   ];
 
-  const isPublicRoute = publicRoutes.includes(location.pathname) || location.pathname.startsWith('/publication/') || location.pathname === '/papers';
+  const isPublicRoute =
+    publicRoutes.includes(location.pathname) ||
+    location.pathname.startsWith("/publication/") ||
+    location.pathname === "/papers";
   const isProtectedRoute = protectedRoutes.some((route) =>
     location.pathname.startsWith(route),
   );
@@ -256,95 +311,116 @@ function App() {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-black">
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/publication/:id" element={
-            <Suspense fallback={<PageLoader />}>
-              <PublicationPublicDetail />
-            </Suspense>
-          } />
-          <Route path="/papers" element={
-            <Suspense fallback={<PageLoader />}>
-              <PublicationsPublicList />
-            </Suspense>
-          } />
+          <Route path="/" element={<Suspense fallback={null}><Landing /></Suspense>} />
+          <Route path="/demo" element={<Suspense fallback={<PageLoader />}><Demo /></Suspense>} />
+          <Route
+            path="/publication/:id"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <PublicationPublicDetail />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/papers"
+            element={
+              <Suspense fallback={<PageLoader />}>
+                <PublicationsPublicList />
+              </Suspense>
+            }
+          />
           <Route
             path="/auth/login"
             element={
-              <PublicRoute>
-                <Login darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-              </PublicRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PublicRoute>
+                  <Login darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+                </PublicRoute>
+              </Suspense>
             }
           />
           <Route
             path="/auth/email-registration"
             element={
-              <PublicRoute>
-                <EmailRegistration
-                  darkMode={darkMode}
-                  toggleDarkMode={toggleDarkMode}
-                />
-              </PublicRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PublicRoute>
+                  <EmailRegistration
+                    darkMode={darkMode}
+                    toggleDarkMode={toggleDarkMode}
+                  />
+                </PublicRoute>
+              </Suspense>
             }
           />
           <Route
             path="/auth/set-account"
             element={
-              <PublicRoute>
-                <RegistrationRoute requiredStep="set-account">
-                  <SetAccount
-                    darkMode={darkMode}
-                    toggleDarkMode={toggleDarkMode}
-                  />
-                </RegistrationRoute>
-              </PublicRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PublicRoute>
+                  <RegistrationRoute requiredStep="set-account">
+                    <SetAccount
+                      darkMode={darkMode}
+                      toggleDarkMode={toggleDarkMode}
+                    />
+                  </RegistrationRoute>
+                </PublicRoute>
+              </Suspense>
             }
           />
           <Route
             path="/auth/email-verification"
             element={
-              <PublicRoute>
-                <RegistrationRoute requiredStep="email-verification">
-                  <CheckEmailVerification
-                    darkMode={darkMode}
-                    toggleDarkMode={toggleDarkMode}
-                  />
-                </RegistrationRoute>
-              </PublicRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PublicRoute>
+                  <RegistrationRoute requiredStep="email-verification">
+                    <CheckEmailVerification
+                      darkMode={darkMode}
+                      toggleDarkMode={toggleDarkMode}
+                    />
+                  </RegistrationRoute>
+                </PublicRoute>
+              </Suspense>
             }
           />
           <Route
             path="/verify-email"
             element={
-              <PublicRoute>
-                <RegistrationRoute requiredStep="verify-email">
-                  <VerifyEmail
-                    darkMode={darkMode}
-                    toggleDarkMode={toggleDarkMode}
-                  />
-                </RegistrationRoute>
-              </PublicRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PublicRoute>
+                  <RegistrationRoute requiredStep="verify-email">
+                    <VerifyEmail
+                      darkMode={darkMode}
+                      toggleDarkMode={toggleDarkMode}
+                    />
+                  </RegistrationRoute>
+                </PublicRoute>
+              </Suspense>
             }
           />
           <Route
             path="/auth/forgot-password"
             element={
-              <PublicRoute>
-                <ForgotPassword
-                  darkMode={darkMode}
-                  toggleDarkMode={toggleDarkMode}
-                />
-              </PublicRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PublicRoute>
+                  <ForgotPassword
+                    darkMode={darkMode}
+                    toggleDarkMode={toggleDarkMode}
+                  />
+                </PublicRoute>
+              </Suspense>
             }
           />
           <Route
             path="/auth/reset-password"
             element={
-              <PublicRoute>
-                <ResetPassword
-                  darkMode={darkMode}
-                  toggleDarkMode={toggleDarkMode}
-                />
-              </PublicRoute>
+              <Suspense fallback={<PageLoader />}>
+                <PublicRoute>
+                  <ResetPassword
+                    darkMode={darkMode}
+                    toggleDarkMode={toggleDarkMode}
+                  />
+                </PublicRoute>
+              </Suspense>
             }
           />
           <Route path="*" element={<Navigate to="/404" replace />} />
@@ -370,6 +446,7 @@ function App() {
       <a href="#main-content" className="skip-to-main">
         Skip to main content
       </a>
+      <AlertModal />
       <Sidebar
         isSidebarOpen={isSidebarOpen}
         onHoverChange={setIsSidebarHovered}
@@ -552,14 +629,6 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Sensor darkMode={darkMode} />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/sensor-type"
-                  element={
-                    <ProtectedRoute>
-                      <SensorType darkMode={darkMode} />
                     </ProtectedRoute>
                   }
                 />

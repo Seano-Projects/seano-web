@@ -4,6 +4,7 @@ import { Modal, toast, Title } from '../components/ui'
 import { Dropdown } from '../components/Widgets'
 import DeleteConfirmModal from '../components/Widgets/DeleteConfirmModal'
 import useTeamData from '../hooks/useTeamData'
+import { useTranslation } from '../hooks/useTranslation'
 import { API_BASE_URL } from '../config'
 
 const DIVISIONS = ['Dosen Pembimbing', 'Software & Kontrol', 'Hardware & Mekanik', 'Sensor & Akuisisi', 'Riset & Dokumentasi']
@@ -27,7 +28,7 @@ const FormField = ({ label, required, children }) => (
 )
 
 // ─── Photo Upload Field ────────────────────────────────────────────────────────
-const PhotoField = ({ photoUrl, onChange, onUpload }) => {
+const PhotoField = ({ photoUrl, onChange, onUpload, t }) => {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef(null)
 
@@ -35,18 +36,18 @@ const PhotoField = ({ photoUrl, onChange, onUpload }) => {
     if (!file) return
     const allowed = ['image/jpeg', 'image/png', 'image/webp']
     if (!allowed.includes(file.type)) {
-      toast.error('Hanya JPG, PNG, atau WebP yang diizinkan', { title: 'Format salah' })
+      toast.error(t('team.form.photoFormatError'), { title: t('publications.form.formatError') })
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Ukuran file maksimal 5MB', { title: 'File terlalu besar' })
+      toast.error(t('team.form.photoSizeError'), { title: t('publications.form.sizeError') })
       return
     }
     setUploading(true)
     try {
       const res = await onUpload(file)
       if (res.success) onChange(res.url)
-      else toast.error(res.message, { title: 'Upload gagal' })
+      else toast.error(res.message, { title: t('team.form.uploadFailed') })
     } finally {
       setUploading(false)
     }
@@ -70,70 +71,70 @@ const PhotoField = ({ photoUrl, onChange, onUpload }) => {
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
           className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 dark:border-slate-500 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:border-fourth hover:text-fourth transition-colors disabled:opacity-50">
           {uploading
-            ? <><span className="w-3.5 h-3.5 border-2 border-fourth border-t-transparent rounded-full animate-spin" />Mengupload...</>
-            : <><FaUpload className="w-3.5 h-3.5" />Upload Foto</>
+            ? <><span className="w-3.5 h-3.5 border-2 border-fourth border-t-transparent rounded-full animate-spin" />{t('team.form.uploading')}</>
+            : <><FaUpload className="w-3.5 h-3.5" />{t('team.form.uploadPhoto')}</>
           }
         </button>
         {photoUrl && (
           <button type="button" onClick={() => onChange('')}
             className="flex items-center gap-1 text-xs text-red-400 hover:text-red-500 transition-colors w-fit">
-            <FaTimes className="w-3 h-3" /> Hapus foto
+            <FaTimes className="w-3 h-3" /> {t('team.form.removePhoto')}
           </button>
         )}
-        <p className="text-xs text-gray-400">JPG, PNG, WebP — maks 5MB</p>
+        <p className="text-xs text-gray-400">{t('team.form.photoHint')}</p>
       </div>
     </div>
   )
 }
 
 // ─── Member Form ───────────────────────────────────────────────────────────────
-const MemberForm = ({ form, onChange, onSubmit, onCancel, onUpload, isEdit }) => (
+const MemberForm = ({ form, onChange, onSubmit, onCancel, onUpload, isEdit, t }) => (
   <form onSubmit={onSubmit}>
     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
       <div className="flex flex-col gap-4">
-        <FormField label="Foto Profil">
-          <PhotoField photoUrl={form.photo} onChange={v => onChange('photo', v)} onUpload={onUpload} />
+        <FormField label={t('team.form.photo')}>
+          <PhotoField photoUrl={form.photo} onChange={v => onChange('photo', v)} onUpload={onUpload} t={t} />
         </FormField>
-        <FormField label="Divisi">
+        <FormField label={t('team.form.division')}>
           <Dropdown
             items={DIVISIONS}
             selectedItem={form.division}
             onItemChange={(item) => onChange('division', item.id)}
             getItemKey={(item) => item.id}
-            placeholder="-- Pilih Divisi --"
+            placeholder={t('team.form.divisionPlaceholder')}
           />
         </FormField>
-        <FormField label="Nama" required>
+        <FormField label={t('team.form.name')} required>
           <input className={inputCls} value={form.name} onChange={e => onChange('name', e.target.value)} placeholder="Ali Musthofa Baharudin" />
         </FormField>
-        <FormField label="Jabatan / Role" required>
+        <FormField label={t('team.form.role')} required>
           <input className={inputCls} value={form.role} onChange={e => onChange('role', e.target.value)} placeholder="Lead Developer — GCS & Web" />
         </FormField>
-        <FormField label="Urutan Tampil">
+        <FormField label={t('team.form.sortOrder')}>
           <input type="number" className={inputCls} value={form.sort_order}
             onChange={e => onChange('sort_order', parseInt(e.target.value) || 0)} min={0} />
         </FormField>
       </div>
       <div className="flex flex-col gap-4">
-        <FormField label="LinkedIn URL">
+        <FormField label={t('team.form.linkedin')}>
           <div className="relative">
             <FaLinkedin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input className={`${inputCls} pl-9`} value={form.linkedin} onChange={e => onChange('linkedin', e.target.value)} placeholder="https://linkedin.com/in/..." />
           </div>
         </FormField>
-        <FormField label="GitHub URL">
+        <FormField label={t('team.form.github')}>
           <div className="relative">
             <FaGithub className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input className={`${inputCls} pl-9`} value={form.github} onChange={e => onChange('github', e.target.value)} placeholder="https://github.com/..." />
           </div>
         </FormField>
-        <FormField label="Twitter / X URL">
+        <FormField label={t('team.form.twitter')}>
           <div className="relative">
             <FaTwitter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input className={`${inputCls} pl-9`} value={form.twitter} onChange={e => onChange('twitter', e.target.value)} placeholder="https://twitter.com/..." />
           </div>
         </FormField>
-        <FormField label="Instagram URL">
+        <FormField label={t('team.form.instagram')}>
           <div className="relative">
             <FaInstagram className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input className={`${inputCls} pl-9`} value={form.instagram} onChange={e => onChange('instagram', e.target.value)} placeholder="https://instagram.com/..." />
@@ -144,11 +145,11 @@ const MemberForm = ({ form, onChange, onSubmit, onCancel, onUpload, isEdit }) =>
     <div className="flex gap-3 pt-5 mt-1">
       <button type="button" onClick={onCancel}
         className="flex-1 py-2.5 border border-gray-300 dark:border-slate-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-sm font-medium">
-        Batal
+        {t('team.form.cancel')}
       </button>
       <button type="submit"
         className="flex-1 py-2.5 bg-fourth text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-semibold">
-        {isEdit ? 'Simpan Perubahan' : 'Tambah Anggota'}
+        {isEdit ? t('team.form.save') : t('team.form.addMember')}
       </button>
     </div>
   </form>
@@ -215,6 +216,7 @@ const MemberCard = ({ member, index, onEdit, onDelete }) => {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TeamAdmin() {
+  const { t } = useTranslation()
   const { members, loading, addMember, updateMember, deleteMember, uploadPhoto, deletePhoto } = useTeamData()
   const [search, setSearch] = useState('')
   const [form, setForm] = useState(emptyForm)
@@ -223,9 +225,8 @@ export default function TeamAdmin() {
   const [showEdit, setShowEdit] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  // Track uploaded-but-not-yet-saved photo so we can clean it up on cancel
-  const originalPhotoRef = useRef('')   // photo URL before editing started
-  const pendingPhotoRef = useRef('')    // URL of a freshly uploaded photo in this session
+  const originalPhotoRef = useRef('')
+  const pendingPhotoRef = useRef('')
 
   const setField = (k, v) => {
     if (k === 'photo' && v?.startsWith('/uploads/')) {
@@ -234,7 +235,6 @@ export default function TeamAdmin() {
     setForm(f => ({ ...f, [k]: v }))
   }
 
-  // Delete pending upload if it differs from what was already saved
   const cleanupPending = () => {
     const pending = pendingPhotoRef.current
     const original = originalPhotoRef.current
@@ -281,38 +281,37 @@ export default function TeamAdmin() {
   const handleCreate = async (e) => {
     e.preventDefault()
     if (!form.name.trim() || !form.role.trim()) {
-      toast.error('Nama dan jabatan wajib diisi', { title: 'Validasi gagal' })
+      toast.error(t('team.form.required'), { title: t('team.form.validationFailed') })
       return
     }
     const res = await addMember({ ...form, sort_order: Number(form.sort_order) })
     if (res.success) {
-      pendingPhotoRef.current = '' // committed — don't clean up
-      toast.success('Anggota berhasil ditambahkan')
+      pendingPhotoRef.current = ''
+      toast.success(t('team.toast.added'))
       setShowCreate(false)
     } else {
-      toast.error(res.message, { title: 'Gagal' })
+      toast.error(res.message, { title: t('team.toast.failed') })
     }
   }
 
   const handleUpdate = async (e) => {
     e.preventDefault()
     if (!form.name.trim() || !form.role.trim()) {
-      toast.error('Nama dan jabatan wajib diisi', { title: 'Validasi gagal' })
+      toast.error(t('team.form.required'), { title: t('team.form.validationFailed') })
       return
     }
     const res = await updateMember(editTarget.id, { ...form, sort_order: Number(form.sort_order) })
     if (res.success) {
-      // If the user replaced the photo, delete the old one from server
       const oldPhoto = originalPhotoRef.current
       const newPhoto = form.photo
       if (oldPhoto && oldPhoto !== newPhoto && oldPhoto.startsWith('/uploads/')) {
         deletePhoto(oldPhoto)
       }
-      pendingPhotoRef.current = '' // committed
-      toast.success('Anggota berhasil diperbarui')
+      pendingPhotoRef.current = ''
+      toast.success(t('team.toast.updated'))
       setShowEdit(false)
     } else {
-      toast.error(res.message, { title: 'Gagal' })
+      toast.error(res.message, { title: t('team.toast.failed') })
     }
   }
 
@@ -321,33 +320,30 @@ export default function TeamAdmin() {
     setDeleteTarget(null)
     const res = await deleteMember(target.id)
     if (res.success) {
-      // Also remove the photo file from server
       if (target.photo) deletePhoto(target.photo)
-      toast.success('Anggota berhasil dihapus')
+      toast.success(t('team.toast.deleted'))
     } else {
-      toast.error(res.message, { title: 'Gagal hapus' })
+      toast.error(res.message, { title: t('team.toast.deleteFailed') })
     }
   }
 
   return (
     <div className="p-4">
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
-        <Title title="Anggota Tim" subtitle="Kelola anggota tim SEANO" />
+        <Title title={t('team.title')} subtitle={t('team.subtitle')} />
         <button
           onClick={openCreate}
           className="font-semibold flex items-center gap-2 px-3 py-2 rounded-lg text-white hover:bg-blue-700 transition duration-300 cursor-pointer hover:shadow-lg hover:shadow-fourth/50 bg-fourth"
         >
-          <FaPlus size={16} /> Tambah Anggota
+          <FaPlus size={16} /> {t('team.add')}
         </button>
       </div>
 
-      {/* Search bar */}
       <div className="relative mb-5 max-w-sm">
         <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
         <input
           type="text"
-          placeholder="Cari nama, jabatan, divisi..."
+          placeholder={t('team.searchPlaceholder')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent transition-colors"
@@ -362,7 +358,7 @@ export default function TeamAdmin() {
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <FaUser className="w-12 h-12 text-gray-300 dark:text-slate-600" />
           <p className="text-gray-500 dark:text-gray-400 text-sm">
-            {search ? 'Tidak ada anggota yang sesuai pencarian' : 'Belum ada anggota tim'}
+            {search ? t('team.emptySearch') : t('team.emptyState')}
           </p>
         </div>
       ) : (
@@ -373,14 +369,14 @@ export default function TeamAdmin() {
         </div>
       )}
 
-      <Modal isOpen={showCreate} onClose={cancelCreate} title="Tambah Anggota Tim" size="xl">
+      <Modal isOpen={showCreate} onClose={cancelCreate} title={t('team.addTitle')} size="xl">
         <MemberForm form={form} onChange={setField} onSubmit={handleCreate}
-          onCancel={cancelCreate} onUpload={uploadPhoto} isEdit={false} />
+          onCancel={cancelCreate} onUpload={uploadPhoto} isEdit={false} t={t} />
       </Modal>
 
-      <Modal isOpen={showEdit} onClose={cancelEdit} title="Edit Anggota Tim" size="xl">
+      <Modal isOpen={showEdit} onClose={cancelEdit} title={t('team.editTitle')} size="xl">
         <MemberForm form={form} onChange={setField} onSubmit={handleUpdate}
-          onCancel={cancelEdit} onUpload={uploadPhoto} isEdit={true} />
+          onCancel={cancelEdit} onUpload={uploadPhoto} isEdit={true} t={t} />
       </Modal>
 
       <DeleteConfirmModal

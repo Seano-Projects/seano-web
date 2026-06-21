@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import useTitle from "../hooks/useTitle";
 import { Title } from "../components/ui";
 import {
-  EnergyConsumptionTrends,
   MissionSuccessRate,
   MissionLogs,
   MissionStats,
@@ -22,14 +21,7 @@ const Mission = () => {
 
   useEffect(() => {
     if (!vehicles || vehicles.length === 0) {
-      setSelectedVessel(null);
       hasInitializedVesselSelection.current = false;
-      return;
-    }
-
-    if (!hasInitializedVesselSelection.current && !selectedVessel) {
-      setSelectedVessel(vehicles[0]);
-      hasInitializedVesselSelection.current = true;
       return;
     }
 
@@ -37,12 +29,12 @@ const Mission = () => {
       selectedVessel?.id &&
       !vehicles.some((vehicle) => vehicle.id === selectedVessel.id)
     ) {
-      setSelectedVessel(vehicles[0]);
+      setSelectedVessel(null);
     }
   }, [vehicles, selectedVessel]);
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 overflow-x-hidden">
       {/* Header - filter dipindah ke panel di Mission Logs */}
       <div>
         <Title
@@ -54,25 +46,20 @@ const Mission = () => {
       {/* Mission Stats Widget */}
       <MissionStats />
 
-      {/* Row 1: Mission Success Rate + Energy Consumption Trends (2 columns) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Mission Success Rate - Donut Chart */}
+      {/* Row 1: Mission Success Rate + Mission History (2 columns) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:h-160 lg:grid-rows-1">
         <MissionSuccessRate />
 
-        {/* Energy Consumption Trends */}
-        <EnergyConsumptionTrends />
+        <MissionLogs
+          vehicles={vehicles || []}
+          selectedVessel={selectedVessel}
+          startDate={startDate}
+          endDate={endDate}
+          onVesselChange={setSelectedVessel}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+        />
       </div>
-
-      {/* Mission Logs */}
-      <MissionLogs
-        vehicles={vehicles || []}
-        selectedVessel={selectedVessel}
-        startDate={startDate}
-        endDate={endDate}
-        onVesselChange={setSelectedVessel}
-        onStartDateChange={setStartDate}
-        onEndDateChange={setEndDate}
-      />
 
       {/* Mission Table - Detail View */}
       <MissionTable />

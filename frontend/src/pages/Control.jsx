@@ -7,6 +7,7 @@ import useVehicleData from "../hooks/useVehicleData";
 import { useLogDataContext } from "../contexts/LogDataContext";
 import useMissionData from "../hooks/useMissionData";
 import useDeviceLock from "../hooks/useDeviceLock";
+import useVehicleConnectionStatus from "../hooks/useVehicleConnectionStatus";
 import { API_BASE_URL } from "../config";
 import { toast } from "../components/ui";
 import {
@@ -149,6 +150,17 @@ const calculateDistanceMeters = (pointA, pointB) => {
   return earthRadius * c;
 };
 
+const TWO_HOURS = 2 * 60 * 60 * 1000;
+
+function getSessionSet(key) {
+  try { return new Set(JSON.parse(sessionStorage.getItem(key) || "[]")) }
+  catch { return new Set() }
+}
+function addToSessionSet(key, id) {
+  const s = getSessionSet(key); s.add(id);
+  sessionStorage.setItem(key, JSON.stringify([...s]));
+}
+
 const getMissionSortTime = (mission) => {
   const timeValue =
     mission?.updated_at ||
@@ -166,6 +178,7 @@ const Control = () => {
     sendCommand,
     sendThruster,
     isLoading: commandLoading,
+    preconnectMqtt,
   } = useControlCommand();
   const { vehicles, selectedVehicleId, setSelectedVehicleId } =
     useVehicleData();
@@ -178,6 +191,12 @@ const Control = () => {
   const deviceLockId = selectedVehicle?.id ? `control-${selectedVehicle.id}` : null;
   const { isLocked, isLockOwner, lockedBySession } = useDeviceLock(deviceLockId);
   const isControlDisabled = isLocked && !isLockOwner;
+
+  const { getVehicleStatus } = useVehicleConnectionStatus();
+  const vehicleIsOffline =
+    selectedVehicle?.code
+      ? getVehicleStatus(selectedVehicle.code) === "offline"
+      : false;
   const { vehicleLogs, waypointLogs } = useLogDataContext();
   const {
     missionData,
@@ -235,9 +254,19 @@ const Control = () => {
   const trailMissionIdRef = useRef(null);
   const lastTrailPositionRef = useRef(null);
 
+  // Auto-disarm when vehicle goes offline
+  useEffect(() => {
+    if (vehicleIsOffline) {
+      setIsArmed(false);
+    }
+  }, [vehicleIsOffline]);
+
   // Mission completed card
   const [showMissionCompletedCard, setShowMissionCompletedCard] =
     useState(false);
+
+  // RTL in-progress banner — auto-dismiss after 5 s
+  const [showRtlBanner, setShowRtlBanner] = useState(false);
 
   const currentMission = useMemo(() => {
     if (!selectedVehicle) return null;
@@ -535,12 +564,29 @@ const Control = () => {
     });
   }, [vehiclePosition, currentMission?.id, currentMission?.status]);
 
-  // Show mission completed card when vehicle arrives home
+  // Show mission completed card when vehicle arrives home.
+  // Uses a session-scoped Set + recency check so old completed missions
+  // on other vehicles don't trigger the modal.
   useEffect(() => {
-    if (isVehicleAtHomeAfterMission) {
-      setShowMissionCompletedCard(true);
-    }
-  }, [isVehicleAtHomeAfterMission]);
+    if (!isVehicleAtHomeAfterMission || currentMission?.id == null) return;
+    const id = String(currentMission.id);
+    if (getSessionSet("dismissedMissionIds").has(id)) return;
+    const lastUpdate = getMissionSortTime(currentMission);
+    if (lastUpdate && Date.now() - lastUpdate > TWO_HOURS) return;
+    setShowMissionCompletedCard(true);
+  }, [isVehicleAtHomeAfterMission, currentMission?.id]);
+
+  useEffect(() => {
+    if (!isMissionCompleted || isVehicleAtHomeAfterMission || currentMission?.id == null) return;
+    const id = String(currentMission.id);
+    if (getSessionSet("rtlShownMissionIds").has(id)) return;
+    const lastUpdate = getMissionSortTime(currentMission);
+    if (lastUpdate && Date.now() - lastUpdate > TWO_HOURS) return;
+    addToSessionSet("rtlShownMissionIds", id);
+    setShowRtlBanner(true);
+    const timer = setTimeout(() => setShowRtlBanner(false), 5000);
+    return () => clearTimeout(timer);
+  }, [isMissionCompleted, isVehicleAtHomeAfterMission, currentMission?.id]);
 
   // Collapse/Expand states for menus with localStorage
   const [isVesselTelemetryExpanded, setIsVesselTelemetryExpanded] = useState(
@@ -627,6 +673,13 @@ const Control = () => {
       setStreamName(normalizeStreamName(selectedVehicle.code));
     }
   }, [selectedVehicle]);
+
+  // Pre-warm MQTT connection so the first joystick move has no setup delay
+  useEffect(() => {
+    if (selectedVehicle?.code) {
+      preconnectMqtt();
+    }
+  }, [selectedVehicle?.code, preconnectMqtt]);
 
   // Mobile detection – only one panel open at a time on small screens
   const [isMobile, setIsMobile] = useState(
@@ -1013,10 +1066,10 @@ const Control = () => {
         {isControlDisabled && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none z-50">
             <div className="px-5 py-3 rounded-xl border text-sm font-medium shadow-lg backdrop-blur-sm bg-red-500/20 border-red-400 text-red-100 flex items-center gap-2">
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
-              {t("control.lockedByAnotherSession") || "Device sedang dikontrol oleh sesi lain"}
+              {t("control.lockedByAnotherSession") || "Device sudah penuh (2 pengguna aktif)"}
             </div>
           </div>
         )}
@@ -1050,7 +1103,7 @@ const Control = () => {
           </button>
         </div>
         {/* RTL in-progress banner (small) */}
-        {isMissionCompleted && !isVehicleAtHomeAfterMission && (
+        {showRtlBanner && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none">
             <div className="px-4 py-2 rounded-lg border text-xs md:text-sm font-medium shadow-lg backdrop-blur-sm bg-blue-500/20 border-blue-400 text-blue-100">
               {t("control.missionControl.rtlInProgress")}
@@ -1094,7 +1147,11 @@ const Control = () => {
               </div>
               {/* Dismiss */}
               <button
-                onClick={() => setShowMissionCompletedCard(false)}
+                onClick={() => {
+                  const id = String(currentMission?.id ?? "");
+                  if (id) addToSessionSet("dismissedMissionIds", id);
+                  setShowMissionCompletedCard(false);
+                }}
                 className="w-full px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors"
               >
                 OK
@@ -1130,7 +1187,7 @@ const Control = () => {
           isExpanded={isThrustControlExpanded}
           onExpand={() => openPanel("thrust")}
           onCollapse={() => setIsThrustControlExpanded(false)}
-          disabled={isControlDisabled}
+          disabled={isControlDisabled || vehicleIsOffline}
           isArmed={isArmed}
           selectedVehicle={selectedVehicle}
           vehicles={vehicles}
@@ -1163,7 +1220,7 @@ const Control = () => {
           isExpanded={isMissionControlExpanded}
           onExpand={() => openPanel("mission")}
           onCollapse={() => setIsMissionControlExpanded(false)}
-          disabled={isControlDisabled}
+          disabled={isControlDisabled || vehicleIsOffline}
           isArmed={isArmed}
           commandLoading={commandLoading}
           selectedVehicle={selectedVehicle}
