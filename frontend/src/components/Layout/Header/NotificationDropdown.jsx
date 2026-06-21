@@ -194,8 +194,8 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
 
   return (
     <div
-      className="absolute right-0 top-12 mt-2 w-96 bg-white dark:bg-black rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 transform origin-top"
-      style={{ zIndex: 10002 }}
+      className="fixed right-2 top-14 w-[min(24rem,calc(100vw-1rem))] bg-white dark:bg-black rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 transform origin-top-right"
+      style={{ zIndex: 10002, maxHeight: "80vh", overflowY: "auto" }}
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">

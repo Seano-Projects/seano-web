@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import useVehicleData from "../../../hooks/useVehicleData";
 import useMissionData from "../../../hooks/useMissionData";
 import useBatteryData from "../../../hooks/useBatteryData";
@@ -13,6 +13,7 @@ import {
   FaBatteryFull,
   FaMapMarkerAlt,
   FaRoute,
+  FaEllipsisV,
 } from "react-icons/fa";
 import { FaLocationDot, FaLocationPin, FaMapLocation } from "react-icons/fa6";
 import { getVehicleStatusLabel } from "../../../utils/vehicleStatus";
@@ -21,6 +22,8 @@ import useTranslation from "../../../hooks/useTranslation";
 const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
   const { t } = useTranslation();
   const [location, setLocation] = useState(t("tracking.topbar.waitingGps"));
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const mobileMenuRef = useRef(null);
   const { vehicles, loading } = useVehicleData();
   const { missionData, getActiveMissions } = useMissionData();
   const { vehicleLogs } = useLogDataContext();
@@ -178,9 +181,19 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
     }
   }, [vehicleLog, t, usvStatus]);
 
+  useEffect(() => {
+    const handler = (e) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target)) {
+        setShowMobileMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   return (
     <div
-      className={`fixed z-9999 top-13 right-0 bg-white
+      className={`fixed z-9000 top-13 right-0 bg-white
                   py-2 border-b border-gray-200
                   dark:bg-black dark:border-gray-700
                   px-4 md:px-8 lg:px-12
@@ -200,25 +213,12 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
                     : "bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
             }`}
           >
-            {/* Bullet with pulse */}
-            <span className="relative flex w-3 h-3">
-              <span
-                className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  usvStatus === "online" ? "animate-ping" : ""
-                } ${
-                  usvStatus === "online"
-                    ? "bg-green-400"
-                    : usvStatus === "idle"
-                      ? "bg-yellow-400"
-                      : usvStatus === "offline"
-                        ? "bg-red-400"
-                        : "bg-gray-400"
-                }`}
-              ></span>
+            {/* Bullet with breathe */}
+            <span className="relative flex w-3 h-3 items-center justify-center">
               <span
                 className={`relative inline-flex rounded-full w-3 h-3 ${
                   usvStatus === "online"
-                    ? "bg-green-500"
+                    ? "bg-green-500 animate-breathe"
                     : usvStatus === "idle"
                       ? "bg-yellow-500"
                       : usvStatus === "offline"
@@ -232,7 +232,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
             {getVehicleStatusLabel(usvStatus)}
           </span>
         </div>
-        <div className="w-36 sm:w-44 lg:min-w-50">
+        <div className="flex-1 min-w-0 max-w-44 sm:max-w-64 lg:max-w-80">
           <VehicleDropdown
             key={selectedVehicle?.id || "no-vehicle"}
             vehicles={vehicles}
@@ -251,15 +251,15 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
         </div>
       </div>
 
-      {/* Indikator */}
-      <div className="flex items-center gap-2 sm:gap-4 dark:text-white text-sm shrink-0">
+      {/* Indikator — desktop */}
+      <div className="hidden sm:flex items-center gap-2 sm:gap-4 dark:text-white text-sm shrink-0">
         <div className="flex items-center gap-1 sm:gap-2">
           <FaRoute
             size={18}
             className={currentMission ? "text-blue-500" : "text-gray-400"}
           />
           <span
-            className={`font-medium hidden xs:inline ${
+            className={`font-medium ${
               currentMission
                 ? "text-blue-700 dark:text-blue-300"
                 : "text-gray-500 dark:text-gray-400"
@@ -268,17 +268,6 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
             {currentWaypointProgress
               ? `WP ${currentWaypointProgress.current}/${currentWaypointProgress.total}`
               : "WP --/--"}
-          </span>
-          <span
-            className={`font-medium inline xs:hidden ${
-              currentMission
-                ? "text-blue-700 dark:text-blue-300"
-                : "text-gray-500 dark:text-gray-400"
-            }`}
-          >
-            {currentWaypointProgress
-              ? `${currentWaypointProgress.current}/${currentWaypointProgress.total}`
-              : "--/--"}
           </span>
         </div>
 
@@ -294,6 +283,52 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
             {location}
           </span>
         </div>
+      </div>
+
+      {/* Indikator — mobile 3-dot floating menu */}
+      <div className="flex sm:hidden relative" ref={mobileMenuRef}>
+        <button
+          onClick={() => setShowMobileMenu((v) => !v)}
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors dark:text-white"
+          aria-label="Show vehicle info"
+        >
+          <FaEllipsisV size={16} />
+        </button>
+
+        {showMobileMenu && (
+          <div className="absolute right-0 top-9 w-52 bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-10001 p-3 space-y-3">
+            <div className="flex items-center gap-2 dark:text-white text-sm">
+              <FaRoute
+                size={16}
+                className={currentMission ? "text-blue-500" : "text-gray-400"}
+              />
+              <span
+                className={`font-medium ${
+                  currentMission
+                    ? "text-blue-700 dark:text-blue-300"
+                    : "text-gray-500 dark:text-gray-400"
+                }`}
+              >
+                {currentWaypointProgress
+                  ? `WP ${currentWaypointProgress.current}/${currentWaypointProgress.total}`
+                  : "WP --/--"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 dark:text-white text-sm">
+              {batteryUnits.map(({ unit, data }) =>
+                renderBatteryIcon(data?.percentage, unit),
+              )}
+            </div>
+
+            <div className="flex items-start gap-2 dark:text-white text-sm">
+              <FaMapMarkerAlt className="text-red-400 mt-0.5 shrink-0" />
+              <span className="text-gray-700 dark:text-gray-300 wrap-break-word leading-tight">
+                {location}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
       </div>
     </div>
