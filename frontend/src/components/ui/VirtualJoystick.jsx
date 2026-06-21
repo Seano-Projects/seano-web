@@ -6,6 +6,8 @@ import {
   FaChevronRight,
 } from "react-icons/fa";
 
+const vibrate = (pattern) => navigator.vibrate?.(pattern);
+
 /**
  * VirtualJoystick – analog stick that emits values in [-100, 100].
  * axis="both"       → emits (throttle, steering)
@@ -26,6 +28,7 @@ const VirtualJoystick = ({
   const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
   const [isActive, setIsActive] = useState(false);
   const capturedPointerRef = useRef(null);
+  const atEdgeRef = useRef(false);
 
   const knobRadius = 20;
   const maxOffset = size / 2 - knobRadius;
@@ -67,12 +70,13 @@ const VirtualJoystick = ({
   const handlePointerDown = useCallback(
     (e) => {
       if (disabled) return;
-      // Only capture the first pointer; ignore additional fingers on same joystick
       if (capturedPointerRef.current !== null) return;
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       capturedPointerRef.current = e.pointerId;
+      atEdgeRef.current = false;
       setIsActive(true);
+      vibrate(10); // grab feedback
       const pos = computePos(e.clientX, e.clientY);
       setKnobPos(pos);
       emitChange(pos.x, pos.y);
@@ -87,16 +91,23 @@ const VirtualJoystick = ({
       const pos = computePos(e.clientX, e.clientY);
       setKnobPos(pos);
       emitChange(pos.x, pos.y);
+      // Edge bump — hanya saat pertama kali menyentuh batas max
+      const dist = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+      const nowAtEdge = dist >= maxOffset - 1;
+      if (nowAtEdge && !atEdgeRef.current) vibrate([20, 5, 20]);
+      atEdgeRef.current = nowAtEdge;
     },
-    [computePos, emitChange],
+    [computePos, emitChange, maxOffset],
   );
 
   const handlePointerUp = useCallback(
     (e) => {
       if (capturedPointerRef.current !== e.pointerId) return;
       capturedPointerRef.current = null;
+      atEdgeRef.current = false;
       setIsActive(false);
       setKnobPos({ x: 0, y: 0 });
+      vibrate(8); // release feedback
       onChange?.(0, 0);
     },
     [onChange],

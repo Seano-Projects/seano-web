@@ -7,6 +7,7 @@ const Title = ({
   children,
   showBreadcrumb = true,
   breadcrumbItems,
+  titleSuffix,
 }) => {
   const location = useLocation();
 
@@ -60,9 +61,12 @@ const Title = ({
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex flex-col gap-2">
-        <h1 className="text-black text-3xl font-bold dark:text-white">
-          {title}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-black text-3xl font-bold dark:text-white">
+            {title}
+          </h1>
+          {titleSuffix}
+        </div>
         {subtitle && (
           <h2 className="text-gray-600 dark:text-gray-400">{subtitle}</h2>
         )}

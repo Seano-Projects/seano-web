@@ -1,5 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiCheckCircle,
   FiInfo,
@@ -76,46 +75,56 @@ const ToastContext = createContext(null);
 
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
+  const timersRef = useRef({});
 
   useEffect(() => {
     const listener = (nextToast) => {
-      setToasts((prev) => [...prev, nextToast]);
+      const id = nextToast.id;
+      setToasts((prev) => [...prev, { ...nextToast, _entering: true }]);
+      // Flip entering → visible on next frame so CSS transition fires
+      const raf = requestAnimationFrame(() => {
+        setToasts((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, _entering: false } : t)),
+        );
+      });
       if (nextToast.duration !== Infinity) {
-        setTimeout(() => {
-          setToasts((prev) => prev.filter((t) => t.id !== nextToast.id));
-        }, nextToast.duration);
+        timersRef.current[id] = setTimeout(() => remove(id), nextToast.duration);
       }
+      return () => cancelAnimationFrame(raf);
     };
     listeners.add(listener);
     return () => listeners.delete(listener);
   }, []);
 
-  const remove = (id) =>
-    setToasts((prev) => prev.filter((toastItem) => toastItem.id !== id));
+  const remove = (id) => {
+    clearTimeout(timersRef.current[id]);
+    delete timersRef.current[id];
+    // Mark as exiting so CSS exit animation plays
+    setToasts((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, _exiting: true } : t)),
+    );
+    // Remove from DOM after animation
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 200);
+  };
 
   const value = useMemo(() => ({ remove }), []);
 
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed inset-0 z-[99999] flex flex-col items-center px-2 py-4">
+      <div className="pointer-events-none fixed inset-0 z-99999 flex flex-col items-center px-2 py-4">
         <div className="flex w-full max-w-sm flex-col gap-3">
-          <AnimatePresence mode="popLayout">
-            {toasts.map((toastItem) => (
-              <ToastCard
-                key={toastItem.id}
-                toastItem={toastItem}
-                onClose={remove}
-              />
-            ))}
-          </AnimatePresence>
+          {toasts.map((toastItem) => (
+            <ToastCard key={toastItem.id} toastItem={toastItem} onClose={remove} />
+          ))}
         </div>
       </div>
     </ToastContext.Provider>
   );
 };
 
-// Base style - same for all variants (black/white based on dark mode)
 const baseStyle =
   "bg-white dark:bg-black text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 shadow-lg";
 
@@ -136,20 +145,19 @@ const variantIcon = {
 };
 
 const ToastCard = ({ toastItem, onClose }) => {
-  const { id, title, description, variant, actionLabel, onAction } = toastItem;
+  const { id, title, description, variant, actionLabel, onAction, _entering, _exiting } =
+    toastItem;
   const icon = variantIcon[variant] ?? variantIcon.default;
   const iconColor = variantIconColor[variant] ?? variantIconColor.default;
 
+  const animClass =
+    _entering || _exiting
+      ? "opacity-0 -translate-y-3"
+      : "opacity-100 translate-y-0";
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{
-        duration: 0.16,
-        ease: "easeOut",
-      }}
-      className={`pointer-events-auto flex w-full flex-row items-start gap-3 rounded-xl p-4 transition-all duration-200 ease-out sm:w-96 ${baseStyle} font-openSans`}
+    <div
+      className={`pointer-events-auto flex w-full flex-row items-start gap-3 rounded-xl p-4 transition-all duration-160 ease-out sm:w-96 ${baseStyle} ${animClass} font-openSans`}
     >
       {icon && (
         <span
@@ -185,7 +193,7 @@ const ToastCard = ({ toastItem, onClose }) => {
       >
         <FiX className="h-4 w-4" />
       </button>
-    </motion.div>
+    </div>
   );
 };
 

@@ -152,8 +152,8 @@ const DataTable = ({
   return (
     <div className="w-full space-y-4">
       {/* Search Bar */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="relative flex-1 min-w-50 max-w-md">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1 min-w-0">
           <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input
             type="text"

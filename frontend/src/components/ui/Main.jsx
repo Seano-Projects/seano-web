@@ -32,7 +32,7 @@ const Main = ({
       <div
         className={`text-gray-500 bg-white mt-12
                     transition-all duration-300 dark:bg-black dark:text-gray-400
-                    min-h-[calc(100vh-56px)] pb-9 min-w-0
+                    min-h-[calc(100vh-56px)] pb-9 min-w-0 overflow-x-hidden
                     ${isFullWidth ? "px-4" : "px-4 md:px-8 lg:px-12"}
                     ${isSidebarOpen ? "md:ml-64 ml-0" : "md:ml-16 ml-0"} ${
                       showTopbar ? "pt-21" : "pt-6"

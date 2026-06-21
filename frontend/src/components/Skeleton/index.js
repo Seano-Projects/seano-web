@@ -6,7 +6,7 @@ export { default as RoleTableSkeleton } from './RoleTableSkeleton'
 export { default as PermissionTableSkeleton } from './PermissionTableSkeleton'
 export { default as VehicleTableSkeleton } from './VehicleTableSkeleton'
 export { default as SensorTableSkeleton } from './SensorTableSkeleton'
-export { default as SensorTypeTableSkeleton } from './SensorTypeTableSkeleton'
+
 export { default as DataTableSkeleton } from './DataTableSkeleton'
 export { default as TableRowSkeleton } from './TableRowSkeleton'
 export { default as MissionCardSkeleton } from './MissionCardSkeleton'
