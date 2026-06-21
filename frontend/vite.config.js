@@ -65,28 +65,32 @@ export default defineConfig({
   },
   assetsInclude: ['**/*.svg'],
   build: {
-    // Simple build tanpa chunking untuk reliability
     minify: 'esbuild',
-    // Keep CSS together
-    cssCodeSplit: false,
+    cssCodeSplit: true,
     cssMinify: true,
-    // Support different browsers
-    target: ['es2015', 'chrome58', 'firefox57', 'safari11'],
-    // Disable chunking completely
+    target: ['es2020', 'chrome80', 'firefox78', 'safari14'],
     rollupOptions: {
       output: {
-        manualChunks: undefined
+        manualChunks: (id) => {
+          // Hanya split React core — pure ESM, aman di-cache permanent
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/scheduler/')
+          ) {
+            return 'react-vendor'
+          }
+          // mqtt & readable-stream dibiarkan di bundle utama karena CJS — jangan dipisah
+        }
       }
     },
     commonjsOptions: {
       transformMixedEsModules: true,
       include: [/node_modules/]
     },
-    // Remove console and debugger in production
     esbuildOptions: {
       drop: ['console', 'debugger']
     },
-    // No source maps in production
     sourcemap: false
   }
 })

@@ -55,3 +55,6 @@ docs/
 
 # Private credentials (NEVER push)
 README-PRIVATE.md
+
+# Load test scripts (contain credential fallbacks)
+test/

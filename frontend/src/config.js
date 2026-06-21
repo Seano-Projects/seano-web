@@ -238,6 +238,11 @@ export const API_ENDPOINTS = {
     DELETE_PHOTO: filename => `${API_BASE_URL}/team/upload-photo/${filename}`,
   },
 
+  // Contact endpoint
+  CONTACT: {
+    SEND: `${API_BASE_URL}/contact`,
+  },
+
   // Waypoint Logs endpoints
   WAYPOINT_LOGS: {
     LIST: `${API_BASE_URL}/waypoint-logs/`,
