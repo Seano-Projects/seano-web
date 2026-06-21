@@ -653,7 +653,7 @@ export const getDataManagementCards = (rawLogsStats = null) => {
       ),
       trendIcon:
         timeDiff < 5 ? (
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-breathe"></div>
         ) : timeDiff < 60 ? (
           <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
         ) : (
@@ -957,62 +957,6 @@ export const getSensorWidgetData = (stats, sensors) => {
         sensors.length === 0
           ? "No data available"
           : `${stats.oseanografiSensors} oseanografi sensors`,
-    },
-  ];
-};
-
-// SensorType Widget Data - Similar to sensor widget data
-export const getSensorTypeWidgetData = (stats, sensorTypes) => {
-  return [
-    {
-      title: "Total Types",
-      value: sensorTypes.length > 0 ? stats.totalSensorTypes : 0,
-      icon: <TbCategory size={26} className="text-blue-500" />,
-      trendIcon: <FaArrowRight className="text-gray-400" />,
-      trendText:
-        sensorTypes.length === 0
-          ? "No data available"
-          : `${stats.totalSensorTypes} sensor types configured`,
-    },
-    {
-      title: "Active",
-      value: sensorTypes.length > 0 ? stats.activeSensorTypes : 0,
-      icon: <HiOutlineStatusOnline size={26} className="text-green-500" />,
-      trendIcon: <FaArrowRight className="text-gray-400" />,
-      trendText:
-        sensorTypes.length === 0
-          ? "No data available"
-          : `${stats.activeSensorTypes} types active`,
-    },
-    {
-      title: "Inactive",
-      value: sensorTypes.length > 0 ? stats.inactiveSensorTypes : 0,
-      icon: <HiOutlineStatusOffline size={26} className="text-red-500" />,
-      trendIcon: <FaArrowRight className="text-gray-400" />,
-      trendText:
-        sensorTypes.length === 0
-          ? "No data available"
-          : `${stats.inactiveSensorTypes} types inactive`,
-    },
-    {
-      title: "Hidrografi",
-      value: sensorTypes.length > 0 ? stats.hidrografiTypes : 0,
-      icon: <TbPhotoSensor size={26} className="text-blue-400" />,
-      trendIcon: <FaArrowRight className="text-gray-400" />,
-      trendText:
-        sensorTypes.length === 0
-          ? "No data available"
-          : `${stats.hidrografiTypes} hidrografi types`,
-    },
-    {
-      title: "Oseanografi",
-      value: sensorTypes.length > 0 ? stats.oseanografiTypes : 0,
-      icon: <MdWifiTethering size={26} className="text-cyan-500" />,
-      trendIcon: <FaArrowRight className="text-gray-400" />,
-      trendText:
-        sensorTypes.length === 0
-          ? "No data available"
-          : `${stats.oseanografiTypes} oseanografi types`,
     },
   ];
 };

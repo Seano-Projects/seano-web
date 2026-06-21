@@ -143,6 +143,20 @@ body,
   background: transparent;
 }
 
+/* Status Dot Breathing Animation */
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.4);
+  }
+}
+
+.animate-breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+
 /* Battery Wave Animation */
 @keyframes batteryWave {
   0%,

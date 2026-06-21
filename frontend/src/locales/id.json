@@ -41,7 +41,10 @@
       "noAccount": "Belum punya akun?",
       "register": "Daftar di sini",
       "errors": {
-        "emailRequired": "Masukkan email dan kata sandi",
+        "emailRequired": "Email dan kata sandi wajib diisi",
+        "emailFieldRequired": "Email wajib diisi",
+        "passwordRequired": "Kata sandi wajib diisi",
+        "wrongCredentials": "Email atau kata sandi salah",
         "invalidEmail": "Masukkan alamat email yang valid",
         "loginFailed": "Login Gagal",
         "invalidCredentials": "Login gagal. Periksa kredensial Anda dan coba lagi."
@@ -495,7 +498,7 @@
       "clearAllFilters": "Bersihkan semua filter",
       "charts": {
         "allDataTitle": "Grafik Ringkasan",
-        "allDataSubtitle": "Tren CTD dari waktu ke waktu",
+        "allDataSubtitle": "Profil kedalaman semua parameter (ternormalisasi)",
         "customSelectTitle": "Grafik Pilihan",
         "customSelectSubtitle": "Pilih metrik CTD untuk melihat tren",
         "sectionHeatmapTitle": "Heatmap Penampang",
@@ -1292,5 +1295,174 @@
     "apiDocumentationDesc": "Panduan integrasi sistem",
     "settings": "Pengaturan",
     "settingsDesc": "Konfigurasi aplikasi"
+  },
+  "landing": {
+    "navbar": {
+      "about": "Tentang",
+      "publications": "Publikasi",
+      "team": "Tim",
+      "contact": "Kontak",
+      "getItNow": "Mulai Sekarang"
+    },
+    "banner": {
+      "learnMore": "Pelajari Lebih",
+      "watchDemo": "Tonton Demo",
+      "badge1": "Navigasi Otonom",
+      "badge2": "Tervalidasi di Laut Terbuka",
+      "badge3": "Pemantauan Real-Time",
+      "description": "SEANO memungkinkan pemantauan laut secara real-time dan misi otonom di perairan Indonesia — mendukung penelitian, keamanan, dan ketahanan nasional."
+    },
+    "feature": {
+      "heading": "Mengungkap Kecerdasan SEANO Melalui Fitur Canggih",
+      "description": "SEANO adalah platform kendaraan permukaan otonom yang dirancang untuk observasi laut presisi dan survei kelautan cerdas. Dilengkapi dengan navigasi canggih, muatan multi-sensor, dan komunikasi real-time, SEANO mengubah cara data kelautan dikumpulkan, dipantau, dan dikendalikan.",
+      "explore": "Jelajahi Kemampuan",
+      "feature1Title": "Kecerdasan Survei Otonom",
+      "feature1Desc": "SEANO melakukan misi kelautan sepenuhnya otonom dengan navigasi waypoint cerdas, penghindaran rintangan, dan kontrol operasional jarak jauh untuk survei laut yang presisi dan efisien.",
+      "feature2Title": "Kontrol Data Laut Real-Time",
+      "feature2Desc": "Telemetri langsung berbasis MQTT & WebSocket menghadirkan visualisasi data sensor instan dan kontrol kendaraan langsung melalui dashboard web terintegrasi.",
+      "feature3Title": "Muatan Ilmiah Multi-Sensor",
+      "feature3Desc": "Sensor oseanografi canggih termasuk CTD, ADCP, GPS, IMU, dan modul meteorologi memberikan data kelautan akurat beresolusi tinggi untuk penelitian dan analisis."
+    },
+    "publications": {
+      "label": "Riset & Publikasi",
+      "heading": "Kontribusi Ilmiah",
+      "description": "Makalah peer-reviewed, prosiding konferensi, dan laporan teknis yang mendokumentasikan terobosan SEANO dalam sistem kelautan otonom.",
+      "viewAll": "Lihat Semua",
+      "empty": "Belum ada publikasi.",
+      "count": "{{count}} publikasi"
+    },
+    "teams": {
+      "label": "Orang di Balik SEANO",
+      "heading": "Kenali Timnya",
+      "description": "Tim multidisiplin insinyur dan peneliti yang bekerja bersama untuk mendorong batas-batas sistem kelautan otonom.",
+      "empty": "Belum ada anggota tim yang ditampilkan."
+    }
+  },
+  "publications": {
+    "title": "Publikasi",
+    "subtitle": "Kelola publikasi ilmiah dan karya tulis",
+    "add": "Tambah Publikasi",
+    "edit": "Edit Publikasi",
+    "delete": "Hapus Publikasi?",
+    "deleteMessage": "akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.",
+    "searchPlaceholder": "Cari judul, penulis, venue...",
+    "emptySearch": "Tidak ada publikasi yang cocok.",
+    "emptyState": "Belum ada publikasi. Klik \"Tambah Publikasi\" untuk menambahkan.",
+    "viewDetail": "Lihat Detail",
+    "notFound": "Publikasi tidak ditemukan.",
+    "backToList": "Kembali ke Publikasi",
+    "back": "Kembali",
+    "openPdf": "Buka PDF",
+    "viewDoi": "Lihat DOI / Link",
+    "noDocument": "Tidak ada dokumen",
+    "authorsLabel": "Penulis",
+    "venueLabel": "Venue / Institusi",
+    "form": {
+      "type": "Tipe",
+      "year": "Tahun",
+      "title": "Judul",
+      "authors": "Penulis",
+      "venue": "Venue / Institusi",
+      "doi": "DOI / Link",
+      "tags": "Tags (pisahkan dengan koma)",
+      "pdf": "File PDF / URL Dokumen",
+      "abstract": "Abstrak",
+      "titlePlaceholder": "Judul publikasi...",
+      "authorsPlaceholder": "Nama Penulis, Nama Penulis 2",
+      "venuePlaceholder": "Jurnal, konferensi, kampus...",
+      "doiPlaceholder": "https://doi.org/...",
+      "tagsPlaceholder": "ASV, IoT, CTD Sensor",
+      "abstractPlaceholder": "Abstrak singkat...",
+      "uploadPdf": "Upload PDF",
+      "externalUrl": "URL Eksternal",
+      "dragDrop": "Drag & drop atau klik untuk pilih",
+      "pdfHint": "PDF saja · maks 20MB",
+      "uploading": "Mengupload...",
+      "pdfUploaded": "PDF berhasil diupload",
+      "cancel": "Batal",
+      "save": "Simpan",
+      "saving": "Menyimpan...",
+      "urlPlaceholder": "https://doi.org/... atau link dokumen",
+      "formatError": "Format salah",
+      "sizeError": "File terlalu besar",
+      "uploadError": "Upload gagal",
+      "uploadGenericError": "Terjadi kesalahan saat upload",
+      "pdfOnly": "Hanya file PDF yang diizinkan",
+      "pdfMaxSize": "Ukuran file maksimal 20MB"
+    },
+    "toast": {
+      "added": "Publikasi berhasil ditambahkan",
+      "updated": "Publikasi berhasil diupdate",
+      "deleted": "Publikasi berhasil dihapus",
+      "success": "Berhasil",
+      "failed": "Gagal"
+    }
+  },
+  "team": {
+    "title": "Anggota Tim",
+    "subtitle": "Kelola anggota tim SEANO",
+    "add": "Tambah Anggota",
+    "editTitle": "Edit Anggota Tim",
+    "addTitle": "Tambah Anggota Tim",
+    "searchPlaceholder": "Cari nama, jabatan, divisi...",
+    "emptySearch": "Tidak ada anggota yang sesuai pencarian",
+    "emptyState": "Belum ada anggota tim",
+    "form": {
+      "photo": "Foto Profil",
+      "division": "Divisi",
+      "name": "Nama",
+      "role": "Jabatan / Role",
+      "sortOrder": "Urutan Tampil",
+      "linkedin": "LinkedIn URL",
+      "github": "GitHub URL",
+      "twitter": "Twitter / X URL",
+      "instagram": "Instagram URL",
+      "divisionPlaceholder": "-- Pilih Divisi --",
+      "uploadPhoto": "Upload Foto",
+      "uploading": "Mengupload...",
+      "removePhoto": "Hapus foto",
+      "photoHint": "JPG, PNG, WebP — maks 5MB",
+      "photoFormatError": "Hanya JPG, PNG, atau WebP yang diizinkan",
+      "photoSizeError": "Ukuran file maksimal 5MB",
+      "uploadFailed": "Upload gagal",
+      "cancel": "Batal",
+      "save": "Simpan Perubahan",
+      "addMember": "Tambah Anggota",
+      "required": "Nama dan jabatan wajib diisi",
+      "validationFailed": "Validasi gagal"
+    },
+    "toast": {
+      "added": "Anggota berhasil ditambahkan",
+      "updated": "Anggota berhasil diperbarui",
+      "deleted": "Anggota berhasil dihapus",
+      "deleteFailed": "Gagal hapus",
+      "failed": "Gagal"
+    }
+  },
+  "chats": {
+    "newChat": "Chat baru",
+    "noChats": "Belum ada chat",
+    "howCanIHelp": "Ada yang bisa saya bantu?",
+    "emptyPlaceholder": "Ada yang bisa saya bantu hari ini?",
+    "inputPlaceholder": "Tulis pesan...",
+    "failedResponse": "Gagal mendapat respons.",
+    "connectionError": "Kesalahan koneksi.",
+    "deleteTitle": "Hapus Percakapan",
+    "deleteMessage": "Apakah kamu yakin ingin menghapus percakapan ini? Tindakan ini tidak dapat dibatalkan.",
+    "delete": "Hapus"
+  },
+  "footer": {
+    "copyright": "Hak Cipta © 2026. Seano. Semua Hak Dilindungi.",
+    "terms": "Syarat Layanan",
+    "privacy": "Kebijakan Privasi"
+  },
+  "demo": {
+    "back": "Kembali",
+    "label": "Video Demo",
+    "heading": "Lihat SEANO Beraksi",
+    "description": "Tonton bagaimana SEANO secara otonom menavigasi perairan Indonesia, mengumpulkan data laut real-time, dan streaming telemetri langsung ke dashboard.",
+    "getItNow": "Mulai Sekarang",
+    "backToHome": "Kembali ke Beranda",
+    "videoTitle": "Video Demo SEANO"
   }
 }

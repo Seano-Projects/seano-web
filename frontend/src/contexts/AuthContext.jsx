@@ -17,13 +17,14 @@ export function AuthProvider({ children }) {
   const checkAndRefreshToken = useCallback(async () => {
       const token = localStorage.getItem("access_token");
 
-      // If no access token, clear in-memory state.
       if (!token) {
-        if (user) {
-          setUser(null);
-          localStorage.removeItem("user");
-          clearCachedWebSocketToken();
-        }
+        setUser(prev => {
+          if (prev) {
+            localStorage.removeItem("user");
+            clearCachedWebSocketToken();
+          }
+          return prev ? null : prev;
+        });
         return;
       }
 
@@ -32,11 +33,11 @@ export function AuthProvider({ children }) {
         const payload = JSON.parse(atob(token.split(".")[1]));
         const expiration = payload.exp * 1000; // Convert to milliseconds
         const now = Date.now();
-        const sixHours = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+        const fiveMinutes = 5 * 60 * 1000;
         const timeUntilExpiry = expiration - now;
 
-        // If token expires in less than 6 hours, trigger refresh proactively
-        if (timeUntilExpiry < sixHours) {
+        // Refresh proactively when token expires in < 5 minutes
+        if (timeUntilExpiry < fiveMinutes) {
           try {
             // Make a simple API call to trigger axios interceptor refresh
             await axiosInstance.get(API_ENDPOINTS.AUTH.ME);
@@ -57,7 +58,7 @@ export function AuthProvider({ children }) {
         localStorage.removeItem("user");
         clearCachedWebSocketToken();
       }
-    }, [user]);
+    }, []);
 
   // Function to check if user is authenticated
   const checkAuth = useCallback(async () => {
@@ -115,12 +116,22 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, []);
 
-  // Check authentication on mount
+  // Check authentication on mount only
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle forced logout dari axios interceptor (refresh token expired)
+  useEffect(() => {
+    const handleForcedLogout = () => {
+      setUser(null);
+      navigate("/auth/login");
+    };
+    window.addEventListener("auth:logout", handleForcedLogout);
+    return () => window.removeEventListener("auth:logout", handleForcedLogout);
+  }, [navigate]);
 
   // Periodic token refresh to prevent expiration
   useEffect(() => {

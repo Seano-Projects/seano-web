@@ -16,14 +16,14 @@ function getTokenExpiration (token) {
   }
 }
 
-// Check if token will expire soon (within 6 hours)
+// Check if token will expire soon (within 5 minutes)
 function shouldRefreshToken (token) {
   const expiration = getTokenExpiration(token)
   if (!expiration) return false
 
   const now = Date.now()
-  const sixHours = 6 * 60 * 60 * 1000 // 6 hours in milliseconds
-  return expiration - now < sixHours
+  const fiveMinutes = 5 * 60 * 1000
+  return expiration - now < fiveMinutes
 }
 
 // Refresh token function
@@ -59,13 +59,21 @@ async function refreshAccessToken () {
       const isSessionsEndpoint =
         window.location.pathname.includes('/user') ||
         error.config?.url?.includes('/auth/sessions')
-      
-      if (!isSessionsEndpoint) {
-        // Clear tokens and redirect to login
+
+      // If the current access token is still valid (not yet expired), don't
+      // force-logout. This prevents logouts when multiple devices share an
+      // account and one device consumes the refresh token first (rotating-refresh
+      // token scenario). The request will proceed with the existing token.
+      const existingToken = localStorage.getItem('access_token')
+      const tokenStillValid =
+        existingToken && getTokenExpiration(existingToken) > Date.now()
+
+      if (!isSessionsEndpoint && !tokenStillValid) {
         localStorage.removeItem('access_token')
         localStorage.removeItem('user')
         clearCachedWebSocketToken()
-        window.location.href = '/auth/login'
+        // Dispatch event agar AuthContext bisa handle redirect via React Router
+        window.dispatchEvent(new Event('auth:logout'))
       }
       throw error
     } finally {
