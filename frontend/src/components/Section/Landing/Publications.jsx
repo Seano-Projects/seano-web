@@ -5,6 +5,7 @@ import Gradient1 from "../../../assets/Gradient1.webp";
 import { GoArrowUpRight } from "react-icons/go";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa6";
 import { API_ENDPOINTS } from "../../../config";
+import { useTranslation } from "../../../hooks/useTranslation";
 
 const typeGradient = {
   "Conference Paper": "from-sky-900/60 via-sky-800/30 to-transparent",
@@ -28,68 +29,68 @@ const typeDot = {
 const CARD_W = 300;
 const CARD_GAP = 16;
 
-
 const PublicationCard = ({ pub }) => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   return (
-  <div
-    onClick={() => navigate(`/publication/${pub.id}`)}
-    className="group relative shrink-0 w-75 rounded-2xl overflow-hidden border border-white/10 hover:border-white/20 bg-white/3 hover:bg-white/6 transition-all duration-300 cursor-pointer">
     <div
-      className={`relative h-36 bg-linear-to-b ${typeGradient[pub.type] ?? "from-gray-800/60 via-gray-700/30 to-transparent"} flex flex-col justify-between p-5`}
+      onClick={() => navigate(`/publication/${pub.id}`)}
+      className="group relative shrink-0 w-75 rounded-2xl overflow-hidden border border-white/10 hover:border-white/20 bg-white/3 hover:bg-white/6 transition-all duration-300 cursor-pointer"
     >
       <div
-        className="absolute inset-0 opacity-6"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)",
-          backgroundSize: "18px 18px",
-        }}
-      />
-      <span
-        className={`relative self-start text-[10px] font-semibold px-2.5 py-1 rounded-full border ${typeAccent[pub.type] ?? "text-gray-400 border-white/10 bg-white/5"}`}
+        className={`relative h-36 bg-linear-to-b ${typeGradient[pub.type] ?? "from-gray-800/60 via-gray-700/30 to-transparent"} flex flex-col justify-between p-5`}
       >
-        {pub.type}
-      </span>
-      <div className="relative self-end opacity-0 group-hover:opacity-100 transition-opacity">
-        <GoArrowUpRight className="text-white w-5 h-5" />
-      </div>
-    </div>
-
-    <div className="p-5 flex flex-col gap-3">
-      <h3 className="text-white font-semibold text-sm leading-snug line-clamp-3">
-        {pub.title}
-      </h3>
-      <p className="text-gray-500 text-[11px] leading-relaxed line-clamp-3">
-        {pub.abstract}
-      </p>
-      {pub.tags?.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {pub.tags.map((tag, j) => (
-            <span
-              key={j}
-              className="text-[10px] font-medium text-gray-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="flex items-center gap-1.5 mt-auto pt-3 border-t border-white/5">
-        <span
-          className={`w-1.5 h-1.5 rounded-full shrink-0 ${typeDot[pub.type] ?? "bg-gray-400"}`}
+        <div
+          className="absolute inset-0 opacity-6"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)",
+            backgroundSize: "18px 18px",
+          }}
         />
-        <p className="text-gray-400 text-[11px] truncate">{pub.authors}</p>
-        <span className="text-gray-600 text-[11px] ml-auto shrink-0">
-          {pub.year}
+        <span
+          className={`relative self-start text-[10px] font-semibold px-2.5 py-1 rounded-full border ${typeAccent[pub.type] ?? "text-gray-400 border-white/10 bg-white/5"}`}
+        >
+          {pub.type}
         </span>
+        <div className="relative self-end opacity-0 group-hover:opacity-100 transition-opacity">
+          <GoArrowUpRight className="text-white w-5 h-5" />
+        </div>
+      </div>
+
+      <div className="p-5 flex flex-col gap-3">
+        <h3 className="text-white font-semibold text-sm leading-snug line-clamp-3">
+          {pub.title}
+        </h3>
+        <p className="text-gray-500 text-[11px] leading-relaxed line-clamp-3">
+          {pub.abstract}
+        </p>
+        {pub.tags?.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {pub.tags.map((tag, j) => (
+              <span
+                key={j}
+                className="text-[10px] font-medium text-gray-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 mt-auto pt-3 border-t border-white/5">
+          <span
+            className={`w-1.5 h-1.5 rounded-full shrink-0 ${typeDot[pub.type] ?? "bg-gray-400"}`}
+          />
+          <p className="text-gray-400 text-[11px] truncate">{pub.authors}</p>
+          <span className="text-gray-600 text-[11px] ml-auto shrink-0">
+            {pub.year}
+          </span>
+        </div>
       </div>
     </div>
-  </div>
-  )
-}
+  );
+};
 
-const ViewAllCard = () => (
+const ViewAllCard = ({ label }) => (
   <Link
     to="/papers"
     className="group relative shrink-0 w-55 rounded-2xl overflow-hidden border border-primary/20 hover:border-primary/50 bg-primary/5 hover:bg-primary/10 transition-all duration-300 flex flex-col items-center justify-center gap-4 p-8 cursor-pointer"
@@ -104,7 +105,7 @@ const ViewAllCard = () => (
       <GoArrowUpRight className="text-primary w-5 h-5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
     </div>
     <div className="text-center">
-      <p className="text-white font-semibold text-sm">View All</p>
+      <p className="text-white font-semibold text-sm">{label}</p>
       <p className="text-primary text-xs mt-0.5">Publications</p>
     </div>
   </Link>
@@ -117,7 +118,6 @@ const GlassNavBtn = ({ children, onClick, disabled, accent = false }) => (
     className="relative flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 group"
     style={{ width: 44, height: 44 }}
   >
-    {/* Chromatic ring — visible on hover */}
     <span
       className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-60 transition-opacity duration-300"
       style={{
@@ -128,9 +128,8 @@ const GlassNavBtn = ({ children, onClick, disabled, accent = false }) => (
         filter: "blur(1px)",
       }}
     />
-    {/* Glass body */}
     <span
-      className="absolute inset-[2px] rounded-full transition-all duration-300"
+      className="absolute inset-0.5 rounded-full transition-all duration-300"
       style={{
         background: accent
           ? "linear-gradient(135deg, rgba(56,189,248,0.18) 0%, rgba(56,189,248,0.06) 100%)"
@@ -144,7 +143,6 @@ const GlassNavBtn = ({ children, onClick, disabled, accent = false }) => (
           "inset 0 1px 0 rgba(255,255,255,0.20), 0 4px 16px rgba(0,0,0,0.25)",
       }}
     />
-    {/* Top highlight */}
     <span
       className="absolute rounded-full pointer-events-none"
       style={{
@@ -157,7 +155,6 @@ const GlassNavBtn = ({ children, onClick, disabled, accent = false }) => (
         filter: "blur(2px)",
       }}
     />
-    {/* Icon */}
     <span
       className={`relative z-10 transition-colors duration-200 ${accent ? "text-white" : "text-gray-400 group-hover:text-white"}`}
     >
@@ -167,6 +164,7 @@ const GlassNavBtn = ({ children, onClick, disabled, accent = false }) => (
 );
 
 const Publications = () => {
+  const { t } = useTranslation();
   const trackRef = useRef(null);
   const [offset, setOffset] = useState(0);
   const [publications, setPublications] = useState([]);
@@ -201,27 +199,17 @@ const Publications = () => {
 
   return (
     <div
-      className="relative w-full overflow-hidden pt-20 sm:pt-40 pb-20 sm:pb-40"
+      className="relative w-full overflow-hidden pt-16 sm:pt-20 pb-20 sm:pb-40 scroll-mt-20"
       id="publications"
     >
-      {/* Gradient bg */}
-      <div className="absolute top-0 right-0 w-[700px] h-[700px] pointer-events-none z-0 opacity-25">
-        <img
-          src={Gradient1}
-          alt=""
-          className="w-full h-full object-contain blur-[120px]"
-        />
+      <div className="absolute top-0 right-0 w-175 h-175 pointer-events-none z-0 opacity-25">
+        <img src={Gradient1} alt="" className="w-full h-full object-contain blur-[120px]" />
       </div>
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] pointer-events-none z-0 opacity-20">
-        <img
-          src={Gradient1}
-          alt=""
-          className="w-full h-full object-contain blur-[120px]"
-        />
+      <div className="absolute bottom-0 left-0 w-125 h-125 pointer-events-none z-0 opacity-20">
+        <img src={Gradient1} alt="" className="w-full h-full object-contain blur-[120px]" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 lg:px-0">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -233,16 +221,14 @@ const Publications = () => {
             <div className="flex items-center gap-3">
               <div className="w-8 h-0.5 bg-primary" />
               <span className="text-primary text-xs font-semibold tracking-widest uppercase">
-                Research & Publications
+                {t("landing.publications.label")}
               </span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-              Scientific Contributions
+              {t("landing.publications.heading")}
             </h1>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Peer-reviewed papers, conference proceedings, and technical
-              reports documenting SEANO's breakthroughs in autonomous marine
-              systems.
+              {t("landing.publications.description")}
             </p>
           </div>
 
@@ -251,11 +237,7 @@ const Publications = () => {
               <GlassNavBtn onClick={() => scrollBy(-1)} disabled={!canPrev}>
                 <FaChevronLeft className="w-3.5 h-3.5" />
               </GlassNavBtn>
-              <GlassNavBtn
-                onClick={() => scrollBy(1)}
-                disabled={!canNext}
-                accent
-              >
+              <GlassNavBtn onClick={() => scrollBy(1)} disabled={!canNext} accent>
                 <FaChevronRight className="w-3.5 h-3.5" />
               </GlassNavBtn>
             </div>
@@ -270,11 +252,10 @@ const Publications = () => {
             transition={{ duration: 0.45 }}
             className="py-16 flex flex-col items-start gap-2"
           >
-            <p className="text-gray-500 text-sm">Belum ada publikasi.</p>
+            <p className="text-gray-500 text-sm">{t("landing.publications.empty")}</p>
           </motion.div>
         ) : (
           <>
-            {/* Slider */}
             <div className="overflow-hidden">
               <motion.div
                 ref={trackRef}
@@ -293,15 +274,13 @@ const Publications = () => {
                     <PublicationCard pub={pub} />
                   </motion.div>
                 ))}
-                <ViewAllCard />
+                <ViewAllCard label={t("landing.publications.viewAll")} />
               </motion.div>
             </div>
 
-            {/* Count */}
             <div className="mt-6">
               <p className="text-gray-600 text-xs">
-                {publications.length} publication
-                {publications.length !== 1 ? "s" : ""}
+                {t("landing.publications.count").replace("{{count}}", publications.length)}
               </p>
             </div>
           </>

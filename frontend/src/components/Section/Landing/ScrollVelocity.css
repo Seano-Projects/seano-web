@@ -1,0 +1,13 @@
+.sv-parallax {
+  position: relative;
+  overflow: hidden;
+}
+
+.sv-scroller {
+  display: flex;
+  white-space: nowrap;
+}
+
+.sv-scroller span {
+  flex-shrink: 0;
+}

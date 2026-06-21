@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Gradient1 from "../../../assets/Gradient1.webp";
 import { FaLinkedin, FaGithub, FaTwitter, FaInstagram } from "react-icons/fa6";
 import { API_ENDPOINTS, API_BASE_URL } from "../../../config";
+import { useTranslation } from "../../../hooks/useTranslation";
 
 const avatarGrads = [
   "from-sky-500 to-blue-700",
@@ -43,7 +44,6 @@ const MemberCard = ({ member, index }) => {
       className="group relative rounded-2xl overflow-hidden border border-white/10 hover:border-white/25 transition-all duration-500 cursor-default"
       style={{ aspectRatio: "3/4" }}
     >
-      {/* Photo or gradient fallback */}
       {photoUrl ? (
         <img
           src={photoUrl}
@@ -58,12 +58,9 @@ const MemberCard = ({ member, index }) => {
         </div>
       )}
 
-      {/* Always-on dark gradient at bottom */}
       <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent" />
 
-      {/* Content pinned to bottom */}
       <div className="absolute bottom-0 left-0 right-0 p-4 flex flex-col gap-2">
-        {/* Social icons — slide up on hover */}
         {socials.length > 0 && (
           <div className="flex gap-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
             {socials.map(({ key, href, Icon, hover }) => (
@@ -96,6 +93,7 @@ const MemberCard = ({ member, index }) => {
 };
 
 const Teams = () => {
+  const { t } = useTranslation();
   const [members, setMembers] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -110,8 +108,7 @@ const Teams = () => {
   }, []);
 
   return (
-    <div className="relative w-full overflow-hidden pt-16 sm:pt-20 pb-20 sm:pb-32 px-4 sm:px-8 lg:px-0" id="team">
-      {/* Gradient bg */}
+    <div className="relative w-full overflow-hidden pt-16 sm:pt-20 pb-10 sm:pb-16 px-4 sm:px-8 lg:px-0 scroll-mt-20" id="team">
       <div className="absolute bottom-0 left-0 w-72 sm:w-150 h-72 sm:h-150 pointer-events-none z-0 opacity-20">
         <img src={Gradient1} alt="" className="w-full h-full object-contain blur-[120px]" />
       </div>
@@ -120,7 +117,6 @@ const Teams = () => {
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -131,26 +127,24 @@ const Teams = () => {
           <div className="flex items-center gap-3">
             <div className="w-8 h-0.5 bg-primary" />
             <span className="text-primary text-xs font-semibold tracking-widest uppercase">
-              People Behind SEANO
+              {t("landing.teams.label")}
             </span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-            Meet the Team
+            {t("landing.teams.heading")}
           </h2>
           <p className="text-gray-400 text-sm leading-relaxed">
-            A multidisciplinary team of engineers and researchers working together
-            to push the boundaries of autonomous marine systems.
+            {t("landing.teams.description")}
           </p>
         </motion.div>
 
-        {/* Card Grid */}
         {!loaded ? (
           <div className="flex justify-center py-16">
             <div className="w-6 h-6 border-2 border-white/20 border-t-primary rounded-full animate-spin" />
           </div>
         ) : members.length === 0 ? (
           <div className="py-16 flex flex-col items-start gap-2">
-            <p className="text-gray-600 text-sm">Belum ada anggota tim yang ditampilkan.</p>
+            <p className="text-gray-600 text-sm">{t("landing.teams.empty")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
@@ -159,15 +153,6 @@ const Teams = () => {
             ))}
           </div>
         )}
-
-        {/* Bottom divider */}
-        <motion.div
-          initial={{ scaleX: 0 }}
-          whileInView={{ scaleX: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="mt-20 h-px bg-linear-to-r from-transparent via-white/10 to-transparent origin-left"
-        />
       </div>
     </div>
   );

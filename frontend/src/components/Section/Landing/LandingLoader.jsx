@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TrueFocus from './TrueFocus';
 
-const ANIM_DURATION = 0.5;
-const PAUSE = 1.0;
+const ANIM_DURATION = 0.4;
+const PAUSE = 0.25;
 const WORDS = 3; // "Sea Autonomous Observer"
-const VISIBLE_MS = WORDS * (ANIM_DURATION + PAUSE) * 1000; // 4500ms
+const VISIBLE_MS = WORDS * (ANIM_DURATION + PAUSE) * 1000; // 1950ms
 
 // Module-level flag: resets on hard refresh, survives SPA navigation
 export let loaderShown = false;

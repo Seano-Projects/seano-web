@@ -1,35 +1,34 @@
 import { FaRegCompass, FaWifi, FaMicrochip } from "react-icons/fa6";
 import Gradient1 from "../../../assets/Gradient1.webp";
 import { GoArrowUpRight } from "react-icons/go";
+import { useTranslation } from "../../../hooks/useTranslation";
 
 const Feature = () => {
+  const { t } = useTranslation();
+
   const features = [
     {
       icon: <FaRegCompass className="w-6 h-6 text-white" />,
-      title: "Autonomous Survey Intelligence",
-      description:
-        "SEANO performs fully autonomous marine missions with intelligent waypoint navigation, obstacle avoidance, and remote operational control for precise and efficient ocean surveys.",
+      title: t("landing.feature.feature1Title"),
+      description: t("landing.feature.feature1Desc"),
     },
     {
       icon: <FaWifi className="w-6 h-6 text-white" />,
-      title: "Real-Time Ocean Data Control",
-      description:
-        "Live telemetry powered by MQTT & WebSocket delivers instant sensor data visualization and direct vehicle control through an integrated web dashboard.",
+      title: t("landing.feature.feature2Title"),
+      description: t("landing.feature.feature2Desc"),
     },
     {
       icon: <FaMicrochip className="w-6 h-6 text-white" />,
-      title: "Multi-Sensor Scientific Payload",
-      description:
-        "Advanced oceanographic sensors including CTD, ADCP, GPS, IMU, and meteorological modules provide accurate, high-resolution marine data for research and analysis.",
+      title: t("landing.feature.feature3Title"),
+      description: t("landing.feature.feature3Desc"),
     },
   ];
 
   return (
     <div
-      className="relative min-h-screen w-full overflow-hidden px-4 sm:px-8 lg:px-0"
+      className="relative min-h-screen w-full overflow-hidden px-4 sm:px-8 lg:px-0 scroll-mt-20"
       id="about"
     >
-      {/* Gradient background */}
       <div className="absolute top-0 right-0 w-96 sm:w-150 lg:w-200 h-96 sm:h-150 lg:h-200 pointer-events-none z-0 opacity-50">
         <img src={Gradient1} alt="" className="w-full h-full object-contain blur-[100px]" />
       </div>
@@ -37,24 +36,18 @@ const Feature = () => {
       <div className="relative z-10 max-w-7xl mx-auto pt-20 sm:pt-32 pb-20">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-16">
 
-          {/* Left Content */}
           <div className="flex-1 space-y-6 sm:space-y-8 text-center lg:text-left">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl leading-tight font-semibold text-white">
-              Unleashing SEANO's Intelligence Through Advanced Features
+              {t("landing.feature.heading")}
             </h1>
             <p className="text-base text-gray-400 leading-relaxed max-w-xl mx-auto lg:mx-0">
-              SEANO is an autonomous surface vehicle platform designed for
-              precision ocean observation and intelligent marine surveys.
-              Equipped with advanced navigation, multi-sensor payloads, and
-              real-time communication, SEANO transforms how marine data is
-              collected, monitored, and controlled.
+              {t("landing.feature.description")}
             </p>
             <button className="relative px-8 py-3 text-white rounded-full font-medium shadow-lg hover:shadow-primary/25 hover:scale-105 transition-all duration-300 ease-in-out inline-block overflow-hidden bg-linear-to-r from-primary via-secondary to-primary bg-size-[200%_100%] bg-left hover:bg-right">
-              Explore Capabilities
+              {t("landing.feature.explore")}
             </button>
           </div>
 
-          {/* Right Cards */}
           <div className="flex-1 space-y-4 sm:space-y-6 w-full">
             {features.map((feature, index) => (
               <div

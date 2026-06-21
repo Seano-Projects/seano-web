@@ -2,13 +2,9 @@ import { HiArrowRight } from "react-icons/hi";
 import { HiPlay } from "react-icons/hi2";
 import { FaStar, FaCheck, FaBolt } from "react-icons/fa6";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import SideRays from "./SideRays";
-
-const badges = [
-  { icon: <FaStar  className="w-3.5 h-3.5 text-white" />, label: "Autonomous Navigation" },
-  { icon: <FaCheck className="w-3.5 h-3.5 text-white" />, label: "Open Sea Validated"    },
-  { icon: <FaBolt  className="w-3.5 h-3.5 text-white" />, label: "Real-Time Monitoring"  },
-];
+import { useTranslation } from "../../../hooks/useTranslation";
 
 const fadeInUp = {
   hidden:  { opacity: 0, y: 28 },
@@ -18,7 +14,17 @@ const fadeInUp = {
   }),
 };
 
-const Banner = () => (
+const Banner = () => {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const badges = [
+    { icon: <FaStar  className="w-3.5 h-3.5 text-white" />, label: t("landing.banner.badge1") },
+    { icon: <FaCheck className="w-3.5 h-3.5 text-white" />, label: t("landing.banner.badge2") },
+    { icon: <FaBolt  className="w-3.5 h-3.5 text-white" />, label: t("landing.banner.badge3") },
+  ];
+
+  return (
   <div className="relative min-h-screen w-full overflow-hidden bg-black">
 
     <SideRays
@@ -35,14 +41,11 @@ const Banner = () => (
       opacity={1}
     />
 
-    {/* Bottom fade */}
     <div className="absolute inset-x-0 bottom-0 h-48 bg-linear-to-t from-black to-transparent z-10 pointer-events-none" />
 
-    {/* Content */}
     <div className="relative z-20 flex flex-col items-center justify-center min-h-screen px-4 text-center">
       <div className="flex flex-col items-center gap-6 max-w-4xl w-full">
 
-        {/* Title */}
         <motion.h1
           custom={0}
           initial="hidden"
@@ -61,7 +64,6 @@ const Banner = () => (
           </span>
         </motion.h1>
 
-        {/* Description */}
         <motion.p
           custom={1}
           initial="hidden"
@@ -69,12 +71,9 @@ const Banner = () => (
           variants={fadeInUp}
           className="text-gray-300 text-sm sm:text-lg max-w-2xl leading-relaxed px-2 sm:px-0"
         >
-          SEANO enables real-time ocean monitoring and autonomous missions
-          across Indonesian waters — supporting research, security, and
-          national resilience.
+          {t("landing.banner.description")}
         </motion.p>
 
-        {/* CTA Buttons */}
         <motion.div
           custom={2}
           initial="hidden"
@@ -86,20 +85,19 @@ const Banner = () => (
             href="#learn-more"
             className="group inline-flex items-center justify-center gap-2 w-full sm:w-auto px-7 py-3.5 bg-linear-to-r from-primary via-secondary to-primary bg-size-[200%_100%] bg-left hover:bg-right text-white font-semibold rounded-full shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:scale-105 transition-all duration-500"
           >
-            Learn More
+            {t("landing.banner.learnMore")}
             <HiArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </a>
 
-          <a
-            href="#watch-demo"
+          <button
+            onClick={() => navigate("/demo")}
             className="group inline-flex items-center justify-center gap-2 w-full sm:w-auto px-7 py-3.5 bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 hover:border-white/40 text-white font-semibold rounded-full transition-all duration-300"
           >
             <HiPlay className="w-4 h-4" />
-            Watch Demo
-          </a>
+            {t("landing.banner.watchDemo")}
+          </button>
         </motion.div>
 
-        {/* Trust badges */}
         <motion.div
           custom={3}
           initial="hidden"
@@ -120,6 +118,7 @@ const Banner = () => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default Banner;
