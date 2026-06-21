@@ -16,9 +16,15 @@ func NewWebSocketHandler(hub *Hub) *WebSocketHandler {
 }
 
 func (h *WebSocketHandler) HandleWebSocket(c *websocket.Conn) {
+	var userID uint
+	if id, ok := c.Locals("user_id").(uint); ok {
+		userID = id
+	}
+
 	client := &Client{
-		Conn: c,
-		Send: make(chan []byte, 256),
+		Conn:   c,
+		Send:   make(chan []byte, 256),
+		UserID: userID,
 	}
 
 	h.hub.register <- client

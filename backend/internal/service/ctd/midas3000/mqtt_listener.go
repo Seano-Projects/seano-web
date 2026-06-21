@@ -1,9 +1,13 @@
 package midas3000
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -22,23 +26,62 @@ type MQTTListener struct {
 
 // MQTTConfig contains MQTT connection configuration
 type MQTTConfig struct {
-	BrokerURL   string // e.g., "tcp://localhost:1883"
-	ClientID    string
-	Username    string
-	Password    string
-	TopicPrefix string // e.g., "seano"
+	BrokerURL      string // e.g., "tcp://localhost:1883" or "ssl://broker:8883"
+	ClientID       string
+	Username       string
+	Password       string
+	TopicPrefix    string // e.g., "seano"
+	TLSInsecure    bool   // skip server certificate verification (for self-signed certs)
+	TLSCACertPath  string // path to CA cert file (optional, for custom CA)
+}
+
+// buildTLSConfig builds a tls.Config based on MQTTConfig TLS settings.
+// Returns nil if TLS is not needed (tcp:// URL).
+func buildTLSConfig(config MQTTConfig) (*tls.Config, error) {
+	tlsCfg := &tls.Config{
+		InsecureSkipVerify: config.TLSInsecure, //nolint:gosec // controlled by explicit env var
+	}
+
+	if config.TLSCACertPath != "" {
+		caCert, err := os.ReadFile(config.TLSCACertPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA cert %q: %w", config.TLSCACertPath, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA cert %q", config.TLSCACertPath)
+		}
+		tlsCfg.RootCAs = pool
+	}
+
+	return tlsCfg, nil
 }
 
 // NewMQTTListener creates a new MQTT listener instance
 func NewMQTTListener(config MQTTConfig, handler *DataHandler) (*MQTTListener, error) {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(config.BrokerURL)
-	
+
 	// Add timestamp to ClientID to avoid conflicts on restart
 	clientID := fmt.Sprintf("%s-%d", config.ClientID, time.Now().Unix())
 	opts.SetClientID(clientID)
 	opts.SetUsername(config.Username)
 	opts.SetPassword(config.Password)
+
+	// Attach TLS config for ssl:// and wss:// schemes
+	isTLS := strings.HasPrefix(config.BrokerURL, "ssl://") || strings.HasPrefix(config.BrokerURL, "wss://")
+	if isTLS {
+		tlsCfg, err := buildTLSConfig(config)
+		if err != nil {
+			return nil, fmt.Errorf("MQTT TLS config error: %w", err)
+		}
+		opts.SetTLSConfig(tlsCfg)
+		if config.TLSInsecure {
+			log.Println("⚠️  MQTT TLS: certificate verification DISABLED (TLS_INSECURE=true)")
+		} else {
+			log.Println("✓ MQTT TLS: certificate verification enabled")
+		}
+	}
 	
 	// Enable auto-reconnect with proper settings
 	opts.SetAutoReconnect(true)
@@ -142,19 +185,25 @@ func (m *MQTTListener) SubscribeToSensor(vehicleCode, sensorCode string) error {
 func (m *MQTTListener) messageHandler(client mqtt.Client, msg mqtt.Message) {
 	log.Printf("Received message on topic: %s", msg.Topic())
 
-	var data CTDMidas3000Data
-	if err := json.Unmarshal(msg.Payload(), &data); err != nil {
+	var raw CTDColumnarMessage
+	if err := json.Unmarshal(msg.Payload(), &raw); err != nil {
 		log.Printf("Error parsing MQTT message: %v", err)
 		return
 	}
 
-	// Process the data using handler
-	if err := m.handler.ProcessData(&data); err != nil {
-		log.Printf("Error processing MIDAS 3000 data: %v", err)
+	batch, err := m.handler.ParseColumnar(&raw)
+	if err != nil {
+		log.Printf("Error expanding columnar CTD data: %v", err)
 		return
 	}
 
-	log.Printf("Successfully processed data from vehicle %s, sensor %s", data.VehicleCode, data.SensorCode)
+	if err := m.handler.ProcessBatch(batch); err != nil {
+		log.Printf("Error processing CTD batch: %v", err)
+		return
+	}
+
+	log.Printf("Successfully processed %d readings from vehicle=%s sensor=%s",
+		len(batch.Readings), batch.VehicleCode, batch.SensorCode)
 }
 
 // Disconnect closes the MQTT connection

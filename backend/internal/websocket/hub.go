@@ -42,6 +42,7 @@ type Client struct {
 	Conn   *websocket.Conn
 	Send   chan []byte
 	Filter ClientFilter
+	UserID uint
 }
 
 type ClientFilter struct {
@@ -169,6 +170,22 @@ func (h *Hub) Broadcast(data []byte) {
 	case h.broadcast <- data:
 	default:
 		log.Printf("⚠️ WebSocket broadcast channel full, dropping message")
+	}
+}
+
+// BroadcastToUser sends raw data only to clients belonging to the given user.
+func (h *Hub) BroadcastToUser(userID uint, data []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for client := range h.clients {
+		if client.UserID != userID {
+			continue
+		}
+		select {
+		case client.Send <- data:
+		default:
+			log.Printf("⚠️ WebSocket slow client (user %d) skipped", userID)
+		}
 	}
 }
 

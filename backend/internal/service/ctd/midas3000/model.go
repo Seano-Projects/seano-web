@@ -2,15 +2,40 @@ package midas3000
 
 import "time"
 
-type CTDMidas3000Data struct {
-	Timestamp     time.Time `json:"timestamp"`      // Timestamp from USV
-	VehicleCode   string    `json:"vehicle_code"`   // Vehicle Code
-	SensorCode    string    `json:"sensor_code"`    // Sensor Code
-	Depth         float64   `json:"depth"`          // Depth in meters
-	Pressure      float64   `json:"pressure"`       // Pressure in M
-	Temperature   float64   `json:"temperature"`    // Temperature in Celsius
-	Conductivity  float64   `json:"conductivity"`   // Conductivity in MS/CM
-	Salinity      float64   `json:"salinity"`       // Salinity in PSU
-	Density       float64   `json:"density"`        // Density in kg/m³
-	SoundVelocity float64   `json:"sound_velocity"` // Sound Velocity in m/s
+// CTDColumnarMessage is the raw MQTT payload in columnar format.
+// One message per dive; all depth readings packed as arrays to save bandwidth.
+type CTDColumnarMessage struct {
+	Timestamp   string          `json:"timestamp"`
+	VehicleCode string          `json:"vehicle_code"`
+	SensorCode  string          `json:"sensor_code"`
+	Latitude    float64         `json:"latitude"`
+	Longitude   float64         `json:"longitude"`
+	Altitude    float64         `json:"altitude"`
+	GpsOk       bool            `json:"gps_ok"`
+	Columns     []string        `json:"columns"`
+	Units       []string        `json:"units"`
+	Data        [][]interface{} `json:"data"`
+}
+
+// CTDReading is a single depth reading expanded from one row in CTDColumnarMessage.Data.
+type CTDReading struct {
+	Depth         float64 `json:"depth"`
+	Pressure      float64 `json:"pressure"`
+	Temperature   float64 `json:"temperature"`
+	Conductivity  float64 `json:"conductivity"`
+	Salinity      float64 `json:"salinity"`
+	Density       float64 `json:"density"`
+	SoundVelocity float64 `json:"sound_velocity"`
+}
+
+// CTDMidas3000Batch holds parsed metadata and all expanded readings for one dive.
+type CTDMidas3000Batch struct {
+	Timestamp   time.Time
+	VehicleCode string
+	SensorCode  string
+	Latitude    float64
+	Longitude   float64
+	Altitude    float64
+	GpsOk       bool
+	Readings    []CTDReading
 }

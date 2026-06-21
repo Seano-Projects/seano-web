@@ -2,6 +2,7 @@ package midas3000
 
 import (
 	"fmt"
+
 	"go-fiber-pgsql/internal/service/sensor"
 )
 
@@ -10,48 +11,57 @@ type Processor struct {
 	handler *DataHandler
 }
 
-// NewProcessor creates a new MIDAS 3000 processor
 func NewProcessor(handler *DataHandler) *Processor {
-	return &Processor{
-		handler: handler,
-	}
+	return &Processor{handler: handler}
 }
 
-// GetSensorType returns the sensor type identifier
 func (p *Processor) GetSensorType() string {
 	return "ctd_midas3000"
 }
 
-// ValidateData validates MIDAS 3000 data
 func (p *Processor) ValidateData(data interface{}) error {
-	ctdData, ok := data.(*CTDMidas3000Data)
-	if !ok {
-		return fmt.Errorf("invalid data type for MIDAS 3000")
+	switch v := data.(type) {
+	case *CTDColumnarMessage:
+		batch, err := p.handler.ParseColumnar(v)
+		if err != nil {
+			return err
+		}
+		return p.handler.validateBatch(batch)
+	case *CTDMidas3000Batch:
+		return p.handler.validateBatch(v)
+	default:
+		return fmt.Errorf("unsupported type %T, expected *CTDColumnarMessage or *CTDMidas3000Batch", data)
 	}
-	
-	return p.handler.validateData(ctdData)
 }
 
-// ProcessData processes and stores MIDAS 3000 data
 func (p *Processor) ProcessData(vehicleCode, sensorCode string, data interface{}) error {
-	ctdData, ok := data.(*CTDMidas3000Data)
-	if !ok {
-		return fmt.Errorf("invalid data type for MIDAS 3000")
+	switch v := data.(type) {
+	case *CTDColumnarMessage:
+		batch, err := p.handler.ParseColumnar(v)
+		if err != nil {
+			return err
+		}
+		return p.handler.ProcessBatch(batch)
+	case *CTDMidas3000Batch:
+		return p.handler.ProcessBatch(v)
+	default:
+		return fmt.Errorf("unsupported type %T, expected *CTDColumnarMessage or *CTDMidas3000Batch", data)
 	}
-	
-	return p.handler.ProcessData(ctdData)
 }
 
-// TransformForBroadcast transforms data for WebSocket broadcast
 func (p *Processor) TransformForBroadcast(data interface{}) (interface{}, error) {
-	ctdData, ok := data.(*CTDMidas3000Data)
-	if !ok {
-		return nil, fmt.Errorf("invalid data type for MIDAS 3000")
+	switch v := data.(type) {
+	case *CTDMidas3000Batch:
+		return p.handler.toBroadcastData(v), nil
+	case *CTDColumnarMessage:
+		batch, err := p.handler.ParseColumnar(v)
+		if err != nil {
+			return nil, err
+		}
+		return p.handler.toBroadcastData(batch), nil
+	default:
+		return nil, fmt.Errorf("unsupported type %T, expected *CTDColumnarMessage or *CTDMidas3000Batch", data)
 	}
-	
-	// Return as-is or transform as needed
-	return ctdData, nil
 }
 
-// Ensure Processor implements SensorDataProcessor
 var _ sensor.SensorDataProcessor = (*Processor)(nil)

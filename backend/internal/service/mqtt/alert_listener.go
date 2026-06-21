@@ -209,6 +209,7 @@ func (l *AlertListener) handleMessage(client mqtt.Client, msg mqtt.Message) {
 			"type":         "alert",
 			"id":           alert.ID,
 			"vehicle_id":   alert.VehicleID,
+			"vehicle_name": vehicle.Name,
 			"severity":     alert.Severity,
 			"alert_type":   alert.AlertType,
 			"message":      alert.Message,
@@ -220,7 +221,8 @@ func (l *AlertListener) handleMessage(client mqtt.Client, msg mqtt.Message) {
 		}
 
 		if data, err := json.Marshal(message); err == nil {
-			l.wsHub.Broadcast(data)
+			// Only send to the user who owns this vehicle
+			l.wsHub.BroadcastToUser(vehicle.UserID, data)
 		}
 	}
 

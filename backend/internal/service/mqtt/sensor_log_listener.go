@@ -123,16 +123,19 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 	// Record the moment MQTT message was received by the backend
 	mqttReceivedAt := time.Now()
 
-	// Parse USV timestamp from payload (Jetson-side timestamp) — support sub-second precision
+	// Parse USV timestamp — check both "timestamp" (new columnar format) and "date_time" (legacy)
 	var usvTimestamp *time.Time
 	createdAt := mqttReceivedAt
-	if dateTime, ok := payloadData["date_time"].(string); ok && dateTime != "" {
+	rawTs, _ := payloadData["timestamp"].(string)
+	if rawTs == "" {
+		rawTs, _ = payloadData["date_time"].(string)
+	}
+	if rawTs != "" {
 		var parsedTime time.Time
 		var err error
-		// Try RFC3339Nano first (supports microseconds), then RFC3339
-		parsedTime, err = time.Parse(time.RFC3339Nano, dateTime)
+		parsedTime, err = time.Parse(time.RFC3339Nano, rawTs)
 		if err != nil {
-			parsedTime, err = time.Parse(time.RFC3339, dateTime)
+			parsedTime, err = time.Parse(time.RFC3339, rawTs)
 		}
 		if err == nil {
 			usvTimestamp = &parsedTime
@@ -167,12 +170,14 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 		}
 	}
 
-	wsSentAt := time.Now()
-	sensorLog.WsSentAt = &wsSentAt
-
 	if err := l.sensorLogRepo.CreateSensorLog(sensorLog); err != nil {
 		log.Printf("Failed to save sensor log: %v", err)
 		return
+	}
+
+	wsSentAt := time.Now()
+	if err := l.sensorLogRepo.UpdateWSSentAt(sensorLog.ID, wsSentAt); err == nil {
+		sensorLog.WsSentAt = &wsSentAt
 	}
 	
 	log.Printf("✓ Sensor log saved: vehicle=%s, sensor=%s, id=%d", vehicleCode, sensorCode, sensorLog.ID)
