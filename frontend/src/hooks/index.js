@@ -16,7 +16,7 @@ export { default as useNotify } from './useNotify'
 export { default as usePermissionData } from './usePermissionData'
 export { default as useRawLogData } from './useRawLogData'
 export { default as useRoleData } from './useRoleData'
-export { default as useSensorTypesData } from './useSensorTypesData'
+
 export { default as useSensorsData } from './useSensorsData'
 export { default as useUserData } from './useUserData'
 export { default as useVehicleData } from './useVehicleData'

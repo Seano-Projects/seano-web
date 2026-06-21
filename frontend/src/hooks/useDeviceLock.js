@@ -46,9 +46,10 @@ const useDeviceLock = (deviceId) => {
       }
     } catch (err) {
       if (err.response?.status === 409) {
+        // Device is at capacity — all slots taken by other sessions
         setIsLocked(true);
         setIsLockOwner(false);
-        setLockedBySession(err.response.data?.locked_by_session || null);
+        setLockedBySession(err.response.data?.session_ids?.[0] || null);
       }
     }
   }, [deviceId]);
@@ -74,12 +75,18 @@ const useDeviceLock = (deviceId) => {
         params: { device_id: deviceId },
       });
       if (res.data?.locked) {
-        const ownedByMe = res.data.locked_by_session === sessionIdRef.current;
-        setIsLocked(true);
+        const sessionIds = res.data.session_ids || [];
+        const ownedByMe = sessionIds.includes(sessionIdRef.current);
+        const atCapacity = res.data.at_capacity && !ownedByMe;
+        setIsLocked(atCapacity);
         setIsLockOwner(ownedByMe);
-        setLockedBySession(res.data.locked_by_session);
+        setLockedBySession(sessionIds[0] || null);
+        // Try to join if there's still room
+        if (!ownedByMe && !atCapacity) {
+          acquireLock();
+        }
       } else {
-        // Lock expired, try to acquire
+        // No active sessions — try to acquire
         setIsLocked(false);
         setIsLockOwner(false);
         setLockedBySession(null);

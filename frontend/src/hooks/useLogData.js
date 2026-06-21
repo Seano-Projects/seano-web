@@ -111,9 +111,24 @@ const getWsUrl = () => {
 const WS_URL = getWsUrl()
 const BATTERY_STORAGE_KEY = 'batteryData'
 
-const ackWsReceipt = () => {
-  // Disabled: ws_received_at UPDATEs were causing massive DB load
-  // (337% CPU on PostgreSQL with 13+ concurrent UPDATE connections)
+// Enabled for latency testing. Samples 1 in every ACK_SAMPLE_RATE messages
+// to avoid flooding the DB with UPDATEs. Disable in production by replacing
+// the function body below with a no-op: const ackWsReceipt = () => {}
+// (Unsampled: 337% CPU on PostgreSQL with 13+ concurrent UPDATE connections)
+const ACK_SAMPLE_RATE = 10
+let _ackCounter = 0
+const ackWsReceipt = (url, receivedAt) => {
+  if (++_ackCounter % ACK_SAMPLE_RATE !== 0) return
+  const token = localStorage.getItem('access_token')
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ ws_received_at: receivedAt }),
+    keepalive: true,
+  }).catch(() => {})
 }
 
 const normalizeBatteryMap = rawBatteryMap => {

@@ -114,7 +114,8 @@ const publishWaypointToMqtt = async (client, vehicleCode, payload) => {
 
   await Promise.race([
     new Promise((resolve, reject) => {
-      client.publish(topic, data, { qos: 0 }, err => {
+      // qos 1: mission waypoint data is large and critical — ensure broker receives it
+      client.publish(topic, data, { qos: 1 }, err => {
         if (err) {
           reject(err)
           return

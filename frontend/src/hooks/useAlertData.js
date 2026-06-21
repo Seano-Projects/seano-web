@@ -171,6 +171,18 @@ export const useAlertData = (options = {}) => {
                 sensor_id: data.sensor_id || null
               }
 
+              // Notify global modal for failsafe / anti-theft alerts
+              const alertTypeLower = (data.alert_type || '').toLowerCase()
+              if (
+                alertTypeLower === 'failsafe' ||
+                alertTypeLower === 'anti_theft' ||
+                alertTypeLower === 'antitheft'
+              ) {
+                window.dispatchEvent(
+                  new CustomEvent('alert:critical', { detail: newAlert })
+                )
+              }
+
               // Add new alert to the beginning of the list
               setAlerts(prev => {
                 const updated = [newAlert, ...prev]

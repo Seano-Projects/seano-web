@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import mqtt from 'mqtt'
 import axios from '../utils/axiosConfig'
 import { API_ENDPOINTS } from '../config'
@@ -129,7 +129,8 @@ const publishThrusterToMqtt = async (vehicleCode, throttle, steering) => {
   const topic = `seano/${String(vehicleCode || '').trim()}/thruster`
   const payload = JSON.stringify({ throttle, steering })
   return new Promise((resolve, reject) => {
-    client.publish(topic, payload, { qos: 1 }, err => {
+    // qos 0 keeps joystick interaction snappy — no broker PUBACK wait per message
+    client.publish(topic, payload, { qos: 0 }, err => {
       if (err) reject(err)
       else resolve()
     })
@@ -153,8 +154,9 @@ const publishCommandToMqtt = async (vehicleCode, command, topicSuffix = 'command
 
   await Promise.race([
     new Promise((resolve, reject) => {
-      // qos 0 keeps command interaction snappy for operator control UI.
-      client.publish(topic, payload, { qos: 0 }, err => {
+      // qos 1: ARM/DISARM/mode commands are safety-critical and infrequent —
+      // broker delivery guarantee matters more than the small PUBACK overhead.
+      client.publish(topic, payload, { qos: 1 }, err => {
         if (err) {
           reject(err)
           return
@@ -470,7 +472,12 @@ const useControlCommand = () => {
     }
   }
 
-  return { sendCommand, sendThruster, isLoading }
+  const preconnectMqtt = useCallback(async () => {
+    if (isPollingMode) return
+    try { await getMqttClient() } catch { /* ignore – connection will be retried on first send */ }
+  }, [isPollingMode])
+
+  return { sendCommand, sendThruster, isLoading, preconnectMqtt }
 }
 
 export default useControlCommand

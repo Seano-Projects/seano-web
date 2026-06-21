@@ -111,42 +111,86 @@ const normalizeSingleCTDEntry = (payload, fallback = {}) => {
   }
 }
 
+const buildMetaFallback = (payload, fallback) => ({
+  ...fallback,
+  timestamp:
+    payload?.timestamp || payload?.date_time || fallback.timestamp || null,
+  vehicle_code:
+    payload?.vehicle_code || fallback.vehicle_code || fallback.vehicleCode || '',
+  sensor_code:
+    payload?.sensor_code || fallback.sensor_code || fallback.sensorCode || '',
+  sensor: payload?.sensor || fallback.sensor || null,
+  latitude: payload?.latitude ?? payload?.lat ?? fallback.latitude,
+  longitude: payload?.longitude ?? payload?.lon ?? fallback.longitude,
+  altitude: payload?.altitude ?? fallback.altitude,
+  gps_ok:
+    typeof payload?.gps_ok === 'boolean' || typeof payload?.gps_ok === 'string'
+      ? payload.gps_ok
+      : fallback.gps_ok,
+})
+
 const normalizeCTDData = (payload, fallback = {}) => {
+  // Format columnar: {columns:[...], data:[[...]]} — format baru dari USV
+  if (
+    Array.isArray(payload?.columns) &&
+    Array.isArray(payload?.data) &&
+    payload.data.length > 0
+  ) {
+    const colIdx = {}
+    payload.columns.forEach((col, i) => { colIdx[col] = i })
+    const meta = buildMetaFallback(payload, fallback)
+    const get = (row, name) => {
+      const i = colIdx[name]
+      return i !== undefined ? toNumber(row[i]) : null
+    }
+    return payload.data
+      .map(row => {
+        if (!Array.isArray(row)) return null
+        const depth = get(row, 'depth')
+        const pressure = get(row, 'pressure')
+        const temperature = get(row, 'temperature')
+        const conductivity = get(row, 'conductivity')
+        const salinity = get(row, 'salinity')
+        const density = get(row, 'density')
+        const soundVelocity = get(row, 'sound_velocity')
+        if (
+          !meta.timestamp || !meta.vehicle_code || !meta.sensor_code ||
+          depth === null || pressure === null || temperature === null ||
+          conductivity === null || salinity === null ||
+          density === null || soundVelocity === null
+        ) return null
+        return {
+          timestamp: meta.timestamp,
+          vehicle_code: meta.vehicle_code,
+          sensor_code: meta.sensor_code,
+          sensor: meta.sensor,
+          latitude: toNumber(meta.latitude),
+          longitude: toNumber(meta.longitude),
+          altitude: toNumber(meta.altitude),
+          gps_ok: meta.gps_ok ?? null,
+          depth,
+          pressure,
+          temperature,
+          conductivity,
+          salinity,
+          density,
+          sound_velocity: soundVelocity,
+        }
+      })
+      .filter(Boolean)
+  }
+
+  // Format profile[]: {profile:[{depth,temperature,...}]} — dari WS sensor_data
   if (Array.isArray(payload?.profile) && payload.profile.length > 0) {
+    const meta = buildMetaFallback(payload, fallback)
     return payload.profile
       .map((profileEntry, profileIndex) =>
-        normalizeSingleCTDEntry(profileEntry, {
-          ...fallback,
-          timestamp:
-            payload?.timestamp ||
-            payload?.date_time ||
-            fallback.timestamp ||
-            null,
-          vehicle_code:
-            payload?.vehicle_code ||
-            fallback.vehicle_code ||
-            fallback.vehicleCode ||
-            '',
-          sensor_code:
-            payload?.sensor_code ||
-            fallback.sensor_code ||
-            fallback.sensorCode ||
-            '',
-          sensor: payload?.sensor || fallback.sensor || null,
-          latitude: payload?.latitude ?? payload?.lat ?? fallback.latitude,
-          longitude: payload?.longitude ?? payload?.lon ?? fallback.longitude,
-          altitude: payload?.altitude ?? fallback.altitude,
-          gps_ok:
-            typeof payload?.gps_ok === 'boolean' ||
-            typeof payload?.gps_ok === 'string'
-              ? payload.gps_ok
-              : fallback.gps_ok,
-          profile_index: profileIndex
-        })
+        normalizeSingleCTDEntry(profileEntry, { ...meta, profile_index: profileIndex })
       )
       .filter(Boolean)
   }
 
+  // Single entry fallback
   const normalized = normalizeSingleCTDEntry(payload, fallback)
   return normalized ? [normalized] : []
 }
