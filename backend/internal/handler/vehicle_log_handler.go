@@ -5,6 +5,7 @@ import (
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	"go-fiber-pgsql/internal/util"
+	wsocket "go-fiber-pgsql/internal/websocket"
 	"strconv"
 	"strings"
 	"time"
@@ -18,18 +19,20 @@ type VehicleLogHandler struct {
 	vehicleRepo    *repository.VehicleRepository
 	missionRepo    *repository.MissionRepository
 	db             *gorm.DB
+	wsHub          *wsocket.Hub
 }
 
 type vehicleWSReceivedAtRequest struct {
 	WSReceivedAt string `json:"ws_received_at"`
 }
 
-func NewVehicleLogHandler(vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, missionRepo *repository.MissionRepository, db *gorm.DB) *VehicleLogHandler {
+func NewVehicleLogHandler(vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, missionRepo *repository.MissionRepository, db *gorm.DB, wsHub *wsocket.Hub) *VehicleLogHandler {
 	return &VehicleLogHandler{
 		vehicleLogRepo: vehicleLogRepo,
 		vehicleRepo:    vehicleRepo,
 		missionRepo:    missionRepo,
 		db:             db,
+		wsHub:          wsHub,
 	}
 }
 
@@ -244,15 +247,17 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 		})
 	}
 
+	var vehicle *model.Vehicle
 	vehicleID := req.VehicleID
-	if vehicleID == 0 && req.VehicleCode != "" {
-		vehicle, err := h.vehicleRepo.GetVehicleByCode(req.VehicleCode)
+	if req.VehicleCode != "" {
+		v, err := h.vehicleRepo.GetVehicleByCode(req.VehicleCode)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid vehicle_code",
 			})
 		}
-		vehicleID = vehicle.ID
+		vehicleID = v.ID
+		vehicle = v
 	}
 	if vehicleID == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -265,7 +270,7 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 	if req.TemperatureSystem != nil {
 		tempSystem = &req.TemperatureSystem.Value
 	}
-	
+
 	// Calculate battery_percentage if not provided but battery_voltage exists
 	batteryPercentage := req.BatteryPercentage
 	if batteryPercentage == nil && req.BatteryVoltage != nil {
@@ -279,8 +284,21 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 		}
 		batteryPercentage = &percentage
 	}
-	
-	log := &model.VehicleLog{
+
+	// Stamp backend receive time (equivalent to mqtt_received_at for API mode)
+	apiReceivedAt := time.Now()
+
+	// Parse usv_timestamp from date_time field in request
+	var usvTimestamp *time.Time
+	if req.DateTime != nil && *req.DateTime != "" {
+		if t, err := time.Parse(time.RFC3339Nano, *req.DateTime); err == nil {
+			usvTimestamp = &t
+		} else if t, err := time.Parse(time.RFC3339, *req.DateTime); err == nil {
+			usvTimestamp = &t
+		}
+	}
+
+	vehicleLog := &model.VehicleLog{
 		VehicleID:         vehicleID,
 		MissionID:         req.MissionID,
 		MissionCode:       req.MissionCode,
@@ -301,27 +319,75 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 		Pitch:             req.Pitch,
 		Yaw:               req.Yaw,
 		TemperatureSystem: tempSystem,
+		UsvTimestamp:      usvTimestamp,
+		MqttReceivedAt:    &apiReceivedAt,
 	}
 
-	if log.MissionID == nil && req.MissionCode != nil && *req.MissionCode != "" && h.missionRepo != nil {
+	if vehicleLog.MissionID == nil && req.MissionCode != nil && *req.MissionCode != "" && h.missionRepo != nil {
 		if mission, err := h.missionRepo.GetMissionByCode(*req.MissionCode); err == nil {
-			log.MissionID = &mission.ID
+			vehicleLog.MissionID = &mission.ID
 		}
 	}
 
-	if log.MissionID != nil && (log.MissionCode == nil || *log.MissionCode == "") && h.missionRepo != nil {
-		if mission, err := h.missionRepo.GetMissionByID(*log.MissionID); err == nil {
-			log.MissionCode = &mission.MissionCode
+	if vehicleLog.MissionID != nil && (vehicleLog.MissionCode == nil || *vehicleLog.MissionCode == "") && h.missionRepo != nil {
+		if mission, err := h.missionRepo.GetMissionByID(*vehicleLog.MissionID); err == nil {
+			vehicleLog.MissionCode = &mission.MissionCode
 		}
 	}
 
-	if err := h.vehicleLogRepo.CreateVehicleLog(log); err != nil {
+	if err := h.vehicleLogRepo.CreateVehicleLog(vehicleLog); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create vehicle log",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(log)
+	// Broadcast via WebSocket so frontend latency (ws_sent_at/ws_received_at) is measurable
+	if h.wsHub != nil {
+		wsSentAt := time.Now()
+		if err := h.vehicleLogRepo.UpdateWSSentAt(vehicleLog.ID, wsSentAt); err == nil {
+			vehicleLog.WsSentAt = &wsSentAt
+		}
+		wsVehicle := &wsocket.VehicleInfo{}
+		if vehicle != nil {
+			wsVehicle.Code = vehicle.Code
+			wsVehicle.Name = vehicle.Name
+		}
+		wsData := wsocket.VehicleLogData{
+			ID:                vehicleLog.ID,
+			VehicleID:         vehicleLog.VehicleID,
+			Vehicle:           wsVehicle,
+			MissionID:         func() uint { if vehicleLog.MissionID != nil { return *vehicleLog.MissionID }; return 0 }(),
+			MissionCode:       vehicleLog.MissionCode,
+			BatteryVoltage:    vehicleLog.BatteryVoltage,
+			BatteryCurrent:    vehicleLog.BatteryCurrent,
+			BatteryPercentage: vehicleLog.BatteryPercentage,
+			RSSI:              vehicleLog.RSSI,
+			Mode:              vehicleLog.Mode,
+			Latitude:          vehicleLog.Latitude,
+			Longitude:         vehicleLog.Longitude,
+			Altitude:          vehicleLog.Altitude,
+			Heading:           vehicleLog.Heading,
+			Armed:             vehicleLog.Armed,
+			GPSok:             vehicleLog.GPSok,
+			SystemStatus:      vehicleLog.SystemStatus,
+			Speed:             vehicleLog.Speed,
+			Roll:              vehicleLog.Roll,
+			Pitch:             vehicleLog.Pitch,
+			Yaw:               vehicleLog.Yaw,
+			TemperatureSystem: vehicleLog.TemperatureSystem,
+			CreatedAt:         vehicleLog.CreatedAt.Format(time.RFC3339Nano),
+			UsvTimestamp: func() string {
+				if usvTimestamp != nil {
+					return usvTimestamp.Format(time.RFC3339Nano)
+				}
+				return ""
+			}(),
+			MqttReceivedAt: apiReceivedAt.UTC().Format(time.RFC3339Nano),
+		}
+		h.wsHub.BroadcastVehicleLog(wsData, vehicleLog.CreatedAt.Format(time.RFC3339Nano), wsSentAt.UTC().Format(time.RFC3339Nano))
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(vehicleLog)
 }
 
 // DeleteVehicleLog godoc

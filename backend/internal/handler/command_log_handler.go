@@ -173,6 +173,16 @@ func (h *CommandLogHandler) GetPendingCommands(c *fiber.Ctx) error {
 		})
 	}
 
+	// In API mode (no MQTT), stamp mqtt_published_at on first delivery to USV poll.
+	// This marks when the command was dispatched to the transport layer.
+	deliveredAt := time.Now().UTC()
+	for i := range logs {
+		if logs[i].MqttPublishedAt == nil && logs[i].RequestID != "" {
+			_ = h.repo.UpdateCommandLogPublishedAtByRequestID(logs[i].RequestID, deliveredAt)
+			logs[i].MqttPublishedAt = &deliveredAt
+		}
+	}
+
 	return c.JSON(fiber.Map{
 		"data":  logs,
 		"count": len(logs),

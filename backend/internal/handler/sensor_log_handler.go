@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"encoding/json"
 	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	"go-fiber-pgsql/internal/util"
+	wsocket "go-fiber-pgsql/internal/websocket"
 	"strconv"
 	"strings"
 	"time"
@@ -18,18 +20,20 @@ type SensorLogHandler struct {
 	vehicleRepo   *repository.VehicleRepository
 	sensorRepo    *repository.SensorRepository
 	db            *gorm.DB
+	wsHub         *wsocket.Hub
 }
 
 type sensorWSReceivedAtRequest struct {
 	WSReceivedAt string `json:"ws_received_at"`
 }
 
-func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, db *gorm.DB) *SensorLogHandler {
+func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, db *gorm.DB, wsHub *wsocket.Hub) *SensorLogHandler {
 	return &SensorLogHandler{
 		sensorLogRepo: sensorLogRepo,
 		vehicleRepo:   vehicleRepo,
 		sensorRepo:    sensorRepo,
 		db:            db,
+		wsHub:         wsHub,
 	}
 }
 
@@ -244,15 +248,17 @@ func (h *SensorLogHandler) CreateSensorLog(c *fiber.Ctx) error {
 		})
 	}
 
+	var vehicle *model.Vehicle
 	vehicleID := req.VehicleID
-	if vehicleID == 0 && req.VehicleCode != "" {
-		vehicle, err := h.vehicleRepo.GetVehicleByCode(req.VehicleCode)
+	if req.VehicleCode != "" {
+		v, err := h.vehicleRepo.GetVehicleByCode(req.VehicleCode)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid vehicle_code",
 			})
 		}
-		vehicleID = vehicle.ID
+		vehicleID = v.ID
+		vehicle = v
 	}
 	if vehicleID == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -260,15 +266,17 @@ func (h *SensorLogHandler) CreateSensorLog(c *fiber.Ctx) error {
 		})
 	}
 
+	var sensor *model.Sensor
 	sensorID := req.SensorID
-	if sensorID == 0 && req.SensorCode != "" {
-		sensor, err := h.sensorRepo.GetSensorByCode(req.SensorCode)
+	if req.SensorCode != "" {
+		s, err := h.sensorRepo.GetSensorByCode(req.SensorCode)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid sensor_code",
 			})
 		}
-		sensorID = sensor.ID
+		sensorID = s.ID
+		sensor = s
 	}
 	if sensorID == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -276,19 +284,77 @@ func (h *SensorLogHandler) CreateSensorLog(c *fiber.Ctx) error {
 		})
 	}
 
-	log := &model.SensorLog{
-		VehicleID: vehicleID,
-		SensorID:  sensorID,
-		Data:      req.Data,
+	// Stamp backend receive time (equivalent to mqtt_received_at for API mode)
+	apiReceivedAt := time.Now()
+
+	// Parse usv_timestamp from payload JSON if present
+	var usvTimestamp *time.Time
+	var payloadData map[string]interface{}
+	if err := json.Unmarshal([]byte(req.Data), &payloadData); err == nil {
+		rawTs, _ := payloadData["timestamp"].(string)
+		if rawTs == "" {
+			rawTs, _ = payloadData["date_time"].(string)
+		}
+		if rawTs != "" {
+			if t, err := time.Parse(time.RFC3339Nano, rawTs); err == nil {
+				usvTimestamp = &t
+			} else if t, err := time.Parse(time.RFC3339, rawTs); err == nil {
+				usvTimestamp = &t
+			}
+		}
 	}
 
-	if err := h.sensorLogRepo.CreateSensorLog(log); err != nil {
+	sensorLog := &model.SensorLog{
+		VehicleID:      vehicleID,
+		SensorID:       sensorID,
+		Data:           req.Data,
+		UsvTimestamp:   usvTimestamp,
+		MqttReceivedAt: &apiReceivedAt,
+	}
+
+	if err := h.sensorLogRepo.CreateSensorLog(sensorLog); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create sensor log",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(log)
+	// Broadcast via WebSocket so frontend latency (ws_sent_at/ws_received_at) is measurable
+	if h.wsHub != nil {
+		wsSentAt := time.Now()
+		if err := h.sensorLogRepo.UpdateWSSentAt(sensorLog.ID, wsSentAt); err == nil {
+			sensorLog.WsSentAt = &wsSentAt
+		}
+		wsVehicle := &wsocket.VehicleInfo{}
+		if vehicle != nil {
+			wsVehicle.Code = vehicle.Code
+			wsVehicle.Name = vehicle.Name
+		}
+		wsSensor := &wsocket.SensorInfo{}
+		if sensor != nil {
+			wsSensor.Code = sensor.Code
+			wsSensor.Brand = sensor.Brand
+			wsSensor.Model = sensor.Model
+		}
+		wsData := wsocket.SensorLogData{
+			ID:        sensorLog.ID,
+			VehicleID: sensorLog.VehicleID,
+			SensorID:  sensorLog.SensorID,
+			Vehicle:   wsVehicle,
+			Sensor:    wsSensor,
+			Data:      req.Data,
+			CreatedAt: sensorLog.CreatedAt.Format(time.RFC3339Nano),
+			UsvTimestamp: func() string {
+				if usvTimestamp != nil {
+					return usvTimestamp.Format(time.RFC3339Nano)
+				}
+				return ""
+			}(),
+			MqttReceivedAt: apiReceivedAt.UTC().Format(time.RFC3339Nano),
+		}
+		h.wsHub.BroadcastSensorLog(wsData, sensorLog.CreatedAt.Format(time.RFC3339Nano), wsSentAt.UTC().Format(time.RFC3339Nano))
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(sensorLog)
 }
 
 // DeleteSensorLog godoc
@@ -468,12 +534,10 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 
 		sensorDisp := ""
 		if log.Sensor != nil {
-			if log.Sensor.Model != "" {
-				sensorDisp = log.Sensor.Model
-			} else if log.Sensor.Code != "" {
+			if log.Sensor.Code != "" {
 				sensorDisp = log.Sensor.Code
-			} else if log.Sensor.SensorType != nil && log.Sensor.SensorType.Name != "" {
-				sensorDisp = log.Sensor.SensorType.Name
+			} else if log.Sensor.Model != "" {
+				sensorDisp = log.Sensor.Model
 			} else if log.Sensor.Brand != "" {
 				sensorDisp = log.Sensor.Brand
 			}
@@ -593,45 +657,110 @@ func (h *SensorLogHandler) ImportSensorLogs(c *fiber.Ctx) error {
 
 	csvContent := string(csvBytes)
 	lines := util.SplitLines(csvContent)
-	
+
 	if len(lines) < 2 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "CSV file is empty or invalid",
 		})
 	}
 
-	// Skip header line
+	// Build column index map from header row (case-insensitive, strip spaces)
+	headerFields := util.ParseCSVLine(lines[0])
+	colIndex := make(map[string]int)
+	for i, h := range headerFields {
+		colIndex[strings.ToLower(strings.TrimSpace(h))] = i
+	}
+
+	// Cache vehicle/sensor lookups to avoid repeated DB queries
+	vehicleCache := map[string]uint{}
+	sensorCache := map[string]uint{}
+
 	successCount := 0
 	errorCount := 0
-	
+
 	for i := 1; i < len(lines); i++ {
 		if lines[i] == "" {
 			continue
 		}
-		
+
 		fields := util.ParseCSVLine(lines[i])
-		if len(fields) < 4 {
+
+		// Resolve vehicle by code string or numeric ID
+		var vehicleID uint
+		if idx, ok := colIndex["vehicle"]; ok && idx < len(fields) {
+			vField := strings.TrimSpace(fields[idx])
+			if id, err := strconv.ParseUint(vField, 10, 32); err == nil {
+				vehicleID = uint(id)
+			} else if vField != "" {
+				if cached, ok := vehicleCache[vField]; ok {
+					vehicleID = cached
+				} else if v, err := h.vehicleRepo.GetVehicleByCode(vField); err == nil {
+					vehicleID = v.ID
+					vehicleCache[vField] = v.ID
+				}
+			}
+		}
+
+		// Resolve sensor by code string or numeric ID
+		var sensorID uint
+		if idx, ok := colIndex["sensor"]; ok && idx < len(fields) {
+			sField := strings.TrimSpace(fields[idx])
+			if id, err := strconv.ParseUint(sField, 10, 32); err == nil {
+				sensorID = uint(id)
+			} else if sField != "" {
+				if cached, ok := sensorCache[sField]; ok {
+					sensorID = cached
+				} else if s, err := h.sensorRepo.GetSensorByCode(sField); err == nil {
+					sensorID = s.ID
+					sensorCache[sField] = s.ID
+				}
+			}
+		}
+
+		if vehicleID == 0 || sensorID == 0 {
 			errorCount++
 			continue
 		}
 
-		// Parse IDs
-		vehicleID, err1 := strconv.ParseUint(fields[1], 10, 32)
-		sensorID, err2 := strconv.ParseUint(fields[2], 10, 32)
-		
-		if err1 != nil || err2 != nil {
+		// Get data field by header name
+		var dataVal string
+		if idx, ok := colIndex["data"]; ok && idx < len(fields) {
+			dataVal = strings.TrimSpace(fields[idx])
+		}
+		if dataVal == "" {
 			errorCount++
 			continue
 		}
 
-		// Create sensor log
-		log := &model.SensorLog{
-			VehicleID: uint(vehicleID),
-			SensorID:  uint(sensorID),
-			Data:      fields[3],
+		logEntry := &model.SensorLog{
+			VehicleID: vehicleID,
+			SensorID:  sensorID,
+			Data:      dataVal,
 		}
 
-		if err := h.sensorLogRepo.CreateSensorLog(log); err != nil {
+		// Parse optional mission code
+		if idx, ok := colIndex["mission"]; ok && idx < len(fields) {
+			if mCode := strings.TrimSpace(fields[idx]); mCode != "" {
+				logEntry.MissionCode = &mCode
+			}
+		}
+
+		// Parse optional USV timestamp
+		for _, tsKey := range []string{"usvtimestamp", "usv_timestamp"} {
+			if idx, ok := colIndex[tsKey]; ok && idx < len(fields) {
+				if tsStr := strings.TrimSpace(fields[idx]); tsStr != "" {
+					if t, err := time.Parse(time.RFC3339Nano, tsStr); err == nil {
+						logEntry.UsvTimestamp = &t
+						break
+					} else if t, err := time.Parse(time.RFC3339, tsStr); err == nil {
+						logEntry.UsvTimestamp = &t
+						break
+					}
+				}
+			}
+		}
+
+		if err := h.sensorLogRepo.CreateSensorLog(logEntry); err != nil {
 			errorCount++
 		} else {
 			successCount++

@@ -10,15 +10,22 @@ import (
 	"go-fiber-pgsql/internal/repository"
 )
 
-// DeviceLock represents an active lock on a device control page.
-type DeviceLock struct {
-	DeviceID        string `json:"device_id"`
-	LockedBySession string `json:"locked_by_session"`
-	LockedAt        int64  `json:"locked_at"`
-	ExpiresAt       int64  `json:"expires_at"`
+const maxConcurrentSessions = 2
+
+// DeviceLockSession represents a single active session holding a lock.
+type DeviceLockSession struct {
+	SessionID string `json:"session_id"`
+	LockedAt  int64  `json:"locked_at"`
+	ExpiresAt int64  `json:"expires_at"`
 }
 
-// DeviceLockHandler manages exclusive page locks for device control.
+// DeviceLock represents active sessions on a device control page.
+type DeviceLock struct {
+	DeviceID string               `json:"device_id"`
+	Sessions []*DeviceLockSession `json:"sessions"`
+}
+
+// DeviceLockHandler manages shared page locks for device control.
 type DeviceLockHandler struct {
 	mu          sync.RWMutex
 	locks       map[string]*DeviceLock // keyed by device_id
@@ -33,6 +40,17 @@ func NewDeviceLockHandler(vehicleRepo *repository.VehicleRepository) *DeviceLock
 }
 
 const lockTTL = 30 * time.Second
+
+// pruneSessions removes expired sessions from a DeviceLock.
+func pruneSessions(dl *DeviceLock, now time.Time) {
+	active := dl.Sessions[:0]
+	for _, s := range dl.Sessions {
+		if s.ExpiresAt > now.UnixMilli() {
+			active = append(active, s)
+		}
+	}
+	dl.Sessions = active
+}
 
 // checkDeviceOwnership verifies the user owns the vehicle referenced by device_id (format: "control-{vehicleID}")
 func (h *DeviceLockHandler) checkDeviceOwnership(c *fiber.Ctx, deviceID string) error {
@@ -56,6 +74,7 @@ func (h *DeviceLockHandler) checkDeviceOwnership(c *fiber.Ctx, deviceID string) 
 }
 
 // AcquireLock attempts to acquire or renew a lock for the requesting session.
+// Up to maxConcurrentSessions sessions may hold the lock simultaneously.
 func (h *DeviceLockHandler) AcquireLock(c *fiber.Ctx) error {
 	var body struct {
 		DeviceID  string `json:"device_id"`
@@ -73,27 +92,40 @@ func (h *DeviceLockHandler) AcquireLock(c *fiber.Ctx) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	existing := h.locks[body.DeviceID]
-	if existing != nil && existing.LockedBySession != body.SessionID && existing.ExpiresAt > now.UnixMilli() {
+	dl := h.locks[body.DeviceID]
+	if dl == nil {
+		dl = &DeviceLock{DeviceID: body.DeviceID}
+		h.locks[body.DeviceID] = dl
+	}
+	pruneSessions(dl, now)
+
+	// Check if this session already holds a slot (renew it)
+	for _, s := range dl.Sessions {
+		if s.SessionID == body.SessionID {
+			s.ExpiresAt = now.Add(lockTTL).UnixMilli()
+			return c.JSON(fiber.Map{"status": "locked", "session_count": len(dl.Sessions)})
+		}
+	}
+
+	// Reject if at capacity
+	if len(dl.Sessions) >= maxConcurrentSessions {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"error":             "device is locked by another session",
-			"locked_by_session": existing.LockedBySession,
-			"expires_at":        existing.ExpiresAt,
+			"error":         "device is at maximum concurrent sessions",
+			"session_count": len(dl.Sessions),
 		})
 	}
 
-	lock := &DeviceLock{
-		DeviceID:        body.DeviceID,
-		LockedBySession: body.SessionID,
-		LockedAt:        now.UnixMilli(),
-		ExpiresAt:       now.Add(lockTTL).UnixMilli(),
-	}
-	h.locks[body.DeviceID] = lock
+	// Add new session
+	dl.Sessions = append(dl.Sessions, &DeviceLockSession{
+		SessionID: body.SessionID,
+		LockedAt:  now.UnixMilli(),
+		ExpiresAt: now.Add(lockTTL).UnixMilli(),
+	})
 
-	return c.JSON(fiber.Map{"status": "locked", "lock": lock})
+	return c.JSON(fiber.Map{"status": "locked", "session_count": len(dl.Sessions)})
 }
 
-// Heartbeat renews the lock TTL.
+// Heartbeat renews the lock TTL for the requesting session.
 func (h *DeviceLockHandler) Heartbeat(c *fiber.Ctx) error {
 	var body struct {
 		DeviceID  string `json:"device_id"`
@@ -107,16 +139,20 @@ func (h *DeviceLockHandler) Heartbeat(c *fiber.Ctx) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	existing := h.locks[body.DeviceID]
-	if existing == nil || existing.LockedBySession != body.SessionID {
+	dl := h.locks[body.DeviceID]
+	if dl == nil {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "lock not held by this session"})
 	}
-
-	existing.ExpiresAt = now.Add(lockTTL).UnixMilli()
-	return c.JSON(fiber.Map{"status": "renewed", "expires_at": existing.ExpiresAt})
+	for _, s := range dl.Sessions {
+		if s.SessionID == body.SessionID {
+			s.ExpiresAt = now.Add(lockTTL).UnixMilli()
+			return c.JSON(fiber.Map{"status": "renewed", "expires_at": s.ExpiresAt})
+		}
+	}
+	return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "lock not held by this session"})
 }
 
-// ReleaseLock releases the lock for the requesting session.
+// ReleaseLock releases the session's slot on the lock.
 func (h *DeviceLockHandler) ReleaseLock(c *fiber.Ctx) error {
 	var body struct {
 		DeviceID  string `json:"device_id"`
@@ -129,9 +165,18 @@ func (h *DeviceLockHandler) ReleaseLock(c *fiber.Ctx) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	existing := h.locks[body.DeviceID]
-	if existing != nil && existing.LockedBySession == body.SessionID {
-		delete(h.locks, body.DeviceID)
+	dl := h.locks[body.DeviceID]
+	if dl != nil {
+		filtered := dl.Sessions[:0]
+		for _, s := range dl.Sessions {
+			if s.SessionID != body.SessionID {
+				filtered = append(filtered, s)
+			}
+		}
+		dl.Sessions = filtered
+		if len(dl.Sessions) == 0 {
+			delete(h.locks, body.DeviceID)
+		}
 	}
 
 	return c.JSON(fiber.Map{"status": "released"})
@@ -145,18 +190,28 @@ func (h *DeviceLockHandler) GetLockStatus(c *fiber.Ctx) error {
 	}
 
 	now := time.Now()
-	h.mu.RLock()
-	defer h.mu.RUnlock()
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
-	existing := h.locks[deviceID]
-	if existing == nil || existing.ExpiresAt <= now.UnixMilli() {
-		return c.JSON(fiber.Map{"locked": false})
+	dl := h.locks[deviceID]
+	if dl == nil {
+		return c.JSON(fiber.Map{"locked": false, "session_count": 0})
+	}
+	pruneSessions(dl, now)
+	if len(dl.Sessions) == 0 {
+		delete(h.locks, deviceID)
+		return c.JSON(fiber.Map{"locked": false, "session_count": 0})
+	}
+
+	sessionIDs := make([]string, len(dl.Sessions))
+	for i, s := range dl.Sessions {
+		sessionIDs[i] = s.SessionID
 	}
 
 	return c.JSON(fiber.Map{
-		"locked":            true,
-		"locked_by_session": existing.LockedBySession,
-		"locked_at":         existing.LockedAt,
-		"expires_at":        existing.ExpiresAt,
+		"locked":        true,
+		"session_count": len(dl.Sessions),
+		"session_ids":   sessionIDs,
+		"at_capacity":   len(dl.Sessions) >= maxConcurrentSessions,
 	})
 }

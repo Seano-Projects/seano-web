@@ -21,8 +21,8 @@ import (
 )
 
 func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *mqttservice.CommandPublisher, rawLogsEnabled bool) {
-	// Serve static files (index.html for WebSocket testing)
-	app.Static("/", "./public")
+	// Static file serving for uploads only
+	app.Static("/uploads", "./public/uploads")
 
 	// Initialize repositories
 	roleRepo := repository.NewRoleRepository(db)
@@ -54,8 +54,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	sensorHandler := handler.NewSensorHandler(sensorRepo, db)
 	vehicleHandler := handler.NewVehicleHandler(vehicleRepo, db, wsHub)
 	vehicleSensorHandler := handler.NewVehicleSensorHandler(vehicleSensorRepo, vehicleRepo, sensorRepo, db)
-	sensorLogHandler := handler.NewSensorLogHandler(sensorLogRepo, vehicleRepo, sensorRepo, db)
-	vehicleLogHandler := handler.NewVehicleLogHandler(vehicleLogRepo, vehicleRepo, missionRepo, db)
+	sensorLogHandler := handler.NewSensorLogHandler(sensorLogRepo, vehicleRepo, sensorRepo, db, wsHub)
+	vehicleLogHandler := handler.NewVehicleLogHandler(vehicleLogRepo, vehicleRepo, missionRepo, db, wsHub)
 	rawLogHandler := handler.NewRawLogHandler(rawLogRepo, vehicleRepo, db, rawLogsEnabled, wsHub)
 	logStatsHandler := handler.NewLogStatsHandler(vehicleLogRepo, sensorLogRepo, rawLogRepo, vehicleRepo, db, rawLogsEnabled)
 	missionHandler := handler.NewMissionHandler(missionRepo, vehicleRepo, waypointLogRepo, cmdPublisher, db, wsHub)
@@ -69,6 +69,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	publicationHandler := handler.NewPublicationHandler(publicationRepo)
 	teamMemberRepo := repository.NewTeamMemberRepository(db)
 	teamMemberHandler := handler.NewTeamMemberHandler(teamMemberRepo)
+	contactHandler := handler.NewContactHandler(emailService)
 	wsHandler := wsocket.NewWebSocketHandler(wsHub)
 
 	// Swagger route (disabled in production)
@@ -346,6 +347,19 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	team.Post("/", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.Create)
 	team.Put("/:id", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.Update)
 	team.Delete("/:id", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.Delete)
+
+	// Contact route — public, rate limited
+	contactLimiter := limiter.New(limiter.Config{
+		Max:        5,
+		Expiration: 15 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(429).JSON(fiber.Map{"error": "Too many requests. Please try again later."})
+		},
+	})
+	app.Post("/contact", contactLimiter, contactHandler.Send)
 
 	// WebSocket routes — token validated from ?token= query param (WS can't set custom headers)
 	wsAuth := middleware.WSAuthRequired()

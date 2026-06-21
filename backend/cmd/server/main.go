@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gofiber/fiber/v2"
@@ -114,10 +115,15 @@ func main() {
 	mqttBroker := getEnv("MQTT_BROKER", "")
 	mqttPort := getEnv("MQTT_PORT", "1883")
 	mqttUseTLS := getEnv("MQTT_USE_TLS", "false")
+	mqttProtocol := strings.TrimSpace(getEnv("MQTT_PROTOCOL", ""))  // tcp | ssl | ws | wss
+	mqttPath := getEnv("MQTT_PATH", "")                             // e.g. /mqtt (for ws/wss)
 
 	var brokerURL string
 	if mqttEnabled && mqttBroker != "" {
-		if mqttUseTLS == "true" {
+		if mqttProtocol != "" {
+			// Explicit protocol overrides MQTT_USE_TLS
+			brokerURL = mqttProtocol + "://" + mqttBroker + ":" + mqttPort + mqttPath
+		} else if mqttUseTLS == "true" {
 			brokerURL = "ssl://" + mqttBroker + ":" + mqttPort
 		} else {
 			brokerURL = "tcp://" + mqttBroker + ":" + mqttPort
@@ -125,11 +131,13 @@ func main() {
 	}
 
 	mqttConfig := midas3000.MQTTConfig{
-		BrokerURL:   brokerURL,
-		ClientID:    getEnv("MQTT_CLIENT_ID", "go-fiber-server"),
-		Username:    getEnv("MQTT_USERNAME", ""),
-		Password:    getEnv("MQTT_PASSWORD", ""),
-		TopicPrefix: getEnv("MQTT_TOPIC_PREFIX", "seano"),
+		BrokerURL:     brokerURL,
+		ClientID:      getEnv("MQTT_CLIENT_ID", "go-fiber-server"),
+		Username:      getEnv("MQTT_USERNAME", ""),
+		Password:      getEnv("MQTT_PASSWORD", ""),
+		TopicPrefix:   getEnv("MQTT_TOPIC_PREFIX", "seano"),
+		TLSInsecure:   getEnv("MQTT_TLS_INSECURE", "false") == "true",
+		TLSCACertPath: getEnv("MQTT_CA_CERT_PATH", ""),
 	}
 
 	var cmdPublisher *mqttservice.CommandPublisher
@@ -205,6 +213,11 @@ func main() {
 				if err := waypointListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start waypoint listener: %v", err)
 				}
+
+				// Offline Watchdog: fallback for missing LWT — marks vehicle offline
+				// after 3 minutes of no vehicle_log data, checks every 60 seconds.
+				watchdog := mqttservice.NewOfflineWatchdog(db, vehicleRepo, wsHub, 3*time.Minute, 60*time.Second)
+				watchdog.Start()
 
 				// Register reconnect callbacks so all listeners re-subscribe after MQTT reconnect.
 				// With CleanSession=true, the broker discards subscriptions on disconnect.

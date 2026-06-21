@@ -161,6 +161,70 @@ func (s *EmailService) SendPasswordResetEmail(toEmail, token string) error {
 	return nil
 }
 
+func (s *EmailService) SendContactEmail(fromName, fromEmail, message string) error {
+	m := gomail.NewMessage()
+	m.SetHeader("From", s.from)
+	m.SetHeader("To", "seanousv@gmail.com")
+	m.SetHeader("Subject", fmt.Sprintf("[SEANO Contact] Message from %s", fromName))
+	m.SetHeader("Reply-To", fromEmail)
+
+	body := fmt.Sprintf(`
+		<!DOCTYPE html>
+		<html>
+		<head><meta charset="UTF-8"></head>
+		<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f9fafb;">
+			<table width="100%%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;padding:40px 20px;">
+				<tr><td align="center">
+					<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+						<tr>
+							<td style="background-color:#000000;padding:32px 40px;text-align:center;">
+								<img src="https://seano.cloud/logo_seano.webp" alt="Seano Logo" style="width:56px;height:56px;margin-bottom:10px;" />
+								<h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:600;">New Contact Message</h1>
+								<p style="margin:6px 0 0 0;color:#93c5fd;font-size:13px;">via SEANO Landing Page</p>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding:36px 40px;">
+								<table width="100%%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+									<tr>
+										<td style="padding:12px 16px;background-color:#f3f4f6;border-radius:6px 6px 0 0;border-bottom:1px solid #e5e7eb;">
+											<p style="margin:0;color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">From</p>
+											<p style="margin:4px 0 0 0;color:#111827;font-size:15px;font-weight:600;">%s</p>
+										</td>
+									</tr>
+									<tr>
+										<td style="padding:12px 16px;background-color:#f3f4f6;border-radius:0 0 6px 6px;">
+											<p style="margin:0;color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Reply-to Email</p>
+											<p style="margin:4px 0 0 0;color:#2563eb;font-size:14px;">%s</p>
+										</td>
+									</tr>
+								</table>
+								<p style="margin:0 0 8px 0;color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Message</p>
+								<div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:20px;">
+									<p style="margin:0;color:#374151;font-size:15px;line-height:1.7;white-space:pre-wrap;">%s</p>
+								</div>
+							</td>
+						</tr>
+						<tr>
+							<td style="background-color:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
+								<p style="margin:0;color:#9ca3af;font-size:12px;">&copy; 2026 SEANO. Reply directly to this email to respond to the sender.</p>
+							</td>
+						</tr>
+					</table>
+				</td></tr>
+			</table>
+		</body>
+		</html>
+	`, fromName, fromEmail, message)
+
+	m.SetBody("text/html", body)
+
+	if err := s.dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send contact email: %v", err)
+	}
+	return nil
+}
+
 func (s *EmailService) SendPasswordResetLink(toEmail, resetLink string) error {
 	m := gomail.NewMessage()
 	m.SetHeader("From", s.from)
