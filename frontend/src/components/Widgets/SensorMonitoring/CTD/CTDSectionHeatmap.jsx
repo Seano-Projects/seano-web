@@ -407,21 +407,24 @@ const CTDSectionHeatmap = ({
     const samples = [];
 
     for (const item of sorted) {
-      const lat = Number(item.latitude);
-      const lon = Number(item.longitude);
+      const rawLat = item.latitude;
+      const rawLon = item.longitude;
+      const lat = rawLat != null ? Number(rawLat) : null;
+      const lon = rawLon != null ? Number(rawLon) : null;
+      const hasValidGps =
+        Number.isFinite(lat) && Number.isFinite(lon) &&
+        (lat !== 0 || lon !== 0);
       const depth = Number(item.depth);
       const metricValue = Number(item[activeMetric.key]);
 
       if (
-        !Number.isFinite(lat) ||
-        !Number.isFinite(lon) ||
         !Number.isFinite(depth) ||
         !Number.isFinite(metricValue)
       ) {
         continue;
       }
 
-      if (previousPoint) {
+      if (hasValidGps && previousPoint?.hasValidGps) {
         const stepKm = haversineKm(
           previousPoint.lat,
           previousPoint.lon,
@@ -436,6 +439,7 @@ const CTDSectionHeatmap = ({
       samples.push({
         lat,
         lon,
+        hasValidGps,
         depth_m: depth,
         distance_km: cumulativeDistance,
         timestamp: item.timestamp,
@@ -447,7 +451,7 @@ const CTDSectionHeatmap = ({
         value: metricValue,
       });
 
-      previousPoint = { lat, lon };
+      previousPoint = { lat, lon, hasValidGps };
     }
 
     if (!samples.length) {
@@ -750,6 +754,8 @@ const CTDSectionHeatmap = ({
       surfaceSalinity,
       bottomSalinity,
       anomalyMessages: [...new Set(anomalyMessages)].slice(0, 3),
+      isStationaryProfile: maxDistance < DISTANCE_BIN_KM,
+      hasGpsData: samples.some(s => s.hasValidGps),
     };
   }, [ctdData, activeMetric]);
 
@@ -1090,6 +1096,24 @@ const CTDSectionHeatmap = ({
         </div>
       ) : (
         <>
+          {(preparedData.isStationaryProfile || !preparedData.hasGpsData) && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+              <span className="mt-0.5 shrink-0 text-base">⚠</span>
+              <div>
+                <span className="font-semibold">
+                  {!preparedData.hasGpsData
+                    ? "GPS data not available in CTD payload"
+                    : "Stationary profile detected"}
+                </span>
+                <span className="ml-1 text-amber-600 dark:text-amber-500">
+                  {!preparedData.hasGpsData
+                    ? "— USV is not sending lat/lon with CTD data. The X-axis cannot represent horizontal distance; all readings are stacked at 0 km. Ensure GPS coordinates are included in the CTD MQTT payload."
+                    : `— Max distance is only ${formatDistanceLabel(preparedData.maxDistance)}. The section heatmap is designed for transect surveys (USV moving horizontally). For a stationary vertical cast, use the Depth Profile chart instead.`}
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
             {summaryCards.map((card) => (
               <WidgetCard key={card.title} {...card} />
@@ -1132,7 +1156,7 @@ const CTDSectionHeatmap = ({
 
                   {tooltip && (
                     <div
-                      className="pointer-events-none absolute z-20 min-w-[220px] rounded-xl border border-gray-200 bg-white/96 p-3 shadow-xl backdrop-blur dark:border-gray-700 dark:bg-slate-950/96"
+                      className="pointer-events-none absolute z-20 min-w-55 rounded-xl border border-gray-200 bg-white/96 p-3 shadow-xl backdrop-blur dark:border-gray-700 dark:bg-slate-950/96"
                       style={{
                         left: `${clamp(
                           tooltip.left + 14,

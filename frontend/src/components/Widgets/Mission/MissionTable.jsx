@@ -366,12 +366,12 @@ const MissionTable = () => {
       headerExtra={columnToggle}
     >
       {/* Status Filter Buttons */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-1.5">
         {statuses.map((s) => (
           <button
             key={s.key}
             onClick={() => setFilterStatus(s.key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
               filterStatus === s.key
                 ? "bg-blue-600 text-white"
                 : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"

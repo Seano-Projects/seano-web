@@ -76,9 +76,9 @@ const Dropdown = ({
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors duration-200 flex items-center justify-between"
+        className="w-full bg-white dark:bg-black border border-gray-300 dark:border-gray-700 rounded-xl px-4 py-3 text-left text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors duration-200 flex items-center justify-between gap-2"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0 overflow-hidden">
           {selectedItemData ? (
             renderSelectedItem ? (
               renderSelectedItem(selectedItemData)

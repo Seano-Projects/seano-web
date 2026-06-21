@@ -13,7 +13,6 @@ import useMissionData from "../../../hooks/useMissionData";
 import useNotify from "../../../hooks/useNotify";
 import { useVehicleData } from "../../../hooks";
 import { useLogDataContext } from "../../../contexts/LogDataContext";
-import { LoadingDots } from "../../ui";
 import {
   calculateTotalDistance,
   calculateEstimatedTime,
@@ -523,9 +522,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
       >
         <Suspense
           fallback={
-            <div className="flex items-center justify-center h-full bg-white dark:bg-black">
-              <LoadingDots size="lg" />
-            </div>
+            <div className="h-full bg-gray-100 dark:bg-gray-900 animate-pulse rounded-lg" />
           }
         >
           <MissionMap {...sharedProps} />

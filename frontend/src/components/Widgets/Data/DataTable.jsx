@@ -3,7 +3,7 @@ import { FaTrash } from "react-icons/fa";
 import { DataTable as BaseDataTable } from "../../ui";
 import axios from "../../../utils/axiosConfig";
 import { API_ENDPOINTS } from "../../../config";
-import { toast, LoadingDots } from "../../ui";
+import { toast } from "../../ui";
 import useTranslation from "../../../hooks/useTranslation";
 
 const DataTable = ({
@@ -718,8 +718,10 @@ const DataTable = ({
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <LoadingDots size="lg" />
+        <div className="animate-pulse space-y-2 py-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800 rounded-lg" />
+          ))}
         </div>
       ) : selectedDataType === "battery_logs" && !filters.vehicle?.id ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">

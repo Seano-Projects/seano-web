@@ -124,14 +124,14 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
 
   return (
     <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-4 h-full">
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <div className="flex items-center gap-2 mr-auto">
-          <FaInfoCircle className="text-gray-500 dark:text-gray-400" />
-          <h3 className="text-lg font-semibold text-black dark:text-white">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <FaInfoCircle className="text-gray-500 dark:text-gray-400 shrink-0" />
+          <h3 className="text-lg font-semibold text-black dark:text-white truncate">
             {t("pages.battery.widgets.statusInfo.title")}
           </h3>
         </div>
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 shrink-0">
           {["all", ...["battery_a", "battery_b"].slice(0, batteryCount)].map(
             (f) => (
               <button
@@ -154,7 +154,7 @@ const BatteryStatusInfo = ({ selectedVehicle, batteryData = {} }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
         {/* SOC */}
         <div className="bg-white dark:bg-black rounded-lg p-4 border border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2 mb-2">

@@ -1,44 +1,82 @@
 import React, { useMemo } from "react";
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
 import useTranslation from "../../../../hooks/useTranslation";
 
-const MAX_POINTS = 60;
+const METRICS = [
+  { key: "temperature",    label: "Suhu",           unit: "°C",    color: "#F97316" },
+  { key: "salinity",       label: "Salinitas",      unit: "PSU",   color: "#0EA5E9" },
+  { key: "density",        label: "Densitas",       unit: "kg/m³", color: "#22C55E" },
+  { key: "conductivity",   label: "Konduktivitas",  unit: "mS/cm", color: "#A855F7" },
+  { key: "sound_velocity", label: "Kec. Suara",     unit: "m/s",   color: "#EF4444" },
+];
+
+const normalize = (value, min, max) =>
+  max === min ? 50 : ((value - min) / (max - min)) * 100;
 
 const TimeSeriesChart = ({ ctdData }) => {
   const { t } = useTranslation();
 
-  const timeSeriesData = useMemo(() => {
-    if (!ctdData || ctdData.length === 0) return [];
+  const { profileData, ranges } = useMemo(() => {
+    if (!ctdData || ctdData.length === 0) return { profileData: [], ranges: {} };
 
-    const sorted = [...ctdData].sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
+    // Use the latest batch (most recent timestamp)
+    const latestTs = ctdData.reduce(
+      (max, item) => (!max || new Date(item.timestamp) > new Date(max) ? item.timestamp : max),
+      null,
     );
 
-    const sliced = sorted.slice(-MAX_POINTS);
+    const batch = ctdData
+      .filter(item => item.timestamp === latestTs)
+      .sort((a, b) => a.depth - b.depth);
 
-    return sliced.map((item) => {
-      const time = new Date(item.timestamp);
-      return {
-        time: `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}:${String(time.getSeconds()).padStart(2, "0")}`,
-        temperature: item.temperature,
-        salinity: item.salinity,
-        depth: item.depth,
-        conductivity: item.conductivity,
-        density: item.density,
-      };
+    // Compute min/max per metric for normalization
+    const ranges = {};
+    METRICS.forEach(({ key }) => {
+      const vals = batch.map(d => d[key]).filter(v => v !== null && v !== undefined);
+      ranges[key] = { min: Math.min(...vals), max: Math.max(...vals) };
     });
+
+    const profileData = batch.map(item => {
+      const row = { depth: item.depth };
+      METRICS.forEach(({ key }) => {
+        row[key] = item[key];
+        row[`${key}_norm`] = normalize(item[key], ranges[key].min, ranges[key].max);
+      });
+      return row;
+    });
+
+    return { profileData, ranges };
   }, [ctdData]);
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const d = payload[0]?.payload;
+    if (!d) return null;
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg min-w-44">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
+          Kedalaman: {Number(d.depth).toFixed(2)} m
+        </p>
+        {METRICS.map(({ key, label, unit, color }) => (
+          <p key={key} className="text-xs font-medium" style={{ color }}>
+            {label}: {Number(d[key] ?? 0).toFixed(3)} {unit}
+          </p>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-      <div className="mb-6">
+      <div className="mb-4">
         <h3 className="text-xl font-semibold text-black dark:text-white">
           {t("pages.ctd.charts.allDataTitle")}
         </h3>
@@ -47,8 +85,20 @@ const TimeSeriesChart = ({ ctdData }) => {
         </p>
       </div>
 
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
+        {METRICS.map(({ key, label, unit, color }) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <span className="inline-block w-3 rounded" style={{ backgroundColor: color, height: '2px', minWidth: 12 }} />
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {label} ({unit})
+            </span>
+          </div>
+        ))}
+      </div>
+
       <div className="h-100">
-        {timeSeriesData.length === 0 ? (
+        {profileData.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-gray-500 dark:text-gray-400">
               {t("common.noDataAvailable")}
@@ -56,88 +106,58 @@ const TimeSeriesChart = ({ ctdData }) => {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={timeSeriesData}
-              margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+            <LineChart
+              data={profileData}
+              layout="vertical"
+              margin={{ top: 10, right: 20, left: 10, bottom: 20 }}
             >
-              <defs>
-                <linearGradient id="all-temp" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F97316" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="all-sal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0EA5E9" stopOpacity={0.22} />
-                  <stop offset="95%" stopColor="#0EA5E9" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="all-depth" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366F1" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
-                </linearGradient>
-              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
               <XAxis
-                dataKey="time"
+                type="number"
+                domain={[0, 100]}
                 stroke="#6B7280"
-                fontSize={12}
+                fontSize={11}
                 tickLine={false}
                 axisLine={false}
-              />
-              <YAxis
-                stroke="#6B7280"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                          {label}
-                        </p>
-                        {payload.map((entry, index) => (
-                          <p
-                            key={index}
-                            className="text-sm font-medium"
-                            style={{ color: entry.color }}
-                          >
-                            {entry.name}: {entry.value?.toFixed(2)}
-                          </p>
-                        ))}
-                      </div>
-                    );
-                  }
-                  return null;
+                tickFormatter={v => `${v}%`}
+                label={{
+                  value: "Nilai ternormalisasi (%)",
+                  position: "insideBottom",
+                  offset: -12,
+                  fill: "#9CA3AF",
+                  fontSize: 11,
                 }}
               />
-              <Area
-                type="monotone"
-                dataKey="temperature"
-                name={t("pages.data.charts.temperature") + " (C)"}
-                stroke="#F97316"
-                strokeWidth={2}
-                fill="url(#all-temp)"
-                dot={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="salinity"
-                name={t("pages.data.charts.salinity") + " (PSU)"}
-                stroke="#0EA5E9"
-                strokeWidth={2}
-                fill="url(#all-sal)"
-                dot={false}
-              />
-              <Area
-                type="monotone"
+              <YAxis
+                type="number"
                 dataKey="depth"
-                name={t("pages.data.charts.depth") + " (m)"}
-                stroke="#6366F1"
-                strokeWidth={2}
-                fill="url(#all-depth)"
-                dot={false}
+                reversed
+                domain={[0, "dataMax"]}
+                stroke="#6B7280"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+                label={{
+                  value: "Depth (m)",
+                  angle: -90,
+                  position: "insideLeft",
+                  fill: "#9CA3AF",
+                  fontSize: 11,
+                }}
               />
-            </AreaChart>
+              <Tooltip content={<CustomTooltip />} />
+              {METRICS.map(({ key, color }) => (
+                <Line
+                  key={key}
+                  type="monotone"
+                  dataKey={`${key}_norm`}
+                  stroke={color}
+                  strokeWidth={1.5}
+                  dot={false}
+                  legendType="none"
+                />
+              ))}
+            </LineChart>
           </ResponsiveContainer>
         )}
       </div>

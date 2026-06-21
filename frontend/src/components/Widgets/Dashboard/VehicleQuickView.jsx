@@ -233,7 +233,7 @@ const VehicleQuickView = ({
           <div
             className={`h-3 w-3 rounded-full ${
               connectionStatus.color === "green"
-                ? "bg-green-500 animate-pulse"
+                ? "bg-green-500 animate-breathe"
                 : connectionStatus.color === "yellow"
                   ? "bg-yellow-500"
                   : connectionStatus.color === "red"
@@ -256,7 +256,7 @@ const VehicleQuickView = ({
           </h1>
         </div>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
         {statusCards.map((card, index) => (
           <div
             key={index}

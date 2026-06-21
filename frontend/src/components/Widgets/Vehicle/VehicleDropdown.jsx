@@ -50,11 +50,11 @@ const VehicleDropdown = ({
     <>
       {!vehicle.isPlaceholder && (
         <div
-          className={`w-3 h-3 rounded-full ${getVehicleStatusColor(vehicle.status)}`}
+          className={`w-3 h-3 rounded-full ${getVehicleStatusColor(vehicle.status)} ${vehicle.status === "online" || vehicle.status === "on_mission" ? "animate-breathe" : ""}`}
         />
       )}
       <span
-        className={`font-medium ${vehicle.isPlaceholder ? "text-gray-500 dark:text-gray-400" : "text-gray-900 dark:text-white"}`}
+        className={`font-medium truncate ${vehicle.isPlaceholder ? "text-gray-500 dark:text-gray-400" : "text-gray-900 dark:text-white"}`}
       >
         {vehicle.name}
       </span>
@@ -66,7 +66,7 @@ const VehicleDropdown = ({
     <>
       {!vehicle.isPlaceholder && (
         <div
-          className={`w-3 h-3 rounded-full ${getVehicleStatusColor(vehicle.status)}`}
+          className={`w-3 h-3 rounded-full ${getVehicleStatusColor(vehicle.status)} ${vehicle.status === "online" || vehicle.status === "on_mission" ? "animate-breathe" : ""}`}
         />
       )}
       <div className="flex-1">

@@ -178,7 +178,7 @@ const VehicleCards = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${statusConfig.dot} ${mqttStatus === "online" || mqttStatus === "idle" ? "animate-pulse" : ""}`} />
+                      <span className={`w-2 h-2 rounded-full ${statusConfig.dot} ${mqttStatus === "online" || mqttStatus === "idle" ? "animate-breathe" : ""}`} />
                       <span className={`text-xs font-medium ${statusConfig.text}`}>{statusConfig.label}</span>
                     </div>
                   </div>

@@ -2,16 +2,15 @@ import React, { useMemo } from "react";
 import { FaFilter } from "react-icons/fa";
 import { Dropdown } from "../../index";
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
 import useTranslation from "../../../../hooks/useTranslation";
-
-const MAX_POINTS = 60;
 
 const DepthProfile = ({
   ctdData,
@@ -23,23 +22,24 @@ const DepthProfile = ({
   const profileData = useMemo(() => {
     if (!ctdData || ctdData.length === 0) return [];
 
-    const sorted = [...ctdData].sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
+    // Find the most recent batch timestamp
+    const latestTs = ctdData.reduce(
+      (max, item) => (!max || new Date(item.timestamp) > new Date(max) ? item.timestamp : max),
+      null,
     );
-    const sliced = sorted.slice(-MAX_POINTS);
 
-    return sliced.map((item) => {
-      const time = new Date(item.timestamp);
-      return {
-        time: `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}:${String(time.getSeconds()).padStart(2, "0")}`,
+    // Use all readings from the latest batch, sorted shallow→deep
+    return ctdData
+      .filter(item => item.timestamp === latestTs)
+      .sort((a, b) => a.depth - b.depth)
+      .map(item => ({
+        depth: item.depth,
         temperature: item.temperature,
         salinity: item.salinity,
         density: item.density,
         conductivity: item.conductivity,
-        depth: item.depth,
         sound_velocity: item.sound_velocity,
-      };
-    });
+      }));
   }, [ctdData]);
 
   const parameters = [
@@ -126,66 +126,57 @@ const DepthProfile = ({
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
+            <LineChart
               data={profileData}
-              margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
+              layout="vertical"
+              margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
             >
-              <defs>
-                <linearGradient
-                  id="custom-selected"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="5%"
-                    stopColor={selectedParam?.color || "#0EA5E9"}
-                    stopOpacity={0.28}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={selectedParam?.color || "#0EA5E9"}
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
               <XAxis
-                dataKey="time"
+                type="number"
+                dataKey={selectedParameter}
+                domain={["auto", "auto"]}
                 stroke="#6B7280"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
+                tickFormatter={v => Number(v).toFixed(1)}
+                label={{
+                  value: selectedParam?.label || "",
+                  position: "insideBottom",
+                  offset: -4,
+                  fill: "#9CA3AF",
+                  fontSize: 11,
+                }}
               />
               <YAxis
+                type="number"
+                dataKey="depth"
+                reversed
+                domain={[0, "dataMax"]}
                 stroke="#6B7280"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
                 label={{
-                  value: selectedParam?.label || "",
+                  value: "Depth (m)",
                   angle: -90,
                   position: "insideLeft",
                   fill: "#9CA3AF",
-                  fontSize: 12,
+                  fontSize: 11,
                 }}
               />
               <Tooltip
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
-                    const data = payload[0].payload;
+                    const d = payload[0].payload;
                     return (
                       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                          {t("pages.data.table.columns.timestamp")}: {data.time}
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                          Depth: {Number(d.depth).toFixed(2)} m
                         </p>
-                        <p
-                          className="text-sm font-medium"
-                          style={{ color: selectedParam?.color }}
-                        >
-                          {selectedParam?.label}:{" "}
-                          {Number(data[selectedParameter] || 0).toFixed(3)}{" "}
-                          {selectedParam?.unit}
+                        <p className="text-sm font-medium" style={{ color: selectedParam?.color }}>
+                          {selectedParam?.label}: {Number(d[selectedParameter] || 0).toFixed(3)} {selectedParam?.unit}
                         </p>
                       </div>
                     );
@@ -193,15 +184,14 @@ const DepthProfile = ({
                   return null;
                 }}
               />
-              <Area
+              <Line
                 type="monotone"
                 dataKey={selectedParameter}
-                stroke={selectedParam?.color}
+                stroke={selectedParam?.color || "#0EA5E9"}
                 strokeWidth={2}
-                fill="url(#custom-selected)"
                 dot={false}
               />
-            </AreaChart>
+            </LineChart>
           </ResponsiveContainer>
         )}
       </div>

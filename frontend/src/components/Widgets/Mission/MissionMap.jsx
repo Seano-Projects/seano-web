@@ -23,6 +23,14 @@ import { useVehicleData } from "../../../hooks";
 import { useLogDataContext } from "../../../contexts/LogDataContext";
 import usvPointIcon from "../../../assets/usv-point.webp";
 
+// Allow polyline to be "finished" with a single point so a mission can have
+// just one waypoint (vehicle goes to that point and returns home).
+if (L.Draw && L.Draw.Polyline) {
+  L.Draw.Polyline.prototype._shapeIsValid = function () {
+    return this._markers && this._markers.length >= 1;
+  };
+}
+
 // Fix default markers
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({

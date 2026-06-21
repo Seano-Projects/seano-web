@@ -342,7 +342,7 @@ const BatteryMonitoring = React.memo(({ selectedVehicle = null }) => {
               <div className="flex items-center gap-2">
                 <div
                   className={`w-2 h-2 rounded-full ${
-                    showConnected ? "bg-green-500 animate-pulse" : "bg-gray-400"
+                    showConnected ? "bg-green-500 animate-breathe" : "bg-gray-400"
                   }`}
                 ></div>
                 <span className="text-[10px] md:text-xs font-medium text-gray-700 dark:text-gray-300">

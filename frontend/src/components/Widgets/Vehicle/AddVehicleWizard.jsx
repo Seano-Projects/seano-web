@@ -29,6 +29,8 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [availableSensors, setAvailableSensors] = useState([]);
+  const [fieldError, setFieldError] = useState(null);
+  const submittingRef = React.useRef(false);
   const [formData, setFormData] = useState({
     name: "",
     code: "",
@@ -41,6 +43,8 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
   useEffect(() => {
     if (isOpen) {
       setStep(1);
+      setFieldError(null);
+      submittingRef.current = false;
       setFormData({
         name: "",
         code: "",
@@ -67,6 +71,7 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    if (fieldError?.field === name) setFieldError(null);
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -115,6 +120,8 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
   };
 
   const handleSubmit = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsLoading(true);
 
     const parsedCapacity = parseCapacity(formData.battery_total_capacity_ah);
@@ -159,12 +166,19 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
         error.response?.data?.error ||
         error.response?.data?.detail ||
         "Failed to create vehicle";
+
+      if (error.response?.status === 409) {
+        setStep(1);
+        setFieldError({ field: "code", message: "Registration code already exists. Use a different code." });
+      }
+
       await notify.error(msg, {
         title: "Vehicle Creation Failed",
         action: notify.ACTIONS.VEHICLE_CREATED,
         persist: false,
       });
     } finally {
+      submittingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -267,8 +281,15 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
               required
               placeholder="e.g. USV-001"
               autoComplete="off"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-black text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent"
+              className={`w-full px-3 py-2 border rounded-xl bg-white dark:bg-black text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:border-transparent ${
+                fieldError?.field === "code"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 dark:border-slate-600 focus:ring-fourth"
+              }`}
             />
+            {fieldError?.field === "code" && (
+              <p className="text-xs text-red-500 mt-1">{fieldError.message}</p>
+            )}
           </div>
 
           {/* Description */}
@@ -289,7 +310,7 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
           {/* Battery Count */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
-              Jumlah Battery Unit *
+              Battery Unit Count *
             </label>
             <Dropdown
               items={[
@@ -359,7 +380,7 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-white dark:bg-black text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Isi angka saja, satuan Ah otomatis.
+              Numbers only — Ah unit is applied automatically.
             </p>
           </div>
         </div>

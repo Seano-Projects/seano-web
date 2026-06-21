@@ -147,13 +147,13 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
 
   return (
     <div className="dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl pt-4 px-4 pb-2 h-full flex flex-col">
-      <div className="flex flex-wrap items-start gap-2 mb-3">
-        <div className="mr-auto">
-          <h3 className="text-base font-semibold text-black dark:text-white">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-black dark:text-white truncate">
             {t("pages.battery.widgets.analytics.title")}
           </h3>
         </div>
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 shrink-0">
           {["both", ...["unit_a", "unit_b"].slice(0, batteryCount)].map((f) => (
             <button
               key={f}
@@ -179,7 +179,7 @@ const DualUnitAnalytics = ({ selectedVehicle }) => {
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={filteredData}
-            margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+            margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
           >
             <defs>
               <linearGradient id="colorSoc" x1="0" y1="0" x2="0" y2="1">

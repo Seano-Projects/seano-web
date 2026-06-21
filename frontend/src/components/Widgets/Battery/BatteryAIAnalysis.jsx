@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import useTranslation from "../../../hooks/useTranslation";
 import { API_BASE_URL } from "../../../config";
-import { FaRobot, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSpinner, FaChartLine, FaThermometerHalf, FaBolt, FaChargingStation } from "react-icons/fa";
+import { FaRobot, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSpinner, FaChartLine, FaThermometerHalf, FaBolt, FaChargingStation, FaSyncAlt } from "react-icons/fa";
 
 export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
   const { t } = useTranslation();
@@ -9,10 +9,20 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [history, setHistory] = useState([]);
+  const [lastAnalyzedAt, setLastAnalyzedAt] = useState(null);
+  const batteryDataRef = useRef(batteryData);
 
-  // Fetch battery history logs
+  // Keep batteryData ref in sync without triggering re-renders
+  useEffect(() => {
+    batteryDataRef.current = batteryData;
+  }, [batteryData]);
+
+  // Fetch battery history logs when vehicle changes (not an AI call, safe to auto-run)
   useEffect(() => {
     if (!selectedVehicle?.id) return;
+    setAnalysis(null);
+    setError(null);
+    setLastAnalyzedAt(null);
 
     const fetchHistory = async () => {
       try {
@@ -21,103 +31,93 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
 
         const response = await fetch(
           `${API_BASE_URL}/vehicles/${selectedVehicle.id}/battery-logs?limit=50`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
         if (response.ok) {
           const data = await response.json();
-          console.log("Battery history fetched:", data);
           setHistory(Array.isArray(data) ? data.slice(0, 50) : []);
         }
-      } catch (err) {
-        console.log("Could not fetch battery history:", err);
+      } catch {
+        // silent
       }
     };
 
     fetchHistory();
   }, [selectedVehicle?.id]);
 
-  useEffect(() => {
-    if (!selectedVehicle?.id || !batteryData) return;
+  const runAnalysis = async () => {
+    if (!selectedVehicle?.id || loading) return;
+    setLoading(true);
+    setError(null);
 
-    const fetchAnalysis = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-          setError("Authentication required. Please login first.");
-          return;
-        }
-
-        const vehicleBatteries = batteryData[selectedVehicle.id] || { 1: null, 2: null };
-        const battery1 = vehicleBatteries[1];
-        const battery2 = vehicleBatteries[2];
-
-        const payload = {
-          vehicle_id: selectedVehicle.id,
-          vehicle_code: selectedVehicle.code || "",
-          battery_count: Number(selectedVehicle.battery_count) || 1,
-          current_status: {
-            battery_1: battery1 ? {
-              percentage: parseFloat(battery1.percentage || 0),
-              voltage: parseFloat(battery1.voltage || 0),
-              temperature: parseFloat(battery1.temperature || 0),
-              current: parseFloat(battery1.current || 0),
-              cell_voltages: battery1.cell_voltages || [],
-              last_update: battery1.last_update || "",
-            } : null,
-            battery_2: battery2 ? {
-              percentage: parseFloat(battery2.percentage || 0),
-              voltage: parseFloat(battery2.voltage || 0),
-              temperature: parseFloat(battery2.temperature || 0),
-              current: parseFloat(battery2.current || 0),
-              cell_voltages: battery2.cell_voltages || [],
-              last_update: battery2.last_update || "",
-            } : null,
-          },
-          history: history.map(log => ({
-            battery_id: parseInt(log.battery_id || 0),
-            percentage: parseFloat(log.percentage || 0),
-            voltage: parseFloat(log.voltage || 0),
-            temperature: parseFloat(log.temperature || 0),
-            current: parseFloat(log.current || 0),
-            timestamp: log.timestamp || log.created_at || "",
-          })).filter(h => h.percentage > 0),
-        };
-
-        console.log("Battery analysis payload:", payload);
-
-        const response = await fetch(`${API_BASE_URL}/ai/battery-analysis`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const errData = await response.text();
-          throw new Error(`API Error ${response.status}: ${errData || "Unknown error"}`);
-        }
-
-        const data = await response.json();
-        setAnalysis(data);
-      } catch (err) {
-        console.error("Battery analysis error:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        setError("Authentication required. Please login first.");
+        return;
       }
-    };
 
-    const timer = setTimeout(fetchAnalysis, 500);
-    return () => clearTimeout(timer);
-  }, [selectedVehicle, batteryData]);
+      const currentBatteryData = batteryDataRef.current;
+      const vehicleBatteries = currentBatteryData?.[selectedVehicle.id] || { 1: null, 2: null };
+      const battery1 = vehicleBatteries[1];
+      const battery2 = vehicleBatteries[2];
+
+      const payload = {
+        vehicle_id: selectedVehicle.id,
+        vehicle_code: selectedVehicle.code || "",
+        battery_count: Number(selectedVehicle.battery_count) || 1,
+        current_status: {
+          battery_1: battery1 ? {
+            percentage: parseFloat(battery1.percentage || 0),
+            voltage: parseFloat(battery1.voltage || 0),
+            temperature: parseFloat(battery1.temperature || 0),
+            current: parseFloat(battery1.current || 0),
+            cell_voltages: battery1.cell_voltages || [],
+            last_update: battery1.last_update || "",
+          } : null,
+          battery_2: battery2 ? {
+            percentage: parseFloat(battery2.percentage || 0),
+            voltage: parseFloat(battery2.voltage || 0),
+            temperature: parseFloat(battery2.temperature || 0),
+            current: parseFloat(battery2.current || 0),
+            cell_voltages: battery2.cell_voltages || [],
+            last_update: battery2.last_update || "",
+          } : null,
+        },
+        history: history.map(log => ({
+          battery_id: parseInt(log.battery_id || 0),
+          percentage: parseFloat(log.percentage || 0),
+          voltage: parseFloat(log.voltage || 0),
+          temperature: parseFloat(log.temperature || 0),
+          current: parseFloat(log.current || 0),
+          timestamp: log.timestamp || log.created_at || "",
+        })).filter(h => h.percentage > 0),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/ai/battery-analysis`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errData = await response.text();
+        throw new Error(`API Error ${response.status}: ${errData || "Unknown error"}`);
+      }
+
+      const data = await response.json();
+      setAnalysis(data);
+      setLastAnalyzedAt(new Date());
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getHealthColor = (level) => {
     const colors = {
@@ -158,15 +158,44 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
 
   return (
     <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-4 mb-3">
-      <div className="flex items-center gap-2 mb-4">
-        <FaRobot className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-        <p className="text-sm font-semibold text-blue-500 dark:text-blue-400">Battery Health Analysis</p>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2">
+          <FaRobot className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+          <p className="text-sm font-semibold text-blue-500 dark:text-blue-400">Battery Health Analysis</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {lastAnalyzedAt && !loading && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {lastAnalyzedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          <button
+            onClick={runAnalysis}
+            disabled={loading || !selectedVehicle?.id}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-blue-200 dark:border-blue-800"
+          >
+            {loading ? (
+              <FaSpinner className="w-3 h-3 animate-spin" />
+            ) : (
+              <FaSyncAlt className="w-3 h-3" />
+            )}
+            {loading ? "Analyzing..." : analysis ? "Re-analyze" : "Analyze"}
+          </button>
+        </div>
       </div>
 
       {loading && (
         <div className="flex items-center justify-center py-8 text-gray-500 dark:text-gray-400">
           <FaSpinner className="w-5 h-5 animate-spin mr-2" />
           <span className="text-sm">Analyzing battery patterns...</span>
+        </div>
+      )}
+
+      {!loading && !analysis && !error && (
+        <div className="py-8 text-center text-gray-400 dark:text-gray-500 text-sm space-y-2">
+          <FaRobot className="w-8 h-8 mx-auto opacity-30" />
+          <p>Click <strong className="text-gray-500 dark:text-gray-400">Analyze</strong> to run AI battery health analysis</p>
+          <p className="text-xs text-gray-400 dark:text-gray-600">Analysis uses current snapshot + 50 historical data points</p>
         </div>
       )}
 
@@ -352,11 +381,6 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
         </div>
       )}
 
-      {!loading && !error && !analysis && (
-        <div className="py-6 text-center text-gray-400 dark:text-gray-600 text-sm">
-          <p>No battery data available</p>
-        </div>
-      )}
     </div>
   );
 };

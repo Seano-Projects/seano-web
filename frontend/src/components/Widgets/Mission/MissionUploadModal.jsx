@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Modal } from "../../ui";
+import { Modal, toast } from "../../ui";
 import { Dropdown } from "../";
 
 const MissionUploadModal = ({
@@ -35,11 +35,11 @@ const MissionUploadModal = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedVehicle) {
-      alert("Please select a vehicle");
+      toast.error("Please select a vehicle");
       return;
     }
     if (!missionData) {
-      alert("No mission data available");
+      toast.error("No mission data available");
       return;
     }
 

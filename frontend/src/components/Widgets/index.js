@@ -17,8 +17,6 @@ export { SensorChart, SensorModal, SensorTable } from './Sensor'
 // Sensor Monitoring Widgets
 export { CTDTable } from './SensorMonitoring'
 
-// SensorType Widgets
-export { SensorTypeModal, SensorTypeTable } from './SensorType'
 
 // Map Widgets
 export { ViewMap } from './Map'

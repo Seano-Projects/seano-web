@@ -20,6 +20,8 @@ import {
   useVehicleData,
   useVehicleConnectionStatus,
 } from "../../../hooks";
+import axiosInstance from "../../../utils/axiosConfig";
+import { API_ENDPOINTS } from "../../../config";
 import useMissionData from "../../../hooks/useMissionData";
 import useNotify from "../../../hooks/useNotify";
 import useTranslation from "../../../hooks/useTranslation";
@@ -60,7 +62,7 @@ const MissionSidebar = ({
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadVehicleId, setUploadVehicleId] = useState(null);
   const { t } = useTranslation();
-  const { refreshData: refreshMissionData } = useMissionData();
+  const { refreshData: refreshMissionData, missionData } = useMissionData();
 
   // Upload hooks
   const { uploadState, uploadMissionToVehicle, resetUploadState } =
@@ -230,7 +232,7 @@ const MissionSidebar = ({
     // Prepare mission data for upload
     const uploadWaypoints = buildUploadWaypoints();
 
-    const missionData = {
+    const uploadPayload = {
       name: activeMission.name,
       vehicle_code:
         selectedUploadVehicle?.code ||
@@ -244,10 +246,34 @@ const MissionSidebar = ({
       radius: missionParams.radius,
     };
 
+    // Cancel any other ongoing missions for the same vehicle so the vehicle
+    // won't resume a stale mission after the new one completes.
+    const ongoingStatuses = ["ongoing", "active", "running", "in_progress"];
+    const previousMissions = (missionData || []).filter((m) => {
+      if (m.id === activeMission.id) return false;
+      const vehicleMatch =
+        m.vehicle_id === vehicleId ||
+        String(m.vehicle_id) === String(vehicleId);
+      const statusMatch = ongoingStatuses.includes(
+        String(m.status || "").toLowerCase(),
+      );
+      return vehicleMatch && statusMatch;
+    });
+    for (const prev of previousMissions) {
+      try {
+        await axiosInstance.put(API_ENDPOINTS.MISSIONS.UPDATE(prev.id), {
+          status: "Cancelled",
+          vehicle_id: null,
+        });
+      } catch {
+        // Non-fatal: continue with upload even if cancellation fails
+      }
+    }
+
     const result = await uploadMissionToVehicle(
       activeMission.id,
       vehicleId,
-      missionData,
+      uploadPayload,
       { forceOverride },
     );
 

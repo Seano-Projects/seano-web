@@ -98,12 +98,12 @@ const FullscreenMiniMap = ({
   return (
   <MapContainer
     center={vehiclePosition || DEFAULT_POS}
-    zoom={16}
+    zoom={18}
     className="w-full h-full"
     style={{ height: "100%", width: "100%" }}
-    zoomControl={false}
-    scrollWheelZoom={false}
-    doubleClickZoom={false}
+    zoomControl={true}
+    scrollWheelZoom={true}
+    doubleClickZoom={true}
     attributionControl={false}
   >
     <TileLayer url={tileUrl} />

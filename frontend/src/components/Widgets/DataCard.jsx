@@ -11,7 +11,7 @@ const DataCard = ({
 }) => {
   return (
     <div
-      className={`bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6
+      className={`bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-4 md:p-6 overflow-hidden
          ${className}`}
     >
       {showHeader && (

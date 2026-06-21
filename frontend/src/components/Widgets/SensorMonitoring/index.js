@@ -11,4 +11,7 @@ export {
   BeamVelocityBars,
   ADCPMap,
   ADCPTable,
+  CurrentRose,
+  SpeedDirectionChart,
+  BeamVelocityChart,
 } from './ADCP'

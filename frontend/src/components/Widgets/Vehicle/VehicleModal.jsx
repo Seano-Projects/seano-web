@@ -295,7 +295,7 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
           {/* Battery Count */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
-              Jumlah Battery Unit *
+              Battery Unit Count *
             </label>
             <Dropdown
               items={batteryCountOptions}
@@ -357,7 +357,7 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Isi angka saja, satuan Ah otomatis.
+              Numbers only — Ah unit is applied automatically.
             </p>
           </div>
 

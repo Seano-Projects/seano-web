@@ -3,6 +3,7 @@ import { FaShip, FaFilter } from "react-icons/fa";
 import { VehicleDropdown, DatePickerField, Dropdown } from "../index";
 import useMissionData from "../../../hooks/useMissionData";
 import useTranslation from "../../../hooks/useTranslation";
+import MissionCardSkeleton from "../../Skeleton/MissionCardSkeleton";
 
 const normalizeStatus = (status) => {
   if (!status) return "";
@@ -75,6 +76,7 @@ const MissionLogs = ({
       name: mission.name,
       created: createdDate,
       vessel: vehicleName,
+      vehicleId: mission.vehicle?.id || mission.vehicle_id || null,
       vesselColor: getVehicleColor(mission.vehicle?.id || mission.vehicle_id),
       status: normalizeStatus(mission.status),
       progress:
@@ -168,9 +170,14 @@ const MissionLogs = ({
       return false;
     }
 
-    // Filter by vessel
-    if (selectedVessel && mission.vessel !== selectedVessel.name) {
-      return false;
+    // Filter by vessel — compare by ID first, fall back to name
+    if (selectedVessel) {
+      const matchById =
+        mission.vehicleId != null &&
+        selectedVessel.id != null &&
+        String(mission.vehicleId) === String(selectedVessel.id);
+      const matchByName = mission.vessel === selectedVessel.name;
+      if (!matchById && !matchByName) return false;
     }
 
     // Filter by date range
@@ -226,45 +233,34 @@ const MissionLogs = ({
   };
 
   return (
-    <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
-      <div ref={filterPopoverRef}>
+    <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-4 md:p-6 h-full flex flex-col">
+      <div ref={filterPopoverRef} className="shrink-0">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <h3 className="text-xl font-semibold text-black dark:text-white">
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <h3 className="text-lg font-semibold text-black dark:text-white shrink-0">
             {t("missionComponents.logs.title")}
           </h3>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Filter Tabs */}
-            <div className="flex flex-wrap gap-2">
-              {statusOptions.slice(0, 2).map((filter) => (
-                <button
-                  key={filter.value}
-                  onClick={() => setStatusFilter(filter.value)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    statusFilter === filter.value
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-            {/* Action Icons */}
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {statusOptions.slice(0, 2).map((filter) => (
               <button
-                type="button"
-                onClick={() => setFilterPopoverOpen((o) => !o)}
-                title={
-                  filterPopoverOpen
-                    ? t("missionComponents.logs.closeFilter")
-                    : t("missionComponents.logs.openFilter")
-                }
-                className={`p-2 rounded-lg transition-colors ${filterPopoverOpen ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+                key={filter.value}
+                onClick={() => setStatusFilter(filter.value)}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+                  statusFilter === filter.value
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                }`}
               >
-                <FaFilter className="text-lg" />
+                {filter.label}
               </button>
-            </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFilterPopoverOpen((o) => !o)}
+              className={`p-1.5 rounded-lg transition-colors shrink-0 ${filterPopoverOpen ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+            >
+              <FaFilter className="text-sm" />
+            </button>
           </div>
         </div>
 
@@ -346,89 +342,75 @@ const MissionLogs = ({
       </div>
 
       {/* Card List */}
-      <div className="space-y-4">
+      <div className="flex-1 min-h-0 flex flex-col">
         {loading ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            {t("missionComponents.logs.loading")}
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-3 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <MissionCardSkeleton key={i} />
+            ))}
           </div>
         ) : paginatedMissions.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
             {t("missionComponents.logs.noMissions")}
           </div>
         ) : (
-          <div className="overflow-y-auto max-h-150 custom-scrollbar pr-3 space-y-3">
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-3 space-y-3">
             {paginatedMissions.map((mission, index) => (
               <div
                 key={index}
-                className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg p-6 hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+                className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-gray-300 dark:hover:border-gray-600 transition-all"
               >
-                <div className="grid grid-cols-12 gap-4 items-center">
-                  {/* Mission ID & Name */}
-                  <div className="col-span-12 md:col-span-3">
-                    <div className="text-base font-semibold text-black dark:text-white mb-1">
-                      {mission.id}: {mission.name}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {t("missionComponents.logs.created")} {mission.created}
-                    </div>
+                {/* Row 1: Name */}
+                <div className="mb-3">
+                  <div className="text-sm font-semibold text-black dark:text-white mb-0.5">
+                    {mission.id}: {mission.name}
                   </div>
-
-                  {/* Vessel */}
-                  <div className="col-span-6 md:col-span-2">
-                    <div className="flex items-center gap-2">
-                      <FaShip
-                        className={`${getVesselIconColor(mission.vesselColor)} text-lg`}
-                      />
-                      <span className="text-sm font-medium text-black dark:text-white">
-                        {mission.vessel}
-                      </span>
-                    </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {t("missionComponents.logs.created")} {mission.created}
                   </div>
+                </div>
 
-                  {/* Status */}
-                  <div className="col-span-6 md:col-span-2">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${getStatusColor(
-                        mission.status,
-                      )}`}
-                    >
-                      <span className="w-2 h-2 rounded-full bg-current" />
-                      {mission.status}
+                {/* Row 2: Vessel | Status | Time */}
+                <div className="flex flex-wrap items-center gap-3 mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <FaShip
+                      className={`${getVesselIconColor(mission.vesselColor)} text-sm`}
+                    />
+                    <span className="text-xs font-medium text-black dark:text-white">
+                      {mission.vessel}
                     </span>
                   </div>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                      mission.status,
+                    )}`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                    {mission.status}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
+                    {mission.timeElapsed}
+                  </span>
+                </div>
 
-                  {/* Progress / Energy */}
-                  <div className="col-span-12 md:col-span-3">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-black dark:text-white">
-                          {mission.progress}%{" "}
-                          {mission.status === "Completed"
-                            ? t("missionComponents.logs.complete")
-                            : mission.status === "Failed"
-                              ? t("missionComponents.logs.progress")
-                              : t("missionComponents.logs.complete")}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2.5">
-                        <div
-                          className={`h-2.5 rounded-full transition-all ${getProgressColor(
-                            mission.status,
-                          )}`}
-                          style={{ width: `${mission.progress}%` }}
-                        />
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {mission.energy}
-                      </div>
-                    </div>
+                {/* Row 3: Progress bar */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-black dark:text-white">
+                      {mission.progress}%{" "}
+                      {mission.status === "Completed"
+                        ? t("missionComponents.logs.complete")
+                        : t("missionComponents.logs.progress")}
+                    </span>
+                    <span className="text-xs text-gray-400">{mission.energy}</span>
                   </div>
-
-                  {/* Time Elapsed */}
-                  <div className="col-span-6 md:col-span-2">
-                    <div className="text-sm font-medium text-black dark:text-white">
-                      {mission.timeElapsed}
-                    </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${getProgressColor(
+                        mission.status,
+                      )}`}
+                      style={{ width: `${mission.progress}%` }}
+                    />
                   </div>
                 </div>
               </div>
@@ -438,7 +420,7 @@ const MissionLogs = ({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="shrink-0 flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
         <div className="text-sm text-gray-600 dark:text-gray-400">
           {t("missionComponents.logs.showing")}{" "}
           {totalMissions === 0 ? 0 : startIndex + 1}-

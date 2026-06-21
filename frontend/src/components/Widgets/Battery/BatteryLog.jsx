@@ -64,8 +64,7 @@ const BatteryLog = ({ selectedVehicle }) => {
         </h3>
       </div>
 
-      <div className="relative w-full max-w-full overflow-x-auto">
-        <div className="overflow-y-auto max-h-96 custom-scrollbar">
+      <div className="w-full overflow-auto max-h-96 custom-scrollbar">
           <table className="w-full min-w-max">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-gray-300 dark:border-gray-700 bg-white dark:bg-black">
@@ -123,7 +122,6 @@ const BatteryLog = ({ selectedVehicle }) => {
               )}
             </tbody>
           </table>
-        </div>
       </div>
     </div>
   );

@@ -45,7 +45,7 @@ const MissionSuccessRate = () => {
   // Show loading or placeholder if stats not available yet
   if (loading || !stats) {
     return (
-      <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
+      <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6 h-full">
         <h3 className="text-xl font-semibold text-black dark:text-white mb-6">
           {t("dashboard.missionSuccessRate.title")}
         </h3>
@@ -57,8 +57,8 @@ const MissionSuccessRate = () => {
   }
 
   return (
-    <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-6">
-      <h3 className="text-xl font-semibold text-black dark:text-white mb-6">
+    <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-4 md:p-6 h-full">
+      <h3 className="text-xl font-semibold text-black dark:text-white mb-4">
         {t("dashboard.missionSuccessRate.title")}
       </h3>
 
@@ -71,8 +71,8 @@ const MissionSuccessRate = () => {
                 data={data}
                 cx="50%"
                 cy="50%"
-                innerRadius={110}
-                outerRadius={130}
+                innerRadius="70%"
+                outerRadius="82%"
                 startAngle={90}
                 endAngle={-270}
                 dataKey="value"

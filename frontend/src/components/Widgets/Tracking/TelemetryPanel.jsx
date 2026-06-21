@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { AttitudeIndicator, HeadingIndicator } from "react-flight-indicators";
 import { useLogDataContext } from "../../../contexts/LogDataContext";
 import useVehicleConnectionStatus from "../../../hooks/useVehicleConnectionStatus";
@@ -10,26 +10,20 @@ const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
   const { isVehicleOnline } = useVehicleConnectionStatus();
   const [loading, setLoading] = useState(true);
   const [showTimeout, setShowTimeout] = useState(false);
-  const [indicatorSize, setIndicatorSize] = useState(280);
+  const [indicatorSize, setIndicatorSize] = useState(260);
+  const containerRef = useRef(null);
 
-  // Handle responsive indicator size
+  // Fill container width with small padding on each side
   useEffect(() => {
-    const updateSize = () => {
-      const width = window.innerWidth;
-      if (width < 640) {
-        setIndicatorSize(Math.min(width * 0.35, 160));
-      } else if (width < 768) {
-        setIndicatorSize(180);
-      } else if (width < 1024) {
-        setIndicatorSize(200);
-      } else {
-        setIndicatorSize(180);
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const width = entry.contentRect.width;
+        setIndicatorSize(Math.max(120, width - 16));
       }
-    };
-
-    updateSize();
-    window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   // Find latest vehicle log for selected vehicle
@@ -84,7 +78,7 @@ const TelemetryPanel = React.memo(({ selectedVehicle = null }) => {
       : effectiveLog?.yaw) ?? 0;
 
   return (
-    <div className="h-full p-3 md:p-4 flex flex-col items-center justify-center">
+    <div ref={containerRef} className="h-full p-2 flex flex-col items-center justify-center">
       {/* Flight Indicators - Vertical Layout */}
       <div className="flex flex-col items-center gap-2 md:gap-4 w-full">
         {/* Attitude Indicator */}
