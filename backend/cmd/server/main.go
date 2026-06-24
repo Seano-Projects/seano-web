@@ -9,6 +9,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"go-fiber-pgsql/internal/config"
@@ -64,6 +65,7 @@ func main() {
 		&model.CommandLog{},
 		&model.WaypointLog{},
 		&model.ThrusterCommand{},
+		&model.ThrusterLog{},
 		&model.ChatSession{},
 		&model.ChatMessage{},
 		&model.Publication{},
@@ -105,6 +107,7 @@ func main() {
 	sensorRepo := repository.NewSensorRepository(db)
 	missionRepo := repository.NewMissionRepository(db)
 	commandLogRepo := repository.NewCommandLogRepository(db)
+	thrusterLogRepo := repository.NewThrusterLogRepository(db)
 
 	// MIDAS 3000 handler (legacy)
 	midas3000Handler := midas3000.NewDataHandler(sensorLogRepo, vehicleSensorRepo, wsHub)
@@ -201,6 +204,12 @@ func main() {
 					log.Printf("Warning: Failed to start status listener: %v", err)
 				}
 
+				// Thruster Listener (logs MQTT thruster commands to DB)
+				thrusterListener := mqttservice.NewThrusterListener(mqttClient, thrusterLogRepo, vehicleRepo, wsHub)
+				if err := thrusterListener.Start(); err != nil {
+					log.Printf("Warning: Failed to start thruster listener: %v", err)
+				}
+
 				// Command Publisher (for control commands arm/disarm/mode)
 				cmdPublisher = mqttservice.NewCommandPublisher(mqttClient, commandLogRepo, vehicleRepo, wsHub)
 				if err := cmdPublisher.SubscribeACK(); err != nil {
@@ -264,6 +273,22 @@ func main() {
 	})
 
 	app.Use(recover.New())
+	app.Use(helmet.New(helmet.Config{
+		XFrameOptions:      "SAMEORIGIN",
+		ContentTypeNosniff: "nosniff",
+		ReferrerPolicy:     "strict-origin-when-cross-origin",
+		PermissionPolicy:   "geolocation=(self), camera=(), microphone=()",
+		ContentSecurityPolicy: "default-src 'self'; " +
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+			"font-src 'self' https://fonts.gstatic.com data:; " +
+			"img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tile.opentopomap.org https://tile.openstreetmap.bzh https://server.arcgisonline.com https://services.arcgisonline.com; " +
+			"connect-src 'self' https://api.seano.cloud wss://api.seano.cloud ws://localhost:3000; " +
+			"worker-src blob:; " +
+			"frame-ancestors 'none';",
+		HSTSMaxAge:         31536000,
+		HSTSPreloadEnabled: true,
+	}))
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "http://localhost:5173,http://localhost:5177,https://seano.cloud,https://api.seano.cloud",
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
