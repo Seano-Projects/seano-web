@@ -40,6 +40,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	commandLogRepo := repository.NewCommandLogRepository(db)
 	waypointLogRepo := repository.NewWaypointLogRepository(db)
 	thrusterCommandRepo := repository.NewThrusterCommandRepository(db)
+	thrusterLogRepo := repository.NewThrusterLogRepository(db)
 
 	// Initialize handlers
 	userHandler := &handler.UserHandler{DB: db}
@@ -64,7 +65,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	controlHandler := handler.NewControlHandler(cmdPublisher, commandLogRepo, vehicleRepo)
 	commandLogHandler := handler.NewCommandLogHandler(commandLogRepo, vehicleRepo, db, wsHub)
 	waypointLogHandler := handler.NewWaypointLogHandler(waypointLogRepo, vehicleRepo, db, wsHub)
-	thrusterCommandHandler := handler.NewThrusterCommandHandler(thrusterCommandRepo, vehicleRepo, db)
+	thrusterCommandHandler := handler.NewThrusterCommandHandler(thrusterCommandRepo, thrusterLogRepo, vehicleRepo, db, wsHub)
+	thrusterLogHandler := handler.NewThrusterLogHandler(thrusterLogRepo, vehicleRepo, db, wsHub)
 	publicationRepo := repository.NewPublicationRepository(db)
 	publicationHandler := handler.NewPublicationHandler(publicationRepo)
 	teamMemberRepo := repository.NewTeamMemberRepository(db)
@@ -317,11 +319,19 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	thrusters.Post("/", thrusterCommandHandler.CreateThrusterCommand)
 	app.Get("/thruster-commands/pending", middleware.AuthOrVehicleAPIKeyFromQuery(vehicleRepo), thrusterCommandHandler.GetPendingThrusterCommand)
 
+	// Thruster Logs routes
+	thrusterLogs := app.Group("/thruster-logs")
+	thrusterLogs.Get("/", middleware.AuthRequired(), thrusterLogHandler.GetThrusterLogs)
+	thrusterLogs.Get("/export", middleware.AuthRequired(), thrusterLogHandler.ExportThrusterLogs)
+	thrusterLogs.Get("/:id", middleware.AuthRequired(), thrusterLogHandler.GetThrusterLogByID)
+	thrusterLogs.Delete("/:id", middleware.AuthRequired(), thrusterLogHandler.DeleteThrusterLog)
+
 	// Waypoint Logs routes
 	waypointLogs := app.Group("/waypoint-logs")
 	waypointLogs.Get("/", middleware.AuthRequired(), waypointLogHandler.GetWaypointLogs)
 	waypointLogs.Get("/export", middleware.AuthRequired(), waypointLogHandler.ExportWaypointLogs)
 	waypointLogs.Get("/:id", middleware.AuthRequired(), waypointLogHandler.GetWaypointLogByID)
+	waypointLogs.Post("/:id/ws-received", middleware.AuthRequired(), waypointLogHandler.MarkWSReceivedAt)
 	waypointLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), waypointLogHandler.CreateWaypointLog)
 	waypointLogs.Delete("/:id", middleware.AuthRequired(), waypointLogHandler.DeleteWaypointLog)
 
