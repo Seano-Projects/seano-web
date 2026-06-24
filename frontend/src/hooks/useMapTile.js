@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 const TILE_URLS = {
   street: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -16,15 +16,27 @@ const TILE_ATTRIBUTIONS = {
 const getStyle = () => localStorage.getItem("mapTileStyle") || "street";
 
 const useMapTile = () => {
-  const [style, setStyle] = useState(getStyle);
+  const [style, setStyleState] = useState(getStyle);
 
   useEffect(() => {
-    const handler = () => setStyle(getStyle());
+    const handler = () => setStyleState(getStyle());
     window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
+    window.addEventListener("mapTileChanged", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+      window.removeEventListener("mapTileChanged", handler);
+    };
   }, []);
 
+  const setStyle = (newStyle) => {
+    localStorage.setItem("mapTileStyle", newStyle);
+    setStyleState(newStyle);
+    window.dispatchEvent(new Event("mapTileChanged"));
+  };
+
   return {
+    style,
+    setStyle,
     url: TILE_URLS[style] || TILE_URLS.street,
     attribution: TILE_ATTRIBUTIONS[style] || TILE_ATTRIBUTIONS.street,
   };

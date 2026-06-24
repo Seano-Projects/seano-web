@@ -206,6 +206,13 @@ export const API_ENDPOINTS = {
     PENDING: `${API_BASE_URL}/thruster-commands/pending`
   },
 
+  THRUSTER_LOGS: {
+    LIST: `${API_BASE_URL}/thruster-logs/`,
+    BY_ID: id => `${API_BASE_URL}/thruster-logs/${id}`,
+    DELETE: id => `${API_BASE_URL}/thruster-logs/${id}`,
+    EXPORT: `${API_BASE_URL}/thruster-logs/export`
+  },
+
   // Command Logs endpoints
   COMMAND_LOGS: {
     LIST: `${API_BASE_URL}/command-logs/`,

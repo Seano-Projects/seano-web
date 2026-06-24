@@ -456,3 +456,53 @@ body,
 .dark .date-picker-popover .react-calendar__tile:disabled {
   color: rgb(71 85 105);
 }
+
+/* ── Driver.js Mission Tour ─────────────────────────────────────────────── */
+/* Sidebar z-index is 10020 — overlay & popover must be above it */
+#driver-overlay,
+.driver-overlay {
+  z-index: 10060 !important;
+}
+#driver-highlighted-element-stage,
+.driver-stage-no-animation,
+.driver-active-element {
+  z-index: 10061 !important;
+}
+.driver-popover {
+  z-index: 10062 !important;
+}
+.mission-tour-popover {
+  font-family: inherit;
+  border-radius: 14px !important;
+  padding: 18px 20px !important;
+}
+.mission-tour-popover .driver-popover-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  margin-bottom: 6px !important;
+}
+.mission-tour-popover .driver-popover-description {
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  color: #6b7280 !important;
+}
+.dark .mission-tour-popover {
+  background: #0a0a0a !important;
+  border: 1px solid #374151 !important;
+  color: #f9fafb !important;
+}
+.dark .mission-tour-popover .driver-popover-title {
+  color: #f9fafb !important;
+}
+.dark .mission-tour-popover .driver-popover-description {
+  color: #9ca3af !important;
+}
+.dark .mission-tour-popover .driver-popover-progress-text {
+  color: #6b7280 !important;
+}
+.mission-tour-popover .driver-popover-footer button {
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 6px 14px !important;
+}

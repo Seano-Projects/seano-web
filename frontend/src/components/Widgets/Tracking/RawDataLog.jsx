@@ -44,13 +44,12 @@ const RawDataLog = ({ selectedVehicle }) => {
   if (rawLogs.length > 0) {
   }
 
-  // Filter logs by selected vehicle (handle both number and string IDs)
   const filteredLogs = selectedVehicle?.id
-    ? rawLogs.filter((log) => {
-        const logVehicleId = log.vehicle?.id || log.vehicle_id;
-        const match = logVehicleId == selectedVehicle.id;
-        return match;
-      })
+    ? rawLogs.filter((log) =>
+        log.vehicle?.id === selectedVehicle.id ||
+        log.vehicle_id === selectedVehicle.id ||
+        log.vehicle?.code === selectedVehicle.code
+      )
     : rawLogs;
 
   if (filteredLogs.length > 0) {

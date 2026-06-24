@@ -8,9 +8,13 @@ import {
   FaExpand,
   FaCompress,
   FaCog,
+  FaMap,
+  FaChevronRight,
+  FaCheck,
+  FaDesktop,
 } from "react-icons/fa";
-
 import { FiLogOut } from "react-icons/fi";
+import useMapTile from "../../../hooks/useMapTile";
 import SeanoLogo from "../../../assets/logo_seano.webp";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
@@ -21,11 +25,13 @@ import NotificationDropdown from "./NotificationDropdown";
 import AlertDropdown from "./AlertDropdown";
 import { API_BASE_URL } from "../../../config";
 
-const Header = ({ darkMode, toggleDarkMode }) => {
+const Header = ({ darkMode, toggleDarkMode, themeMode, setThemeMode }) => {
   const { user, logout } = useAuthContext();
   const { t, language } = useTranslation();
+  const { style: mapStyle, setStyle: setMapStyle } = useMapTile();
   const [time, setTime] = useState(new Date());
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState(null); // "theme" | "map" | null
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -69,7 +75,10 @@ const Header = ({ darkMode, toggleDarkMode }) => {
   };
 
   const handleUserClick = () => {
-    setIsUserMenuOpen((prev) => !prev);
+    setIsUserMenuOpen((prev) => {
+      if (prev) setOpenSubmenu(null);
+      return !prev;
+    });
     setIsNotificationsOpen(false);
     setIsAlertsOpen(false);
   };
@@ -262,23 +271,6 @@ const Header = ({ darkMode, toggleDarkMode }) => {
                 )}
               </button>
 
-              {/* Dark Mode Toggle */}
-              <button
-                aria-label={
-                  darkMode
-                    ? t("header.switchToLightMode")
-                    : t("header.switchToDarkMode")
-                }
-                className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer focus:outline-none hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-white"
-                onClick={toggleDarkMode}
-              >
-                {darkMode ? (
-                  <FaSun aria-hidden="true" />
-                ) : (
-                  <FaMoon aria-hidden="true" />
-                )}
-              </button>
-
               {/* Alerts */}
               <div ref={alertsRef} className="relative">
                 <button
@@ -354,7 +346,7 @@ const Header = ({ darkMode, toggleDarkMode }) => {
                 </button>
                 {isUserMenuOpen && (
                   <div
-                    className="absolute right-0 top-12 mt-2 w-48 bg-white dark:bg-black rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+                    className="absolute right-0 top-12 mt-2 w-52 bg-white dark:bg-black rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
                     style={{ zIndex: 10002 }}
                   >
                     {/* User Info */}
@@ -378,6 +370,76 @@ const Header = ({ darkMode, toggleDarkMode }) => {
                           <span>{t("header.profile")}</span>
                         </Link>
                       </li>
+
+                      {/* Theme */}
+                      <li
+                        className="relative"
+                        onMouseEnter={() => setOpenSubmenu("theme")}
+                        onMouseLeave={() => setOpenSubmenu(null)}
+                      >
+                        <button className="w-full flex items-center gap-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white font-medium rounded px-3 py-2 transition">
+                          {darkMode ? <FaMoon className="text-sm" /> : <FaSun className="text-sm" />}
+                          <span className="flex-1 text-left">Theme</span>
+                          <FaChevronRight className="text-xs text-gray-400" />
+                        </button>
+                        {openSubmenu === "theme" && (
+                          <div
+                            className="absolute right-full top-0 w-40 bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1"
+                            style={{ zIndex: 10003 }}
+                          >
+                            {[
+                              { key: "light", label: "Light", icon: <FaSun className="text-xs" /> },
+                              { key: "dark", label: "Dark", icon: <FaMoon className="text-xs" /> },
+                              { key: "system", label: "System", icon: <FaDesktop className="text-xs" /> },
+                            ].map(({ key, label, icon }) => (
+                              <button
+                                key={key}
+                                onClick={() => { setThemeMode(key); setOpenSubmenu(null); setIsUserMenuOpen(false); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white transition text-left"
+                              >
+                                {icon}
+                                <span className="flex-1">{label}</span>
+                                {themeMode === key && <FaCheck className="text-xs text-blue-500" />}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+
+                      {/* Map Style */}
+                      <li
+                        className="relative"
+                        onMouseEnter={() => setOpenSubmenu("map")}
+                        onMouseLeave={() => setOpenSubmenu(null)}
+                      >
+                        <button className="w-full flex items-center gap-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white font-medium rounded px-3 py-2 transition">
+                          <FaMap className="text-sm" />
+                          <span className="flex-1 text-left">Map Style</span>
+                          <FaChevronRight className="text-xs text-gray-400" />
+                        </button>
+                        {openSubmenu === "map" && (
+                          <div
+                            className="absolute right-full top-0 w-40 bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1"
+                            style={{ zIndex: 10003 }}
+                          >
+                            {[
+                              { key: "street", label: "Street" },
+                              { key: "satellite", label: "Satellite" },
+                              { key: "dark", label: "Dark" },
+                            ].map(({ key, label }) => (
+                              <button
+                                key={key}
+                                onClick={() => { setMapStyle(key); setOpenSubmenu(null); setIsUserMenuOpen(false); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white transition text-left"
+                              >
+                                <span className="flex-1">{label}</span>
+                                {mapStyle === key && <FaCheck className="text-xs text-blue-500" />}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+
                       <li>
                         <Link
                           to="/settings"

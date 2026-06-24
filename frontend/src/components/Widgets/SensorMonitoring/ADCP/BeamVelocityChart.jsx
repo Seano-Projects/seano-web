@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, CartesianGrid, Legend, ReferenceLine,
 } from "recharts";
 
-const MAX_POINTS = 80;
+const MAX_POINTS = 10;
 
 const BEAMS = [
   { key: "v1", label: "Beam 1", color: "#3b82f6" },
@@ -15,7 +15,7 @@ const BEAMS = [
 
 const fmt = (ts) => {
   const d = new Date(ts);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
 };
 
 const CustomTooltip = ({ active, payload, label }) => {

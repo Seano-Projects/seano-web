@@ -601,7 +601,8 @@
         "sensorLogs": "Sensor History",
         "batteryLogs": "Battery History",
         "waypointLogs": "Waypoint Logs",
-        "commandLogs": "Command Logs"
+        "commandLogs": "Command Logs",
+        "thrusterLogs": "Thruster History"
       },
       "actions": {
         "refresh": "Refresh",
@@ -714,10 +715,7 @@
           "current": "Current",
           "temperature": "Temperature",
           "status": "Status",
-          "message": "Message",
-          "coordinates": "Coordinates",
-          "mission": "Mission",
-          "vehicle": "Vehicle"
+          "message": "Message"
         }
       },
       "charts": {
@@ -847,7 +845,8 @@
         "antitheft": "Security Alerts",
         "failsafe": "Safety Alerts",
         "command": "Control History",
-        "waypoint": "Route Points"
+        "waypoint": "Route Points",
+        "thruster": "Thruster History"
       },
       "searchVehicle": "Search vehicle history...",
       "searchSensor": "Search sensor history...",
@@ -871,7 +870,10 @@
         "waypointCount": "Route Points",
         "status": "Status",
         "message": "Message",
-        "resolved": "Resolved"
+        "resolved": "Resolved",
+        "event": "Event",
+        "throttle": "Throttle",
+        "steering": "Steering"
       },
       "alerts": {
         "antiTheft": "SECURITY ALERT",
@@ -886,7 +888,10 @@
         "vsYesterday": "{{count}}% vs yesterday",
         "unacknowledged": "{{count}} unacknowledged",
         "noAlerts": "No alerts"
-      }
+      },
+      "searchThruster": "Search thruster history...",
+      "emptyThruster": "No thruster commands yet.",
+      "exportThruster": "Export CSV"
     },
     "missionDetails": {
       "title": "Mission Details",
@@ -1145,6 +1150,33 @@
     }
   },
   "missionComponents": {
+    "tour": {
+      "btnLabel": "Tour",
+      "next": "Next →",
+      "prev": "← Back",
+      "done": "Done ✓",
+      "progress": "{{current}} of {{total}}",
+      "step1Title": "1. Select Vehicle",
+      "step1Desc": "Choose the USV that will run the mission. Green dot = online, red = offline.",
+      "step2Title": "2. New Mission",
+      "step2Desc": "Click \"New Mission\" to create a new mission. A vehicle must be selected first.",
+      "step3Title": "3. Load Mission",
+      "step3Desc": "Load a previously saved mission to edit or resend to the vehicle.",
+      "step4Title": "4. Active Mission Info",
+      "step4Desc": "Displays the name, status, and waypoint count of the currently active mission.",
+      "step5Title": "5. Home Location",
+      "step5Desc": "The USV start and return point. Click the home icon on the map to set it.",
+      "step6Title": "6. Waypoint List",
+      "step6Desc": "All route points appear here. Click the map to add waypoints, or use Zone mode for auto coverage.",
+      "step7Title": "7. Planning Mode",
+      "step7Desc": "Path: add waypoints one by one. Zone: draw an area and the system generates coverage path automatically.",
+      "step8Title": "8. Mission Statistics",
+      "step8Desc": "Estimated distance, time, and battery usage calculated in real-time as waypoints are added.",
+      "step9Title": "9. Save Mission",
+      "step9Desc": "Save all waypoints to the server. Must be done before sending the mission to the vehicle.",
+      "step10Title": "10. Send to Vehicle",
+      "step10Desc": "Upload the mission to the USV via MQTT. Vehicle must be online and mission must be saved first."
+    },
     "stats": {
       "totalMissions": "Total Missions",
       "draft": "Draft",

@@ -237,7 +237,7 @@ const QuickSearch = ({ isSidebarOpen }) => {
           onClick={close}
         />
 
-        <div className="relative w-full max-w-xl mx-4 bg-white dark:bg-[#1c1c1c] rounded-xl shadow-2xl border border-gray-200 dark:border-white/10 overflow-hidden flex flex-col max-h-[70vh]">
+        <div className="relative w-full max-w-xl mx-4 bg-white dark:bg-black rounded-xl shadow-2xl border border-gray-200 dark:border-white/10 overflow-hidden flex flex-col max-h-[70vh]">
           {/* Input */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-white/10">
             <FiSearch

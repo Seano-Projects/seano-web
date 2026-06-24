@@ -601,7 +601,8 @@
         "sensorLogs": "Riwayat Sensor",
         "batteryLogs": "Riwayat Baterai",
         "waypointLogs": "Log Waypoint",
-        "commandLogs": "Log Perintah"
+        "commandLogs": "Log Perintah",
+        "thrusterLogs": "Riwayat Thruster"
       },
       "actions": {
         "refresh": "Muat Ulang",
@@ -714,10 +715,7 @@
           "current": "Arus",
           "temperature": "Suhu",
           "status": "Status",
-          "message": "Pesan",
-          "coordinates": "Koordinat",
-          "mission": "Misi",
-          "vehicle": "Kendaraan"
+          "message": "Pesan"
         }
       },
       "charts": {
@@ -847,7 +845,8 @@
         "antitheft": "Peringatan Keamanan",
         "failsafe": "Peringatan Keselamatan",
         "command": "Riwayat Kontrol",
-        "waypoint": "Titik Rute"
+        "waypoint": "Titik Rute",
+        "thruster": "Riwayat Thruster"
       },
       "searchVehicle": "Cari riwayat kendaraan...",
       "searchSensor": "Cari riwayat sensor...",
@@ -871,7 +870,10 @@
         "waypointCount": "Titik Rute",
         "status": "Status",
         "message": "Pesan",
-        "resolved": "Selesai"
+        "resolved": "Selesai",
+        "event": "Event",
+        "throttle": "Throttle",
+        "steering": "Steering"
       },
       "alerts": {
         "antiTheft": "PERINGATAN KEAMANAN",
@@ -886,7 +888,10 @@
         "vsYesterday": "{{count}}% vs kemarin",
         "unacknowledged": "{{count}} belum ditandai",
         "noAlerts": "Tidak ada alert"
-      }
+      },
+      "searchThruster": "Cari riwayat thruster...",
+      "emptyThruster": "Belum ada perintah thruster.",
+      "exportThruster": "Ekspor CSV"
     },
     "missionDetails": {
       "title": "Detail Misi",
@@ -1145,6 +1150,33 @@
     }
   },
   "missionComponents": {
+    "tour": {
+      "btnLabel": "Tour",
+      "next": "Lanjut →",
+      "prev": "← Kembali",
+      "done": "Selesai ✓",
+      "progress": "{{current}} dari {{total}}",
+      "step1Title": "1. Pilih Kendaraan",
+      "step1Desc": "Pilih USV yang akan menjalankan misi. Dot hijau = online, merah = offline.",
+      "step2Title": "2. Buat Misi Baru",
+      "step2Desc": "Klik \"New Mission\" untuk membuat misi baru. Kendaraan harus dipilih dulu sebelum tombol ini aktif.",
+      "step3Title": "3. Load Misi",
+      "step3Desc": "Muat misi yang sudah tersimpan sebelumnya untuk diedit atau dikirim ulang ke kendaraan.",
+      "step4Title": "4. Info Misi Aktif",
+      "step4Desc": "Menampilkan nama, status, dan jumlah waypoint dari misi yang sedang aktif.",
+      "step5Title": "5. Home Location",
+      "step5Desc": "Titik awal dan pulang USV. Klik ikon rumah di peta untuk menetapkan posisi home.",
+      "step6Title": "6. Daftar Waypoint",
+      "step6Desc": "Semua titik rute muncul di sini. Klik peta untuk menambah waypoint, atau gunakan mode Zone untuk area otomatis.",
+      "step7Title": "7. Mode Planning",
+      "step7Desc": "Path: tambah waypoint satu per satu. Zone: gambar area dan sistem otomatis generate jalur coverage.",
+      "step8Title": "8. Statistik Misi",
+      "step8Desc": "Estimasi jarak, waktu, dan baterai dihitung real-time setiap kali waypoint ditambah atau diedit.",
+      "step9Title": "9. Simpan Misi",
+      "step9Desc": "Simpan semua waypoint ke server. Wajib dilakukan sebelum mengirim misi ke kendaraan.",
+      "step10Title": "10. Kirim ke Kendaraan",
+      "step10Desc": "Upload misi ke USV via MQTT. Kendaraan harus online dan misi sudah tersimpan terlebih dahulu."
+    },
     "stats": {
       "totalMissions": "Total Misi",
       "draft": "Draf",

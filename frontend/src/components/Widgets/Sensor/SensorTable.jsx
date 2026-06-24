@@ -150,62 +150,66 @@ const SensorTable = ({
         </span>
       ),
     },
-    {
-      header: "Created",
-      accessorKey: "created",
-      cell: (row) => (
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {row.created}
-        </span>
-      ),
-    },
-    {
-      header: "Last Updated",
-      accessorKey: "updated",
-      cell: (row) => (
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {row.updated}
-        </span>
-      ),
-    },
-    {
-      header: "Actions",
-      accessorKey: "actions",
-      className: "text-center w-40",
-      cellClassName: "text-center whitespace-nowrap",
-      sortable: false,
-      cell: (row) => (
-        <div className="flex items-center justify-center gap-3 w-full h-full">
-          {onView && (
-            <button
-              onClick={() => onView(row)}
-              className="inline-flex items-center justify-center p-2 text-white bg-gray-600 hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
-              title="View sensor"
-            >
-              <FaEye size={16} />
-            </button>
-          )}
-          {onEdit && hasPermission("sensors.manage") && (
-            <button
-              onClick={() => onEdit(row)}
-              className="inline-flex items-center justify-center p-2 text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
-              title="Edit sensor"
-            >
-              <FaEdit size={16} />
-            </button>
-          )}
-          {onDelete && hasPermission("sensors.manage") && (
-            <button
-              onClick={() => onDelete(row.id, row.displayName)}
-              className="inline-flex items-center justify-center p-2 text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
-              title="Delete sensor"
-            >
-              <FaTrash size={16} />
-            </button>
-          )}
-        </div>
-      ),
-    },
+    ...(hasPermission("sensors.manage")
+      ? [
+          {
+            header: "Created",
+            accessorKey: "created",
+            cell: (row) => (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {row.created}
+              </span>
+            ),
+          },
+          {
+            header: "Last Updated",
+            accessorKey: "updated",
+            cell: (row) => (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {row.updated}
+              </span>
+            ),
+          },
+          {
+            header: "Actions",
+            accessorKey: "actions",
+            className: "text-center w-40",
+            cellClassName: "text-center whitespace-nowrap",
+            sortable: false,
+            cell: (row) => (
+              <div className="flex items-center justify-center gap-3 w-full h-full">
+                {onView && (
+                  <button
+                    onClick={() => onView(row)}
+                    className="inline-flex items-center justify-center p-2 text-white bg-gray-600 hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
+                    title="View sensor"
+                  >
+                    <FaEye size={16} />
+                  </button>
+                )}
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(row)}
+                    className="inline-flex items-center justify-center p-2 text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
+                    title="Edit sensor"
+                  >
+                    <FaEdit size={16} />
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={() => onDelete(row.id, row.displayName)}
+                    className="inline-flex items-center justify-center p-2 text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
+                    title="Delete sensor"
+                  >
+                    <FaTrash size={16} />
+                  </button>
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (

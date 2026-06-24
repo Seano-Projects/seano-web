@@ -1,17 +1,6 @@
-const normalizeMode = value =>
-  typeof value === 'string' ? value.trim().toLowerCase() : ''
+// Realtime mode is fixed to MQTT/WebSocket.
+// API Polling mode has been removed — use REST API only for historical data.
+localStorage.removeItem('realtimeMode')
 
-const savedMode = normalizeMode(localStorage.getItem('realtimeMode'))
-const envMode = normalizeMode(import.meta.env.VITE_REALTIME_MODE)
-const rawMode = savedMode || envMode
-
-export const REALTIME_MODE = rawMode === 'api' ? 'api' : 'mqtt'
-
-const parseInterval = value => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5000
-}
-
-export const REALTIME_POLL_INTERVAL_MS = parseInterval(
-  import.meta.env.VITE_REALTIME_POLL_INTERVAL_MS
-)
+export const REALTIME_MODE = 'mqtt'
+export const REALTIME_POLL_INTERVAL_MS = 5000

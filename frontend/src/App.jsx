@@ -144,6 +144,9 @@ const prefetchAllPages = () => {
 function App() {
   const location = useLocation();
   const [darkMode, setDarkMode] = useState(false);
+  const [themeMode, setThemeModeState] = useState(
+    () => localStorage.getItem("themeMode") || "light",
+  );
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
 
@@ -219,18 +222,35 @@ function App() {
     return () => window.removeEventListener("thrust-fullscreen-open", handler);
   }, []);
 
+  const applyDark = (isDark) => {
+    setDarkMode(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
+  };
+
   useEffect(() => {
-    const savedMode = localStorage.getItem("darkMode");
-    if (savedMode === "true") {
-      setDarkMode(true);
-      document.documentElement.classList.add("dark");
+    const saved = localStorage.getItem("themeMode") || "light";
+    if (saved === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      applyDark(mq.matches);
+      const handler = (e) => applyDark(e.matches);
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    } else {
+      applyDark(saved === "dark");
     }
-  }, []);
+  }, [themeMode]);
+
+  const setThemeMode = (mode) => {
+    localStorage.setItem("themeMode", mode);
+    localStorage.setItem("darkMode", mode === "dark" ? "true" : "false");
+    setThemeModeState(mode);
+  };
 
   const toggleDarkMode = () => {
+    const next = darkMode ? "light" : "dark";
+    setThemeMode(next);
     setDarkMode((prev) => {
       const newMode = !prev;
-      localStorage.setItem("darkMode", newMode);
       if (newMode) {
         document.documentElement.classList.add("dark");
       } else {
@@ -454,7 +474,7 @@ function App() {
       />
       <Footbar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <div className="flex-1 flex flex-col min-h-screen">
-        <Header toggleDarkMode={toggleDarkMode} darkMode={darkMode} />
+        <Header toggleDarkMode={toggleDarkMode} darkMode={darkMode} themeMode={themeMode} setThemeMode={setThemeMode} />
         <Main
           isSidebarOpen={isSidebarOpen}
           selectedVehicle={selectedVehicle}

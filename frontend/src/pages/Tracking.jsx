@@ -36,7 +36,7 @@ const Tracking = memo(
                 <MdMyLocation className="text-blue-500 text-lg" />
               </button>
             ) : (
-              <div className="w-72 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-black/90 backdrop-blur-md border border-gray-200 dark:border-gray-700 shadow-lg">
+              <div className="w-72 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-white/95 dark:bg-black/90 backdrop-blur-md border border-gray-200 dark:border-gray-700 shadow-lg">
                 <button
                   onClick={() => setIsStatusExpanded(false)}
                   className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"

@@ -64,7 +64,7 @@ const Battery = () => {
           title={t("pages.battery.title")}
           subtitle={t("pages.battery.subtitle")}
         />
-        <div className="w-44 shrink-0">
+        <div className="w-52 shrink-0">
           <VehicleDropdown
             vehicles={vehicles || []}
             selectedVehicle={selectedVehicle}

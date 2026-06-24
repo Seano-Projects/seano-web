@@ -20,6 +20,7 @@
     "@tanstack/react-query": "^5.90.20",
     "axios": "^1.12.2",
     "dayjs": "^1.11.19",
+    "driver.js": "^1.4.0",
     "flag-icons": "^7.5.0",
     "framer-motion": "^12.23.12",
     "heatmap.js": "^2.0.5",

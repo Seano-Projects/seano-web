@@ -33,6 +33,11 @@ const DATA_TYPES = [
     labelKey: "pages.data.types.commandLogs",
     endpoint: "COMMAND_LOGS",
   },
+  {
+    value: "thruster_logs",
+    labelKey: "pages.data.types.thrusterLogs",
+    endpoint: "THRUSTER_LOGS",
+  },
 ];
 
 const DATE_RANGE_OPTIONS = [

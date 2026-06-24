@@ -22,6 +22,7 @@ import {
 } from "../../../utils/missionCalculations";
 import MissionSidebar from "./MissionSidebar";
 import MissionModals from "./MissionModals";
+import useMissionTour from "../../../hooks/useMissionTour";
 
 // Lazy load MissionMap karena library Leaflet sangat berat
 const MissionMap = lazy(() => import("./MissionMap"));
@@ -30,6 +31,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
   useTitle("Missions");
   const { createMission, updateMission, missionData } = useMissionData();
   const notify = useNotify();
+  const { startTour } = useMissionTour();
   const [searchParams] = useSearchParams();
 
   // Mission sidebar toggle (mobile/tablet)
@@ -496,18 +498,21 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
     darkMode,
     showMissionSidebar,
     setShowMissionSidebar,
+
+    // Tour
+    onStartTour: startTour,
   };
 
   return (
-    <div className="relative -mx-4 -mt-4 h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="relative -mx-4 -mt-6 h-[calc(100vh-84px)] overflow-hidden">
       {/* Overlay for mobile when sidebar open */}
       {showMissionSidebar && (
         <>
           {/* Visual backdrop — pointer-events-none agar sidebar tetap bisa diklik di Android */}
-          <div className="fixed inset-0 z-[10010] bg-black/40 lg:hidden pointer-events-none" />
+          <div className="fixed inset-0 z-10010 bg-black/40 lg:hidden pointer-events-none" />
           {/* Tap-to-close — hanya menutupi area di LUAR sidebar (sm: 22rem, md: 18rem) */}
           <div
-            className="fixed inset-y-0 right-0 z-[10010] hidden sm:block sm:left-[22rem] md:left-72 lg:hidden"
+            className="fixed inset-y-0 right-0 z-10010 hidden sm:block sm:left-88 md:left-72 lg:hidden"
             onClick={() => setShowMissionSidebar(false)}
           />
         </>
@@ -516,6 +521,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
       <MissionSidebar {...sharedProps} />
 
       <div
+        id="tour-map-area"
         className={`h-full transition-all duration-300 ${
           showMissionSidebar ? "lg:ml-72" : ""
         }`}
@@ -531,7 +537,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
         {!showMissionSidebar && (
           <button
             onClick={() => setShowMissionSidebar(true)}
-            className="absolute left-3 top-3 z-[30] flex items-center justify-center rounded-full border border-gray-200 bg-white p-3 shadow-lg transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-black dark:hover:bg-gray-900 lg:hidden"
+            className="absolute left-3 top-3 z-30 flex items-center justify-center rounded-full border border-gray-200 bg-white p-3 shadow-lg transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-black dark:hover:bg-gray-900 lg:hidden"
             title="Open Mission Panel"
           >
             <svg

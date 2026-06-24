@@ -33,6 +33,7 @@ export default function Login({ darkMode, toggleDarkMode }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
 
     // Reset errors
     setErrors({ email: false, password: false });
@@ -57,8 +58,12 @@ export default function Login({ darkMode, toggleDarkMode }) {
     }
 
     setLoading(true);
-    const result = await login(email, password);
-    setLoading(false);
+    let result;
+    try {
+      result = await login(email, password);
+    } finally {
+      setLoading(false);
+    }
 
     if (!result.success) {
       // Show error toast

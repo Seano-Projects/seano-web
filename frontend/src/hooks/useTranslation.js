@@ -22,7 +22,7 @@ export const useTranslation = () => {
       }
     }
 
-    return value || key
+    return value != null ? value : key
   }
 
   return { t, language }

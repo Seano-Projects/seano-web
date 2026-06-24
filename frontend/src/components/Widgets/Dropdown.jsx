@@ -96,7 +96,7 @@ const Dropdown = ({
           )}
         </div>
         <FaChevronDown
-          className={`text-gray-500 dark:text-gray-400 transition-transform duration-200 ${
+          className={`shrink-0 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
           }`}
         />
