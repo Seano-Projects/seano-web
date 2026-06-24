@@ -111,25 +111,8 @@ const getWsUrl = () => {
 const WS_URL = getWsUrl()
 const BATTERY_STORAGE_KEY = 'batteryData'
 
-// Enabled for latency testing. Samples 1 in every ACK_SAMPLE_RATE messages
-// to avoid flooding the DB with UPDATEs. Disable in production by replacing
-// the function body below with a no-op: const ackWsReceipt = () => {}
-// (Unsampled: 337% CPU on PostgreSQL with 13+ concurrent UPDATE connections)
-const ACK_SAMPLE_RATE = 10
-let _ackCounter = 0
-const ackWsReceipt = (url, receivedAt) => {
-  if (++_ackCounter % ACK_SAMPLE_RATE !== 0) return
-  const token = localStorage.getItem('access_token')
-  fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ ws_received_at: receivedAt }),
-    keepalive: true,
-  }).catch(() => {})
-}
+// WebSocket receipt ACK is disabled to avoid extra database writes.
+const ackWsReceipt = () => {}
 
 const normalizeBatteryMap = rawBatteryMap => {
   if (!rawBatteryMap || typeof rawBatteryMap !== 'object') {
@@ -186,6 +169,7 @@ export const useLogData = (options = {}) => {
   const enableRawLogs = options.enableRawLogs ?? true
   const enableCommandLogs = options.enableCommandLogs ?? true
   const enableWaypointLogs = options.enableWaypointLogs ?? true
+  const enableThrusterLogs = options.enableThrusterLogs ?? true
   const enableBatteryData = options.enableBatteryData ?? true
   const enableRealtime = options.enableRealtime ?? true
   const pauseRealtime = options.pauseRealtime ?? false
@@ -209,6 +193,7 @@ export const useLogData = (options = {}) => {
   const [rawLogs, setRawLogs] = useState([])
   const [commandLogs, setCommandLogs] = useState([])
   const [waypointLogs, setWaypointLogs] = useState([])
+  const [thrusterLogs, setThrusterLogs] = useState([])
   const [batteryData, setBatteryData] = useState(() => {
     // Load from localStorage on init
     try {
@@ -228,6 +213,7 @@ export const useLogData = (options = {}) => {
   const rawQueueRef = useRef([])
   const commandQueueRef = useRef([])
   const waypointQueueRef = useRef([])
+  const thrusterQueueRef = useRef([])
   const rawClientSeqRef = useRef(0)
   const wsClientSeqRef = useRef(0)
   const pauseRealtimeRef = useRef(pauseRealtime)
@@ -260,6 +246,11 @@ export const useLogData = (options = {}) => {
     if (waypointQueueRef.current.length > 0) {
       const chunk = waypointQueueRef.current.splice(0, waypointQueueRef.current.length)
       setWaypointLogs(prev => [...chunk, ...prev].slice(0, LOG_LIMIT))
+    }
+
+    if (thrusterQueueRef.current.length > 0) {
+      const chunk = thrusterQueueRef.current.splice(0, thrusterQueueRef.current.length)
+      setThrusterLogs(prev => [...chunk, ...prev].slice(0, LOG_LIMIT))
     }
   }, [])
 
@@ -526,6 +517,37 @@ export const useLogData = (options = {}) => {
     } catch {}
   }, [enableWaypointLogs, startDate, endDate, startTime, endTime, selectedVehicleId])
 
+  // Fetch thruster logs
+  const fetchThrusterLogs = useCallback(async (limit = 200) => {
+    if (!enableThrusterLogs) {
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('access_token')
+      const params = buildDateRangeParams({ startDate, endDate, startTime, endTime })
+
+      if (selectedVehicleId) {
+        params.set('vehicle_id', String(selectedVehicleId))
+      }
+
+      if (!startDate && !endDate) {
+        params.set('limit', String(limit))
+      }
+
+      const response = await axios.get(`${API_URL}/thruster-logs?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = Array.isArray(response.data) ? response.data : (response.data?.data || [])
+      const fetchedAt = new Date().toISOString()
+      const normalized = data.map((item, idx) => ({
+        ...item,
+        _client_id: item?._client_id || `thruster-rest-${item?.id ?? fetchedAt}-${idx}`
+      }))
+      setThrusterLogs(normalized)
+    } catch {}
+  }, [enableThrusterLogs, startDate, endDate, startTime, endTime, selectedVehicleId])
+
   // Recalculate stats from current data
   useEffect(() => {
     if (!enableStats) {
@@ -599,6 +621,7 @@ export const useLogData = (options = {}) => {
       if (enableRawLogs) tasks.push(fetchRawLogs())
       if (enableCommandLogs) tasks.push(fetchCommandLogs())
       if (enableWaypointLogs) tasks.push(fetchWaypointLogs())
+      if (enableThrusterLogs) tasks.push(fetchThrusterLogs())
       if (enableBatteryData) tasks.push(fetchBatteryData())
 
       await Promise.all(tasks)
@@ -613,6 +636,7 @@ export const useLogData = (options = {}) => {
     fetchRawLogs,
     fetchCommandLogs,
     fetchWaypointLogs,
+    fetchThrusterLogs,
     fetchBatteryData,
     enableChartData,
     enableVehicleLogs,
@@ -620,6 +644,7 @@ export const useLogData = (options = {}) => {
     enableRawLogs,
     enableCommandLogs,
     enableWaypointLogs,
+    enableThrusterLogs,
     enableBatteryData,
     startDate,
     endDate,
@@ -772,11 +797,28 @@ export const useLogData = (options = {}) => {
               }
             }
           } else if (message.type === 'waypoint_log' && enableWaypointLogs) {
+            const receivedAt = new Date().toISOString()
             if (message.data) {
               wsClientSeqRef.current += 1
               waypointQueueRef.current.push({
                 ...message.data,
-                _client_id: `waypoint-${new Date().toISOString()}-${wsClientSeqRef.current}`
+                ws_sent_at: message.ws_sent_at || '',
+                ws_received_at: receivedAt,
+                _received_at: receivedAt,
+                _source: 'ws',
+                _client_id: `waypoint-${receivedAt}-${wsClientSeqRef.current}`
+              })
+
+              if (message.data.id) {
+                ackWsReceipt(`/waypoint-logs/${message.data.id}/ws-received`, receivedAt)
+              }
+            }
+          } else if (message.type === 'thruster_log' && enableThrusterLogs) {
+            if (message.data) {
+              wsClientSeqRef.current += 1
+              thrusterQueueRef.current.push({
+                ...message.data,
+                _client_id: `thruster-${new Date().toISOString()}-${wsClientSeqRef.current}`
               })
             }
           } else if (message.type === 'battery' && enableBatteryData) {
@@ -845,7 +887,7 @@ export const useLogData = (options = {}) => {
         websocket.close()
       }
     }
-  }, [enableRealtime, isPollingMode, enableVehicleLogs, enableSensorLogs, enableRawLogs, enableCommandLogs, enableWaypointLogs, enableBatteryData])
+  }, [enableRealtime, isPollingMode, enableVehicleLogs, enableSensorLogs, enableRawLogs, enableCommandLogs, enableWaypointLogs, enableThrusterLogs, enableBatteryData])
 
   useEffect(() => {
     if (!enableRealtime || !isPollingMode) {
@@ -858,6 +900,7 @@ export const useLogData = (options = {}) => {
       fetchRawLogs()
       fetchCommandLogs()
       fetchWaypointLogs()
+      fetchThrusterLogs()
       fetchBatteryData()
     }, REALTIME_POLL_INTERVAL_MS)
 
@@ -873,6 +916,7 @@ export const useLogData = (options = {}) => {
     fetchRawLogs,
     fetchCommandLogs,
     fetchWaypointLogs,
+    fetchThrusterLogs,
     fetchBatteryData
   ])
 
@@ -884,6 +928,7 @@ export const useLogData = (options = {}) => {
     rawLogs,
     commandLogs,
     waypointLogs,
+    thrusterLogs,
     batteryData,
     loading,
     error,
@@ -897,6 +942,7 @@ export const useLogData = (options = {}) => {
       fetchRawLogs()
       fetchCommandLogs()
       fetchWaypointLogs()
+      fetchThrusterLogs()
     }
   }
 }
