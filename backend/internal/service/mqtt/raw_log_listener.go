@@ -178,10 +178,12 @@ func (l *RawLogListener) processMessage(msg mqtt.Message) {
 			Logs:      formattedLog,
 			CreatedAt: broadcastTime.Format(time.RFC3339),
 		}
-		
+
 		// Add vehicle info if available
 		if vehicle != nil {
+			wsData.VehicleID = vehicle.ID
 			wsData.Vehicle = &wsocket.VehicleInfo{
+				ID:   vehicle.ID,
 				Code: vehicle.Code,
 				Name: vehicle.Name,
 			}

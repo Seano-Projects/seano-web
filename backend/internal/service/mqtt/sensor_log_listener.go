@@ -153,6 +153,7 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 	}
 
 	// Create sensor log
+	wsSentAt := time.Now()
 	sensorLog := &model.SensorLog{
 		VehicleID:      vehicle.ID,
 		SensorID:       sensor.ID,
@@ -160,6 +161,7 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 		CreatedAt:      createdAt,
 		UsvTimestamp:   usvTimestamp,
 		MqttReceivedAt: &mqttReceivedAt,
+		WsSentAt:       &wsSentAt,
 	}
 
 	// Auto-detect active mission for this vehicle
@@ -175,10 +177,6 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 		return
 	}
 
-	wsSentAt := time.Now()
-	if err := l.sensorLogRepo.UpdateWSSentAt(sensorLog.ID, wsSentAt); err == nil {
-		sensorLog.WsSentAt = &wsSentAt
-	}
 	
 	log.Printf("✓ Sensor log saved: vehicle=%s, sensor=%s, id=%d", vehicleCode, sensorCode, sensorLog.ID)
 	
