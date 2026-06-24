@@ -13,9 +13,10 @@ type WaypointLog struct {
 	WaypointCount int     `json:"waypoint_count" gorm:"not null;default:0"`
 	Status      string    `json:"status" gorm:"type:varchar(32);not null;default:'pending'"` // pending, success, failed, timeout
 	Message     string    `json:"message" gorm:"type:text"`
-	InitiatedAt time.Time `json:"initiated_at" gorm:"not null;index"` // when upload button was clicked
-	ResolvedAt  *time.Time `json:"resolved_at,omitempty"`              // when ack was received
-	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime;index"`
+	InitiatedAt  time.Time  `json:"initiated_at" gorm:"not null;index"`                         // when upload button was clicked
+	ResolvedAt   *time.Time `json:"resolved_at,omitempty"`                                       // when ack was received
+	WsReceivedAt *time.Time `json:"ws_received_at,omitempty" gorm:"type:timestamptz;index"`     // when frontend received via WebSocket
+	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime;index"`
 }
 
 func (WaypointLog) TableName() string {

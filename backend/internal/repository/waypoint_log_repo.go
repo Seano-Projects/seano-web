@@ -122,6 +122,12 @@ func (r *WaypointLogRepository) UpdateLatestPendingWaypointLog(vehicleCode strin
 	return &log, nil
 }
 
+func (r *WaypointLogRepository) UpdateWaypointLogWSReceivedAt(id uint, wsReceivedAt time.Time) error {
+	return r.db.Model(&model.WaypointLog{}).
+		Where("id = ? AND (ws_received_at IS NULL OR ws_received_at > ?)", id, wsReceivedAt).
+		Update("ws_received_at", wsReceivedAt).Error
+}
+
 func (r *WaypointLogRepository) UpdateWaypointLogStatusByID(id uint, status, message string, resolvedAt time.Time) error {
 	updates := map[string]interface{}{
 		"status":      status,

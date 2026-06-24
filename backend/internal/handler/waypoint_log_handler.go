@@ -255,6 +255,21 @@ func (h *WaypointLogHandler) CreateWaypointAck(c *fiber.Ctx) error {
 	return c.JSON(updated)
 }
 
+// MarkWSReceivedAt stores the frontend websocket receive timestamp for a waypoint log.
+func (h *WaypointLogHandler) MarkWSReceivedAt(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil || id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
+	}
+
+	wsReceivedAt := time.Now().UTC()
+	if err := h.repo.UpdateWaypointLogWSReceivedAt(uint(id), wsReceivedAt); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update ws_received_at"})
+	}
+
+	return c.JSON(fiber.Map{"message": "ws_received_at updated"})
+}
+
 // DeleteWaypointLog removes a waypoint log by ID
 func (h *WaypointLogHandler) DeleteWaypointLog(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
