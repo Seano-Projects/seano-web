@@ -16,6 +16,7 @@ type LogMessage struct {
 
 // VehicleInfo represents vehicle basic info for frontend
 type VehicleInfo struct {
+	ID   uint   `json:"id"`
 	Code string `json:"code"`
 	Name string `json:"name"`
 }
@@ -72,6 +73,7 @@ type SensorLogData struct {
 // RawLogData represents raw text log
 type RawLogData struct {
 	ID        uint         `json:"id"`
+	VehicleID uint         `json:"vehicle_id,omitempty"`
 	Vehicle   *VehicleInfo `json:"vehicle,omitempty"`
 	Logs      string       `json:"logs"`
 	CreatedAt string       `json:"created_at"`
@@ -200,6 +202,7 @@ type WaypointLogData struct {
 	Message       string  `json:"message"`
 	InitiatedAt   string  `json:"initiated_at"`
 	ResolvedAt    *string `json:"resolved_at,omitempty"`
+	WsReceivedAt  *string `json:"ws_received_at,omitempty"`
 	CreatedAt     string  `json:"created_at"`
 }
 
@@ -232,9 +235,11 @@ func (h *Hub) BroadcastCommandLog(data CommandLogData, wsSentAt string) error {
 
 // BroadcastWaypointLog broadcasts a waypoint log entry to all connected clients
 func (h *Hub) BroadcastWaypointLog(data WaypointLogData) error {
+	wsSentAt := time.Now().UTC().Format(time.RFC3339Nano)
 	msg := LogMessage{
 		Type:      "waypoint_log",
 		Timestamp: data.CreatedAt,
+		WsSentAt:  wsSentAt,
 		Data:      data,
 	}
 
@@ -248,6 +253,40 @@ func (h *Hub) BroadcastWaypointLog(data WaypointLogData) error {
 	case h.broadcast <- jsonData:
 	default:
 		log.Printf("⚠️ WebSocket broadcast channel full, dropping waypoint log")
+	}
+	return nil
+}
+
+// ThrusterLogData represents a thruster log entry for WebSocket broadcast
+type ThrusterLogData struct {
+	ID          uint   `json:"id"`
+	VehicleID   uint   `json:"vehicle_id"`
+	VehicleCode string `json:"vehicle_code"`
+	Event       string `json:"event"`
+	ThrottlePct int    `json:"throttle_pct"`
+	SteeringPct int    `json:"steering_pct"`
+	InitiatedAt string `json:"initiated_at"`
+	CreatedAt   string `json:"created_at"`
+}
+
+// BroadcastThrusterLog broadcasts a thruster log entry to all connected clients
+func (h *Hub) BroadcastThrusterLog(data ThrusterLogData) error {
+	msg := LogMessage{
+		Type:      "thruster_log",
+		Timestamp: data.CreatedAt,
+		Data:      data,
+	}
+
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal thruster log: %v", err)
+		return err
+	}
+
+	select {
+	case h.broadcast <- jsonData:
+	default:
+		log.Printf("⚠️ WebSocket broadcast channel full, dropping thruster log")
 	}
 	return nil
 }
