@@ -32,19 +32,13 @@ func (r *VehicleLogRepository) ExistsByVehicleAndUsvTimestamp(vehicleID uint, us
 	return count > 0, err
 }
 
-// UpdateWSSentAt stores backend websocket send time for a vehicle log
 func (r *VehicleLogRepository) UpdateWSSentAt(id uint, wsSentAt time.Time) error {
-	return r.db.Model(&model.VehicleLog{}).
-		Where("id = ?", id).
-		Update("ws_sent_at", wsSentAt).Error
+	return nil
 }
 
-// UpdateWSReceivedAt stores frontend websocket receive time for a vehicle log.
-// Keeps the earliest receive timestamp when multiple clients report the same log.
+// UpdateWSReceivedAt is disabled to avoid websocket ACK writes on vehicle logs.
 func (r *VehicleLogRepository) UpdateWSReceivedAt(id uint, wsReceivedAt time.Time) error {
-	return r.db.Model(&model.VehicleLog{}).
-		Where("id = ? AND (ws_received_at IS NULL OR ws_received_at > ?)", id, wsReceivedAt).
-		Update("ws_received_at", wsReceivedAt).Error
+	return nil
 }
 
 // GetVehicleLogs retrieves vehicle logs with filters

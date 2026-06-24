@@ -310,7 +310,9 @@ func (h *RawLogHandler) CreateRawLog(c *fiber.Ctx) error {
 			CreatedAt: entry.CreatedAt.Format(time.RFC3339),
 		}
 		if vehicle != nil {
+			wsData.VehicleID = vehicle.ID
 			wsData.Vehicle = &wsocket.VehicleInfo{
+				ID:   vehicle.ID,
 				Code: vehicle.Code,
 				Name: vehicle.Name,
 			}

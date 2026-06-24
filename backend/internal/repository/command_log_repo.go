@@ -169,15 +169,11 @@ func (r *CommandLogRepository) UpdateLatestPendingCommandLog(vehicleCode, reques
 }
 
 func (r *CommandLogRepository) UpdateCommandLogWSSentAt(id uint, wsSentAt time.Time) error {
-	return r.db.Model(&model.CommandLog{}).
-		Where("id = ?", id).
-		Update("ws_sent_at", wsSentAt).Error
+	return nil
 }
 
 func (r *CommandLogRepository) UpdateCommandLogWSReceivedAt(id uint, wsReceivedAt time.Time) error {
-	return r.db.Model(&model.CommandLog{}).
-		Where("id = ? AND (ws_received_at IS NULL OR ws_received_at > ?)", id, wsReceivedAt).
-		Update("ws_received_at", wsReceivedAt).Error
+	return nil
 }
 
 func (r *CommandLogRepository) UpdateCommandLogStatusByID(id uint, status, message string, resolvedAt time.Time) error {

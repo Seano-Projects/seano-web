@@ -534,7 +534,7 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 	}
 
 	// Build CSV content (cleaner format: Timestamp first, Vehicle, Mission, Coordinates, Speed, Battery, Mode, SystemStatus)
-	csvHeader := []string{"Timestamp", "Vehicle", "Mission", "Latitude", "Longitude", "Speed_m_s", "Battery_V", "Mode", "SystemStatus", "UsvTimestamp", "MqttReceivedAt", "WsSentAt", "WsReceivedAt"}
+	csvHeader := []string{"Timestamp", "Vehicle", "Mission", "Latitude", "Longitude", "Speed_m_s", "Battery_V", "Mode", "SystemStatus", "UsvTimestamp", "MqttReceivedAt", "WsSentAt"}
 	var b strings.Builder
 	b.WriteString(strings.Join(csvHeader, ","))
 	b.WriteString("\n")
@@ -614,11 +614,6 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 			wsSentAt = log.WsSentAt.Format("2006-01-02T15:04:05.000000Z07:00")
 		}
 
-		wsReceivedAt := ""
-		if log.WsReceivedAt != nil {
-			wsReceivedAt = log.WsReceivedAt.Format("2006-01-02T15:04:05.000000Z07:00")
-		}
-
 		row := []string{
 			esc(ts),
 			esc(vehicleDisp),
@@ -632,7 +627,6 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 			esc(usvTs),
 			esc(mqttTs),
 			esc(wsSentAt),
-			esc(wsReceivedAt),
 		}
 
 		b.WriteString(strings.Join(row, ","))
