@@ -7,7 +7,6 @@ import { Title, ConfirmModal } from "../components/ui";
 import useTranslation from "../hooks/useTranslation";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useVehicleConnection } from "../contexts/VehicleConnectionContext";
-import { REALTIME_MODE } from "../utils/realtimeConfig";
 
 const Card = ({ title, children }) => (
   <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-5 mb-4">
@@ -45,17 +44,6 @@ const Settings = ({ darkMode, toggleDarkMode }) => {
     setMapTileState(style);
     localStorage.setItem("mapTileStyle", style);
     window.dispatchEvent(new Event("storage"));
-  };
-
-  const [pendingRealtimeMode, setPendingRealtimeMode] = useState(null);
-  const handleRealtimeModeChange = (mode) => {
-    if (mode === REALTIME_MODE) return;
-    setPendingRealtimeMode(mode);
-  };
-  const confirmRealtimeModeChange = () => {
-    localStorage.setItem("realtimeMode", pendingRealtimeMode);
-    setPendingRealtimeMode(null);
-    window.location.reload();
   };
 
   const themeOptions = [
@@ -179,28 +167,6 @@ const Settings = ({ darkMode, toggleDarkMode }) => {
           </div>
         </Card>
 
-        {/* Realtime Mode */}
-        <Card title={t("pages.settings.realtimeMode") || "Realtime Mode"}>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {t("pages.settings.realtimeModeDesc") || "Choose how the app receives real-time data. Changing this will reload the page."}
-          </p>
-          <div className="flex gap-2">
-            {[{ id: "mqtt", label: "MQTT (WebSocket)" }, { id: "api", label: "API Polling" }].map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => handleRealtimeModeChange(opt.id)}
-                className={`px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                  REALTIME_MODE === opt.id
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                    : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </Card>
-
         {/* System Info */}
         <Card title={t("pages.settings.systemInfo") || "System Info"}>
           <div className="space-y-3">
@@ -221,16 +187,6 @@ const Settings = ({ darkMode, toggleDarkMode }) => {
         </Card>
       </div>
 
-      <ConfirmModal
-        isOpen={!!pendingRealtimeMode}
-        onClose={() => setPendingRealtimeMode(null)}
-        onConfirm={confirmRealtimeModeChange}
-        title={t("pages.settings.changeRealtimeMode") || "Change Realtime Mode"}
-        message={t("pages.settings.realtimeModeConfirm") || "Changing realtime mode will reload the page. Continue?"}
-        confirmText={t("pages.settings.reloadNow") || "Reload Now"}
-        cancelText={t("pages.settings.cancel") || "Cancel"}
-        type="warning"
-      />
     </div>
   );
 };

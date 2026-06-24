@@ -96,33 +96,33 @@ const FullscreenMiniMap = ({
 }) => {
   const { url: tileUrl } = useMapTile();
   return (
-  <MapContainer
-    center={vehiclePosition || DEFAULT_POS}
-    zoom={18}
-    className="w-full h-full"
-    style={{ height: "100%", width: "100%" }}
-    zoomControl={true}
-    scrollWheelZoom={true}
-    doubleClickZoom={true}
-    attributionControl={false}
-  >
-    <TileLayer url={tileUrl} />
-    {vehicleTrail && vehicleTrail.length > 1 && (
-      <Polyline
-        positions={vehicleTrail}
-        color="#3b82f6"
-        weight={2.5}
-        opacity={0.7}
-      />
-    )}
-    {vehiclePosition && (
-      <Marker
-        position={vehiclePosition}
-        icon={createShipIcon(vehicleHeading ?? 0)}
-      />
-    )}
-    <MapSyncer position={vehiclePosition} />
-  </MapContainer>
+    <MapContainer
+      center={vehiclePosition || DEFAULT_POS}
+      zoom={18}
+      className="w-full h-full"
+      style={{ height: "100%", width: "100%" }}
+      zoomControl={true}
+      scrollWheelZoom={true}
+      doubleClickZoom={true}
+      attributionControl={false}
+    >
+      <TileLayer url={tileUrl} />
+      {vehicleTrail && vehicleTrail.length > 1 && (
+        <Polyline
+          positions={vehicleTrail}
+          color="#3b82f6"
+          weight={2.5}
+          opacity={0.7}
+        />
+      )}
+      {vehiclePosition && (
+        <Marker
+          position={vehiclePosition}
+          icon={createShipIcon(vehicleHeading ?? 0)}
+        />
+      )}
+      <MapSyncer position={vehiclePosition} />
+    </MapContainer>
   );
 };
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,7 +186,8 @@ const ThrustControlPanel = ({
     disabled || !isArmed || !selectedVehicle?.code || activeMode !== "MANUAL";
   const noVehicle = !selectedVehicle?.code;
   const showForceArm = !isArmed && !showArmConfirm && !!lastArmFailureMessage;
-  const confirmActive = showDisarmConfirm || showArmConfirm || !!pendingMode || showForceArm;
+  const confirmActive =
+    showDisarmConfirm || showArmConfirm || !!pendingMode || showForceArm;
 
   const openFullscreen = () => {
     prevModeRef.current = activeMode;
@@ -215,7 +216,7 @@ const ThrustControlPanel = ({
             z-[9000]: BELOW sidebar (z-9011) so user can open sidebar from footbar.
             inset-0: starts from top:0 so bg covers entire screen — no gap.
             Header/footbar overlap naturally from their higher z-index.        */}
-        <div className="fixed inset-0 z-[9000] flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-white">
+        <div className="fixed inset-0 z-9000 flex flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-white">
           {/* Spacer so topbar sits below header */}
           <div style={{ height: HEADER_H }} className="shrink-0" />
 
@@ -228,7 +229,7 @@ const ThrustControlPanel = ({
                   ref={vehicleDropBtnRef}
                   type="button"
                   onClick={openVehicleDrop}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-white text-[11px] font-medium transition-colors min-w-[80px] max-w-[130px]"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-white text-[11px] font-medium transition-colors min-w-20 max-w-32.5"
                 >
                   {selectedVehicle ? (
                     <>
@@ -251,11 +252,11 @@ const ThrustControlPanel = ({
                     <>
                       {/* Backdrop to close dropdown */}
                       <div
-                        className="fixed inset-0 z-[9098]"
+                        className="fixed inset-0 z-9098"
                         onClick={() => setVehicleDropOpen(false)}
                       />
                       <div
-                        className="fixed z-[9099] w-44 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl overflow-hidden"
+                        className="fixed z-9099 w-44 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl overflow-hidden"
                         style={{
                           top: vehicleDropPos.top,
                           left: vehicleDropPos.left,
@@ -329,7 +330,10 @@ const ThrustControlPanel = ({
                     type="button"
                     onClick={() => onModeChangeRequest(m.id)}
                     disabled={
-                      activeMode === m.id || commandLoading || noVehicle || disabled
+                      activeMode === m.id ||
+                      commandLoading ||
+                      noVehicle ||
+                      disabled
                     }
                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-colors shrink-0 ${
                       activeMode === m.id
@@ -424,7 +428,7 @@ const ThrustControlPanel = ({
         {/* ── Floating confirm overlay (separate element, z-[9500] above map) ── */}
         {confirmActive && (
           <div
-            className="fixed z-[9500] flex items-center justify-center bg-black/75 backdrop-blur-sm"
+            className="fixed z-9500 flex items-center justify-center bg-black/75 backdrop-blur-sm"
             style={{ top: HEADER_H, left: 0, right: 0, bottom: FOOTER_H }}
           >
             <div className="w-full max-w-xs mx-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 space-y-3 shadow-2xl">
@@ -470,7 +474,9 @@ const ThrustControlPanel = ({
               )}
               {showForceArm && !showDisarmConfirm && !pendingMode && (
                 <div className="space-y-3">
-                  <p className="text-xs text-red-500 text-center">{lastArmFailureMessage}</p>
+                  <p className="text-xs text-red-500 text-center">
+                    {lastArmFailureMessage}
+                  </p>
                   <button
                     type="button"
                     disabled={commandLoading || noVehicle}

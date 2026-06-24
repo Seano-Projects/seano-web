@@ -19,6 +19,7 @@ import {
   FiNavigation,
   FiPause,
   FiPlay,
+  FiDownload,
 } from "react-icons/fi";
 import useTranslation from "../hooks/useTranslation";
 
@@ -95,6 +96,29 @@ const COMMAND_COL_DEFAULT = new Set([
 ]);
 const COMMAND_MAX = 5;
 
+const THRUSTER_COL_KEYS = [
+  "initiated_at",
+  "vehicle_code",
+  "event",
+  "throttle_pct",
+  "steering_pct",
+];
+const THRUSTER_COL_LABELS = {
+  initiated_at: "Time",
+  vehicle_code: "Vehicle",
+  event: "Event",
+  throttle_pct: "Throttle",
+  steering_pct: "Steering",
+};
+const THRUSTER_COL_DEFAULT = new Set([
+  "initiated_at",
+  "vehicle_code",
+  "event",
+  "throttle_pct",
+  "steering_pct",
+]);
+const THRUSTER_MAX = 5;
+
 const WAYPOINT_COL_KEYS = [
   "initiated_at",
   "vehicle_code",
@@ -151,6 +175,7 @@ const Log = () => {
     rawLogs,
     commandLogs,
     waypointLogs,
+    thrusterLogs,
     loading,
   } = useLogData({
     enableRealtime: true,
@@ -172,6 +197,9 @@ const Log = () => {
 
   const [waypointVisibleKeys, setWaypointVisibleKeys] =
     useState(WAYPOINT_COL_DEFAULT);
+
+  const [thrusterVisibleKeys, setThrusterVisibleKeys] =
+    useState(THRUSTER_COL_DEFAULT);
 
   // Get Anti Theft and Failsafe logs from alerts
   const antiTheftLogs = useMemo(() => {
@@ -224,8 +252,10 @@ const Log = () => {
   const filteredFailsafeLogs = filterLogsByVehicle(failsafeLogs);
   const filteredCommandLogs = filterActionLogsByVehicle(commandLogs);
   const filteredWaypointLogs = filterActionLogsByVehicle(waypointLogs);
+  const filteredThrusterLogs = filterActionLogsByVehicle(thrusterLogs);
   const commandTablePageSize = Math.max(filteredCommandLogs.length, 1);
   const waypointTablePageSize = Math.max(filteredWaypointLogs.length, 1);
+  const thrusterTablePageSize = Math.max(filteredThrusterLogs.length, 1);
 
   const widgets = [
     {
@@ -722,6 +752,100 @@ const Log = () => {
     },
   ];
 
+  // Thruster Log Columns
+  const thrusterLogColumns = [
+    {
+      header: t("pages.logs.columns.time"),
+      accessorKey: "initiated_at",
+      sortable: true,
+      cell: (row) => (
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          {formatTimestamp(row.initiated_at || row.created_at)}
+        </span>
+      ),
+    },
+    {
+      header: t("pages.logs.columns.vehicle"),
+      accessorKey: "vehicle_code",
+      sortable: true,
+      cell: (row) => (
+        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+          {row.vehicle?.code || row.vehicle_code || "N/A"}
+        </span>
+      ),
+    },
+    {
+      header: t("pages.logs.columns.event"),
+      accessorKey: "event",
+      sortable: true,
+      cell: (row) => {
+        const isRelease = row.event === "RELEASE";
+        return (
+          <span
+            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+              isRelease
+                ? "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                : "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
+            }`}
+          >
+            {row.event || "OVERRIDE"}
+          </span>
+        );
+      },
+    },
+    {
+      header: t("pages.logs.columns.throttle"),
+      accessorKey: "throttle_pct",
+      sortable: true,
+      cell: (row) => {
+        if (row.event === "RELEASE") return <span className="text-xs text-gray-400">—</span>;
+        const val = row.throttle_pct ?? 0;
+        const color = val > 0
+          ? "text-green-600 dark:text-green-400"
+          : val < 0
+          ? "text-red-600 dark:text-red-400"
+          : "text-gray-500 dark:text-gray-400";
+        return <span className={`text-sm font-mono font-semibold ${color}`}>{val > 0 ? "+" : ""}{val}%</span>;
+      },
+    },
+    {
+      header: t("pages.logs.columns.steering"),
+      accessorKey: "steering_pct",
+      sortable: true,
+      cell: (row) => {
+        if (row.event === "RELEASE") return <span className="text-xs text-gray-400">—</span>;
+        const val = row.steering_pct ?? 0;
+        const color = val > 0
+          ? "text-blue-600 dark:text-blue-400"
+          : val < 0
+          ? "text-purple-600 dark:text-purple-400"
+          : "text-gray-500 dark:text-gray-400";
+        return <span className={`text-sm font-mono font-semibold ${color}`}>{val > 0 ? "+" : ""}{val}%</span>;
+      },
+    },
+  ];
+
+  const handleExportThrusterLogs = () => {
+    const token = localStorage.getItem("access_token");
+    const params = new URLSearchParams();
+    if (selectedVehicle) params.set("vehicle_code", selectedVehicle.code);
+    const url = `${import.meta.env.VITE_API_URL || ""}/thruster-logs/export?${params.toString()}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.setAttribute("download", "thruster_logs.csv");
+    document.body.appendChild(a);
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.blob())
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        a.href = objectUrl;
+        a.click();
+        URL.revokeObjectURL(objectUrl);
+        document.body.removeChild(a);
+      })
+      .catch(() => document.body.removeChild(a));
+  };
+
   return (
     <div
       className="p-4"
@@ -794,6 +918,7 @@ const Log = () => {
               "failsafe",
               "command",
               "waypoint",
+              "thruster",
             ].map((tab) => (
               <button
                 key={tab}
@@ -1185,6 +1310,58 @@ const Log = () => {
               searchKeys={["vehicle_code", "mission_name", "status"]}
               pageSize={waypointTablePageSize}
               emptyMessage={t("pages.logs.emptyWaypoint")}
+            />
+          </div>
+        )}
+
+        {/* Thruster Logs */}
+        {activeTab === "thruster" && (
+          <div
+            className="p-6"
+            key={`thruster-${isRealtimePaused ? "paused" : "live"}`}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <ColumnToggle
+                allKeys={THRUSTER_COL_KEYS}
+                labels={THRUSTER_COL_LABELS}
+                visibleKeys={thrusterVisibleKeys}
+                onToggle={(key) =>
+                  setThrusterVisibleKeys((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(key)) {
+                      if (next.size === 1) return prev;
+                      next.delete(key);
+                    } else {
+                      if (next.size >= THRUSTER_MAX) return prev;
+                      next.add(key);
+                    }
+                    return next;
+                  })
+                }
+                onReset={() =>
+                  setThrusterVisibleKeys(new Set(THRUSTER_COL_DEFAULT))
+                }
+                maxColumns={THRUSTER_MAX}
+              />
+              <button
+                onClick={handleExportThrusterLogs}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                title={t("pages.logs.exportThruster")}
+              >
+                <FiDownload size={14} />
+                {t("pages.logs.exportThruster")}
+              </button>
+            </div>
+            <DataTable
+              key={`thruster-table-${isRealtimePaused ? "paused" : "live"}-${thrusterTablePageSize}`}
+              columns={thrusterLogColumns.filter((col) =>
+                thrusterVisibleKeys.has(col.accessorKey),
+              )}
+              data={filteredThrusterLogs}
+              searchPlaceholder={t("pages.logs.searchThruster")}
+              searchKeys={["vehicle_code", "event"]}
+              pageSize={thrusterTablePageSize}
+              emptyMessage={t("pages.logs.emptyThruster")}
             />
           </div>
         )}

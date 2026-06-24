@@ -1,121 +1,64 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   FaCog,
   FaInfoCircle,
   FaExclamationTriangle,
   FaCheckCircle,
   FaTimesCircle,
+  FaWifi,
 } from "react-icons/fa";
-import { API_ENDPOINTS } from "../../../config";
+import { useLogData } from "../../../hooks/useLogData";
 
-/**
- * VehicleLogPanel - Panel Log Kendaraan
- *
- * SUMBER DATA:
- * - Historis: GET /vehicle-logs/?vehicle_id={id}&limit=100 (API)
- * - Real-time: MQTT topic `seano/{vehicleId}/vehicle_log` (akan ditambah di masa depan)
- *
- * CARA KERJA:
- * - Fetch log kendaraan dari API saat mount/ubah vehicle
- * - Filter logs berdasarkan kategori (system, gps, power, nav, comm)
- * - Update otomatis ketika selectedVehicle berubah
- *
- * @param {object} selectedVehicle - Vehicle object (with id and code) from parent
- */
 const VehicleLogPanel = ({ selectedVehicle = null }) => {
   const [activeTab, setActiveTab] = useState("system");
-  const [logData, setLogData] = useState({
-    system: [],
-    gps: [],
-    power: [],
-    nav: [],
-    comm: [],
+
+  const { vehicleLogs, loading, wsConnected } = useLogData({
+    enableVehicleLogs: true,
+    enableRealtime: true,
+    enableStats: false,
+    enableChartData: false,
+    enableSensorLogs: false,
+    enableRawLogs: false,
+    enableCommandLogs: false,
+    enableWaypointLogs: false,
+    enableBatteryData: false,
+    selectedVehicleId: selectedVehicle?.id ?? 0,
   });
-  const [loading, setLoading] = useState(false);
 
-  // Fetch vehicle logs dari API
-  useEffect(() => {
-    if (!selectedVehicle?.id) return;
+  const logData = useMemo(() => {
+    const processed = { system: [], gps: [], power: [], nav: [], comm: [] };
 
-    const fetchVehicleLogs = async () => {
-      setLoading(true);
+    vehicleLogs.forEach((log) => {
+      let parsed = {};
       try {
-        const token = localStorage.getItem("access_token");
-        const response = await fetch(
-          API_ENDPOINTS.VEHICLE_LOGS.LIST +
-            `?vehicle_id=${selectedVehicle.id}&limit=100`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-
-          // Process logs into categories
-          const processed = {
-            system: [],
-            gps: [],
-            power: [],
-            nav: [],
-            comm: [],
-          };
-
-          data.forEach((log) => {
-            let logData = {};
-
-            try {
-              if (typeof log.data === "string") {
-                logData = JSON.parse(log.data);
-              } else {
-                logData = log.data;
-              }
-            } catch (e) {
-              logData = {};
-            }
-
-            const logEntry = {
-              id: log.id,
-              timestamp: new Date(log.created_at).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              }),
-              level: logData.level || "INFO",
-              message: logData.message || JSON.stringify(logData),
-              module: logData.module || "SYSTEM",
-            };
-
-            // Categorize by module
-            const module = logEntry.module.toUpperCase();
-            if (module.includes("GPS") || module.includes("NAV")) {
-              processed.gps.push(logEntry);
-            } else if (module.includes("POWER") || module.includes("BATTERY")) {
-              processed.power.push(logEntry);
-            } else if (
-              module.includes("MISSION") ||
-              module.includes("WAYPOINT")
-            ) {
-              processed.nav.push(logEntry);
-            } else if (module.includes("COMM") || module.includes("RADIO")) {
-              processed.comm.push(logEntry);
-            } else {
-              processed.system.push(logEntry);
-            }
-          });
-
-          setLogData(processed);
-        }
-      } catch (err) {
-      } finally {
-        setLoading(false);
+        parsed = typeof log.data === "string" ? JSON.parse(log.data) : (log.data || {});
+      } catch {
+        parsed = {};
       }
-    };
 
-    fetchVehicleLogs();
-  }, [selectedVehicle]);
+      const entry = {
+        id: log.id || log._client_id,
+        timestamp: new Date(log.created_at || log.timestamp).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+        level: parsed.level || "INFO",
+        message: parsed.message || JSON.stringify(parsed),
+        module: parsed.module || "SYSTEM",
+        _source: log._source,
+      };
+
+      const mod = entry.module.toUpperCase();
+      if (mod.includes("GPS") || mod.includes("NAV")) processed.gps.push(entry);
+      else if (mod.includes("POWER") || mod.includes("BATTERY")) processed.power.push(entry);
+      else if (mod.includes("MISSION") || mod.includes("WAYPOINT")) processed.nav.push(entry);
+      else if (mod.includes("COMM") || mod.includes("RADIO")) processed.comm.push(entry);
+      else processed.system.push(entry);
+    });
+
+    return processed;
+  }, [vehicleLogs]);
 
   const currentLogs = logData[activeTab] || [];
 
@@ -158,6 +101,16 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Vehicle Logs
           </h3>
+          <span
+            className={`ml-auto flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+              wsConnected
+                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500"
+            }`}
+          >
+            <FaWifi className="text-[10px]" />
+            {wsConnected ? "Live" : "Offline"}
+          </span>
         </div>
 
         <div className="flex gap-1">
@@ -172,112 +125,135 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
             System Logs
           </button>
           <button
-            onClick={() => setActiveTab("vehicle")}
+            onClick={() => setActiveTab("telemetry")}
             className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === "vehicle"
+              activeTab === "telemetry"
                 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                 : "text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
             }`}
           >
-            Vehicle Data
+            Telemetry
           </button>
         </div>
       </div>
 
       {/* Log Content */}
       <div className="flex-1 overflow-auto custom-scrollbar">
-        {activeTab === "system" ? (
+        {loading && vehicleLogs.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-sm text-gray-400 dark:text-gray-600">
+            Loading…
+          </div>
+        ) : activeTab === "system" ? (
           <div className="p-6 space-y-3">
-            {logData.system.map((log) => (
-              <div
-                key={log.id}
-                className={`p-3 rounded-lg border ${getLogLevelColor(
-                  log.level,
-                )}`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5">{getLogLevelIcon(log.level)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {log.timestamp}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 text-xs font-medium rounded ${getLogLevelColor(
-                          log.level,
-                        )}`}
-                      >
-                        {log.module}
-                      </span>
+            {logData.system.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-gray-600 text-center py-8">
+                No system logs
+              </p>
+            ) : (
+              logData.system.map((log) => (
+                <div
+                  key={log.id}
+                  className={`p-3 rounded-lg border ${getLogLevelColor(log.level)}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">{getLogLevelIcon(log.level)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {log.timestamp}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 text-xs font-medium rounded ${getLogLevelColor(log.level)}`}
+                        >
+                          {log.module}
+                        </span>
+                        {log._source === "ws" && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                            LIVE
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        {log.message}
+                      </p>
                     </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {log.message}
-                    </p>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         ) : (
-          <div className="p-6">
+          <div className="p-4">
             <div className="w-full max-w-full overflow-x-auto">
               <table className="w-full min-w-max text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-2 text-gray-600 dark:text-gray-400 font-medium">
-                      Time
-                    </th>
-                    <th className="text-left py-2 text-gray-600 dark:text-gray-400 font-medium">
-                      Voltage
-                    </th>
-                    <th className="text-left py-2 text-gray-600 dark:text-gray-400 font-medium">
-                      Current
-                    </th>
-                    <th className="text-left py-2 text-gray-600 dark:text-gray-400 font-medium">
-                      Speed
-                    </th>
-                    <th className="text-left py-2 text-gray-600 dark:text-gray-400 font-medium">
-                      Heading
-                    </th>
-                    <th className="text-left py-2 text-gray-600 dark:text-gray-400 font-medium">
-                      Mode
-                    </th>
+                    <th className="text-left py-2 pr-4 text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">Time</th>
+                    <th className="text-left py-2 pr-4 text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">Voltage</th>
+                    <th className="text-left py-2 pr-4 text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">Current</th>
+                    <th className="text-left py-2 pr-4 text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">Speed</th>
+                    <th className="text-left py-2 pr-4 text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">Heading</th>
+                    <th className="text-left py-2 pr-4 text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">Mode</th>
+                    <th className="text-left py-2 text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">Source</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {logData.vehicle.map((entry) => (
-                    <tr
-                      key={entry.id}
-                      className="border-b border-gray-100 dark:border-gray-800"
-                    >
-                      <td className="py-2 text-gray-600 dark:text-gray-400">
-                        {entry.timestamp}
-                      </td>
-                      <td className="py-2 text-gray-900 dark:text-white">
-                        {entry.battery_voltage}V
-                      </td>
-                      <td className="py-2 text-gray-900 dark:text-white">
-                        {entry.battery_current}A
-                      </td>
-                      <td className="py-2 text-gray-900 dark:text-white">
-                        {entry.speed} m/s
-                      </td>
-                      <td className="py-2 text-gray-900 dark:text-white">
-                        {entry.heading}°
-                      </td>
-                      <td className="py-2">
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            entry.mode === "AUTO"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                              : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
-                          }`}
-                        >
-                          {entry.mode}
-                        </span>
+                  {vehicleLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-sm text-gray-400 dark:text-gray-600">
+                        No telemetry data
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    vehicleLogs.map((entry) => (
+                      <tr
+                        key={entry._client_id || entry.id}
+                        className="border-b border-gray-100 dark:border-gray-800"
+                      >
+                        <td className="py-2 pr-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {new Date(entry.created_at || entry.timestamp).toLocaleTimeString("en-US", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-900 dark:text-white">
+                          {entry.battery_voltage != null ? `${entry.battery_voltage}V` : "—"}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-900 dark:text-white">
+                          {entry.battery_current != null ? `${entry.battery_current}A` : "—"}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-900 dark:text-white">
+                          {entry.speed != null ? `${entry.speed} m/s` : "—"}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-900 dark:text-white">
+                          {entry.heading != null ? `${entry.heading}°` : "—"}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {entry.mode ? (
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                entry.mode === "AUTO"
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                  : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+                              }`}
+                            >
+                              {entry.mode}
+                            </span>
+                          ) : "—"}
+                        </td>
+                        <td className="py-2">
+                          <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${
+                            entry._source === "ws"
+                              ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500"
+                          }`}>
+                            {entry._source === "ws" ? "WS" : "REST"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
