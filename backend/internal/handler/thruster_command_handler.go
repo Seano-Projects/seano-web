@@ -9,6 +9,7 @@ import (
 
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
+	wsocket "go-fiber-pgsql/internal/websocket"
 )
 
 const (
@@ -19,13 +20,15 @@ const (
 
 // ThrusterCommandHandler handles HTTP requests for thruster commands
 type ThrusterCommandHandler struct {
-	repo        *repository.ThrusterCommandRepository
-	vehicleRepo *repository.VehicleRepository
-	db          *gorm.DB
+	repo            *repository.ThrusterCommandRepository
+	thrusterLogRepo *repository.ThrusterLogRepository
+	vehicleRepo     *repository.VehicleRepository
+	db              *gorm.DB
+	wsHub           *wsocket.Hub
 }
 
-func NewThrusterCommandHandler(repo *repository.ThrusterCommandRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB) *ThrusterCommandHandler {
-	return &ThrusterCommandHandler{repo: repo, vehicleRepo: vehicleRepo, db: db}
+func NewThrusterCommandHandler(repo *repository.ThrusterCommandRepository, thrusterLogRepo *repository.ThrusterLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB, wsHub *wsocket.Hub) *ThrusterCommandHandler {
+	return &ThrusterCommandHandler{repo: repo, thrusterLogRepo: thrusterLogRepo, vehicleRepo: vehicleRepo, db: db, wsHub: wsHub}
 }
 
 // CreateThrusterCommand creates a thruster control command (admin/operator)
@@ -99,6 +102,31 @@ func (h *ThrusterCommandHandler) CreateThrusterCommand(c *fiber.Ctx) error {
 
 	if err := h.repo.CreateThrusterCommand(entry); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to create thruster command"})
+	}
+
+	// Record thruster log and broadcast via WebSocket
+	if h.thrusterLogRepo != nil {
+		event := "OVERRIDE"
+		logEntry := &model.ThrusterLog{
+			VehicleID:   vehicleID,
+			VehicleCode: vehicleCode,
+			Event:       event,
+			ThrottlePct: throttle,
+			SteeringPct: steering,
+			InitiatedAt: initiatedAt,
+		}
+		if err := h.thrusterLogRepo.CreateThrusterLog(logEntry); err == nil && h.wsHub != nil {
+			_ = h.wsHub.BroadcastThrusterLog(wsocket.ThrusterLogData{
+				ID:          logEntry.ID,
+				VehicleID:   logEntry.VehicleID,
+				VehicleCode: logEntry.VehicleCode,
+				Event:       logEntry.Event,
+				ThrottlePct: logEntry.ThrottlePct,
+				SteeringPct: logEntry.SteeringPct,
+				InitiatedAt: logEntry.InitiatedAt.Format(time.RFC3339),
+				CreatedAt:   logEntry.CreatedAt.Format(time.RFC3339),
+			})
+		}
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
