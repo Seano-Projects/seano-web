@@ -69,8 +69,28 @@ func main() {
 		&model.RawLog{},
 		&model.CommandLog{},
 		&model.WaypointLog{},
+		&model.LatencyAck{},
+		&model.SystemSetting{},
 	); err != nil {
 		log.Fatal("Failed to migrate database:", err)
+	}
+
+	// Additive column migrations for existing latency_acks table (idempotent).
+	alterStmts := []string{
+		`ALTER TABLE latency_acks ADD COLUMN IF NOT EXISTS initiated_at TIMESTAMPTZ`,
+		`ALTER TABLE latency_acks ADD COLUMN IF NOT EXISTS mqtt_published_at TIMESTAMPTZ`,
+		`ALTER TABLE latency_acks ADD COLUMN IF NOT EXISTS usv_ack_at TIMESTAMPTZ`,
+		`ALTER TABLE latency_acks ADD COLUMN IF NOT EXISTS ack_received_at TIMESTAMPTZ`,
+		// Remove latency-only columns from command_logs (now tracked in latency_acks)
+		`ALTER TABLE command_logs DROP COLUMN IF EXISTS ws_sent_at`,
+		`ALTER TABLE command_logs DROP COLUMN IF EXISTS ws_received_at`,
+		// Remove ws_received_at from waypoint_logs (now tracked in latency_acks)
+		`ALTER TABLE waypoint_logs DROP COLUMN IF EXISTS ws_received_at`,
+	}
+	for _, stmt := range alterStmts {
+		if err := db.Exec(stmt).Error; err != nil {
+			log.Printf("Warning: ALTER TABLE failed: %v | stmt: %s", err, stmt)
+		}
 	}
 
 	log.Println("Fresh migration completed successfully!")

@@ -70,6 +70,7 @@ func main() {
 		&model.ChatMessage{},
 		&model.Publication{},
 		&model.TeamMember{},
+		&model.SystemSetting{},
 	}
 
 	if saveRawLogsToDB {
@@ -108,6 +109,8 @@ func main() {
 	missionRepo := repository.NewMissionRepository(db)
 	commandLogRepo := repository.NewCommandLogRepository(db)
 	thrusterLogRepo := repository.NewThrusterLogRepository(db)
+	latencyAckRepo := repository.NewLatencyAckRepository(db)
+	waypointLogRepo := repository.NewWaypointLogRepository(db)
 
 	// MIDAS 3000 handler (legacy)
 	midas3000Handler := midas3000.NewDataHandler(sensorLogRepo, vehicleSensorRepo, wsHub)
@@ -164,13 +167,13 @@ func main() {
 				mqttClient := mqttListener.GetClient()
 
 				// Vehicle Log Listener
-				vehicleLogListener := mqttservice.NewVehicleLogListener(mqttClient, vehicleLogRepo, vehicleRepo, missionRepo, wsHub)
+				vehicleLogListener := mqttservice.NewVehicleLogListener(mqttClient, vehicleLogRepo, vehicleRepo, missionRepo, wsHub, latencyAckRepo)
 				if err := vehicleLogListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start vehicle log listener: %v", err)
 				}
 
 				// Sensor Log Listener
-				sensorLogListener := mqttservice.NewSensorLogListener(mqttClient, sensorLogRepo, vehicleRepo, sensorRepo, missionRepo, wsHub)
+				sensorLogListener := mqttservice.NewSensorLogListener(mqttClient, sensorLogRepo, vehicleRepo, sensorRepo, missionRepo, wsHub, latencyAckRepo)
 				if err := sensorLogListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start sensor log listener: %v", err)
 				}
@@ -205,13 +208,13 @@ func main() {
 				}
 
 				// Thruster Listener (logs MQTT thruster commands to DB)
-				thrusterListener := mqttservice.NewThrusterListener(mqttClient, thrusterLogRepo, vehicleRepo, wsHub)
+				thrusterListener := mqttservice.NewThrusterListener(mqttClient, thrusterLogRepo, vehicleRepo, wsHub, latencyAckRepo)
 				if err := thrusterListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start thruster listener: %v", err)
 				}
 
 				// Command Publisher (for control commands arm/disarm/mode)
-				cmdPublisher = mqttservice.NewCommandPublisher(mqttClient, commandLogRepo, vehicleRepo, wsHub)
+				cmdPublisher = mqttservice.NewCommandPublisher(mqttClient, commandLogRepo, wsHub, latencyAckRepo)
 				if err := cmdPublisher.SubscribeACK(); err != nil {
 					log.Printf("Warning: Failed to subscribe to ACK topic: %v", err)
 				}
@@ -221,6 +224,18 @@ func main() {
 				waypointListener := mqttservice.NewWaypointListener(mqttClient, vehicleRepo, missionRepo, wsHub)
 				if err := waypointListener.Start(); err != nil {
 					log.Printf("Warning: Failed to start waypoint listener: %v", err)
+				}
+
+				// Waypoint ACK Listener (upload ACK from USV via seano/+/waypoint/response)
+				waypointAckListener := mqttservice.NewWaypointAckListener(mqttClient, waypointLogRepo, vehicleRepo, latencyAckRepo, wsHub)
+				if err := waypointAckListener.Start(); err != nil {
+					log.Printf("Warning: Failed to start waypoint ACK listener: %v", err)
+				}
+
+				// Waypoint Clear Listener (clear response from USV via seano/+/waypoint/clear/response)
+				waypointClearListener := mqttservice.NewWaypointClearListener(mqttClient, wsHub)
+				if err := waypointClearListener.Start(); err != nil {
+					log.Printf("Warning: Failed to start waypoint clear listener: %v", err)
 				}
 
 				// Offline Watchdog: fallback for missing LWT — marks vehicle offline
@@ -255,6 +270,12 @@ func main() {
 					}
 					if err := waypointListener.Start(); err != nil {
 						log.Printf("❌ Failed to re-subscribe waypoint listener: %v", err)
+					}
+					if err := waypointAckListener.Start(); err != nil {
+						log.Printf("❌ Failed to re-subscribe waypoint ACK listener: %v", err)
+					}
+					if err := waypointClearListener.Start(); err != nil {
+						log.Printf("❌ Failed to re-subscribe waypoint clear listener: %v", err)
 					}
 					log.Println("✓ All MQTT listeners re-subscribed successfully")
 				})

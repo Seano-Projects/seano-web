@@ -41,6 +41,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	waypointLogRepo := repository.NewWaypointLogRepository(db)
 	thrusterCommandRepo := repository.NewThrusterCommandRepository(db)
 	thrusterLogRepo := repository.NewThrusterLogRepository(db)
+	latencyAckRepo := repository.NewLatencyAckRepository(db)
+	systemSettingRepo := repository.NewSystemSettingRepository(db)
 
 	// Initialize handlers
 	userHandler := &handler.UserHandler{DB: db}
@@ -59,12 +61,13 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	vehicleLogHandler := handler.NewVehicleLogHandler(vehicleLogRepo, vehicleRepo, missionRepo, db, wsHub)
 	rawLogHandler := handler.NewRawLogHandler(rawLogRepo, vehicleRepo, db, rawLogsEnabled, wsHub)
 	logStatsHandler := handler.NewLogStatsHandler(vehicleLogRepo, sensorLogRepo, rawLogRepo, vehicleRepo, db, rawLogsEnabled)
-	missionHandler := handler.NewMissionHandler(missionRepo, vehicleRepo, waypointLogRepo, cmdPublisher, db, wsHub)
+	missionHandler := handler.NewMissionHandler(missionRepo, vehicleRepo, waypointLogRepo, cmdPublisher, db, wsHub, latencyAckRepo)
 	alertHandler := handler.NewAlertHandler(alertRepo, vehicleRepo, wsHub, db)
 	notificationHandler := handler.NewNotificationHandler(notificationRepo, db)
-	controlHandler := handler.NewControlHandler(cmdPublisher, commandLogRepo, vehicleRepo)
+	controlHandler := handler.NewControlHandler(cmdPublisher, commandLogRepo, vehicleRepo, latencyAckRepo)
 	commandLogHandler := handler.NewCommandLogHandler(commandLogRepo, vehicleRepo, db, wsHub)
-	waypointLogHandler := handler.NewWaypointLogHandler(waypointLogRepo, vehicleRepo, db, wsHub)
+	commandLogHandler.SetLatencyAckRepo(latencyAckRepo)
+	waypointLogHandler := handler.NewWaypointLogHandler(waypointLogRepo, vehicleRepo, db, wsHub, latencyAckRepo)
 	thrusterCommandHandler := handler.NewThrusterCommandHandler(thrusterCommandRepo, thrusterLogRepo, vehicleRepo, db, wsHub)
 	thrusterLogHandler := handler.NewThrusterLogHandler(thrusterLogRepo, vehicleRepo, db, wsHub)
 	publicationRepo := repository.NewPublicationRepository(db)
@@ -72,6 +75,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	teamMemberRepo := repository.NewTeamMemberRepository(db)
 	teamMemberHandler := handler.NewTeamMemberHandler(teamMemberRepo)
 	contactHandler := handler.NewContactHandler(emailService)
+	latencyAckHandler := handler.NewLatencyAckHandler(latencyAckRepo)
 	wsHandler := wsocket.NewWebSocketHandler(wsHub)
 
 	// Swagger route (disabled in production)
@@ -161,7 +165,6 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	vehicles.Get("/connection-statuses", vehicleHandler.GetVehicleConnectionStatuses) // Get MQTT LWT connection statuses
 	vehicles.Get("/:vehicle_id", vehicleHandler.GetVehicleByID)                       // Ownership check in handler
 	vehicles.Put("/:vehicle_id", vehicleHandler.UpdateVehicle)                        // Ownership check in handler
-	vehicles.Post("/:vehicle_id/api-key", vehicleHandler.GenerateVehicleAPIKey)       // Generate per-vehicle API key
 	vehicles.Delete("/:vehicle_id", vehicleHandler.DeleteVehicle)                     // Ownership check in handler
 	vehicles.Get("/:vehicle_id/battery", vehicleHandler.GetVehicleBatteryStatus)      // Get latest battery status
 	vehicles.Get("/:vehicle_id/battery-logs", vehicleHandler.GetBatteryLogs)          // Get battery history/logs
@@ -170,10 +173,10 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	// Battery routes
 	app.Get("/vehicle-batteries/latest", middleware.AuthRequired(), vehicleHandler.GetAllLatestBatteryStatus)
 	app.Get("/vehicle-batteries/export", middleware.AuthRequired(), vehicleHandler.ExportBatteryLogs)
-	app.Post("/vehicle-batteries", middleware.AuthOrVehicleAPIKey(vehicleRepo), vehicleHandler.CreateVehicleBatteryStatus)
+	app.Post("/vehicle-batteries", middleware.AuthRequired(), vehicleHandler.CreateVehicleBatteryStatus)
 
 	// Vehicle status routes
-	app.Post("/vehicle-status", middleware.AuthOrVehicleAPIKey(vehicleRepo), vehicleHandler.CreateVehicleStatus)
+	app.Post("/vehicle-status", middleware.AuthRequired(), vehicleHandler.CreateVehicleStatus)
 
 	// Vehicle-Sensor assignment routes (users can assign sensors to their vehicles)
 	vehicles.Post("/:vehicle_id/sensors", vehicleSensorHandler.AssignSensorToVehicle)
@@ -188,8 +191,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	sensorLogs.Get("/export", middleware.AuthRequired(), sensorLogHandler.ExportSensorLogs)  // Export to CSV
 	sensorLogs.Post("/import", middleware.AuthRequired(), sensorLogHandler.ImportSensorLogs) // Import from CSV
 	sensorLogs.Get("/:id", middleware.AuthRequired(), sensorLogHandler.GetSensorLogByID)
-	sensorLogs.Post("/:id/ws-received", middleware.AuthRequired(), sensorLogHandler.MarkWSReceivedAt)
-	sensorLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), sensorLogHandler.CreateSensorLog)
+
+	sensorLogs.Post("/", middleware.AuthRequired(), sensorLogHandler.CreateSensorLog)
 	sensorLogs.Delete("/:id", middleware.AuthRequired(), sensorLogHandler.DeleteSensorLog)
 
 	// Vehicle Logs routes
@@ -200,8 +203,11 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	vehicleLogs.Post("/import", middleware.AuthRequired(), vehicleLogHandler.ImportVehicleLogs) // Import from CSV
 	vehicleLogs.Get("/:id", middleware.AuthRequired(), vehicleLogHandler.GetVehicleLogByID)
 	vehicleLogs.Get("/latest/:vehicle_id", middleware.AuthRequired(), vehicleLogHandler.GetLatestVehicleLog)
-	vehicleLogs.Post("/:id/ws-received", middleware.AuthRequired(), vehicleLogHandler.MarkWSReceivedAt)
-	vehicleLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), vehicleLogHandler.CreateVehicleLog)
+	vehicleLogs.Get("/missions-stats-batch", middleware.AuthRequired(), vehicleLogHandler.GetMissionTelemetryStatsBatch)
+	vehicleLogs.Get("/mission-stats/:mission_id", middleware.AuthRequired(), vehicleLogHandler.GetMissionTelemetryStats)
+	vehicleLogs.Get("/mission-trajectory/:mission_id", middleware.AuthRequired(), vehicleLogHandler.GetMissionTrajectory)
+
+	vehicleLogs.Post("/", middleware.AuthRequired(), vehicleLogHandler.CreateVehicleLog)
 	vehicleLogs.Delete("/:id", middleware.AuthRequired(), vehicleLogHandler.DeleteVehicleLog)
 
 	// Raw Logs routes
@@ -211,7 +217,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	rawLogs.Get("/export", middleware.AuthRequired(), rawLogHandler.ExportRawLogs)  // Export to CSV
 	rawLogs.Post("/import", middleware.AuthRequired(), rawLogHandler.ImportRawLogs) // Import from CSV
 	rawLogs.Get("/:id", middleware.AuthRequired(), rawLogHandler.GetRawLogByID)
-	rawLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), rawLogHandler.CreateRawLog)
+	rawLogs.Post("/", middleware.AuthRequired(), rawLogHandler.CreateRawLog)
 	rawLogs.Delete("/:id", middleware.AuthRequired(), rawLogHandler.DeleteRawLog)
 
 	// Log Stats routes (protected)
@@ -226,13 +232,13 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	missions.Get("/stats", middleware.AuthRequired(), missionHandler.GetMissionStats)
 	missions.Get("/ongoing", middleware.AuthRequired(), missionHandler.GetOngoingMissions) // Get all ongoing missions
 	// Static routes MUST come before dynamic /:mission_id to avoid being swallowed
-	missions.Get("/pending-upload", middleware.AuthOrVehicleAPIKeyFromQuery(vehicleRepo), missionHandler.GetPendingMissionUploads)
-	missions.Post("/waypoint-reached", middleware.AuthOrVehicleAPIKey(vehicleRepo), missionHandler.UpdateMissionProgressFromWaypoint) // USV waypoint reached
+	missions.Get("/pending-upload", middleware.AuthRequired(), missionHandler.GetPendingMissionUploads)
+	missions.Post("/waypoint-reached", middleware.AuthRequired(), missionHandler.UpdateMissionProgressFromWaypoint) // USV waypoint reached
 	missions.Get("/:mission_id", middleware.AuthRequired(), missionHandler.GetMissionByID)                                            // Ownership check in handler
 	missions.Put("/:mission_id", middleware.AuthRequired(), missionHandler.UpdateMission)                                             // Ownership check in handler
 	missions.Post("/:mission_id/upload-to-vehicle", middleware.AuthRequired(), missionHandler.UploadMissionToVehicle)
 	missions.Patch("/:mission_id/clear", middleware.AuthRequired(), missionHandler.ClearMission)
-	missions.Put("/:id/progress", middleware.AuthOrVehicleAPIKeyByMissionID(missionRepo, vehicleRepo), missionHandler.UpdateMissionProgress) // Update mission progress
+	missions.Put("/:id/progress", middleware.AuthRequired(), missionHandler.UpdateMissionProgress) // Update mission progress
 	missions.Delete("/:mission_id", middleware.AuthRequired(), missionHandler.DeleteMission)                                                 // Ownership check in handler
 
 	// Alert management routes
@@ -244,7 +250,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	alerts.Get("/export", middleware.AuthRequired(), alertHandler.ExportAlerts)  // Export to CSV
 	alerts.Post("/import", middleware.AuthRequired(), alertHandler.ImportAlerts) // Import from CSV
 	alerts.Get("/:id", middleware.AuthRequired(), alertHandler.GetAlertByID)
-	alerts.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), alertHandler.CreateAlert)
+	alerts.Post("/", middleware.AuthRequired(), alertHandler.CreateAlert)
 	alerts.Put("/:id", middleware.AuthRequired(), alertHandler.UpdateAlert)
 	alerts.Patch("/acknowledge-all", middleware.AuthRequired(), alertHandler.AcknowledgeAllAlerts)
 	alerts.Patch("/:id/acknowledge", middleware.AuthRequired(), alertHandler.AcknowledgeAlert)
@@ -270,7 +276,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 
 	// AI Assistant routes (protected)
 	chatRepo := repository.NewChatRepository(db)
-	aiHandler := handler.NewAIHandler(chatRepo)
+	aiHandler := handler.NewAIHandler(chatRepo, systemSettingRepo)
 	aiLimiter := limiter.New(limiter.Config{
 		Max:        20,
 		Expiration: 1 * time.Minute,
@@ -304,20 +310,19 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	commandLogs.Get("/", middleware.AuthRequired(), commandLogHandler.GetCommandLogs)
 	commandLogs.Get("/export", middleware.AuthRequired(), commandLogHandler.ExportCommandLogs)
 	commandLogs.Get("/:id", middleware.AuthRequired(), commandLogHandler.GetCommandLogByID)
-	commandLogs.Post("/:id/ws-received", middleware.AuthRequired(), commandLogHandler.MarkWSReceivedAt)
-	commandLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), commandLogHandler.CreateCommandLog)
+	commandLogs.Post("/", middleware.AuthRequired(), commandLogHandler.CreateCommandLog)
 	commandLogs.Delete("/:id", middleware.AuthRequired(), commandLogHandler.DeleteCommandLog)
 
 	// Command polling routes (API mode)
-	app.Get("/commands/pending", middleware.AuthOrVehicleAPIKeyFromQuery(vehicleRepo), commandLogHandler.GetPendingCommands)
+	app.Get("/commands/pending", middleware.AuthRequired(), commandLogHandler.GetPendingCommands)
 
 	// Command ACK routes
-	app.Post("/command-acks", middleware.AuthOrVehicleAPIKey(vehicleRepo), commandLogHandler.CreateCommandAck)
+	app.Post("/command-acks", middleware.AuthRequired(), commandLogHandler.CreateCommandAck)
 
 	// Thruster control routes (API mode)
 	thrusters := app.Group("/thruster-commands", middleware.AuthRequired())
 	thrusters.Post("/", thrusterCommandHandler.CreateThrusterCommand)
-	app.Get("/thruster-commands/pending", middleware.AuthOrVehicleAPIKeyFromQuery(vehicleRepo), thrusterCommandHandler.GetPendingThrusterCommand)
+	app.Get("/thruster-commands/pending", middleware.AuthRequired(), thrusterCommandHandler.GetPendingThrusterCommand)
 
 	// Thruster Logs routes
 	thrusterLogs := app.Group("/thruster-logs")
@@ -331,12 +336,19 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	waypointLogs.Get("/", middleware.AuthRequired(), waypointLogHandler.GetWaypointLogs)
 	waypointLogs.Get("/export", middleware.AuthRequired(), waypointLogHandler.ExportWaypointLogs)
 	waypointLogs.Get("/:id", middleware.AuthRequired(), waypointLogHandler.GetWaypointLogByID)
-	waypointLogs.Post("/:id/ws-received", middleware.AuthRequired(), waypointLogHandler.MarkWSReceivedAt)
-	waypointLogs.Post("/", middleware.AuthOrVehicleAPIKey(vehicleRepo), waypointLogHandler.CreateWaypointLog)
+	waypointLogs.Post("/", middleware.AuthRequired(), waypointLogHandler.CreateWaypointLog)
 	waypointLogs.Delete("/:id", middleware.AuthRequired(), waypointLogHandler.DeleteWaypointLog)
 
 	// Waypoint ACK routes
-	app.Post("/waypoint-acks", middleware.AuthOrVehicleAPIKey(vehicleRepo), waypointLogHandler.CreateWaypointAck)
+	app.Post("/waypoint-acks", middleware.AuthRequired(), waypointLogHandler.CreateWaypointAck)
+
+	// Latency acks — records timing data for all log types without touching hypertable rows.
+	app.Get("/server-time", latencyAckHandler.ServerTime)
+	app.Get("/latency-acks", middleware.AuthRequired(), latencyAckHandler.ListLatencyAcks)
+	app.Post("/latency-acks", middleware.AuthRequired(), latencyAckHandler.CreateLatencyAck)
+	app.Patch("/latency-acks/by-log/:logType/:logId", middleware.AuthRequired(), latencyAckHandler.UpdateWsReceived)
+	app.Delete("/latency-acks/:id", middleware.AuthRequired(), latencyAckHandler.DeleteLatencyAck)
+	app.Get("/latency-acks/export", middleware.AuthRequired(), latencyAckHandler.ExportLatencyAcks)
 
 	// Publications routes — GET public, CUD protected
 	app.Get("/publications", publicationHandler.GetAll)
@@ -357,6 +369,12 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	team.Post("/", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.Create)
 	team.Put("/:id", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.Update)
 	team.Delete("/:id", middleware.CheckPermission(db, "team.manage"), teamMemberHandler.Delete)
+
+	// System Settings routes — third-party credentials & feature toggles (System Management)
+	systemSettingHandler := handler.NewSystemSettingHandler(systemSettingRepo)
+	systemSettings := app.Group("/system-settings", middleware.AuthRequired())
+	systemSettings.Get("/", systemSettingHandler.GetSettings)
+	systemSettings.Put("/", middleware.CheckPermission(db, "system.manage"), systemSettingHandler.UpdateSettings)
 
 	// Contact route — public, rate limited
 	contactLimiter := limiter.New(limiter.Config{

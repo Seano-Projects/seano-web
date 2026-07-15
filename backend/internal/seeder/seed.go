@@ -97,6 +97,9 @@ func SeedRolesAndPermissions(db *gorm.DB) {
 
 		// Team
 		{Name: "team.manage", Description: "Create, update, and delete team members"},
+
+		// System Settings (System Management)
+		{Name: "system.manage", Description: "Update system settings (API keys, feature toggles)"},
 	}
 
 	for _, permission := range permissions {
