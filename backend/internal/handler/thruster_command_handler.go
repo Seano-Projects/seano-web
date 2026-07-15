@@ -125,7 +125,7 @@ func (h *ThrusterCommandHandler) CreateThrusterCommand(c *fiber.Ctx) error {
 				SteeringPct: logEntry.SteeringPct,
 				InitiatedAt: logEntry.InitiatedAt.Format(time.RFC3339),
 				CreatedAt:   logEntry.CreatedAt.Format(time.RFC3339),
-			})
+			}, "")
 		}
 	}
 

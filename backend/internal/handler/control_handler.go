@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"strings"
 	"time"
 
@@ -14,18 +15,20 @@ import (
 
 // ControlHandler handles vehicle control commands via MQTT
 type ControlHandler struct {
-	cmdPublisher  *mqttservice.CommandPublisher
+	cmdPublisher   *mqttservice.CommandPublisher
 	commandLogRepo *repository.CommandLogRepository
 	vehicleRepo    *repository.VehicleRepository
+	latencyAckRepo *repository.LatencyAckRepository
 }
 
 // NewControlHandler creates a new ControlHandler.
 // cmdPublisher may be nil when MQTT is not configured (dev/no-broker mode).
-func NewControlHandler(cmdPublisher *mqttservice.CommandPublisher, commandLogRepo *repository.CommandLogRepository, vehicleRepo *repository.VehicleRepository) *ControlHandler {
+func NewControlHandler(cmdPublisher *mqttservice.CommandPublisher, commandLogRepo *repository.CommandLogRepository, vehicleRepo *repository.VehicleRepository, latencyAckRepo *repository.LatencyAckRepository) *ControlHandler {
 	return &ControlHandler{
-		cmdPublisher:  cmdPublisher,
+		cmdPublisher:   cmdPublisher,
 		commandLogRepo: commandLogRepo,
 		vehicleRepo:    vehicleRepo,
+		latencyAckRepo: latencyAckRepo,
 	}
 }
 
@@ -118,6 +121,18 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 		})
 	}
 
+	if h.latencyAckRepo != nil {
+		initiated := entry.InitiatedAt
+		if err := h.latencyAckRepo.Create(&model.LatencyAck{
+			LogType:     "command",
+			LogID:       entry.ID,
+			VehicleID:   entry.VehicleID,
+			InitiatedAt: &initiated,
+		}); err != nil {
+			log.Printf("⚠️  Failed to create latency_ack for command %d: %v", entry.ID, err)
+		}
+	}
+
 	// If MQTT not configured, queue command for USV polling
 	if h.cmdPublisher == nil {
 		return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
@@ -130,7 +145,7 @@ func (h *ControlHandler) SendCommand(c *fiber.Ctx) error {
 	}
 
 	// Send command and wait for hardware ACK
-	ack, err := h.cmdPublisher.SendCommand(vehicleCode, mqttservice.CommandType(command), requestID)
+	ack, err := h.cmdPublisher.SendCommand(vehicleCode, mqttservice.CommandType(command), requestID, entry.ID)
 	if err != nil {
 		status := "failed"
 		if strings.Contains(strings.ToLower(err.Error()), "timeout") {

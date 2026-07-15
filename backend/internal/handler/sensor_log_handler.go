@@ -23,10 +23,6 @@ type SensorLogHandler struct {
 	wsHub         *wsocket.Hub
 }
 
-type sensorWSReceivedAtRequest struct {
-	WSReceivedAt string `json:"ws_received_at"`
-}
-
 func NewSensorLogHandler(sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, db *gorm.DB, wsHub *wsocket.Hub) *SensorLogHandler {
 	return &SensorLogHandler{
 		sensorLogRepo: sensorLogRepo,
@@ -305,11 +301,10 @@ func (h *SensorLogHandler) CreateSensorLog(c *fiber.Ctx) error {
 	}
 
 	sensorLog := &model.SensorLog{
-		VehicleID:      vehicleID,
-		SensorID:       sensorID,
-		Data:           req.Data,
-		UsvTimestamp:   usvTimestamp,
-		MqttReceivedAt: &apiReceivedAt,
+		VehicleID:    vehicleID,
+		SensorID:     sensorID,
+		Data:         req.Data,
+		UsvTimestamp: usvTimestamp,
 	}
 
 	if err := h.sensorLogRepo.CreateSensorLog(sensorLog); err != nil {
@@ -318,12 +313,9 @@ func (h *SensorLogHandler) CreateSensorLog(c *fiber.Ctx) error {
 		})
 	}
 
-	// Broadcast via WebSocket so frontend latency (ws_sent_at/ws_received_at) is measurable
+	// Broadcast via WebSocket so frontend latency is measurable
 	if h.wsHub != nil {
 		wsSentAt := time.Now()
-		if err := h.sensorLogRepo.UpdateWSSentAt(sensorLog.ID, wsSentAt); err == nil {
-			sensorLog.WsSentAt = &wsSentAt
-		}
 		wsVehicle := &wsocket.VehicleInfo{}
 		if vehicle != nil {
 			wsVehicle.Code = vehicle.Code
@@ -385,61 +377,6 @@ func (h *SensorLogHandler) DeleteSensorLog(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "Sensor log deleted successfully",
-	})
-}
-
-// MarkWSReceivedAt stores frontend websocket receive timestamp for a sensor log.
-func (h *SensorLogHandler) MarkWSReceivedAt(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(uint)
-
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid ID",
-		})
-	}
-
-	logEntry, err := h.sensorLogRepo.GetSensorLogByID(uint(id))
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Sensor log not found",
-		})
-	}
-
-	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
-		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to validate ownership",
-			})
-		}
-
-		allowed := false
-		for _, vid := range userVehicleIDs {
-			if vid == logEntry.VehicleID {
-				allowed = true
-				break
-			}
-		}
-
-		if !allowed {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "You don't have permission to update this sensor log",
-			})
-		}
-	}
-
-	// Use server receipt time to avoid negative latency from client clock skew.
-	wsReceivedAt := time.Now().UTC()
-
-	if err := h.sensorLogRepo.UpdateWSReceivedAt(uint(id), wsReceivedAt); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update ws_received_at",
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "ws_received_at updated",
 	})
 }
 
@@ -509,7 +446,7 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 	}
 
 	// Build CSV content
-	csvHeader := []string{"Timestamp", "Vehicle", "Sensor", "Mission", "Data", "UsvTimestamp", "MqttReceivedAt", "WsSentAt"}
+	csvHeader := []string{"Timestamp", "Vehicle", "Sensor", "Mission", "Data", "UsvTimestamp"}
 	var b strings.Builder
 	b.WriteString(strings.Join(csvHeader, ","))
 	b.WriteString("\n")
@@ -557,16 +494,6 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 			usvTs = log.UsvTimestamp.Format("2006-01-02T15:04:05.000Z07:00")
 		}
 
-		mqttTs := ""
-		if log.MqttReceivedAt != nil {
-			mqttTs = log.MqttReceivedAt.Format("2006-01-02T15:04:05.000Z07:00")
-		}
-
-		wsSentAt := ""
-		if log.WsSentAt != nil {
-			wsSentAt = log.WsSentAt.Format("2006-01-02T15:04:05.000000Z07:00")
-		}
-
 		esc := func(s string) string {
 			s = strings.ReplaceAll(s, "\"", "\"\"")
 			return "\"" + s + "\""
@@ -579,8 +506,6 @@ func (h *SensorLogHandler) ExportSensorLogs(c *fiber.Ctx) error {
 			esc(missionDisp),
 			esc(log.Data),
 			esc(usvTs),
-			esc(mqttTs),
-			esc(wsSentAt),
 		}
 
 		b.WriteString(strings.Join(row, ","))

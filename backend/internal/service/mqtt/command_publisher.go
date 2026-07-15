@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
 	wsocket "go-fiber-pgsql/internal/websocket"
 )
@@ -50,7 +49,8 @@ type AckPayload struct {
 }
 
 type pendingRequest struct {
-	ch chan AckPayload
+	ch           chan AckPayload
+	commandLogID uint
 }
 
 // CommandPublisher sends commands via MQTT and waits for hardware ACK
@@ -60,18 +60,18 @@ type CommandPublisher struct {
 	pending        map[string]*pendingRequest
 	timeout        time.Duration
 	commandLogRepo *repository.CommandLogRepository
-	vehicleRepo    *repository.VehicleRepository
+	latencyAckRepo *repository.LatencyAckRepository
 	wsHub          *wsocket.Hub
 }
 
 // NewCommandPublisher creates a new CommandPublisher with the shared MQTT client
-func NewCommandPublisher(client mqtt.Client, commandLogRepo *repository.CommandLogRepository, vehicleRepo *repository.VehicleRepository, wsHub *wsocket.Hub) *CommandPublisher {
+func NewCommandPublisher(client mqtt.Client, commandLogRepo *repository.CommandLogRepository, wsHub *wsocket.Hub, latencyAckRepo *repository.LatencyAckRepository) *CommandPublisher {
 	return &CommandPublisher{
 		client:         client,
 		pending:        make(map[string]*pendingRequest),
 		timeout:        5 * time.Second,
 		commandLogRepo: commandLogRepo,
-		vehicleRepo:    vehicleRepo,
+		latencyAckRepo: latencyAckRepo,
 		wsHub:          wsHub,
 	}
 }
@@ -118,40 +118,24 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 
 		updated, err := cp.commandLogRepo.UpdateLatestPendingCommandLog(vehicleCode, strings.TrimSpace(ack.RequestID), ack.Command, finalStatus, ack.Message, usvAckAt, ackReceivedAt, resolvedAt)
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) && cp.vehicleRepo != nil {
-				vehicle, err := cp.vehicleRepo.GetVehicleByCode(vehicleCode)
-				if err == nil {
-					entry := &model.CommandLog{
-						VehicleID:     vehicle.ID,
-						VehicleCode:   vehicleCode,
-						RequestID:     strings.TrimSpace(ack.RequestID),
-						Command:       ack.Command,
-						Status:        finalStatus,
-						Message:       ack.Message,
-						InitiatedAt:   ackReceivedAt,
-						UsvAckAt:      usvAckAt,
-						AckReceivedAt: &ackReceivedAt,
-						ResolvedAt:    &resolvedAt,
-					}
-					if err := cp.commandLogRepo.CreateCommandLog(entry); err != nil {
-						log.Printf("⚠️  Failed to create command log from ACK: %v", err)
-					} else {
-						updated = entry
-					}
-				} else {
-					log.Printf("⚠️  Vehicle not found for ACK update: %s", vehicleCode)
-				}
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				log.Printf("⚠️  ACK for request_id=%s has no matching pending command log (already resolved or timed out)", strings.TrimSpace(ack.RequestID))
 			} else {
 				log.Printf("⚠️  Failed to update command log from ACK: %v", err)
 			}
 		}
 
+		cp.mu.Lock()
+		pendingReq, hasPending := cp.pending[ack.RequestID]
+		cp.mu.Unlock()
+
 		if updated != nil && cp.wsHub != nil {
 			wsSentAt := time.Now().UTC()
-			if err := cp.commandLogRepo.UpdateCommandLogWSSentAt(updated.ID, wsSentAt); err != nil {
-				log.Printf("⚠️  Failed to update command ws_sent_at: %v", err)
-			} else {
-				updated.WsSentAt = &wsSentAt
+
+			if cp.latencyAckRepo != nil && hasPending && pendingReq.commandLogID != 0 {
+				if err := cp.latencyAckRepo.UpdateCommandAck(pendingReq.commandLogID, usvAckAt, ackReceivedAt, wsSentAt); err != nil {
+					log.Printf("⚠️  Failed to update latency_ack for command %d: %v", pendingReq.commandLogID, err)
+				}
 			}
 
 			var mqttPublishedAtStr *string
@@ -177,11 +161,6 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 				s := updated.ResolvedAt.Format(time.RFC3339Nano)
 				resolvedAtStr = &s
 			}
-			var wsReceivedAtStr *string
-			if updated.WsReceivedAt != nil {
-				s := updated.WsReceivedAt.Format(time.RFC3339Nano)
-				wsReceivedAtStr = &s
-			}
 
 			_ = cp.wsHub.BroadcastCommandLog(wsocket.CommandLogData{
 				ID:              updated.ID,
@@ -196,7 +175,6 @@ func (cp *CommandPublisher) handleACK(_ mqtt.Client, msg mqtt.Message) {
 				UsvAckAt:        usvAckAtStr,
 				AckReceivedAt:   ackReceivedAtStr,
 				ResolvedAt:      resolvedAtStr,
-				WsReceivedAt:    wsReceivedAtStr,
 				CreatedAt:       updated.CreatedAt.Format(time.RFC3339Nano),
 			}, wsSentAt.Format(time.RFC3339Nano))
 		}
@@ -232,7 +210,7 @@ func (cp *CommandPublisher) SubscribeACK() error {
 
 // SendCommand publishes a command and waits for hardware ACK.
 // Returns error if MQTT publish fails or hardware does not respond within timeout.
-func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType, requestID string) (*AckPayload, error) {
+func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType, requestID string, commandLogID uint) (*AckPayload, error) {
 	cmdTopic := fmt.Sprintf("seano/%s/command", vehicleCode)
 
 	// Build command payload
@@ -247,7 +225,7 @@ func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType,
 	// Register pending before publish (avoid race)
 	ch := make(chan AckPayload, 1)
 	cp.mu.Lock()
-	cp.pending[requestID] = &pendingRequest{ch: ch}
+	cp.pending[requestID] = &pendingRequest{ch: ch, commandLogID: commandLogID}
 	cp.mu.Unlock()
 
 	defer func() {
@@ -275,6 +253,9 @@ func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType,
 		if err := cp.commandLogRepo.UpdateCommandLogPublishedAtByRequestID(requestID, publishedAt); err != nil {
 			log.Printf("⚠️  Failed to update mqtt_published_at for request_id=%s: %v", requestID, err)
 		}
+		if cp.latencyAckRepo != nil && commandLogID != 0 {
+			_ = cp.latencyAckRepo.UpdateMqttPublishedAt("command", commandLogID, publishedAt)
+		}
 	}
 
 	log.Printf("📤 Command published: topic=%s payload=%s", cmdTopic, string(payload))
@@ -286,6 +267,24 @@ func (cp *CommandPublisher) SendCommand(vehicleCode string, cmdType CommandType,
 	case <-time.After(cp.timeout):
 		return nil, fmt.Errorf("hardware did not respond within %v", cp.timeout)
 	}
+}
+
+// PublishWaypointClear publishes a clear command to the vehicle's waypoint/clear topic.
+// The vehicle's waypoint_node subscribes to this and calls /mavros/mission/clear.
+func (cp *CommandPublisher) PublishWaypointClear(vehicleCode string) error {
+	if cp == nil || cp.client == nil {
+		return fmt.Errorf("MQTT publisher not configured")
+	}
+	topic := fmt.Sprintf("seano/%s/waypoint/clear", vehicleCode)
+	token := cp.client.Publish(topic, 1, false, []byte(`{}`))
+	if !token.WaitTimeout(3 * time.Second) {
+		return fmt.Errorf("timeout publishing waypoint clear to MQTT broker")
+	}
+	if token.Error() != nil {
+		return fmt.Errorf("failed to publish waypoint clear: %w", token.Error())
+	}
+	log.Printf("📤 Waypoint clear published: topic=%s", topic)
+	return nil
 }
 
 // PublishMission publishes mission payload to hardware without waiting for ACK.

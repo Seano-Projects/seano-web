@@ -16,21 +16,23 @@ import (
 
 // VehicleLogListener handles MQTT messages for vehicle telemetry logs
 type VehicleLogListener struct {
-	client         mqtt.Client
-	vehicleLogRepo *repository.VehicleLogRepository
-	vehicleRepo    *repository.VehicleRepository
-	missionRepo    *repository.MissionRepository
-	wsHub          *wsocket.Hub
-	workChan       chan mqtt.Message
+	client          mqtt.Client
+	vehicleLogRepo  *repository.VehicleLogRepository
+	vehicleRepo     *repository.VehicleRepository
+	missionRepo     *repository.MissionRepository
+	latencyAckRepo  *repository.LatencyAckRepository
+	wsHub           *wsocket.Hub
+	workChan        chan mqtt.Message
 }
 
 // NewVehicleLogListener creates a new vehicle log listener
-func NewVehicleLogListener(client mqtt.Client, vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, missionRepo *repository.MissionRepository, wsHub *wsocket.Hub) *VehicleLogListener {
+func NewVehicleLogListener(client mqtt.Client, vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, missionRepo *repository.MissionRepository, wsHub *wsocket.Hub, latencyAckRepo *repository.LatencyAckRepository) *VehicleLogListener {
 	l := &VehicleLogListener{
 		client:         client,
 		vehicleLogRepo: vehicleLogRepo,
 		vehicleRepo:    vehicleRepo,
 		missionRepo:    missionRepo,
+		latencyAckRepo: latencyAckRepo,
 		wsHub:          wsHub,
 		workChan:       make(chan mqtt.Message, 500),
 	}
@@ -44,14 +46,14 @@ func NewVehicleLogListener(client mqtt.Client, vehicleLogRepo *repository.Vehicl
 func (l *VehicleLogListener) Start() error {
 	// Topic pattern: seano/{vehicle_code}/telemetry
 	topic := "seano/+/telemetry"
-	
+
 	token := l.client.Subscribe(topic, 1, l.handleMessage)
 	token.Wait()
-	
+
 	if token.Error() != nil {
 		return fmt.Errorf("failed to subscribe to %s: %w", topic, token.Error())
 	}
-	
+
 	log.Printf("✓ MQTT Vehicle Log Listener subscribed to topic: %s", topic)
 	return nil
 }
@@ -75,46 +77,46 @@ func (l *VehicleLogListener) worker() {
 func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 	log.Printf("🚗 Received vehicle telemetry on topic: %s", msg.Topic())
 	log.Printf("   Payload: %s", string(msg.Payload()))
-	
+
 	// Parse topic: seano/{vehicle_code}/telemetry
 	parts := strings.Split(msg.Topic(), "/")
 	if len(parts) != 3 {
 		log.Printf("❌ Invalid topic format: %s", msg.Topic())
 		return
 	}
-	
+
 	vehicleCodeFromTopic := parts[1]
 	log.Printf("   Vehicle code from topic: %s", vehicleCodeFromTopic)
-	
+
 	// Parse JSON payload (might contain vehicle_code)
 	var payloadWithCode struct {
 		VehicleCode *string `json:"vehicle_code"`
 		model.CreateVehicleLogRequest
 	}
-	
+
 	if err := json.Unmarshal(msg.Payload(), &payloadWithCode); err != nil {
 		log.Printf("❌ Failed to parse vehicle log data: %v", err)
 		log.Printf("   Raw payload: %s", string(msg.Payload()))
 		return
 	}
-	
+
 	log.Printf("   Parsed successfully")
-	
+
 	// Use vehicle_code from JSON if provided, otherwise use from topic
 	vehicleCode := vehicleCodeFromTopic
 	if payloadWithCode.VehicleCode != nil && *payloadWithCode.VehicleCode != "" {
 		vehicleCode = *payloadWithCode.VehicleCode
 	}
-	
+
 	// Get vehicle ID from code
 	vehicle, err := l.vehicleRepo.GetVehicleByCode(vehicleCode)
 	if err != nil {
 		log.Printf("❌ Vehicle not found for code %s: %v", vehicleCode, err)
 		return
 	}
-	
+
 	log.Printf("   Found vehicle: ID=%d, Code=%s, Name=%s", vehicle.ID, vehicle.Code, vehicle.Name)
-	
+
 	data := payloadWithCode.CreateVehicleLogRequest
 
 	missionID := data.MissionID
@@ -136,13 +138,13 @@ func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 			missionCode = &mission.MissionCode
 		}
 	}
-	
+
 	// Convert FlexibleString to *string for database
 	var tempSystem *string
 	if data.TemperatureSystem != nil {
 		tempSystem = &data.TemperatureSystem.Value
 	}
-	
+
 	// Calculate battery_percentage if not provided but battery_voltage exists
 	batteryPercentage := data.BatteryPercentage
 	if batteryPercentage == nil && data.BatteryVoltage != nil {
@@ -157,10 +159,9 @@ func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 		}
 		batteryPercentage = &percentage
 	}
-	
+
 	// Record MQTT receive time and parse USV timestamp for latency measurement
 	mqttReceivedAt := time.Now()
-	wsSentAt := mqttReceivedAt
 	var usvTimestamp *time.Time
 	if data.DateTime != nil && *data.DateTime != "" {
 		var parsedTime time.Time
@@ -183,7 +184,6 @@ func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 		}
 	}
 
-	// Create vehicle log
 	vehicleLog := &model.VehicleLog{
 		VehicleID:         vehicle.ID,
 		MissionID:         missionID,
@@ -206,22 +206,40 @@ func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 		Yaw:               data.Yaw,
 		TemperatureSystem: tempSystem,
 		UsvTimestamp:      usvTimestamp,
-		MqttReceivedAt:    &mqttReceivedAt,
-		WsSentAt:          &wsSentAt,
 	}
 
 	if err := l.vehicleLogRepo.CreateVehicleLog(vehicleLog); err != nil {
 		log.Printf("Failed to save vehicle log: %v", err)
 		return
 	}
-	
+
 	log.Printf("✓ Vehicle log saved: vehicle=%s, id=%d", vehicleCode, vehicleLog.ID)
-	
+
+	// Stamp ws_sent_at after DB write, just before the broadcast pipeline
+	wsSentAt := time.Now()
+
+	// Insert latency ack record with all timing fields
+	if l.latencyAckRepo != nil {
+		payloadSize := len(msg.Payload())
+		ack := &model.LatencyAck{
+			LogType:          "vehicle",
+			LogID:            vehicleLog.ID,
+			VehicleID:        vehicle.ID,
+			UsvTimestamp:     usvTimestamp,
+			MqttReceivedAt:   &mqttReceivedAt,
+			WsSentAt:         &wsSentAt,
+			PayloadSizeBytes: payloadSize,
+		}
+		if err := l.latencyAckRepo.Create(ack); err != nil {
+			log.Printf("⚠️  Failed to save latency ack: %v", err)
+		}
+	}
+
 	// Broadcast via WebSocket
 	if l.wsHub != nil {
 		wsData := wsocket.VehicleLogData{
-			ID:                vehicleLog.ID,
-			VehicleID:         vehicleLog.VehicleID,
+			ID:        vehicleLog.ID,
+			VehicleID: vehicleLog.VehicleID,
 			Vehicle: &wsocket.VehicleInfo{
 				Code: vehicle.Code,
 				Name: vehicle.Name,
@@ -246,20 +264,14 @@ func (l *VehicleLogListener) processMessage(msg mqtt.Message) {
 			Yaw:               vehicleLog.Yaw,
 			TemperatureSystem: vehicleLog.TemperatureSystem,
 			CreatedAt:         vehicleLog.CreatedAt.Format(time.RFC3339Nano),
-			UsvTimestamp:      func() string {
+			UsvTimestamp: func() string {
 				if vehicleLog.UsvTimestamp != nil {
 					return vehicleLog.UsvTimestamp.Format(time.RFC3339Nano)
 				}
 				return ""
 			}(),
-			MqttReceivedAt: func() string {
-				if vehicleLog.MqttReceivedAt != nil {
-					return vehicleLog.MqttReceivedAt.Format(time.RFC3339Nano)
-				}
-				return ""
-			}(),
+			MqttReceivedAt: mqttReceivedAt.UTC().Format(time.RFC3339Nano),
 		}
 		l.wsHub.BroadcastVehicleLog(wsData, vehicleLog.CreatedAt.Format(time.RFC3339Nano), wsSentAt.UTC().Format(time.RFC3339Nano))
 	}
 }
-

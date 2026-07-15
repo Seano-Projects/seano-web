@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"errors"
+	"strconv"
+	"strings"
+
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
-	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -55,7 +58,23 @@ func (h *SensorHandler) CreateSensor(c *fiber.Ctx) error {
 		IsActive:     isActive,
 	}
 
+	// Enforce unique sensor code to avoid 500s on DB constraint errors.
+	if existing, err := h.sensorRepo.GetSensorByCode(req.Code); err == nil && existing != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": "sensor code already exists",
+		})
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to validate sensor code",
+		})
+	}
+
 	if err := h.sensorRepo.CreateSensor(sensor); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "sensor code already exists",
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create sensor",
 		})
@@ -184,6 +203,15 @@ func (h *SensorHandler) UpdateSensor(c *fiber.Ctx) error {
 		updates["model"] = *req.Model
 	}
 	if req.Code != nil {
+		if existing, err := h.sensorRepo.GetSensorByCode(*req.Code); err == nil && existing != nil && existing.ID != uint(id) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "sensor code already exists",
+			})
+		} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to validate sensor code",
+			})
+		}
 		updates["code"] = *req.Code
 	}
 	if req.SensorTypeID != nil {
@@ -197,6 +225,11 @@ func (h *SensorHandler) UpdateSensor(c *fiber.Ctx) error {
 	}
 
 	if err := h.sensorRepo.UpdateSensor(uint(id), updates); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "sensor code already exists",
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update sensor",
 		})

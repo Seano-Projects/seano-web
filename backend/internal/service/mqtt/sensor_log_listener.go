@@ -16,25 +16,27 @@ import (
 
 // SensorLogListener handles MQTT messages for sensor data logs
 type SensorLogListener struct {
-	client        mqtt.Client
-	sensorLogRepo *repository.SensorLogRepository
-	vehicleRepo   *repository.VehicleRepository
-	sensorRepo    *repository.SensorRepository
-	missionRepo   *repository.MissionRepository
-	wsHub         *wsocket.Hub
-	workChan      chan mqtt.Message
+	client         mqtt.Client
+	sensorLogRepo  *repository.SensorLogRepository
+	vehicleRepo    *repository.VehicleRepository
+	sensorRepo     *repository.SensorRepository
+	missionRepo    *repository.MissionRepository
+	latencyAckRepo *repository.LatencyAckRepository
+	wsHub          *wsocket.Hub
+	workChan       chan mqtt.Message
 }
 
 // NewSensorLogListener creates a new sensor log listener
-func NewSensorLogListener(client mqtt.Client, sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, missionRepo *repository.MissionRepository, wsHub *wsocket.Hub) *SensorLogListener {
+func NewSensorLogListener(client mqtt.Client, sensorLogRepo *repository.SensorLogRepository, vehicleRepo *repository.VehicleRepository, sensorRepo *repository.SensorRepository, missionRepo *repository.MissionRepository, wsHub *wsocket.Hub, latencyAckRepo *repository.LatencyAckRepository) *SensorLogListener {
 	l := &SensorLogListener{
-		client:        client,
-		sensorLogRepo: sensorLogRepo,
-		vehicleRepo:   vehicleRepo,
-		sensorRepo:    sensorRepo,
-		missionRepo:   missionRepo,
-		wsHub:         wsHub,
-		workChan:      make(chan mqtt.Message, 500),
+		client:         client,
+		sensorLogRepo:  sensorLogRepo,
+		vehicleRepo:    vehicleRepo,
+		sensorRepo:     sensorRepo,
+		missionRepo:    missionRepo,
+		latencyAckRepo: latencyAckRepo,
+		wsHub:          wsHub,
+		workChan:       make(chan mqtt.Message, 500),
 	}
 	for i := 0; i < 10; i++ {
 		go l.worker()
@@ -46,14 +48,14 @@ func NewSensorLogListener(client mqtt.Client, sensorLogRepo *repository.SensorLo
 func (l *SensorLogListener) Start() error {
 	// Topic pattern: seano/{vehicle_code}/{sensor_code}/data
 	topic := "seano/+/+/data"
-	
+
 	token := l.client.Subscribe(topic, 1, l.handleMessage)
 	token.Wait()
-	
+
 	if token.Error() != nil {
 		return fmt.Errorf("failed to subscribe to %s: %w", topic, token.Error())
 	}
-	
+
 	log.Printf("✓ MQTT Sensor Log Listener subscribed to topic: %s", topic)
 	return nil
 }
@@ -81,42 +83,42 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 		log.Printf("Invalid topic format: %s", msg.Topic())
 		return
 	}
-	
+
 	vehicleCodeFromTopic := parts[1]
 	sensorCodeFromTopic := parts[2]
-	
+
 	// Parse and validate JSON
 	var payloadData map[string]interface{}
 	if err := json.Unmarshal(msg.Payload(), &payloadData); err != nil {
 		log.Printf("Invalid JSON payload: %v", err)
 		return
 	}
-	
+
 	// Use vehicle_code and sensor_code from JSON if provided, otherwise use from topic
 	vehicleCode := vehicleCodeFromTopic
 	if vCode, ok := payloadData["vehicle_code"].(string); ok && vCode != "" {
 		vehicleCode = vCode
 	}
-	
+
 	sensorCode := sensorCodeFromTopic
 	if sCode, ok := payloadData["sensor_code"].(string); ok && sCode != "" {
 		sensorCode = sCode
 	}
-	
+
 	// Get vehicle ID from code
 	vehicle, err := l.vehicleRepo.GetVehicleByCode(vehicleCode)
 	if err != nil {
 		log.Printf("Vehicle not found for code %s: %v", vehicleCode, err)
 		return
 	}
-	
+
 	// Get sensor ID from code
 	sensor, err := l.sensorRepo.GetSensorByCode(sensorCode)
 	if err != nil {
 		log.Printf("Sensor not found for code %s: %v", sensorCode, err)
 		return
 	}
-	
+
 	// Store raw JSON data
 	dataJSON := string(msg.Payload())
 
@@ -152,16 +154,12 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 		}
 	}
 
-	// Create sensor log
-	wsSentAt := time.Now()
 	sensorLog := &model.SensorLog{
-		VehicleID:      vehicle.ID,
-		SensorID:       sensor.ID,
-		Data:           dataJSON,
-		CreatedAt:      createdAt,
-		UsvTimestamp:   usvTimestamp,
-		MqttReceivedAt: &mqttReceivedAt,
-		WsSentAt:       &wsSentAt,
+		VehicleID:    vehicle.ID,
+		SensorID:     sensor.ID,
+		Data:         dataJSON,
+		CreatedAt:    createdAt,
+		UsvTimestamp: usvTimestamp,
 	}
 
 	// Auto-detect active mission for this vehicle
@@ -177,9 +175,30 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 		return
 	}
 
-	
 	log.Printf("✓ Sensor log saved: vehicle=%s, sensor=%s, id=%d", vehicleCode, sensorCode, sensorLog.ID)
-	
+
+	// Stamp ws_sent_at after DB write, just before the broadcast pipeline
+	wsSentAt := time.Now()
+
+	// Insert latency ack record with all timing fields
+	if l.latencyAckRepo != nil {
+		payloadSize := len(msg.Payload())
+		sensorIDPtr := sensor.ID
+		ack := &model.LatencyAck{
+			LogType:          "sensor",
+			LogID:            sensorLog.ID,
+			VehicleID:        vehicle.ID,
+			SensorID:         &sensorIDPtr,
+			UsvTimestamp:     usvTimestamp,
+			MqttReceivedAt:   &mqttReceivedAt,
+			WsSentAt:         &wsSentAt,
+			PayloadSizeBytes: payloadSize,
+		}
+		if err := l.latencyAckRepo.Create(ack); err != nil {
+			log.Printf("⚠️  Failed to save latency ack: %v", err)
+		}
+	}
+
 	// Broadcast via WebSocket
 	if l.wsHub != nil {
 		wsData := wsocket.SensorLogData{
@@ -203,14 +222,8 @@ func (l *SensorLogListener) processMessage(msg mqtt.Message) {
 				}
 				return ""
 			}(),
-			MqttReceivedAt: func() string {
-				if sensorLog.MqttReceivedAt != nil {
-					return sensorLog.MqttReceivedAt.Format(time.RFC3339Nano)
-				}
-				return ""
-			}(),
+			MqttReceivedAt: mqttReceivedAt.UTC().Format(time.RFC3339Nano),
 		}
 		l.wsHub.BroadcastSensorLog(wsData, sensorLog.CreatedAt.Format(time.RFC3339Nano), wsSentAt.UTC().Format(time.RFC3339Nano))
 	}
 }
-

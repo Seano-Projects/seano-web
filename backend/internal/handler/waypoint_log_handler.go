@@ -17,14 +17,15 @@ import (
 
 // WaypointLogHandler handles HTTP requests for waypoint logs
 type WaypointLogHandler struct {
-	repo        *repository.WaypointLogRepository
-	vehicleRepo *repository.VehicleRepository
-	db          *gorm.DB
-	wsHub       *wsocket.Hub
+	repo           *repository.WaypointLogRepository
+	vehicleRepo    *repository.VehicleRepository
+	latencyAckRepo *repository.LatencyAckRepository
+	db             *gorm.DB
+	wsHub          *wsocket.Hub
 }
 
-func NewWaypointLogHandler(repo *repository.WaypointLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB, wsHub *wsocket.Hub) *WaypointLogHandler {
-	return &WaypointLogHandler{repo: repo, vehicleRepo: vehicleRepo, db: db, wsHub: wsHub}
+func NewWaypointLogHandler(repo *repository.WaypointLogRepository, vehicleRepo *repository.VehicleRepository, db *gorm.DB, wsHub *wsocket.Hub, latencyAckRepo *repository.LatencyAckRepository) *WaypointLogHandler {
+	return &WaypointLogHandler{repo: repo, vehicleRepo: vehicleRepo, latencyAckRepo: latencyAckRepo, db: db, wsHub: wsHub}
 }
 
 // GetWaypointLogs returns a list of waypoint logs with optional filters
@@ -110,10 +111,8 @@ func (h *WaypointLogHandler) CreateWaypointLog(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "vehicle_code is required"})
 	}
 
-	// Default initiated_at to now if not provided
-	if req.InitiatedAt.IsZero() {
-		req.InitiatedAt = time.Now()
-	}
+	// Always use server time to avoid browser clock skew causing negative total_ms.
+	req.InitiatedAt = time.Now()
 
 	// Set default status
 	if req.Status == "" {
@@ -144,7 +143,21 @@ func (h *WaypointLogHandler) CreateWaypointLog(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to create waypoint log"})
 	}
 
-	// Broadcast to WebSocket clients
+	// Capture ws_sent_at in server time just before broadcast
+	wsSentAt := time.Now().UTC()
+
+	if h.latencyAckRepo != nil && entry.VehicleID != 0 {
+		initiatedAt := entry.InitiatedAt
+		_ = h.latencyAckRepo.Create(&model.LatencyAck{
+			LogType:         "waypoint",
+			LogID:           entry.ID,
+			VehicleID:       entry.VehicleID,
+			InitiatedAt:     &initiatedAt,
+			WsSentAt:        &wsSentAt,
+			MqttPublishedAt: req.MqttPublishedAt,
+		})
+	}
+
 	if h.wsHub != nil {
 		var resolvedAt *string
 		if entry.ResolvedAt != nil {
@@ -212,10 +225,12 @@ func (h *WaypointLogHandler) CreateWaypointAck(c *fiber.Ctx) error {
 	}
 
 	var updated *model.WaypointLog
+	var resolvedLogID uint
 	if req.WaypointLogID != 0 {
 		if err := h.repo.UpdateWaypointLogStatusByID(req.WaypointLogID, finalStatus, req.Message, resolvedAt); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update waypoint log"})
 		}
+		resolvedLogID = req.WaypointLogID
 		logEntry, err := h.repo.GetWaypointLogByID(req.WaypointLogID)
 		if err == nil {
 			updated = logEntry
@@ -229,45 +244,45 @@ func (h *WaypointLogHandler) CreateWaypointAck(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update waypoint log"})
 		}
 		updated = entry
+		resolvedLogID = entry.ID
 	}
 
-	if h.wsHub != nil && updated != nil {
-		var resolvedAtStr *string
-		if updated.ResolvedAt != nil {
-			s := updated.ResolvedAt.Format(time.RFC3339)
-			resolvedAtStr = &s
+	if resolvedLogID != 0 {
+		ackAt := time.Now().UTC()
+		wsSentAt := time.Now().UTC()
+
+		if h.latencyAckRepo != nil {
+			var usvAckAt *time.Time
+			if !resolvedAt.IsZero() {
+				t := resolvedAt
+				usvAckAt = &t
+			}
+			_ = h.latencyAckRepo.UpdateAckTimingFull("waypoint", resolvedLogID, usvAckAt, ackAt, wsSentAt)
 		}
-		_ = h.wsHub.BroadcastWaypointLog(wsocket.WaypointLogData{
-			ID:            updated.ID,
-			VehicleID:     updated.VehicleID,
-			VehicleCode:   updated.VehicleCode,
-			MissionID:     updated.MissionID,
-			MissionName:   updated.MissionName,
-			WaypointCount: updated.WaypointCount,
-			Status:        updated.Status,
-			Message:       updated.Message,
-			InitiatedAt:   updated.InitiatedAt.Format(time.RFC3339),
-			ResolvedAt:    resolvedAtStr,
-			CreatedAt:     updated.CreatedAt.Format(time.RFC3339),
-		})
+
+		if h.wsHub != nil && updated != nil {
+			var resolvedAtStr *string
+			if updated.ResolvedAt != nil {
+				s := updated.ResolvedAt.Format(time.RFC3339)
+				resolvedAtStr = &s
+			}
+			_ = h.wsHub.BroadcastWaypointLog(wsocket.WaypointLogData{
+				ID:            updated.ID,
+				VehicleID:     updated.VehicleID,
+				VehicleCode:   updated.VehicleCode,
+				MissionID:     updated.MissionID,
+				MissionName:   updated.MissionName,
+				WaypointCount: updated.WaypointCount,
+				Status:        updated.Status,
+				Message:       updated.Message,
+				InitiatedAt:   updated.InitiatedAt.Format(time.RFC3339),
+				ResolvedAt:    resolvedAtStr,
+				CreatedAt:     updated.CreatedAt.Format(time.RFC3339),
+			})
+		}
 	}
 
 	return c.JSON(updated)
-}
-
-// MarkWSReceivedAt stores the frontend websocket receive timestamp for a waypoint log.
-func (h *WaypointLogHandler) MarkWSReceivedAt(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
-	if err != nil || id <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
-	}
-
-	wsReceivedAt := time.Now().UTC()
-	if err := h.repo.UpdateWaypointLogWSReceivedAt(uint(id), wsReceivedAt); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update ws_received_at"})
-	}
-
-	return c.JSON(fiber.Map{"message": "ws_received_at updated"})
 }
 
 // DeleteWaypointLog removes a waypoint log by ID

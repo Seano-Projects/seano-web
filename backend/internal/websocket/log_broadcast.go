@@ -186,7 +186,6 @@ type CommandLogData struct {
 	UsvAckAt        *string `json:"usv_ack_at,omitempty"`
 	AckReceivedAt   *string `json:"ack_received_at,omitempty"`
 	ResolvedAt      *string `json:"resolved_at,omitempty"`
-	WsReceivedAt    *string `json:"ws_received_at,omitempty"`
 	CreatedAt       string  `json:"created_at"`
 }
 
@@ -202,7 +201,6 @@ type WaypointLogData struct {
 	Message       string  `json:"message"`
 	InitiatedAt   string  `json:"initiated_at"`
 	ResolvedAt    *string `json:"resolved_at,omitempty"`
-	WsReceivedAt  *string `json:"ws_received_at,omitempty"`
 	CreatedAt     string  `json:"created_at"`
 }
 
@@ -270,10 +268,14 @@ type ThrusterLogData struct {
 }
 
 // BroadcastThrusterLog broadcasts a thruster log entry to all connected clients
-func (h *Hub) BroadcastThrusterLog(data ThrusterLogData) error {
+func (h *Hub) BroadcastThrusterLog(data ThrusterLogData, wsSentAt string) error {
+	if wsSentAt == "" {
+		wsSentAt = time.Now().UTC().Format(time.RFC3339Nano)
+	}
 	msg := LogMessage{
 		Type:      "thruster_log",
 		Timestamp: data.CreatedAt,
+		WsSentAt:  wsSentAt,
 		Data:      data,
 	}
 

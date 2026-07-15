@@ -15,14 +15,15 @@ import (
 )
 
 type ThrusterListener struct {
-	client      mqtt.Client
-	repo        *repository.ThrusterLogRepository
-	vehicleRepo *repository.VehicleRepository
-	wsHub       *wsocket.Hub
+	client         mqtt.Client
+	repo           *repository.ThrusterLogRepository
+	vehicleRepo    *repository.VehicleRepository
+	latencyAckRepo *repository.LatencyAckRepository
+	wsHub          *wsocket.Hub
 }
 
-func NewThrusterListener(client mqtt.Client, repo *repository.ThrusterLogRepository, vehicleRepo *repository.VehicleRepository, wsHub *wsocket.Hub) *ThrusterListener {
-	return &ThrusterListener{client: client, repo: repo, vehicleRepo: vehicleRepo, wsHub: wsHub}
+func NewThrusterListener(client mqtt.Client, repo *repository.ThrusterLogRepository, vehicleRepo *repository.VehicleRepository, wsHub *wsocket.Hub, latencyAckRepo *repository.LatencyAckRepository) *ThrusterListener {
+	return &ThrusterListener{client: client, repo: repo, vehicleRepo: vehicleRepo, latencyAckRepo: latencyAckRepo, wsHub: wsHub}
 }
 
 func (l *ThrusterListener) Start() error {
@@ -44,8 +45,9 @@ func (l *ThrusterListener) handleMessage(_ mqtt.Client, msg mqtt.Message) {
 	vehicleCode := parts[1]
 
 	var payload struct {
-		Throttle int `json:"throttle"`
-		Steering int `json:"steering"`
+		Throttle    int    `json:"throttle"`
+		Steering    int    `json:"steering"`
+		InitiatedAt string `json:"initiated_at"`
 	}
 	if err := json.Unmarshal(msg.Payload(), &payload); err != nil {
 		log.Printf("Failed to parse thruster payload: %v", err)
@@ -58,19 +60,44 @@ func (l *ThrusterListener) handleMessage(_ mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	now := time.Now().UTC()
+	mqttReceivedAt := time.Now().UTC()
+
+	var browserInitiatedAt *time.Time
+	if ts := strings.TrimSpace(payload.InitiatedAt); ts != "" {
+		if parsed, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+			browserInitiatedAt = &parsed
+		} else if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+			browserInitiatedAt = &parsed
+		}
+	}
+
 	entry := &model.ThrusterLog{
 		VehicleID:   vehicle.ID,
 		VehicleCode: vehicleCode,
 		Event:       "MQTT",
 		ThrottlePct: payload.Throttle,
 		SteeringPct: payload.Steering,
-		InitiatedAt: now,
+		InitiatedAt: mqttReceivedAt,
 	}
 
 	if err := l.repo.CreateThrusterLog(entry); err != nil {
 		log.Printf("Failed to save thruster log: %v", err)
 		return
+	}
+
+	wsSentAt := time.Now().UTC()
+
+	if l.latencyAckRepo != nil {
+		payloadSize := len(msg.Payload())
+		_ = l.latencyAckRepo.Create(&model.LatencyAck{
+			LogType:          "thruster",
+			LogID:            entry.ID,
+			VehicleID:        entry.VehicleID,
+			InitiatedAt:      browserInitiatedAt,
+			MqttReceivedAt:   &mqttReceivedAt,
+			WsSentAt:         &wsSentAt,
+			PayloadSizeBytes: payloadSize,
+		})
 	}
 
 	if l.wsHub != nil {
@@ -83,6 +110,6 @@ func (l *ThrusterListener) handleMessage(_ mqtt.Client, msg mqtt.Message) {
 			SteeringPct: entry.SteeringPct,
 			InitiatedAt: entry.InitiatedAt.Format(time.RFC3339),
 			CreatedAt:   entry.CreatedAt.Format(time.RFC3339),
-		})
+		}, wsSentAt.UTC().Format(time.RFC3339Nano))
 	}
 }

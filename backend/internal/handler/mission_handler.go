@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -24,9 +25,10 @@ type MissionHandler struct {
 	cmdPublisher    *mqttservice.CommandPublisher
 	db              *gorm.DB
 	wsHub           *wsocket.Hub
+	latencyAckRepo  *repository.LatencyAckRepository
 }
 
-func NewMissionHandler(missionRepo *repository.MissionRepository, vehicleRepo *repository.VehicleRepository, waypointLogRepo *repository.WaypointLogRepository, cmdPublisher *mqttservice.CommandPublisher, db *gorm.DB, wsHub *wsocket.Hub) *MissionHandler {
+func NewMissionHandler(missionRepo *repository.MissionRepository, vehicleRepo *repository.VehicleRepository, waypointLogRepo *repository.WaypointLogRepository, cmdPublisher *mqttservice.CommandPublisher, db *gorm.DB, wsHub *wsocket.Hub, latencyAckRepo *repository.LatencyAckRepository) *MissionHandler {
 	return &MissionHandler{
 		missionRepo:     missionRepo,
 		vehicleRepo:     vehicleRepo,
@@ -34,6 +36,7 @@ func NewMissionHandler(missionRepo *repository.MissionRepository, vehicleRepo *r
 		cmdPublisher:    cmdPublisher,
 		db:              db,
 		wsHub:           wsHub,
+		latencyAckRepo:  latencyAckRepo,
 	}
 }
 
@@ -421,6 +424,19 @@ func (h *MissionHandler) UploadMissionToVehicle(c *fiber.Ctx) error {
 		})
 	}
 
+	wsSentAt := time.Now().UTC()
+
+	if h.latencyAckRepo != nil {
+		initiatedAt := logEntry.InitiatedAt
+		_ = h.latencyAckRepo.Create(&model.LatencyAck{
+			LogType:     "waypoint",
+			LogID:       logEntry.ID,
+			VehicleID:   vehicle.ID,
+			InitiatedAt: &initiatedAt,
+			WsSentAt:    &wsSentAt,
+		})
+	}
+
 	if h.wsHub != nil {
 		_ = h.wsHub.BroadcastWaypointLog(wsocket.WaypointLogData{
 			ID:            logEntry.ID,
@@ -457,7 +473,12 @@ func (h *MissionHandler) UploadMissionToVehicle(c *fiber.Ctx) error {
 		})
 	}
 
-	resolvedAt := time.Now()
+	mqttPublishedAt := time.Now()
+	if h.latencyAckRepo != nil {
+		_ = h.latencyAckRepo.UpdateMqttPublishedAt("waypoint", logEntry.ID, mqttPublishedAt)
+	}
+
+	resolvedAt := mqttPublishedAt
 	_ = h.waypointLogRepo.UpdateWaypointLogStatusByID(logEntry.ID, "success", "published", resolvedAt)
 
 	if h.wsHub != nil {
@@ -610,11 +631,22 @@ func (h *MissionHandler) ClearMission(c *fiber.Ctx) error {
 		})
 	}
 
+	// Capture vehicle code before clearing vehicle_id in the DB.
+	vehicleCode := ""
+	if mission.Vehicle != nil {
+		vehicleCode = mission.Vehicle.Code
+	} else if mission.VehicleID != nil {
+		if v, err := h.vehicleRepo.GetVehicleByID(*mission.VehicleID); err == nil {
+			vehicleCode = v.Code
+		}
+	}
+
 	updates := map[string]interface{}{
 		"status":             "Draft",
 		"completed_waypoint": 0,
 		"current_waypoint":   0,
 		"progress":           0,
+		"vehicle_id":         nil,
 	}
 
 	if err := h.missionRepo.UpdateMission(uint(missionID), updates); err != nil {
@@ -623,8 +655,17 @@ func (h *MissionHandler) ClearMission(c *fiber.Ctx) error {
 		})
 	}
 
+	// Publish MQTT clear command so the vehicle's waypoint_node also clears
+	// its hardware mission list (calls /mavros/mission/clear).
+	if vehicleCode != "" && h.cmdPublisher != nil {
+		if err := h.cmdPublisher.PublishWaypointClear(vehicleCode); err != nil {
+			log.Printf("⚠️  ClearMission: failed to publish MQTT clear for vehicle %s: %v", vehicleCode, err)
+		}
+	}
+
 	return c.JSON(fiber.Map{
-		"message": "Mission cleared successfully",
+		"message":      "Mission cleared successfully",
+		"vehicle_code": vehicleCode,
 	})
 }
 
@@ -821,8 +862,12 @@ func (h *MissionHandler) UpdateMissionProgressFromWaypoint(c *fiber.Ctx) error {
 
 	status := mission.Status
 	now := time.Now()
+	var startTime *time.Time
 	if status == "Draft" {
 		status = "Ongoing"
+		if mission.StartTime == nil {
+			startTime = &now
+		}
 	}
 	if ts := strings.TrimSpace(req.Timestamp); ts != "" {
 		parsed, err := time.Parse(time.RFC3339, ts)
@@ -832,6 +877,9 @@ func (h *MissionHandler) UpdateMissionProgressFromWaypoint(c *fiber.Ctx) error {
 			})
 		}
 		now = parsed
+		if startTime != nil {
+			startTime = &now
+		}
 	}
 
 	var endTime *time.Time
@@ -846,6 +894,9 @@ func (h *MissionHandler) UpdateMissionProgressFromWaypoint(c *fiber.Ctx) error {
 		"progress":           progress,
 		"status":             status,
 		"last_update_time":   now,
+	}
+	if startTime != nil {
+		updates["start_time"] = startTime
 	}
 	if endTime != nil {
 		updates["end_time"] = endTime
@@ -879,6 +930,9 @@ func (h *MissionHandler) UpdateMissionProgressFromWaypoint(c *fiber.Ctx) error {
 		updatedMission.Progress = progress
 		updatedMission.Status = status
 		updatedMission.LastUpdateTime = &now
+		if startTime != nil {
+			updatedMission.StartTime = startTime
+		}
 		if endTime != nil {
 			updatedMission.EndTime = endTime
 		}

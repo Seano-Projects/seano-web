@@ -1,11 +1,15 @@
 package handler
 
 import (
+	"errors"
+	"strconv"
+	"strings"
+
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
-	"strconv"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type RoleHandler struct {
@@ -41,7 +45,23 @@ func (h *RoleHandler) CreateRole(c *fiber.Ctx) error {
 		Description: req.Description,
 	}
 
+	// Enforce unique role name to avoid 500s on DB constraint errors.
+	if existing, err := h.roleRepo.GetRoleByName(req.Name); err == nil && existing != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": "role name already exists",
+		})
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to validate role name",
+		})
+	}
+
 	if err := h.roleRepo.CreateRole(role); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "role name already exists",
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create role",
 		})
@@ -130,6 +150,15 @@ func (h *RoleHandler) UpdateRole(c *fiber.Ctx) error {
 
 	updates := make(map[string]interface{})
 	if req.Name != nil {
+		if existing, err := h.roleRepo.GetRoleByName(*req.Name); err == nil && existing != nil && existing.ID != uint(id) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "role name already exists",
+			})
+		} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to validate role name",
+			})
+		}
 		updates["name"] = *req.Name
 	}
 	if req.Description != nil {
@@ -137,6 +166,11 @@ func (h *RoleHandler) UpdateRole(c *fiber.Ctx) error {
 	}
 
 	if err := h.roleRepo.UpdateRole(uint(id), updates); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "role name already exists",
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update role",
 		})

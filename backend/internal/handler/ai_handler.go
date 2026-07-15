@@ -20,11 +20,37 @@ import (
 )
 
 type AIHandler struct {
-	chatRepo *repository.ChatRepository
+	chatRepo          *repository.ChatRepository
+	systemSettingRepo *repository.SystemSettingRepository
 }
 
-func NewAIHandler(chatRepo *repository.ChatRepository) *AIHandler {
-	return &AIHandler{chatRepo: chatRepo}
+func NewAIHandler(chatRepo *repository.ChatRepository, systemSettingRepo *repository.SystemSettingRepository) *AIHandler {
+	return &AIHandler{chatRepo: chatRepo, systemSettingRepo: systemSettingRepo}
+}
+
+// openRouterKey returns the admin-configured key from System Settings if set,
+// falling back to the OPENROUTER_API_KEY env var.
+func (h *AIHandler) openRouterKey() string {
+	if h.systemSettingRepo != nil {
+		if settings, err := h.systemSettingRepo.GetSettings(); err == nil && settings.OpenRouterAPIKey != "" {
+			return settings.OpenRouterAPIKey
+		}
+	}
+	return os.Getenv("OPENROUTER_API_KEY")
+}
+
+// isFeatureEnabled checks a System Settings toggle server-side, mirroring the
+// frontend's disabled state so the API can't be driven directly when a
+// feature is turned off in System Management.
+func (h *AIHandler) isFeatureEnabled(check func(*model.SystemSetting) bool) bool {
+	if h.systemSettingRepo == nil {
+		return false
+	}
+	settings, err := h.systemSettingRepo.GetSettings()
+	if err != nil {
+		return false
+	}
+	return check(settings)
 }
 
 type AIChatRequest struct {
@@ -514,6 +540,10 @@ func isLikelySEANORelated(message string) bool {
 
 // Chat handles AI chat requests, persists to session, with fallback
 func (h *AIHandler) Chat(c *fiber.Ctx) error {
+	if !h.isFeatureEnabled(func(s *model.SystemSetting) bool { return s.AIChatEnabled }) {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "AI Chat is disabled"})
+	}
+
 	userID := c.Locals("user_id").(uint)
 
 	var req AIChatRequest
@@ -567,6 +597,10 @@ func (h *AIHandler) Chat(c *fiber.Ctx) error {
 
 // ChatStream handles streaming AI chat via SSE
 func (h *AIHandler) ChatStream(c *fiber.Ctx) error {
+	if !h.isFeatureEnabled(func(s *model.SystemSetting) bool { return s.AIChatEnabled }) {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "AI Chat is disabled"})
+	}
+
 	userID := c.Locals("user_id").(uint)
 
 	var req AIChatRequest
@@ -604,7 +638,7 @@ func (h *AIHandler) ChatStream(c *fiber.Ctx) error {
 	h.chatRepo.AddMessage(&model.ChatMessage{SessionID: sessionID, Role: "user", Content: req.Message})
 
 	// Build messages for API
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	apiKey := h.openRouterKey()
 	if apiKey == "" {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "AI service not configured"})
 	}
@@ -697,7 +731,7 @@ func (h *AIHandler) ChatStream(c *fiber.Ctx) error {
 }
 
 func (h *AIHandler) callOpenRouter(sessionID uint) string {
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	apiKey := h.openRouterKey()
 	if apiKey == "" {
 		return ""
 	}
@@ -872,6 +906,10 @@ type BatteryAnalysisResponse struct {
 
 // WeatherAnalysis analyzes weather data and provides USV operation recommendations
 func (h *AIHandler) WeatherAnalysis(c *fiber.Ctx) error {
+	if !h.isFeatureEnabled(func(s *model.SystemSetting) bool { return s.AIWeatherAnalysisEnabled }) {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "AI Weather Analysis is disabled"})
+	}
+
 	var req WeatherAnalysisRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
@@ -943,7 +981,7 @@ type OpenRouterResponse struct {
 }
 
 func (h *AIHandler) callWeatherAnalysisAI(prompt string) string {
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	apiKey := h.openRouterKey()
 	if apiKey == "" {
 		return ""
 	}
@@ -1035,6 +1073,10 @@ func (h *AIHandler) generateFallbackAnalysis(req WeatherAnalysisRequest) Weather
 
 // BatteryAnalysis analyzes battery health and provides operational recommendations
 func (h *AIHandler) BatteryAnalysis(c *fiber.Ctx) error {
+	if !h.isFeatureEnabled(func(s *model.SystemSetting) bool { return s.AIBatteryAnalysisEnabled }) {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "AI Battery Analysis is disabled"})
+	}
+
 	var req BatteryAnalysisRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
@@ -1153,7 +1195,7 @@ Berikan response dalam JSON:
 }
 
 func (h *AIHandler) callBatteryAnalysisAI(prompt string) string {
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	apiKey := h.openRouterKey()
 	if apiKey == "" {
 		return ""
 	}

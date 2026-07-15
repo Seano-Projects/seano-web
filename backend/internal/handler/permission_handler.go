@@ -1,11 +1,15 @@
 package handler
 
 import (
+	"errors"
+	"strconv"
+	"strings"
+
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
-	"strconv"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type PermissionHandler struct {
@@ -45,7 +49,23 @@ func (h *PermissionHandler) CreatePermission(c *fiber.Ctx) error {
 		Description: req.Description,
 	}
 
+	// Enforce unique permission name to avoid 500s on DB constraint errors.
+	if existing, err := h.permissionRepo.GetPermissionByName(req.Name); err == nil && existing != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": "permission name already exists",
+		})
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to validate permission name",
+		})
+	}
+
 	if err := h.permissionRepo.CreatePermission(permission); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "permission name already exists",
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create permission",
 		})
@@ -134,6 +154,15 @@ func (h *PermissionHandler) UpdatePermission(c *fiber.Ctx) error {
 
 	updates := make(map[string]interface{})
 	if req.Name != nil {
+		if existing, err := h.permissionRepo.GetPermissionByName(*req.Name); err == nil && existing != nil && existing.ID != uint(id) {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "permission name already exists",
+			})
+		} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to validate permission name",
+			})
+		}
 		updates["name"] = *req.Name
 	}
 	if req.Description != nil {
@@ -141,6 +170,11 @@ func (h *PermissionHandler) UpdatePermission(c *fiber.Ctx) error {
 	}
 
 	if err := h.permissionRepo.UpdatePermission(uint(id), updates); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "permission name already exists",
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to update permission",
 		})

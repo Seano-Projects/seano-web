@@ -14,7 +14,6 @@ import (
 	"go-fiber-pgsql/internal/middleware"
 	"go-fiber-pgsql/internal/model"
 	"go-fiber-pgsql/internal/repository"
-	"go-fiber-pgsql/internal/util"
 	wsocket "go-fiber-pgsql/internal/websocket"
 )
 
@@ -65,14 +64,6 @@ func (h *VehicleHandler) CreateVehicle(c *fiber.Ctx) error {
 		status = req.Status
 	}
 
-	var apiKey *string
-	if req.ApiKey != nil {
-		trimmed := strings.TrimSpace(*req.ApiKey)
-		if trimmed != "" {
-			apiKey = &trimmed
-		}
-	}
-
 	batteryCount := 2
 	if req.BatteryCount != nil {
 		if *req.BatteryCount < 1 || *req.BatteryCount > 2 {
@@ -108,7 +99,6 @@ func (h *VehicleHandler) CreateVehicle(c *fiber.Ctx) error {
 
 	vehicle := &model.Vehicle{
 		Code:                   req.Code,
-		ApiKey:                 apiKey,
 		Name:                   req.Name,
 		Description:            req.Description,
 		BatteryCount:           batteryCount,
@@ -328,9 +318,6 @@ func (h *VehicleHandler) UpdateVehicle(c *fiber.Ctx) error {
 	if req.Status != nil {
 		updates["status"] = *req.Status
 	}
-	if req.ApiKey != nil {
-		updates["api_key"] = strings.TrimSpace(*req.ApiKey)
-	}
 
 	if err := h.vehicleRepo.UpdateVehicle(uint(id), updates); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -346,61 +333,6 @@ func (h *VehicleHandler) UpdateVehicle(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(vehicle)
-}
-
-// GenerateVehicleAPIKey godoc
-// @Summary Generate vehicle API key
-// @Description Regenerate API key for a vehicle
-// @Tags Vehicles
-// @Produce json
-// @Param vehicle_id path int true "Vehicle ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Security BearerAuth
-// @Router /vehicles/{vehicle_id}/api-key [post]
-func (h *VehicleHandler) GenerateVehicleAPIKey(c *fiber.Ctx) error {
-	id, err := strconv.ParseUint(c.Params("vehicle_id"), 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid vehicle ID",
-		})
-	}
-
-	userID := c.Locals("user_id").(uint)
-	vehicle, err := h.vehicleRepo.GetVehicleByID(uint(id))
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Vehicle not found",
-		})
-	}
-
-	if vehicle.UserID != userID && !middleware.HasPermission(h.db, userID, "vehicles.update") {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "You don't have permission to update this vehicle",
-		})
-	}
-
-	apiKey, err := util.GenerateAPIKey()
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to generate API key",
-		})
-	}
-
-	if err := h.vehicleRepo.UpdateVehicle(uint(id), map[string]interface{}{"api_key": apiKey}); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update vehicle API key",
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"vehicle_id":   vehicle.ID,
-		"vehicle_code": vehicle.Code,
-		"api_key":      apiKey,
-	})
 }
 
 // DeleteVehicle godoc

@@ -43,6 +43,9 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		if err.Error() == "duplicate email" {
 			return c.Status(400).JSON(fiber.Map{"error": "Email already exists"})
 		}
+		if err.Error() == "duplicate username" {
+			return c.Status(400).JSON(fiber.Map{"error": "Username already exists"})
+		}
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create user. Please try again"})
 	}
 
@@ -159,6 +162,9 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		}
 		if err.Error() == "duplicate email" {
 			return c.Status(400).JSON(fiber.Map{"error": "Email already exists"})
+		}
+		if err.Error() == "duplicate username" {
+			return c.Status(400).JSON(fiber.Map{"error": "Username already exists"})
 		}
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to update user. Please try again"})
 	}

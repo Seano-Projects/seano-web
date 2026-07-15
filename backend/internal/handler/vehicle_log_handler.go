@@ -22,10 +22,6 @@ type VehicleLogHandler struct {
 	wsHub          *wsocket.Hub
 }
 
-type vehicleWSReceivedAtRequest struct {
-	WSReceivedAt string `json:"ws_received_at"`
-}
-
 func NewVehicleLogHandler(vehicleLogRepo *repository.VehicleLogRepository, vehicleRepo *repository.VehicleRepository, missionRepo *repository.MissionRepository, db *gorm.DB, wsHub *wsocket.Hub) *VehicleLogHandler {
 	return &VehicleLogHandler{
 		vehicleLogRepo: vehicleLogRepo,
@@ -130,6 +126,13 @@ func (h *VehicleLogHandler) GetVehicleLogs(c *fiber.Ctx) error {
 			})
 		}
 		query.EndTime = t
+	} else if query.MissionID != 0 && h.missionRepo != nil {
+		// A completed mission keeps receiving telemetry tagged with the same
+		// mission_id while the vehicle transits/loiters home, so cap at its
+		// end_time unless the caller explicitly asked for a different window.
+		if mission, err := h.missionRepo.GetMissionByID(query.MissionID); err == nil && mission.EndTime != nil {
+			query.EndTime = *mission.EndTime
+		}
 	}
 
 	if limit := c.Query("limit"); limit != "" {
@@ -227,6 +230,186 @@ func (h *VehicleLogHandler) GetLatestVehicleLog(c *fiber.Ctx) error {
 	return c.JSON(log)
 }
 
+// checkMissionAccess mirrors the ownership check in MissionHandler.GetMissionByID
+// so mission-scoped telemetry endpoints can't be used to read another user's
+// mission data just by guessing/incrementing a mission_id. Returns the mission
+// itself so callers can also cap queries at its end_time (a completed mission
+// keeps receiving telemetry under the same mission_id while the vehicle
+// transits/loiters home, which would otherwise pollute stats and trajectory).
+func (h *VehicleLogHandler) checkMissionAccess(c *fiber.Ctx, missionID uint) (*model.Mission, error) {
+	mission, err := h.missionRepo.GetMissionByID(missionID)
+	if err != nil {
+		return nil, c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Mission not found",
+		})
+	}
+
+	userID := c.Locals("user_id").(uint)
+	role := c.Locals("role").(string)
+	if role != "admin" && (mission.CreatedBy == nil || *mission.CreatedBy != userID) {
+		return nil, c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "You don't have permission to view this mission",
+		})
+	}
+
+	return mission, nil
+}
+
+// GetMissionTelemetryStatsBatch godoc
+// @Summary Get aggregated telemetry stats for multiple missions at once
+// @Description Compute first/last ping, avg/max speed, and battery usage for many missions in a fixed number of queries, for list views that show duration/energy per row without N+1 requests
+// @Tags Vehicle Logs
+// @Produce json
+// @Param mission_ids query string true "Comma-separated mission IDs"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /vehicle-logs/missions-stats-batch [get]
+func (h *VehicleLogHandler) GetMissionTelemetryStatsBatch(c *fiber.Ctx) error {
+	idsParam := strings.TrimSpace(c.Query("mission_ids"))
+	if idsParam == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "mission_ids is required",
+		})
+	}
+
+	parts := strings.Split(idsParam, ",")
+	requestedIDs := make([]uint, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		id, err := strconv.ParseUint(part, 10, 32)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid mission_ids",
+			})
+		}
+		requestedIDs = append(requestedIDs, uint(id))
+	}
+
+	if len(requestedIDs) == 0 {
+		return c.JSON(fiber.Map{"data": fiber.Map{}})
+	}
+	if len(requestedIDs) > 200 {
+		requestedIDs = requestedIDs[:200]
+	}
+
+	missions, err := h.missionRepo.GetMissionsByIDs(requestedIDs)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to load missions",
+		})
+	}
+
+	userID := c.Locals("user_id").(uint)
+	role := c.Locals("role").(string)
+
+	allowedIDs := make([]uint, 0, len(missions))
+	for _, mission := range missions {
+		if role == "admin" || (mission.CreatedBy != nil && *mission.CreatedBy == userID) {
+			allowedIDs = append(allowedIDs, mission.ID)
+		}
+	}
+
+	stats, err := h.vehicleLogRepo.GetMissionTelemetryStatsBatch(allowedIDs)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to compute mission telemetry stats",
+		})
+	}
+
+	return c.JSON(fiber.Map{"data": stats})
+}
+
+// GetMissionTelemetryStats godoc
+// @Summary Get aggregated telemetry stats for a mission
+// @Description Compute first/last ping, avg/max speed, and battery usage via SQL aggregation instead of fetching every log row
+// @Tags Vehicle Logs
+// @Produce json
+// @Param mission_id path int true "Mission ID"
+// @Success 200 {object} model.MissionTelemetryStats
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /vehicle-logs/mission-stats/{mission_id} [get]
+func (h *VehicleLogHandler) GetMissionTelemetryStats(c *fiber.Ctx) error {
+	missionID, err := strconv.ParseUint(c.Params("mission_id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid mission_id",
+		})
+	}
+
+	mission, forbidden := h.checkMissionAccess(c, uint(missionID))
+	if forbidden != nil {
+		return forbidden
+	}
+
+	stats, err := h.vehicleLogRepo.GetMissionTelemetryStats(uint(missionID), mission.EndTime)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to compute mission telemetry stats",
+		})
+	}
+
+	return c.JSON(stats)
+}
+
+// GetMissionTrajectory godoc
+// @Summary Get a downsampled trajectory for a mission
+// @Description Return an evenly decimated set of GPS points for a mission's actual route, capped at max_points, so long-running missions don't require fetching every ping just to draw the map
+// @Tags Vehicle Logs
+// @Produce json
+// @Param mission_id path int true "Mission ID"
+// @Param max_points query int false "Maximum number of points to return" default(2000)
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Security BearerAuth
+// @Router /vehicle-logs/mission-trajectory/{mission_id} [get]
+func (h *VehicleLogHandler) GetMissionTrajectory(c *fiber.Ctx) error {
+	missionID, err := strconv.ParseUint(c.Params("mission_id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid mission_id",
+		})
+	}
+
+	mission, forbidden := h.checkMissionAccess(c, uint(missionID))
+	if forbidden != nil {
+		return forbidden
+	}
+
+	maxPoints := 2000
+	if raw := c.Query("max_points"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid max_points",
+			})
+		}
+		if parsed > 10000 {
+			parsed = 10000
+		}
+		maxPoints = parsed
+	}
+
+	logs, err := h.vehicleLogRepo.GetMissionTrajectoryPoints(uint(missionID), maxPoints, mission.EndTime)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch mission trajectory",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data":  logs,
+		"count": len(logs),
+	})
+}
+
 // CreateVehicleLog godoc
 // @Summary Create a new vehicle log
 // @Description Create a new vehicle log entry
@@ -320,7 +503,6 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 		Yaw:               req.Yaw,
 		TemperatureSystem: tempSystem,
 		UsvTimestamp:      usvTimestamp,
-		MqttReceivedAt:    &apiReceivedAt,
 	}
 
 	if vehicleLog.MissionID == nil && req.MissionCode != nil && *req.MissionCode != "" && h.missionRepo != nil {
@@ -341,12 +523,9 @@ func (h *VehicleLogHandler) CreateVehicleLog(c *fiber.Ctx) error {
 		})
 	}
 
-	// Broadcast via WebSocket so frontend latency (ws_sent_at/ws_received_at) is measurable
+	// Broadcast via WebSocket so frontend latency is measurable
 	if h.wsHub != nil {
 		wsSentAt := time.Now()
-		if err := h.vehicleLogRepo.UpdateWSSentAt(vehicleLog.ID, wsSentAt); err == nil {
-			vehicleLog.WsSentAt = &wsSentAt
-		}
 		wsVehicle := &wsocket.VehicleInfo{}
 		if vehicle != nil {
 			wsVehicle.Code = vehicle.Code
@@ -421,61 +600,6 @@ func (h *VehicleLogHandler) DeleteVehicleLog(c *fiber.Ctx) error {
 	})
 }
 
-// MarkWSReceivedAt stores frontend websocket receive timestamp for a vehicle log.
-func (h *VehicleLogHandler) MarkWSReceivedAt(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(uint)
-
-	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid ID",
-		})
-	}
-
-	logEntry, err := h.vehicleLogRepo.GetVehicleLogByID(uint(id))
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Vehicle log not found",
-		})
-	}
-
-	if !middleware.HasPermission(h.db, userID, "vehicles.read_all") {
-		userVehicleIDs, err := h.vehicleRepo.GetVehicleIDsByUserID(userID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to validate ownership",
-			})
-		}
-
-		allowed := false
-		for _, vid := range userVehicleIDs {
-			if vid == logEntry.VehicleID {
-				allowed = true
-				break
-			}
-		}
-
-		if !allowed {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "You don't have permission to update this vehicle log",
-			})
-		}
-	}
-
-	// Use server receipt time to avoid negative latency from client clock skew.
-	wsReceivedAt := time.Now().UTC()
-
-	if err := h.vehicleLogRepo.UpdateWSReceivedAt(uint(id), wsReceivedAt); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to update ws_received_at",
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "ws_received_at updated",
-	})
-}
-
 // ExportVehicleLogs godoc
 // @Summary Export vehicle logs to CSV
 // @Description Export vehicle logs to CSV file with optional filters
@@ -519,6 +643,10 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 		if err == nil {
 			query.EndTime = t
 		}
+	} else if query.MissionID != 0 && h.missionRepo != nil {
+		if mission, err := h.missionRepo.GetMissionByID(query.MissionID); err == nil && mission.EndTime != nil {
+			query.EndTime = *mission.EndTime
+		}
 	}
 
 	// No limit for export
@@ -534,7 +662,7 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 	}
 
 	// Build CSV content (cleaner format: Timestamp first, Vehicle, Mission, Coordinates, Speed, Battery, Mode, SystemStatus)
-	csvHeader := []string{"Timestamp", "Vehicle", "Mission", "Latitude", "Longitude", "Speed_m_s", "Battery_V", "Mode", "SystemStatus", "UsvTimestamp", "MqttReceivedAt", "WsSentAt"}
+	csvHeader := []string{"Timestamp", "Vehicle", "Mission", "Latitude", "Longitude", "Speed_m_s", "Battery_V", "Mode", "SystemStatus", "UsvTimestamp"}
 	var b strings.Builder
 	b.WriteString(strings.Join(csvHeader, ","))
 	b.WriteString("\n")
@@ -604,16 +732,6 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 			usvTs = log.UsvTimestamp.Format("2006-01-02T15:04:05.000000Z07:00")
 		}
 
-		mqttTs := ""
-		if log.MqttReceivedAt != nil {
-			mqttTs = log.MqttReceivedAt.Format("2006-01-02T15:04:05.000000Z07:00")
-		}
-
-		wsSentAt := ""
-		if log.WsSentAt != nil {
-			wsSentAt = log.WsSentAt.Format("2006-01-02T15:04:05.000000Z07:00")
-		}
-
 		row := []string{
 			esc(ts),
 			esc(vehicleDisp),
@@ -625,8 +743,6 @@ func (h *VehicleLogHandler) ExportVehicleLogs(c *fiber.Ctx) error {
 			esc(modeStr),
 			esc(statusStr),
 			esc(usvTs),
-			esc(mqttTs),
-			esc(wsSentAt),
 		}
 
 		b.WriteString(strings.Join(row, ","))
