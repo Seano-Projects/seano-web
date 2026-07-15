@@ -235,7 +235,10 @@ const ControlDocs = () => {
           Perintah ARM dikirim via MQTT ke topik{" "}
           <code className="font-mono">seano/{"{vehicle_code}"}/command</code>{" "}
           dengan payload{" "}
-          <code className="font-mono">{`{"command":"ARM"}`}</code>
+          <code className="font-mono">{`{"command":"ARM"}`}</code>. Ada juga
+          tombol terpisah <strong>Force Arm</strong> (
+          <code className="font-mono">{`{"command":"FORCE_ARM"}`}</code>) untuk
+          override kondisi safety check tertentu — gunakan hanya jika perlu.
         </Callout>
       </Section>
 
@@ -279,32 +282,35 @@ const ControlDocs = () => {
           <ModeCard
             name="MANUAL"
             desc="Kontrol penuh oleh operator. Semua gerak kendaraan dikontrol via thruster joystick secara realtime."
-            color="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+            color="bg-blue-600 text-white"
           />
           <ModeCard
             name="AUTO"
             desc="Kendaraan menjalankan waypoint misi secara otomatis. Operator tidak perlu mengontrol manual."
-            color="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+            color="bg-green-600 text-white"
           />
           <ModeCard
             name="HOLD"
             desc="Kendaraan mempertahankan posisi GPS saat ini. Cocok untuk pause sementara tanpa disarm."
-            color="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+            color="bg-yellow-500 text-white"
           />
           <ModeCard
             name="LOITER"
             desc="Station Keeping — kendaraan bergerak dalam radius kecil di sekitar posisi target."
-            color="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
+            color="bg-orange-500 text-white"
           />
           <ModeCard
             name="RTL"
             desc="Return To Launch — kendaraan otomatis kembali ke Home Location yang sudah ditentukan."
-            color="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+            color="bg-red-600 text-white"
           />
         </div>
         <Callout color="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-          Perubahan mode dikirim via MQTT:{" "}
-          <code className="font-mono">{`{"command":"SET_MODE","params":{"mode":"GUIDED"}}`}</code>
+          Perubahan mode dikirim via MQTT ke topik{" "}
+          <code className="font-mono">seano/{"{vehicle_code}"}/command</code>{" "}
+          dengan payload{" "}
+          <code className="font-mono">{`{"command":"AUTO"}`}</code> — nama
+          mode dikirim langsung, tanpa wrapper <code>params</code>.
         </Callout>
       </Section>
 
@@ -359,19 +365,81 @@ const ControlDocs = () => {
         <div className="bg-white dark:bg-black rounded-lg p-3 text-xs overflow-x-auto custom-scrollbar">
           <pre className="font-mono">
             <JsonHighlight
-              code={`{
-  "command": "THRUSTER",
-  "params": {
-    "throttle": 45,
-    "steering": -20
-  }
+              code={`// Topik terpisah dari command: seano/{vehicle_code}/thruster (QoS 0)
+{
+  "throttle": 45,
+  "steering": -20,
+  "initiated_at": "2026-04-27T14:00:00.123Z"
 }`}
             />
           </pre>
         </div>
         <Callout color="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
-          Perintah thruster dikirim dengan rate terbatas (throttle). Jika
-          koneksi putus, kendaraan akan berhenti setelah timeout.
+          Update joystick dikirim rate-limited (~50ms per pesan) di topik{" "}
+          <code className="font-mono">seano/{"{vehicle_code}"}/thruster</code>{" "}
+          dengan QoS 0 — beda dari topik <code>command</code> yang dipakai
+          untuk ARM/DISARM/mode (QoS 1). Tombol "Test Motors" menjalankan
+          throttle 30% selama 2 detik lalu berhenti otomatis.
+        </Callout>
+      </Section>
+
+      {/* 6. Mission override & Camera */}
+      <Section
+        icon={TbAnchor}
+        iconBg="bg-orange-500"
+        title="6. Mission Override & Kamera di Halaman Control"
+      >
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Halaman Control menampilkan waypoint misi aktif (marker
+          completed/current/pending) dan jejak (trail) kendaraan, tapi{" "}
+          <strong>tidak</strong> punya editor waypoint — edit waypoint hanya
+          bisa lewat Mission Planner.
+        </p>
+        <Step
+          num={1}
+          title="Clear Mission"
+          desc="Tombol Clear Mission di panel Mission Control mengirim hardware clear (bukan sekadar hapus dari database) via backend PATCH /missions/{id}/clear."
+          color="bg-orange-500"
+        />
+        <Step
+          num={2}
+          title="Panel Kamera"
+          desc="Live video via WebRTC/WHEP (MediaMTX) bisa ditampilkan langsung di halaman Control tanpa pindah ke halaman Camera terpisah."
+          color="bg-orange-500"
+        />
+      </Section>
+
+      {/* 7. Device Lock */}
+      <Section
+        icon={FaLock}
+        iconBg="bg-purple-600"
+        title="7. Device Lock (Kunci Kendali)"
+      >
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Untuk mencegah dua operator saling menimpa perintah, halaman Control
+          memakai kunci per-kendaraan.
+        </p>
+        <Step
+          num={1}
+          title="Maksimal 2 sesi bersamaan"
+          desc="Sistem mengizinkan hingga 2 sesi/browser aktif secara bersamaan mengontrol satu kendaraan yang sama — bukan strict satu operator."
+          color="bg-purple-500"
+        />
+        <Step
+          num={2}
+          title="Sesi ke-3 ditolak"
+          desc='Operator ke-3 yang mencoba masuk akan melihat banner "Device sudah penuh (2 pengguna aktif)" — panel Thrust Control dan Mission Control akan disabled, tapi telemetry/kamera/tracking tetap bisa dilihat.'
+          color="bg-purple-500"
+        />
+        <Step
+          num={3}
+          title="TTL 30 detik"
+          desc="Kunci diperpanjang otomatis selagi sesi aktif (heartbeat). Kunci akan hilang otomatis jika backend restart, karena disimpan di memory backend, bukan database."
+          color="bg-purple-500"
+        />
+        <Callout color="bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+          Device lock hanya membatasi akses <em>kontrol</em> (arm/disarm/mode/thruster/mission).
+          Ini bukan mekanisme keamanan yang kuat — jangan andalkan untuk mencegah akses tak sah, hanya untuk mencegah operator saling tabrak perintah.
         </Callout>
       </Section>
 

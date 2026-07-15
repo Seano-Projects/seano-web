@@ -21,7 +21,7 @@ const TOPICS = [
   "status": "online",
   "timestamp": "2026-04-27T14:00:00Z"
 }`,
-    color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    color: "bg-blue-600 text-white",
   },
   {
     topic: "seano/{vehicle_code}/telemetry",
@@ -49,8 +49,7 @@ const TOPICS = [
   "system_status": "OK",
   "temperature_system": "Normal"
 }`,
-    color:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    color: "bg-green-600 text-white",
   },
   {
     topic: "seano/{vehicle_code}/battery",
@@ -68,8 +67,7 @@ const TOPICS = [
   "cell_voltages": [3.84, 3.84, 3.83, 3.85],
   "cell_count": 4
 }`,
-    color:
-      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+    color: "bg-yellow-500 text-white",
   },
   {
     topic: "seano/{vehicle_code}/raw",
@@ -77,7 +75,7 @@ const TOPICS = [
     qos: 1,
     desc: "Raw log dari kendaraan. Bisa plain string atau JSON dengan field 'logs'/'message'/'text'/'log' (prioritas berurutan).",
     payload: `"[INFO] GPS fix acquired at -6.2088, 106.8456"`,
-    color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+    color: "bg-gray-500 text-white",
   },
   {
     topic: "seano/{vehicle_code}/CTD-MIDAS-3000/data",
@@ -100,7 +98,7 @@ const TOPICS = [
   "density": 1024.5,
   "sound_velocity": 1524.3
 }`,
-    color: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+    color: "bg-teal-600 text-white",
   },
   {
     topic: "seano/{vehicle_code}/ADCP-WORKHORSE/data",
@@ -125,7 +123,7 @@ const TOPICS = [
   "v3_ms": -0.031,
   "v4_ms": 0.047
 }`,
-    color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+    color: "bg-cyan-600 text-white",
     notes: [
       "vehicle_code & sensor_code wajib (bisa dari topic atau di dalam payload)",
       "date_time format ISO 8601 — jika kosong, server pakai waktu penerimaan",
@@ -146,19 +144,69 @@ const TOPICS = [
   "total": 12,
   "remaining": 9
 }`,
-    color:
-      "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+    color: "bg-orange-500 text-white",
   },
   {
     topic: "seano/{vehicle_code}/command",
     direction: "PUB",
     qos: 1,
-    desc: "Perintah dikirim server ke kendaraan. command: ARM, FORCE_ARM, DISARM, FORCE_DISARM, AUTO, MANUAL, HOLD, LOITER, RTL.",
+    desc: "Perintah ARM/DISARM/mode. Dipublish LANGSUNG dari browser operator ke broker (bukan lewat backend) saat realtime mode = MQTT; backend hanya publish ke topik ini sebagai fallback saat realtime mode = 'api' (polling). command: ARM, FORCE_ARM, DISARM, FORCE_DISARM, AUTO, MANUAL, HOLD, LOITER, RTL.",
     payload: `{
   "command": "AUTO"
 }`,
-    color:
-      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+    color: "bg-purple-600 text-white",
+    notes: [
+      "Payload TIDAK memakai wrapper params/SET_MODE — command berisi langsung nama mode/aksinya",
+      "QoS 1 karena perintah ini safety-critical (ARM/DISARM/mode)",
+    ],
+  },
+  {
+    topic: "seano/{vehicle_code}/thruster",
+    direction: "PUB",
+    qos: 0,
+    desc: "Nilai throttle & steering dari virtual joystick di halaman Control, dipublish langsung dari browser (rate-limited ~50ms). Backend subscribe topik yang sama hanya untuk logging/audit ke thruster_logs, bukan untuk meneruskan perintah.",
+    payload: `{
+  "throttle": 45,
+  "steering": -20,
+  "initiated_at": "2026-04-27T14:00:00.123Z"
+}`,
+    color: "bg-rose-600 text-white",
+    notes: [
+      "QoS 0 (bukan 1) — joystick mengirim banyak pesan per detik, delivery guarantee dikorbankan demi responsivitas",
+      "Range throttle & steering: -100 s/d 100",
+    ],
+  },
+  {
+    topic: "seano/{vehicle_code}/waypoint/clear",
+    direction: "PUB",
+    qos: 1,
+    desc: "Perintah hapus/clear mission dari kendaraan (dikirim backend saat operator klik 'Clear Mission' di halaman Control, via PATCH /missions/{id}/clear). Vehicle's waypoint_node subscribe topik ini dan memanggil /mavros/mission/clear.",
+    payload: `{}`,
+    color: "bg-orange-700 text-white",
+  },
+  {
+    topic: "seano/{vehicle_code}/waypoint/clear/response",
+    direction: "SUB",
+    qos: 1,
+    desc: "Response dari kendaraan setelah menerima perintah waypoint/clear.",
+    payload: `{
+  "status": "ok",
+  "message": "Mission cleared"
+}`,
+    color: "bg-orange-400 text-white",
+  },
+  {
+    topic: "seano/{vehicle_code}/waypoint/response",
+    direction: "SUB",
+    qos: 1,
+    desc: "Acknowledgment dari kendaraan setelah menerima/menyimpan satu baris waypoint log.",
+    payload: `{
+  "status": "ok",
+  "message": "Waypoint logged",
+  "vehicle_id": "{vehicle_code}",
+  "waypoint_log_id": 42
+}`,
+    color: "bg-amber-600 text-white",
   },
   {
     topic: "seano/{vehicle_code}/mission",
@@ -178,21 +226,20 @@ const TOPICS = [
     { "lat": -6.2100, "lng": 106.8470, "altitude": 10.0, "speed": 3.0 }
   ]
 }`,
-    color: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
+    color: "bg-pink-600 text-white",
   },
   {
-    topic: "seano/{vehicle_code}/ack",
+    topic: "seano/{vehicle_code}/command/response",
     direction: "SUB",
     qos: 1,
-    desc: "Acknowledgment dari kendaraan setelah menerima command. status: 'ok' atau 'error'.",
+    desc: "Acknowledgment dari kendaraan setelah menerima command ARM/DISARM/mode. status: 'ok' atau 'error'. Operator UI menunggu ACK ini sebelum menandai perintah sukses.",
     payload: `{
   "request_id": "550e8400-e29b-41d4-a716-446655440000",
   "command": "AUTO",
   "status": "ok",
   "message": "Mode changed to AUTO"
 }`,
-    color:
-      "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+    color: "bg-indigo-600 text-white",
   },
   {
     topic: "seano/{vehicle_code}/antitheft/alert",
@@ -207,7 +254,7 @@ const TOPICS = [
   "latitude": -6.2088,
   "longitude": 106.8456
 }`,
-    color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    color: "bg-red-600 text-white",
   },
   {
     topic: "seano/{vehicle_code}/failsafe/alert",
@@ -222,7 +269,7 @@ const TOPICS = [
   "latitude": -6.2088,
   "longitude": 106.8456
 }`,
-    color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    color: "bg-red-600 text-white",
   },
   {
     topic: "seano/{vehicle_code}/alert",
@@ -238,7 +285,7 @@ const TOPICS = [
   "latitude": -6.2088,
   "longitude": 106.8456
 }`,
-    color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    color: "bg-red-600 text-white",
     notes: [
       "alert_type bebas: GPS, Battery, IMU, Sensor, Communication, System, dll — tidak harus failsafe/antitheft",
       "Jika alert_type tidak diisi, default ke 'general'",
@@ -364,10 +411,10 @@ const TopicCard = ({ topic, direction, qos, desc, payload, color, notes }) => {
             <span
               className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${
                 qos === 0
-                  ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                  ? "bg-gray-500 text-white"
                   : qos === 1
-                    ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300"
-                    : "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
+                    ? "bg-cyan-600 text-white"
+                    : "bg-violet-600 text-white"
               }`}
             >
               QoS {qos}
@@ -461,7 +508,7 @@ const MqttDocs = () => {
               QoS
             </p>
             <code className="text-gray-800 dark:text-gray-200 font-mono">
-              1 (at least once)
+              1 (default) · 0 untuk thruster
             </code>
           </div>
           <div>
@@ -478,9 +525,11 @@ const MqttDocs = () => {
           `sensor_code` bukan `sensor_type`.
         </p>
         <p className="text-xs text-gray-500 mt-3">
-          <span className="font-medium">SUB</span> = server subscribe (data
+          <span className="font-medium">SUB</span> = backend subscribe (data
           masuk dari kendaraan) · <span className="font-medium">PUB</span> =
-          server publish (perintah ke kendaraan)
+          perintah ke kendaraan (command &amp; thruster dipublish langsung
+          dari browser operator via WSS, bukan lewat backend — lihat Control
+          Guide)
         </p>
       </div>
 

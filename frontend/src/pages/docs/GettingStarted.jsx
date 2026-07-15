@@ -7,7 +7,6 @@ import {
   FaGithub,
   FaShip,
   FaPlug,
-  FaKey,
   FaWifi,
   FaCheckCircle,
   FaCopy,
@@ -307,11 +306,6 @@ const GettingStarted = () => {
             </div>
           </div>
         </Step>
-        <Step
-          num={3}
-          title="Generate API Key"
-          desc='Setelah kendaraan dibuat, buka detail kendaraan → klik "Generate API Key". Simpan API Key ini — akan dipakai di konfigurasi firmware USV.'
-        />
         <Callout color="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700">
           Vehicle Code harus <strong>sama persis</strong> dengan yang
           dikonfigurasi di firmware USV. Ini dipakai sebagai bagian dari MQTT
@@ -370,16 +364,16 @@ npm install`}
 
 vehicle:
   code: "USV-001"      # harus sama dengan Vehicle Code di SeaPortal
-  api_key: "your-api-key-from-seaportal"
 
 seano:
   base_url: "https://seano.cloud/api"`}
           />
         </Step>
         <Callout color="bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
-          <strong>vehicle.code</strong> dan <strong>vehicle.api_key</strong>{" "}
-          harus sesuai dengan yang ada di SeaPortal. API Key dipakai untuk HTTP
-          endpoint seperti POST /vehicle-batteries dan POST /vehicle-logs.
+          <strong>vehicle.code</strong> harus sesuai dengan yang ada di
+          SeaPortal — ini dipakai sebagai MQTT topic prefix. Semua komunikasi
+          USV ↔ SeaPortal (telemetri, sensor, command) berjalan lewat MQTT,
+          tidak ada REST API key yang perlu dikonfigurasi.
         </Callout>
       </Section>
 
@@ -445,7 +439,6 @@ npm start`}
           <ul className="space-y-1 text-gray-500 dark:text-gray-400">
             {[
               "Vehicle Code terdaftar di SeaPortal",
-              "API Key sudah di-generate dan dikonfigurasi di firmware",
               "MQTT broker dapat diakses dari USV (cek port 1883)",
               "Firmware running dan publish ke topik seano/{code}/status",
               "Dashboard menampilkan status Online",
@@ -487,12 +480,16 @@ npm start`}
         <Step num={4} title="Publish data sensor dari firmware">
           <CodeBlock
             code={`Topic: seano/USV-001/CTD-MIDAS-01/data
+# Format topic: seano/{vehicle_code}/{sensor_code}/data
+# Field pakai "sensor_code", bukan "sensor_type" — field lain flat (bukan dibungkus "values")
 Payload:
 {
   "vehicle_code": "USV-001",
-  "sensor_type": "ctd",
-  "timestamp": "2026-04-18T12:00:00Z",
-  "values": { "temp": 28.4, "salinity": 34.1, "depth": 5.2 }
+  "sensor_code": "CTD-MIDAS-01",
+  "date_time": "2026-04-18T12:00:00Z",
+  "temperature": 28.4,
+  "salinity": 34.1,
+  "depth": 5.2
 }`}
           />
         </Step>

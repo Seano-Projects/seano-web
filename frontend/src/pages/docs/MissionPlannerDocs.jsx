@@ -79,7 +79,7 @@ const MissionPlannerDocs = () => {
 
       {/* Intro */}
       <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4 mb-8 text-sm text-orange-700 dark:text-orange-300">
-        Mission Planner memungkinkan kamu merencanakan rute kendaraan di peta — baik jalur bebas (<strong>Path</strong>) maupun pola survei area (<strong>Area/Zone</strong>) — lalu menguploadnya langsung ke kendaraan via MQTT.
+        Mission Planner memungkinkan kamu merencanakan rute kendaraan di peta — baik jalur bebas (<strong>Path</strong>) maupun pola survei area (<strong>Area/Zone</strong>) — lalu mengirimnya ke kendaraan lewat backend, yang selanjutnya mem-publish waypoint ke MQTT.
       </div>
 
       {/* 1. Membuat Misi Baru */}
@@ -137,19 +137,40 @@ const MissionPlannerDocs = () => {
         <Step num={1} title='Klik "Save Mission"' desc='Setelah waypoint siap, klik tombol "Save Mission" di bagian bawah sidebar.' />
         <Step num={2} title="Misi tersimpan di server" desc="Misi dan seluruh waypointnya disimpan ke database. Kamu bisa load kembali kapan saja." />
         <Callout color="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-          Simpan misi dulu sebelum upload ke kendaraan untuk memastikan data tidak hilang.
+          Simpan misi dulu sebelum upload ke kendaraan — misi harus tersimpan
+          sebelum tombol "Upload to Vehicle" bisa dipakai. Misi yang statusnya
+          sudah <strong>Completed</strong> tidak bisa diedit/disimpan ulang.
         </Callout>
       </Section>
 
       {/* 6. Upload ke Kendaraan */}
       <Section icon={FaUpload} iconBg="bg-green-500" color="text-green-500" title="6. Upload Misi ke Kendaraan">
-        <Step num={1} title='Klik "Upload to Vehicle"' desc='Klik tombol "Upload to Vehicle" di bagian bawah sidebar.' />
+        <Step num={1} title='Klik "Upload to Vehicle"' desc='Klik tombol "Upload to Vehicle" di bagian bawah sidebar. Hanya aktif setelah misi tersimpan.' />
         <Step num={2} title="Pilih kendaraan tujuan" desc="Modal konfirmasi akan muncul. Pilih atau konfirmasi kendaraan yang akan menerima misi." />
-        <Step num={3} title="Misi dikirim via MQTT" desc={`Sistem publish waypoint ke topik MQTT: seano/{vehicle_code}/mission. Kendaraan akan menerima dan memuat waypoint.`} />
-        <Step num={4} title="Status upload" desc="Indikator upload akan tampil. Jika berhasil, status misi berubah dan kendaraan siap menjalankan misi." />
+        <Step num={3} title="Force override (opsional)" desc="Jika kendaraan tujuan sudah punya misi ter-load sebelumnya, modal menawarkan opsi force override untuk menimpanya." note="Gunakan dengan hati-hati — misi lama di kendaraan akan tergantikan." />
+        <Step num={4} title="Misi dikirim ke kendaraan" desc={`Backend mem-publish waypoint ke topik MQTT: seano/{vehicle_code}/mission. Ini beda dari perintah Control (ARM/DISARM/thruster) yang dipublish langsung dari browser — upload mission selalu lewat backend.`} />
+        <Step num={5} title="Status upload" desc="Indikator upload akan tampil. Jika berhasil, status misi berubah dan kendaraan siap menjalankan misi." />
         <Callout color="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
           Kendaraan harus dalam kondisi <strong>online</strong> dan <strong>terhubung</strong> ke broker MQTT agar upload berhasil.
         </Callout>
+      </Section>
+
+      {/* 7. Batasan */}
+      <Section icon={FaTrash} iconBg="bg-red-500" color="text-red-500" title="7. Yang Tidak Bisa Dilakukan di Sini">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Mission Planner hanya untuk membuat/mengedit/mengupload misi. Untuk
+          menghentikan misi yang sedang berjalan, gunakan salah satu dari:
+        </p>
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-xs space-y-1">
+          <ul className="list-disc list-inside space-y-0.5 text-gray-500 dark:text-gray-400">
+            <li><strong>Clear Mission</strong> di halaman Control — hardware clear via MQTT</li>
+            <li><strong>Delete Mission</strong> di halaman Missions — hapus record misi</li>
+          </ul>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Tidak ada tombol Pause/Resume untuk misi yang sedang berjalan di
+          mana pun di SeaPortal saat ini.
+        </p>
       </Section>
 
       {/* Footer nav */}

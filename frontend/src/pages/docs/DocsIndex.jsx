@@ -20,18 +20,16 @@ const CARDS = [
     desc: "Panduan dasar — login, dashboard, misi, baterai, dan kamera. Mulai dari sini jika kamu baru pertama kali menggunakan SeaPortal.",
     to: "/docs/getting-started",
     badge: "Recommended",
-    badgeColor:
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    badgeColor: "bg-blue-600 text-white",
   },
   {
     icon: FaMapMarkedAlt,
     iconBg: "bg-orange-500",
     label: "Mission Planner",
-    desc: "Cara membuat misi, menggambar waypoint jalur (Path) atau area survei (Area), lalu mengupload ke kendaraan via MQTT.",
+    desc: "Cara membuat misi, menggambar waypoint jalur (Path) atau area survei (Area), lalu mengupload ke kendaraan (dikirim ke MQTT oleh backend).",
     to: "/docs/mission-planner",
     badge: "Feature",
-    badgeColor:
-      "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+    badgeColor: "bg-orange-500 text-white",
   },
   {
     icon: MdSettingsRemote,
@@ -40,7 +38,7 @@ const CARDS = [
     desc: "Cara arm/disarm kendaraan, mengganti mode operasi (Manual, Auto, Hold, Loiter, RTL), dan mengontrol thruster via joystick.",
     to: "/docs/control",
     badge: "Feature",
-    badgeColor: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    badgeColor: "bg-red-600 text-white",
   },
   {
     icon: FaBroadcastTower,
@@ -49,8 +47,7 @@ const CARDS = [
     desc: "Referensi lengkap topik MQTT untuk integrasi kendaraan ↔ SeaPortal. Termasuk payload format dan arah publish/subscribe.",
     to: "/docs/mqtt",
     badge: "Integration",
-    badgeColor:
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    badgeColor: "bg-green-600 text-white",
     adminOnly: true,
   },
   {
@@ -60,8 +57,7 @@ const CARDS = [
     desc: "Referensi REST API endpoint — autentikasi, kendaraan, misi, log, kontrol, dan lainnya. Lengkap dengan info auth dan permission.",
     to: "/docs/api",
     badge: "Reference",
-    badgeColor:
-      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+    badgeColor: "bg-purple-600 text-white",
     adminOnly: true,
   },
 ];
