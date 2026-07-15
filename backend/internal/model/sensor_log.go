@@ -11,11 +11,8 @@ type SensorLog struct {
 	Sensor         *Sensor    `json:"sensor,omitempty" gorm:"foreignKey:SensorID;constraint:OnDelete:CASCADE"`
 	MissionID      *uint      `json:"mission_id,omitempty" gorm:"index"`
 	MissionCode    *string    `json:"mission_code,omitempty" gorm:"type:varchar(64);index"`
-	Data           string     `json:"data" gorm:"type:jsonb;not null"` // JSON data from sensor
-	UsvTimestamp   *time.Time `json:"usv_timestamp,omitempty" gorm:"type:timestamptz;index"` // timestamp from USV payload
-	MqttReceivedAt *time.Time `json:"mqtt_received_at,omitempty" gorm:"type:timestamptz;index"` // when backend received MQTT
-	WsSentAt       *time.Time `json:"ws_sent_at,omitempty" gorm:"type:timestamptz;index"` // when backend pushed to websocket
-	WsReceivedAt   *time.Time `json:"ws_received_at,omitempty" gorm:"type:timestamptz;index"` // when frontend reported websocket receive
+	Data           string     `json:"data" gorm:"type:jsonb;not null"`
+	UsvTimestamp   *time.Time `json:"usv_timestamp,omitempty" gorm:"type:timestamptz;index"`
 	CreatedAt      time.Time  `json:"created_at" gorm:"autoCreateTime;not null"`
 }
 

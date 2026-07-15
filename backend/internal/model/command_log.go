@@ -12,13 +12,11 @@ type CommandLog struct {
 	Command         string     `json:"command" gorm:"type:varchar(64);not null"`
 	Status          string     `json:"status" gorm:"type:varchar(32);not null;default:'pending'"` // pending, success, failed, timeout
 	Message         string     `json:"message" gorm:"type:text"`
-	InitiatedAt     time.Time  `json:"initiated_at" gorm:"not null;index"` // when web initiated command
-	MqttPublishedAt *time.Time `json:"mqtt_published_at,omitempty" gorm:"type:timestamptz;index"` // when backend published MQTT command
-	UsvAckAt        *time.Time `json:"usv_ack_at,omitempty" gorm:"type:timestamptz;index"` // timestamp provided by USV ACK payload
-	AckReceivedAt   *time.Time `json:"ack_received_at,omitempty" gorm:"type:timestamptz;index"` // when backend received ACK
-	ResolvedAt      *time.Time `json:"resolved_at,omitempty"` // when command marked final
-	WsSentAt        *time.Time `json:"ws_sent_at,omitempty" gorm:"type:timestamptz;index"` // when backend pushed command update to websocket
-	WsReceivedAt    *time.Time `json:"ws_received_at,omitempty" gorm:"type:timestamptz;index"` // when frontend ACK reached backend
+	InitiatedAt     time.Time  `json:"initiated_at" gorm:"not null;index"`
+	MqttPublishedAt *time.Time `json:"mqtt_published_at,omitempty" gorm:"type:timestamptz;index"`
+	UsvAckAt        *time.Time `json:"usv_ack_at,omitempty" gorm:"type:timestamptz;index"`
+	AckReceivedAt   *time.Time `json:"ack_received_at,omitempty" gorm:"type:timestamptz;index"`
+	ResolvedAt      *time.Time `json:"resolved_at,omitempty"`
 	CreatedAt       time.Time  `json:"created_at" gorm:"autoCreateTime;index"`
 }
 
@@ -53,8 +51,6 @@ type CreateCommandLogRequest struct {
 	UsvAckAt        *time.Time `json:"usv_ack_at,omitempty"`
 	AckReceivedAt   *time.Time `json:"ack_received_at,omitempty"`
 	ResolvedAt      *time.Time `json:"resolved_at,omitempty"`
-	WsSentAt        *time.Time `json:"ws_sent_at,omitempty"`
-	WsReceivedAt    *time.Time `json:"ws_received_at,omitempty"`
 }
 
 // CreateCommandAckRequest is the request body for ACK updates from USV

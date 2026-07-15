@@ -65,16 +65,26 @@ type VehicleLog struct {
 	Roll              *float64  `json:"roll" gorm:"type:numeric"`
 	Pitch             *float64  `json:"pitch" gorm:"type:numeric"`
 	Yaw               *float64  `json:"yaw" gorm:"type:numeric"`
-	TemperatureSystem  *string    `json:"temperature_system" gorm:"type:varchar(50)"` // Type field from schema
-	UsvTimestamp       *time.Time `json:"usv_timestamp,omitempty" gorm:"type:timestamptz;index"` // timestamp from USV payload
-	MqttReceivedAt     *time.Time `json:"mqtt_received_at,omitempty" gorm:"type:timestamptz;index"` // when backend received MQTT
-	WsSentAt           *time.Time `json:"ws_sent_at,omitempty" gorm:"type:timestamptz;index"` // when backend pushed to websocket
-	WsReceivedAt       *time.Time `json:"ws_received_at,omitempty" gorm:"type:timestamptz;index"` // when frontend reported websocket receive
+	TemperatureSystem  *string    `json:"temperature_system" gorm:"type:varchar(50)"`
+	UsvTimestamp       *time.Time `json:"usv_timestamp,omitempty" gorm:"type:timestamptz;index"`
 	CreatedAt          time.Time  `json:"created_at" gorm:"autoCreateTime;not null;index"`
 }
 
 func (VehicleLog) TableName() string {
 	return "vehicle_logs"
+}
+
+// MissionTelemetryStats is a SQL-side aggregate over a mission's vehicle
+// logs, avoiding the need to fetch every row just to compute first/last
+// ping, avg/max speed, and battery usage.
+type MissionTelemetryStats struct {
+	SampleCount  int64      `json:"sample_count"`
+	FirstPingAt  *time.Time `json:"first_ping_at"`
+	LastPingAt   *time.Time `json:"last_ping_at"`
+	AvgSpeed     *float64   `json:"avg_speed"`
+	MaxSpeed     *float64   `json:"max_speed"`
+	BatteryStart *float64   `json:"battery_start"`
+	BatteryEnd   *float64   `json:"battery_end"`
 }
 
 // VehicleLogQuery for filtering logs

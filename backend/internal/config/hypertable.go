@@ -14,8 +14,22 @@ func SetupHypertables(db *gorm.DB, includeRawLogs bool) error {
 	// Ensure created_at is NOT NULL (required by TimescaleDB time dimension)
 	// and that the primary key is composite (id, created_at) — required for hypertable unique indexes.
 	pkFixQueries := []string{
-		`ALTER TABLE vehicle_logs ALTER COLUMN created_at SET NOT NULL;`,
-		`ALTER TABLE sensor_logs ALTER COLUMN created_at SET NOT NULL;`,
+		`DO $$ BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'vehicle_logs' AND column_name = 'created_at' AND is_nullable = 'YES'
+			) THEN
+				ALTER TABLE vehicle_logs ALTER COLUMN created_at SET NOT NULL;
+			END IF;
+		END $$;`,
+		`DO $$ BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'sensor_logs' AND column_name = 'created_at' AND is_nullable = 'YES'
+			) THEN
+				ALTER TABLE sensor_logs ALTER COLUMN created_at SET NOT NULL;
+			END IF;
+		END $$;`,
 		`DO $$ BEGIN
 			IF EXISTS (
 				SELECT 1 FROM pg_constraint
@@ -153,12 +167,12 @@ func SetupHypertables(db *gorm.DB, includeRawLogs bool) error {
 	log.Println("✓ Composite indexes created")
 
 	retentionQueries := []string{
-		`SELECT remove_retention_policy('sensor_logs', if_exists => TRUE);`,
-		`SELECT remove_retention_policy('vehicle_logs', if_exists => TRUE);`,
+		`SELECT add_retention_policy('sensor_logs', INTERVAL '14 days', if_not_exists => TRUE);`,
+		`SELECT add_retention_policy('vehicle_logs', INTERVAL '14 days', if_not_exists => TRUE);`,
 	}
 
 	if includeRawLogs {
-		retentionQueries = append(retentionQueries, `SELECT remove_retention_policy('raw_logs', if_exists => TRUE);`)
+		retentionQueries = append(retentionQueries, `SELECT add_retention_policy('raw_logs', INTERVAL '7 days', if_not_exists => TRUE);`)
 	}
 
 	for _, query := range retentionQueries {
@@ -167,7 +181,7 @@ func SetupHypertables(db *gorm.DB, includeRawLogs bool) error {
 		}
 	}
 
-	log.Println("✓ Hypertable retention policies removed (full history preserved)")
+	log.Println("✓ Hypertable retention policies set (14 days sensor/vehicle, 7 days raw)")
 
 	return nil
 }

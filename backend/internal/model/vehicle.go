@@ -9,7 +9,6 @@ import (
 type Vehicle struct {
 	ID                     uint       `json:"id" gorm:"primaryKey"`
 	Code                   string     `json:"code" gorm:"type:varchar(50);uniqueIndex;not null"`                  // Registration code & MQTT topic
-	ApiKey                 *string    `json:"-" gorm:"type:varchar(128);uniqueIndex"`                               // Per-vehicle API key for USV ingest
 	Name                   string     `json:"name" gorm:"type:varchar(100);not null"`
 	Description            string     `json:"description" gorm:"type:text"`
 	BatteryCount           int        `json:"battery_count" gorm:"type:int;default:2"`                            // Number of battery units (1-2)
@@ -50,7 +49,6 @@ type VehicleBattery struct {
 // Request/Response Models for Vehicle
 type CreateVehicleRequest struct {
 	Code                   string   `json:"code" example:"VEH-001"`
-	ApiKey                 *string  `json:"api_key,omitempty" example:"usv-key-001"`
 	Name                   string   `json:"name" example:"Vehicle A"`
 	Description            string   `json:"description" example:"Main delivery vehicle"`
 	BatteryCount           *int     `json:"battery_count,omitempty" example:"2"`
@@ -60,7 +58,6 @@ type CreateVehicleRequest struct {
 
 type UpdateVehicleRequest struct {
 	Code                   *string  `json:"code,omitempty"`
-	ApiKey                 *string  `json:"api_key,omitempty"`
 	Name                   *string  `json:"name,omitempty"`
 	Description            *string  `json:"description,omitempty"`
 	BatteryCount           *int     `json:"battery_count,omitempty"`

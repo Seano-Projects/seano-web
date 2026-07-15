@@ -32,15 +32,6 @@ func (r *SensorLogRepository) ExistsByVehicleSensorAndUsvTimestamp(vehicleID, se
 	return count > 0, err
 }
 
-func (r *SensorLogRepository) UpdateWSSentAt(id uint, wsSentAt time.Time) error {
-	return nil
-}
-
-// UpdateWSReceivedAt is disabled to avoid websocket ACK writes on sensor logs.
-func (r *SensorLogRepository) UpdateWSReceivedAt(id uint, wsReceivedAt time.Time) error {
-	return nil
-}
-
 // GetSensorLogs retrieves sensor logs with filters
 func (r *SensorLogRepository) GetSensorLogs(query model.SensorLogQuery) ([]model.SensorLog, error) {
 	var logs []model.SensorLog

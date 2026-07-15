@@ -30,6 +30,18 @@ func (r *MissionRepository) GetMissionsByUserID(userID uint) ([]model.Mission, e
 	return missions, err
 }
 
+// GetMissionsByIDs is used for batch operations (e.g. computing telemetry
+// stats for every mission on a list page in one shot) that need ownership
+// info (CreatedBy) and end_time for many missions without N+1 queries.
+func (r *MissionRepository) GetMissionsByIDs(ids []uint) ([]model.Mission, error) {
+	var missions []model.Mission
+	if len(ids) == 0 {
+		return missions, nil
+	}
+	err := r.db.Where("id IN ?", ids).Find(&missions).Error
+	return missions, err
+}
+
 func (r *MissionRepository) GetMissionByID(id uint) (*model.Mission, error) {
 	var mission model.Mission
 	err := r.db.Preload("Vehicle").Preload("Creator").First(&mission, id).Error

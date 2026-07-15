@@ -13,10 +13,9 @@ type WaypointLog struct {
 	WaypointCount int     `json:"waypoint_count" gorm:"not null;default:0"`
 	Status      string    `json:"status" gorm:"type:varchar(32);not null;default:'pending'"` // pending, success, failed, timeout
 	Message     string    `json:"message" gorm:"type:text"`
-	InitiatedAt  time.Time  `json:"initiated_at" gorm:"not null;index"`                         // when upload button was clicked
-	ResolvedAt   *time.Time `json:"resolved_at,omitempty"`                                       // when ack was received
-	WsReceivedAt *time.Time `json:"ws_received_at,omitempty" gorm:"type:timestamptz;index"`     // when frontend received via WebSocket
-	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime;index"`
+	InitiatedAt time.Time  `json:"initiated_at" gorm:"not null;index"` // when upload button was clicked
+	ResolvedAt  *time.Time `json:"resolved_at,omitempty"`              // when ack was received
+	CreatedAt   time.Time  `json:"created_at" gorm:"autoCreateTime;index"`
 }
 
 func (WaypointLog) TableName() string {
@@ -39,15 +38,16 @@ type WaypointLogQuery struct {
 
 // CreateWaypointLogRequest is the request body for creating a waypoint log
 type CreateWaypointLogRequest struct {
-	VehicleID     uint       `json:"vehicle_id"`
-	VehicleCode   string     `json:"vehicle_code"`
-	MissionID     *uint      `json:"mission_id,omitempty"`
-	MissionName   string     `json:"mission_name"`
-	WaypointCount int        `json:"waypoint_count"`
-	Status        string     `json:"status"`
-	Message       string     `json:"message"`
-	InitiatedAt   time.Time  `json:"initiated_at"`
-	ResolvedAt    *time.Time `json:"resolved_at,omitempty"`
+	VehicleID       uint       `json:"vehicle_id"`
+	VehicleCode     string     `json:"vehicle_code"`
+	MissionID       *uint      `json:"mission_id,omitempty"`
+	MissionName     string     `json:"mission_name"`
+	WaypointCount   int        `json:"waypoint_count"`
+	Status          string     `json:"status"`
+	Message         string     `json:"message"`
+	InitiatedAt     time.Time  `json:"initiated_at"`
+	ResolvedAt      *time.Time `json:"resolved_at,omitempty"`
+	MqttPublishedAt *time.Time `json:"mqtt_published_at,omitempty"`
 }
 
 // CreateWaypointAckRequest is the request body for waypoint upload ACK updates from USV

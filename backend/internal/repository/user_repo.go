@@ -17,6 +17,12 @@ func CreateUser(db *gorm.DB, req model.CreateUserRequest) (*model.User, error) {
 		return nil, errors.New("duplicate email")
 	}
 
+	// Check if username already exists
+	db.Model(&model.User{}).Where("username = ?", req.Username).Count(&count)
+	if count > 0 {
+		return nil, errors.New("duplicate username")
+	}
+
 	// Get default "user" role
 	var defaultRole model.Role
 	if err := db.Where("name = ?", "user").First(&defaultRole).Error; err != nil {
@@ -90,7 +96,12 @@ func UpdateUser(db *gorm.DB, id string, req model.UpdateUserRequest) (*model.Use
 		user.Email = *req.Email
 	}
 
-	if req.Username != nil {
+	if req.Username != nil && *req.Username != user.Username {
+		var count int64
+		db.Model(&model.User{}).Where("username = ? AND id != ?", *req.Username, id).Count(&count)
+		if count > 0 {
+			return nil, errors.New("duplicate username")
+		}
 		user.Username = *req.Username
 	}
 

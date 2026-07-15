@@ -138,6 +138,22 @@ func (r *WaypointLogRepository) UpdateWaypointLogStatusByID(id uint, status, mes
 	return r.db.Model(&model.WaypointLog{}).Where("id = ?", id).Updates(updates).Error
 }
 
+// GetLatestUnackedWaypointLog finds the most recent waypoint_log for a vehicle
+// whose latency_ack has no ack_received_at yet. Used as fallback when the MQTT
+// ACK payload does not carry a waypoint_log_id.
+func (r *WaypointLogRepository) GetLatestUnackedWaypointLog(vehicleCode string) (*model.WaypointLog, error) {
+	var log model.WaypointLog
+	err := r.db.
+		Joins("JOIN latency_acks la ON la.log_type = 'waypoint' AND la.log_id = waypoint_logs.id").
+		Where("waypoint_logs.vehicle_code = ? AND la.ack_received_at IS NULL", vehicleCode).
+		Order("waypoint_logs.initiated_at DESC").
+		First(&log).Error
+	if err != nil {
+		return nil, err
+	}
+	return &log, nil
+}
+
 func (r *WaypointLogRepository) CountWaypointLogs(query model.WaypointLogQuery) (int64, error) {
 	var count int64
 	db := r.db.Model(&model.WaypointLog{})
