@@ -119,6 +119,7 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 	users.Get("/", middleware.CheckPermission(db, "users.read"), userHandler.GetAllUsers)
 	users.Get("/:user_id", userHandler.GetUserByID) // Ownership check in handler
 	users.Put("/:user_id", userHandler.UpdateUser)  // Ownership check in handler
+	users.Post("/:user_id/avatar", userHandler.UploadAvatar) // Ownership check in handler
 	users.Delete("/:user_id", middleware.CheckPermission(db, "users.delete"), userHandler.DeleteUser)
 
 	// Role management routes (protected, admin only)

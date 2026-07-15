@@ -40,9 +40,10 @@ SEANO-ID is a comprehensive maritime monitoring system designed for Unmanned Sur
 - 📡 **MQTT Integration** - Real-time sensor data streaming from vehicles, with the frontend publishing control commands directly to the broker over WSS for low latency
 - 🗺️ **Mission Planning** - Plan and execute maritime missions with waypoint management
 - 📊 **Data Analytics** - Historical data analysis and visualization
-- 🔐 **JWT + Per-Vehicle API Key Auth** - Users authenticate with JWT; USVs authenticate ingestion requests with a per-vehicle API key
+- 🔐 **JWT Auth** - Users authenticate with JWT (access + refresh); USV↔backend communication is MQTT-only, no REST API keys
+- ⚙️ **Runtime-Configurable System Settings** - Admins manage third-party API keys (Google Maps, Mapbox, OpenWeatherMap, OpenRouter) and per-feature enable/disable toggles from an in-app admin page, no redeploy needed
 - 🌐 **Multi-language UI** - Built-in English/Indonesian i18n
-- 🤖 **AI Chat Assistant** - SEANO-focused chat assistant backed by OpenRouter
+- 🤖 **AI Chat Assistant** - SEANO-focused chat assistant backed by OpenRouter (feature-flagged via System Settings)
 - 📱 **Responsive Design** - Works on desktop, tablet, and mobile devices
 
 ## ✨ Features
@@ -53,7 +54,7 @@ SEANO-ID is a comprehensive maritime monitoring system designed for Unmanned Sur
 - Real-time vehicle status monitoring (online/offline via MQTT LWT)
 - Battery level tracking (per-battery, multiple batteries per vehicle)
 - GPS position tracking
-- Vehicle configuration management + per-vehicle API key generation
+- Vehicle configuration management (no API key — vehicles are identified purely by their MQTT topic code)
 
 ### Sensor Integration
 
@@ -74,7 +75,7 @@ SEANO-ID is a comprehensive maritime monitoring system designed for Unmanned Sur
 ### Vehicle Control
 
 - Direct browser-to-MQTT control commands (ARM/DISARM/mode/thruster) for low latency
-- Exclusive device-lock so only one operator controls a vehicle at a time
+- Device-lock caps concurrent control sessions per vehicle (max 2, 30s TTL) to reduce operators stepping on each other's commands
 - Command/waypoint audit logging on the backend
 
 ### Data Management
@@ -87,10 +88,11 @@ SEANO-ID is a comprehensive maritime monitoring system designed for Unmanned Sur
 ### User Management
 
 - User authentication with JWT (access + refresh token, httpOnly cookie)
-- Email verification system
+- 4-step email-link registration (register-email → verify-email → set-credentials → login)
 - Role-based access control (RBAC)
 - Permission management
-- Active session management
+- Active session management (up to 4 concurrent sessions per user, remote logout)
+- Profile avatar upload
 
 ### Real-time Features
 
@@ -139,7 +141,7 @@ SEANO-ID is a comprehensive maritime monitoring system designed for Unmanned Sur
 │  │   (Go Fiber)    │  │   (Go Fiber)   │  │   Hub       │ │
 │  │                 │  │                │  │ (shared,    │ │
 │  │ • Parse Data    │  │ • REST API     │  │  1 channel  │ │
-│  │ • Validate      │  │ • JWT/API-Key  │  │  fanned out │ │
+│  │ • Validate      │  │ • JWT auth     │  │  fanned out │ │
 │  │ • Store to DB   │  │ • CRUD Ops     │  │  to all     │ │
 │  │                 │  │ • AI Chat →    │  │  ws paths)  │ │
 │  │                 │  │   OpenRouter   │  │             │ │
@@ -160,6 +162,8 @@ SEANO-ID is a comprehensive maritime monitoring system designed for Unmanned Sur
                     │ • Missions           │
                     │ • Telemetry Data     │
                     │ • Logs (Hypertables) │
+                    │ • System Settings    │
+                    │   (API keys/flags)   │
                     │ • latency_acks       │
                     │   (optional timing)  │
                     └──────────┬───────────┘
@@ -181,7 +185,7 @@ SEANO-ID is a comprehensive maritime monitoring system designed for Unmanned Sur
 └────────────────────────────────────────────────────────────┘
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/API-FLOW.md](docs/API-FLOW.md) for detailed sequence diagrams.
+See [docs/technical/ARCHITECTURE.md](docs/technical/ARCHITECTURE.md) and [docs/technical/API-FLOW.md](docs/technical/API-FLOW.md) for detailed sequence diagrams.
 
 ## 🛠️ Tech Stack
 
@@ -193,7 +197,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/API-FLOW.md](docs/API
 - **TimescaleDB** - Time-series data extension (hypertables + compression/retention policies)
 - **MQTT (Paho client)** - Connects to an external MQTT broker for IoT messaging
 - **WebSocket** - Real-time communication (single shared hub)
-- **JWT (golang-jwt v5)** - User authentication; per-vehicle API key for USV ingestion
+- **JWT (golang-jwt v5)** - User authentication (USV↔backend communication is MQTT-only, no REST API keys)
 - **GORM** - ORM for database operations
 - **OpenRouter** - AI chat backend
 - **Swagger** - API documentation (non-production only)
@@ -244,11 +248,16 @@ cd seano-id
 ```bash
 # Backend
 cp backend/.env.example backend/.env
-# Edit backend/.env: DB creds, JWT/refresh/WS-token secrets, SMTP, OPENROUTER_API_KEY, MQTT broker
+# Edit backend/.env: DB creds, JWT/refresh/WS-token secrets, SMTP, MQTT broker
+# OPENROUTER_API_KEY is optional — it's only a fallback; the real key is set later via
+# the in-app System Management admin page (see below)
 
 # Frontend
 cp frontend/.env.example frontend/.env
-# Edit frontend/.env: VITE_API_URL, MQTT broker, map/weather API keys
+# Edit frontend/.env: VITE_API_URL, MQTT broker
+# VITE_GOOGLE_MAPS_API_KEY / VITE_MAPBOX_TOKEN / VITE_OPENWEATHER_API_KEY are legacy
+# placeholders — the frontend no longer reads them; configure real keys via System
+# Management after logging in as admin
 ```
 
 3. **Start with Docker Compose**
@@ -278,6 +287,17 @@ The seeder creates an initial admin user with password `ChangeMe!2025` (override
 
 ⚠️ **Important**: Change the default credentials after first login!
 
+### First-Time Setup: System Management
+
+Third-party integrations (Google Maps / Mapbox satellite tiles, OpenWeatherMap, OpenRouter AI) are **disabled by default** and configured at runtime, not via env vars. After logging in as admin:
+
+1. Open the **System Management** page (sidebar → System Management, admin-only)
+2. Enter the real API keys for the integrations you want to use
+3. Toggle on the corresponding feature (Google/Mapbox satellite, Weather, AI Chat, AI Weather Analysis, AI Battery Analysis)
+4. Save — changes apply app-wide immediately, no redeploy needed
+
+Until configured, these features remain visible in the UI but disabled (with a tooltip explaining why), rather than hidden.
+
 ## 📁 Project Structure
 
 ```
@@ -289,7 +309,7 @@ seano-id/
 │   ├── internal/            # Internal packages
 │   │   ├── config/          # DB connection, TimescaleDB hypertable setup
 │   │   ├── handler/         # HTTP handlers
-│   │   ├── middleware/      # JWT auth, per-vehicle API key auth, RBAC
+│   │   ├── middleware/      # JWT auth, RBAC/permission checks
 │   │   ├── model/           # Data models (GORM structs)
 │   │   ├── repository/      # Data access layer
 │   │   ├── route/           # Route registration
@@ -383,7 +403,7 @@ docker compose exec -T db psql -U appuser appdb < backup.sql
 
 ## 🚢 Deployment
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full environment variable reference, production checklist, and Nginx configuration.
+See [docs/technical/DEPLOYMENT.md](docs/technical/DEPLOYMENT.md) for the full environment variable reference, production checklist, and Nginx configuration.
 
 ### Production Deployment with Docker
 
@@ -397,17 +417,23 @@ Key production settings:
 - Strong `JWT_SECRET`, `REFRESH_SECRET`, `WS_TOKEN_SECRET`
 - `COOKIE_SECURE=true` (requires HTTPS in front of the stack)
 - MQTT broker reachable over TLS (`MQTT_PROTOCOL=wss` or `ssl`)
-- `OPENROUTER_API_KEY` set for AI chat
 - HTTPS terminated by an external reverse proxy (the frontend container's built-in Nginx proxies `/api`, `/ws`, `/mediamtx` to the backend/media services)
+- Log in as admin and set real API keys (OpenRouter, Google Maps, Mapbox, OpenWeatherMap) in **System Management** — `OPENROUTER_API_KEY` etc. in `.env` are only a fallback
 
 ## 📚 Documentation
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture, tech stack, Docker services, MQTT topics, WebSocket design
-- [docs/API-FLOW.md](docs/API-FLOW.md) - Sequence diagrams for auth, commands, telemetry, missions, AI chat, latency instrumentation
-- [docs/CLASS-DIAGRAM.md](docs/CLASS-DIAGRAM.md) - Backend handler/repository/service/model class diagrams
-- [docs/DATABASE.md](docs/DATABASE.md) - Full database schema, hypertables, indexes
-- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) - Environment variables, Docker Compose, production checklist
-- [docs/FRONTEND.md](docs/FRONTEND.md) - Frontend component/state/routing architecture
+- [docs/user-guide/README-USER-GUIDE.md](docs/user-guide/README-USER-GUIDE.md) - SeaPortal website usage guide for operators/admins
+- [docs/technical/ARCHITECTURE.md](docs/technical/ARCHITECTURE.md) - System architecture, tech stack, Docker services, MQTT topics, WebSocket design
+- [docs/technical/API-FLOW.md](docs/technical/API-FLOW.md) - Sequence diagrams for auth, commands, telemetry, missions, AI chat, latency instrumentation
+- [docs/technical/API-CORE.md](docs/technical/API-CORE.md) - Full REST API endpoint reference
+- [docs/technical/MQTT-CORE.md](docs/technical/MQTT-CORE.md) - Full MQTT topic reference (payloads, QoS, pub/sub direction)
+- [docs/technical/CLASS-DIAGRAM.md](docs/technical/CLASS-DIAGRAM.md) - Backend handler/repository/service/model class diagrams
+- [docs/technical/DATABASE.md](docs/technical/DATABASE.md) - Full database schema, hypertables, indexes
+- [docs/technical/DEPLOYMENT.md](docs/technical/DEPLOYMENT.md) - Environment variables, Docker Compose, production checklist
+- [docs/technical/FRONTEND.md](docs/technical/FRONTEND.md) - Frontend component/state/routing architecture
+- [docs/technical/README-BACKEND.md](docs/technical/README-BACKEND.md) - Backend developer guide
+- [docs/technical/README-FRONTEND.md](docs/technical/README-FRONTEND.md) - Frontend developer guide
+- [docs/technical/README-REALTIME.md](docs/technical/README-REALTIME.md) - WebSocket/MQTT realtime architecture
 - [API Reference](http://localhost:3000/swagger/index.html) - Swagger API documentation (non-production only)
 
 ## 🤝 Contributing

@@ -44,7 +44,8 @@ export const API_ENDPOINTS = {
     BY_ID: id => `${API_BASE_URL}/users/${id}`,
     CREATE: `${API_BASE_URL}/users/`,
     UPDATE: id => `${API_BASE_URL}/users/${id}`,
-    DELETE: id => `${API_BASE_URL}/users/${id}`
+    DELETE: id => `${API_BASE_URL}/users/${id}`,
+    UPLOAD_AVATAR: id => `${API_BASE_URL}/users/${id}/avatar`
   },
 
   ROLES: {

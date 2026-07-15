@@ -1,7 +1,13 @@
 package handler
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -170,6 +176,83 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 	}
 
 	// Reload user with role for proper response
+	var updatedUser model.User
+	h.DB.Preload("Role").First(&updatedUser, user.ID)
+
+	return c.JSON(model.ToUserResponse(&updatedUser))
+}
+
+// UploadAvatar godoc
+// @Summary Upload profile avatar
+// @Description Upload/replace the current user's avatar (own profile only)
+// @Tags User
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param user_id path int true "User ID"
+// @Param file formData file true "Avatar image (JPG, PNG, WebP; max 5MB)"
+// @Success 200 {object} model.UserResponse
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /users/{user_id}/avatar [post]
+func (h *UserHandler) UploadAvatar(c *fiber.Ctx) error {
+	id := c.Params("user_id")
+	loggedInUserID := c.Locals("user_id").(uint)
+
+	targetID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid user ID"})
+	}
+	if uint(targetID) != loggedInUserID {
+		return c.Status(403).JSON(fiber.Map{"error": "You can only update your own avatar"})
+	}
+
+	var user model.User
+	if err := h.DB.First(&user, targetID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "No file provided"})
+	}
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	allowed := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
+	if !allowed[ext] {
+		return c.Status(400).JSON(fiber.Map{"error": "Only JPG, PNG, and WebP files allowed"})
+	}
+	if file.Size > 5*1024*1024 {
+		return c.Status(400).JSON(fiber.Map{"error": "File exceeds 5MB"})
+	}
+
+	uploadDir := "./public/uploads/avatars"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to create directory"})
+	}
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate filename"})
+	}
+	filename := fmt.Sprintf("%s%s", hex.EncodeToString(b), ext)
+	savePath := filepath.Join(uploadDir, filename)
+	if err := c.SaveFile(file, savePath); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to save file"})
+	}
+
+	oldAvatarURL := user.AvatarURL
+	newAvatarURL := fmt.Sprintf("/uploads/avatars/%s", filename)
+	if err := h.DB.Model(&user).Update("avatar_url", newAvatarURL).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to update avatar"})
+	}
+
+	// Best-effort cleanup of the previous avatar file.
+	if oldAvatarURL != "" && strings.HasPrefix(oldAvatarURL, "/uploads/avatars/") {
+		oldPath := filepath.Join("./public/uploads/avatars", filepath.Base(oldAvatarURL))
+		_ = os.Remove(oldPath)
+	}
+
 	var updatedUser model.User
 	h.DB.Preload("Role").First(&updatedUser, user.ID)
 

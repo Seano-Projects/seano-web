@@ -21,6 +21,7 @@ const ProfileCard = ({
   saving,
   savedIndicator,
   photoPreview,
+  uploadingPhoto,
   fileInputRef,
   onUsernameChange,
   onPhotoChange,
@@ -57,16 +58,22 @@ const ProfileCard = ({
             </div>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-fourth text-white shadow-md hover:bg-blue-700 dark:border-slate-900"
+              disabled={uploadingPhoto}
+              className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-fourth text-white shadow-md hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed dark:border-slate-900"
               title={t("pages.profile.changePhoto")}
             >
-              <FaCamera size={11} />
+              {uploadingPhoto ? (
+                <FaSpinner className="animate-spin" size={11} />
+              ) : (
+                <FaCamera size={11} />
+              )}
             </button>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               onChange={onPhotoChange}
+              disabled={uploadingPhoto}
               className="hidden"
             />
           </div>

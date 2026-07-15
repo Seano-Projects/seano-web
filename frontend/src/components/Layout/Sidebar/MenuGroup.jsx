@@ -156,7 +156,7 @@ const MenuGroup = ({
                   </div>
                   <div
                     role="tooltip"
-                    className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-10 w-max max-w-56 px-2.5 py-1.5 rounded-lg text-[11px] bg-gray-900 text-white dark:bg-gray-800 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-10 w-max max-w-56 px-2.5 py-1.5 rounded-lg text-[11px] text-gray-600 dark:text-gray-300 bg-white dark:bg-black border border-gray-200 dark:border-gray-700 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     {item.disabledReason || "This feature is currently unavailable"}
                   </div>

@@ -86,7 +86,7 @@ const LinkItem = ({
       disabled ? (
         <div
           role="tooltip"
-          className="flex items-start gap-2 max-w-56 px-3 py-2.5 rounded-xl text-xs bg-white shadow-xl ring-1 ring-black/10 dark:bg-gray-900 dark:ring-white/10"
+          className="flex items-start gap-2 max-w-56 px-3 py-2.5 rounded-xl text-xs bg-white dark:bg-black border border-gray-200 dark:border-gray-700 shadow-xl"
           style={{
             ...tooltipStyle,
             visibility: tooltipStyle.left != null ? "visible" : "hidden",

@@ -7,6 +7,7 @@ type UserResponse struct {
 	ID         uint      `json:"id"`
 	Email      string    `json:"email"`
 	Username   string    `json:"username"`
+	AvatarURL  string    `json:"avatar_url"`
 	IsVerified bool      `json:"is_verified"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
@@ -26,6 +27,7 @@ func ToUserResponse(user *User) UserResponse {
 		ID:         user.ID,
 		Email:      user.Email,
 		Username:   user.Username,
+		AvatarURL:  user.AvatarURL,
 		IsVerified: user.IsVerified,
 		CreatedAt:  user.CreatedAt,
 		UpdatedAt:  user.UpdatedAt,
@@ -47,6 +49,7 @@ type UserDetailResponse struct {
 	ID         uint                         `json:"id"`
 	Email      string                       `json:"email"`
 	Username   string                       `json:"username"`
+	AvatarURL  string                       `json:"avatar_url"`
 	IsVerified bool                         `json:"is_verified"`
 	CreatedAt  time.Time                    `json:"created_at"`
 	UpdatedAt  time.Time                    `json:"updated_at"`
@@ -73,6 +76,7 @@ func ToUserDetailResponse(user *User) UserDetailResponse {
 		ID:         user.ID,
 		Email:      user.Email,
 		Username:   user.Username,
+		AvatarURL:  user.AvatarURL,
 		IsVerified: user.IsVerified,
 		CreatedAt:  user.CreatedAt,
 		UpdatedAt:  user.UpdatedAt,

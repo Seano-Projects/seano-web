@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import useTitle from "../hooks/useTitle";
 import { Title, Modal } from "../components/ui";
-import { API_ENDPOINTS } from "../config";
+import { API_ENDPOINTS, API_BASE_URL } from "../config";
 import useNotify from "../hooks/useNotify";
 import useTranslation from "../hooks/useTranslation";
 import useAuth from "../hooks/useAuth";
@@ -18,7 +18,11 @@ const Profile = () => {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef(null);
+
+  const toAbsoluteUrl = (url) =>
+    url && !url.startsWith("http") ? `${API_BASE_URL}${url}` : url;
 
   // Inline username edit
   const [username, setUsername] = useState("");
@@ -49,6 +53,7 @@ const Profile = () => {
       const userData = await response.json();
       setUser(userData);
       setUsername(userData.username || "");
+      setPhotoPreview(toAbsoluteUrl(userData.avatar_url) || null);
       localStorage.setItem("user", JSON.stringify(userData));
     } catch (err) {
       setError(err.message || t("pages.profile.loadError"));
@@ -61,15 +66,51 @@ const Profile = () => {
     fetchUserData();
   }, []);
 
-  // Handle photo change (select only — no upload endpoint yet)
-  const handlePhotoChange = (e) => {
+  // Handle photo change — shows an optimistic local preview, then uploads it.
+  const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (!file.type.startsWith("image/")) return;
-      if (file.size > 5 * 1024 * 1024) return;
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result);
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      notify.error(t("pages.profile.photoInvalidType") || "Please select an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      notify.error(t("pages.profile.photoTooLarge") || "Image must be smaller than 5MB");
+      return;
+    }
+
+    const previousPreview = photoPreview;
+    const reader = new FileReader();
+    reader.onloadend = () => setPhotoPreview(reader.result);
+    reader.readAsDataURL(file);
+
+    setUploadingPhoto(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(API_ENDPOINTS.USERS.UPLOAD_AVATAR(user.id), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || t("pages.profile.photoUploadError"));
+      }
+      const updatedUser = await response.json();
+      setUser(updatedUser);
+      setPhotoPreview(toAbsoluteUrl(updatedUser.avatar_url));
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      await notify.success(t("pages.profile.photoUploadSuccess") || "Profile photo updated", {
+        action: notify.ACTIONS.USER_UPDATED,
+      });
+    } catch (err) {
+      setPhotoPreview(previousPreview);
+      notify.error(err.message || t("pages.profile.photoUploadError") || "Failed to upload photo");
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -207,6 +248,7 @@ const Profile = () => {
           saving={saving}
           savedIndicator={savedIndicator}
           photoPreview={photoPreview}
+          uploadingPhoto={uploadingPhoto}
           fileInputRef={fileInputRef}
           onUsernameChange={handleUsernameChange}
           onPhotoChange={handlePhotoChange}
