@@ -58,3 +58,5 @@ README-PRIVATE.md
 
 # Load test scripts (contain credential fallbacks)
 test/
+
+.claude/
