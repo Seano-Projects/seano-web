@@ -104,8 +104,8 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
           <span
             className={`ml-auto flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
               wsConnected
-                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500"
+                ? "bg-green-600 text-white"
+                : "bg-gray-500 text-white"
             }`}
           >
             <FaWifi className="text-[10px]" />
@@ -118,7 +118,7 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
             onClick={() => setActiveTab("system")}
             className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
               activeTab === "system"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                ? "bg-blue-600 text-white"
                 : "text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
             }`}
           >
@@ -128,7 +128,7 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
             onClick={() => setActiveTab("telemetry")}
             className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
               activeTab === "telemetry"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                ? "bg-blue-600 text-white"
                 : "text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
             }`}
           >
@@ -168,7 +168,7 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
                           {log.module}
                         </span>
                         {log._source === "ws" && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                          <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-600 text-white">
                             LIVE
                           </span>
                         )}
@@ -234,8 +234,8 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${
                                 entry.mode === "AUTO"
-                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                                  : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+                                  ? "bg-green-600 text-white"
+                                  : "bg-yellow-500 text-white"
                               }`}
                             >
                               {entry.mode}
@@ -245,8 +245,8 @@ const VehicleLogPanel = ({ selectedVehicle = null }) => {
                         <td className="py-2">
                           <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${
                             entry._source === "ws"
-                              ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                              : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500"
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-500 text-white"
                           }`}>
                             {entry._source === "ws" ? "WS" : "REST"}
                           </span>

@@ -31,8 +31,8 @@ const SensorTable = ({
       status: sensor.is_active ? "Active" : "Inactive",
       statusRaw: sensor.is_active,
       statusColor: sensor.is_active
-        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-        : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+        ? "bg-green-600 text-white"
+        : "bg-red-600 text-white",
       created: sensor.created_at
         ? new Date(sensor.created_at).toLocaleDateString()
         : "Unknown",

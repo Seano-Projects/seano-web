@@ -293,6 +293,7 @@ export const useCTDData = (vehicle = null) => {
 
   useEffect(() => {
     seenKeys.current = new Set()
+    setCTDData([])
     fetchHistoricalData()
   }, [fetchHistoricalData])
 

@@ -242,7 +242,7 @@ const MissionMap = ({
   selectedVehicleId,
 }) => {
   // Search coordinates state
-  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
+  const { url: tileUrl, attribution: tileAttribution, maxNativeZoom: tileMaxNativeZoom, tileSize, zoomOffset } = useMapTile();
   const [searchQuery, setSearchQuery] = useState("");
   const [mapCenter, setMapCenter] = useState(null);
   const [mapZoom, setMapZoom] = useState(null);
@@ -1092,12 +1092,15 @@ const MissionMap = ({
         />
         <DrawCursorController onDrawStateChange={setIsDrawActive} />
         <TileLayer
+          key={tileUrl}
           attribution={tileAttribution}
           url={tileUrl}
           noWrap={true}
           minZoom={3}
           maxZoom={22}
-          maxNativeZoom={19}
+          maxNativeZoom={tileMaxNativeZoom}
+          tileSize={tileSize}
+          zoomOffset={zoomOffset}
         />
         <ZoomControl position="topright" />
 

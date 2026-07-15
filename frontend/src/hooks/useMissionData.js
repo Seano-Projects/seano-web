@@ -72,7 +72,7 @@ const useMissionData = () => {
       setMissionData(transformedData)
       setLastUpdated(new Date())
     } catch {
-      setError('Failed to load mission data')
+      setError('Couldn\'t load missions. Please refresh the page.')
       setMissionData([])
       setLastUpdated(new Date())
     } finally {
@@ -177,6 +177,14 @@ const useMissionData = () => {
         wsRef.current.onmessage = event => {
           try {
             const data = JSON.parse(event.data)
+
+          if (data.type === 'mission_clear_response') {
+            // Refresh mission list so cleared vehicle_id reflects immediately.
+            fetchMissionData()
+            // Dispatch a custom event so consumers (e.g. Control page) can show a toast.
+            window.dispatchEvent(new CustomEvent('mission_clear_response', { detail: data }))
+            return
+          }
 
           if (data.message_type === 'mission_progress') {
             // Update mission in the list (robust matching: mission id and vehicle code)
@@ -288,7 +296,7 @@ const useMissionData = () => {
           'No response from server. Please check your connection.'
         )
       } else {
-        throw new Error(error.message || 'Failed to create mission')
+        throw new Error(error.message || 'Couldn\'t create the mission. Please try again.')
       }
     }
   }
@@ -315,8 +323,8 @@ const useMissionData = () => {
       console.error('❌ MISSION UPDATE: Failed', error)
 
       // Show error notification
-      await notify.error('Failed to update mission. Please try again.', {
-        title: 'Update Mission Failed',
+      await notify.error('Couldn\'t update the mission. Please try again.', {
+        title: 'Mission Not Updated',
         action: NOTIFICATION_ACTIONS.MISSION_UPDATED,
         persist: true
       })
@@ -342,8 +350,8 @@ const useMissionData = () => {
       console.error('❌ MISSION DELETE: Failed', error)
 
       // Show error notification
-      await notify.error('Failed to delete mission. Please try again.', {
-        title: 'Delete Mission Failed',
+      await notify.error('Couldn\'t delete the mission. Please try again.', {
+        title: 'Mission Not Deleted',
         action: NOTIFICATION_ACTIONS.MISSION_DELETED,
         persist: true
       })

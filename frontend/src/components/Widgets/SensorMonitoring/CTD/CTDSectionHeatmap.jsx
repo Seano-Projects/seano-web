@@ -1,14 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  FaArrowTrendDown,
-  FaArrowTrendUp,
-  FaLayerGroup,
-  FaTemperatureHalf,
-  FaWaveSquare,
-} from "react-icons/fa6";
 import useTranslation from "../../../../hooks/useTranslation";
 import DataCard from "../../DataCard";
-import WidgetCard from "../../WidgetCard";
 
 const DISTANCE_BIN_KM = 0.05;
 const DEPTH_BIN_M = 2;
@@ -370,13 +362,13 @@ const mean = (values) => {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 };
 
-const getLayerStrength = (delta, gradient) => {
+const getLayerStrengthKey = (delta, gradient) => {
   if (!Number.isFinite(delta) || !Number.isFinite(gradient))
-    return "Insufficient";
+    return "strengthInsufficient";
   const magnitude = Math.abs(delta) + Math.abs(gradient) * 4;
-  if (magnitude >= 5) return "Strong";
-  if (magnitude >= 2.5) return "Moderate";
-  return "Weak";
+  if (magnitude >= 5) return "strengthStrong";
+  if (magnitude >= 2.5) return "strengthModerate";
+  return "strengthWeak";
 };
 
 const CTDSectionHeatmap = ({
@@ -628,6 +620,11 @@ const CTDSectionHeatmap = ({
         break;
       }
     }
+    const effectiveXBins = Math.max(2, latestColumnIndex + 1);
+    const effectiveMaxDistance = Math.max(
+      latestColumnIndex * DISTANCE_BIN_KM,
+      DISTANCE_BIN_KM,
+    );
 
     const buildColumnProfile = (columnIndex) => {
       const points = [];
@@ -738,6 +735,8 @@ const CTDSectionHeatmap = ({
       maxValue,
       maxDepth,
       maxDistance,
+      effectiveXBins,
+      effectiveMaxDistance,
       xBins,
       yBins,
       dataCoverage,
@@ -754,7 +753,7 @@ const CTDSectionHeatmap = ({
       surfaceSalinity,
       bottomSalinity,
       anomalyMessages: [...new Set(anomalyMessages)].slice(0, 3),
-      isStationaryProfile: maxDistance < DISTANCE_BIN_KM,
+      isStationaryProfile: effectiveMaxDistance < DISTANCE_BIN_KM,
       hasGpsData: samples.some(s => s.hasValidGps),
     };
   }, [ctdData, activeMetric]);
@@ -795,13 +794,14 @@ const CTDSectionHeatmap = ({
         maxValue,
         xBins,
         yBins,
-        maxDistance,
         maxDepth,
         contourSegments,
         thermocline,
+        effectiveXBins,
+        effectiveMaxDistance,
       } = preparedData;
 
-      const cellWidth = width / xBins;
+      const cellWidth = width / effectiveXBins;
       const cellHeight = height / yBins;
       const valueRange = Math.max(1e-6, maxValue - minValue);
 
@@ -812,7 +812,7 @@ const CTDSectionHeatmap = ({
       heatmapCtx.fillRect(0, 0, width, height);
 
       for (let y = 0; y < yBins; y += 1) {
-        for (let x = 0; x < xBins; x += 1) {
+        for (let x = 0; x < effectiveXBins; x += 1) {
           const index = y * xBins + x;
           const left = x * cellWidth;
           const top = y * cellHeight;
@@ -868,11 +868,11 @@ const CTDSectionHeatmap = ({
       contourSegments.forEach((segment) => {
         overlayCtx.beginPath();
         overlayCtx.moveTo(
-          (segment.from.x / Math.max(maxDistance, DISTANCE_BIN_KM)) * width,
+          (segment.from.x / Math.max(effectiveMaxDistance, DISTANCE_BIN_KM)) * width,
           (segment.from.y / Math.max(maxDepth, DEPTH_BIN_M)) * height,
         );
         overlayCtx.lineTo(
-          (segment.to.x / Math.max(maxDistance, DISTANCE_BIN_KM)) * width,
+          (segment.to.x / Math.max(effectiveMaxDistance, DISTANCE_BIN_KM)) * width,
           (segment.to.y / Math.max(maxDepth, DEPTH_BIN_M)) * height,
         );
         overlayCtx.stroke();
@@ -922,7 +922,7 @@ const CTDSectionHeatmap = ({
     const x = Array.from({ length: 6 }, (_, index) => {
       const ratio = index / 5;
       return {
-        label: formatDistanceLabel(preparedData.maxDistance * ratio),
+        label: formatDistanceLabel(preparedData.effectiveMaxDistance * ratio),
         ratio,
       };
     });
@@ -956,9 +956,9 @@ const CTDSectionHeatmap = ({
     const x = clamp(event.clientX - rect.left, 0, rect.width - 1);
     const y = clamp(event.clientY - rect.top, 0, rect.height - 1);
     const xBin = clamp(
-      Math.floor((x / rect.width) * preparedData.xBins),
+      Math.floor((x / rect.width) * preparedData.effectiveXBins),
       0,
-      preparedData.xBins - 1,
+      preparedData.effectiveXBins - 1,
     );
     const yBin = clamp(
       Math.floor((y / rect.height) * preparedData.yBins),
@@ -968,12 +968,12 @@ const CTDSectionHeatmap = ({
     const index = yBin * preparedData.xBins + xBin;
     const data = preparedData.displayTooltipData[index];
     const distanceStep =
-      preparedData.xBins > 1
-        ? Math.max(preparedData.maxDistance, DISTANCE_BIN_KM) /
-          (preparedData.xBins - 1)
+      preparedData.effectiveXBins > 1
+        ? Math.max(preparedData.effectiveMaxDistance, DISTANCE_BIN_KM) /
+          (preparedData.effectiveXBins - 1)
         : 0;
     const distance = Math.min(
-      preparedData.maxDistance,
+      preparedData.effectiveMaxDistance,
       xBin * distanceStep,
     );
 
@@ -997,96 +997,12 @@ const CTDSectionHeatmap = ({
     ? {
         thermoclineDepth: preparedData.thermocline?.meanDepth,
         thermoclineStrength: preparedData.thermocline?.strength,
-        tempLayerStrength: getLayerStrength(
+        tempLayerStrengthKey: getLayerStrengthKey(
           preparedData.temperatureDelta,
-          preparedData.thermocline?.strength,
-        ),
-        salinityLayerStrength: getLayerStrength(
-          preparedData.salinityDelta,
           preparedData.thermocline?.strength,
         ),
       }
     : null;
-
-  const summaryCards = preparedData
-    ? [
-        {
-          title: "Surface Temp",
-          value: `${formatNumber(preparedData.surfaceTemperature, 2)} C`,
-          icon: (
-            <FaTemperatureHalf
-              className="text-blue-600 dark:text-blue-400"
-              size={22}
-            />
-          ),
-          trendIcon: <FaArrowTrendUp className="text-emerald-500" size={12} />,
-          trendText: "Upper 0-5 m average",
-          iconBgColor: "bg-blue-100 dark:bg-blue-900/30",
-        },
-        {
-          title: "Bottom Temp",
-          value: `${formatNumber(preparedData.bottomTemperature, 2)} C`,
-          icon: (
-            <FaTemperatureHalf
-              className="text-cyan-600 dark:text-cyan-400"
-              size={22}
-            />
-          ),
-          trendIcon: <FaArrowTrendDown className="text-sky-500" size={12} />,
-          trendText: "Deepest 5 m average",
-          iconBgColor: "bg-cyan-100 dark:bg-cyan-900/30",
-        },
-        {
-          title: "Thermocline",
-          value: summary?.thermoclineDepth
-            ? `${formatNumber(summary.thermoclineDepth, 1)} m`
-            : "--",
-          icon: (
-            <FaLayerGroup
-              className="text-purple-600 dark:text-purple-400"
-              size={22}
-            />
-          ),
-          trendIcon: <FaArrowTrendUp className="text-purple-500" size={12} />,
-          trendText: `Strength ${summary?.tempLayerStrength || "Insufficient"}`,
-          iconBgColor: "bg-purple-100 dark:bg-purple-900/30",
-        },
-        {
-          title: "Gradient",
-          value: preparedData.strongestGradient
-            ? `${formatNumber(preparedData.strongestGradient.gradient, 2)} ${activeMetric.unit}/m`
-            : "--",
-          icon: (
-            <FaWaveSquare
-              className="text-emerald-600 dark:text-emerald-400"
-              size={22}
-            />
-          ),
-          trendIcon: <FaArrowTrendUp className="text-emerald-500" size={12} />,
-          trendText: "Sharpest vertical change",
-          iconBgColor: "bg-emerald-100 dark:bg-emerald-900/30",
-        },
-        {
-          title: "Coverage",
-          value: `${formatNumber(preparedData.dataCoverage * 100, 1)}%`,
-          icon: (
-            <FaLayerGroup
-              className="text-orange-600 dark:text-orange-400"
-              size={22}
-            />
-          ),
-          trendIcon: preparedData.anomalyMessages.length ? (
-            <FaArrowTrendDown className="text-amber-500" size={12} />
-          ) : (
-            <FaArrowTrendUp className="text-emerald-500" size={12} />
-          ),
-          trendText: preparedData.anomalyMessages.length
-            ? `${preparedData.anomalyMessages.length} data flags`
-            : "Sampling coverage",
-          iconBgColor: "bg-orange-100 dark:bg-orange-900/30",
-        },
-      ]
-    : [];
 
   return (
     <div className="space-y-5">
@@ -1102,33 +1018,27 @@ const CTDSectionHeatmap = ({
               <div>
                 <span className="font-semibold">
                   {!preparedData.hasGpsData
-                    ? "GPS data not available in CTD payload"
-                    : "Stationary profile detected"}
+                    ? t("pages.ctd.heatmap.noGps")
+                    : t("pages.ctd.heatmap.stationaryProfile")}
                 </span>
                 <span className="ml-1 text-amber-600 dark:text-amber-500">
                   {!preparedData.hasGpsData
-                    ? "— USV is not sending lat/lon with CTD data. The X-axis cannot represent horizontal distance; all readings are stacked at 0 km. Ensure GPS coordinates are included in the CTD MQTT payload."
-                    : `— Max distance is only ${formatDistanceLabel(preparedData.maxDistance)}. The section heatmap is designed for transect surveys (USV moving horizontally). For a stationary vertical cast, use the Depth Profile chart instead.`}
+                    ? `— ${t("pages.ctd.heatmap.noGpsDesc")}`
+                    : `— ${t("pages.ctd.heatmap.stationaryProfileDesc")}`}
                 </span>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {summaryCards.map((card) => (
-              <WidgetCard key={card.title} {...card} />
-            ))}
-          </div>
-
           <div className="grid gap-4">
             <DataCard showHeader={false}>
               <div className="pb-0">
                 <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                  <span>Depth (m)</span>
+                  <span>{t("pages.data.charts.depth")} (m)</span>
                   <span>
                     {summary?.thermoclineDepth
-                      ? `Thermocline around ${formatNumber(summary.thermoclineDepth, 1)} m`
-                      : "No stable thermocline detected"}
+                      ? `${t("pages.ctd.heatmap.thermoclineAround")} ${formatNumber(summary.thermoclineDepth, 1)} m`
+                      : t("pages.ctd.heatmap.noThermocline")}
                   </span>
                 </div>
                 <div

@@ -57,12 +57,12 @@ const MissionSuccessRate = () => {
   }
 
   return (
-    <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-4 md:p-6 h-full">
+    <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-4 md:p-6 h-full flex flex-col">
       <h3 className="text-xl font-semibold text-black dark:text-white mb-4">
         {t("dashboard.missionSuccessRate.title")}
       </h3>
 
-      <div className="flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center flex-1">
         {/* Donut Chart - diameter diperbesar, ring dipertipis */}
         <div className="relative w-full max-w-xs h-72 sm:h-80 mb-6 mx-auto">
           <ResponsiveContainer width="100%" height="100%">
@@ -95,7 +95,7 @@ const MissionSuccessRate = () => {
         </div>
 
         {/* Legend */}
-        <div className="flex flex-col gap-3 w-full">
+        <div className="flex flex-col gap-3 w-full mt-auto">
           {data.map((item, index) => (
             <div key={index} className="flex items-center justify-between">
               <div className="flex items-center gap-2">

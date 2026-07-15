@@ -21,18 +21,17 @@ import useTranslation from "../hooks/useTranslation";
 import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 
-const getTodayStr = () => new Date().toISOString().split("T")[0];
-
 const getFilterDefaults = () => ({
   vehicle: null,
   mission: null,
-  startDate: getTodayStr(),
-  endDate: getTodayStr(),
+  startDate: "",
+  endDate: "",
   startTime: "",
   endTime: "",
   dateRange: "all",
   dataScope: "all",
   sensor: null,
+  logType: "vehicle",
 });
 
 const getTimestamp = (row) =>
@@ -60,6 +59,13 @@ const getMissingRate = (records, selectedDataType) => {
       "voltage",
       "current",
       "timestamp",
+    ],
+    thruster_logs: [
+      "vehicle_id",
+      "event",
+      "throttle_pct",
+      "steering_pct",
+      "initiated_at",
     ],
   };
 
@@ -118,6 +124,16 @@ const getInsightValue = (records, selectedDataType, t) => {
     const avg =
       temperatures.reduce((sum, value) => sum + value, 0) / temperatures.length;
     return t("pages.data.widgets.avgTemp").replace("{{value}}", avg.toFixed(2));
+  }
+
+  if (selectedDataType === "thruster_logs") {
+    const overrideCount = records.filter(
+      (item) => item?.event === "OVERRIDE",
+    ).length;
+    return t("pages.data.widgets.thrusterOverrides").replace(
+      "{{count}}",
+      overrideCount,
+    );
   }
 
   const socValues = records
@@ -205,6 +221,7 @@ const Data = () => {
     return Object.entries(filters).some(([key, value]) => {
       if (key === "vehicle" || key === "mission" || key === "sensor")
         return Boolean(value?.id);
+      if (key === "logType") return value && value !== "vehicle";
       return value && value !== "all";
     });
   }, [filters]);
@@ -312,7 +329,11 @@ const Data = () => {
             />
           </div>
 
-          <DataCharts data={chartData} selectedDataType={chartDataType} />
+          <DataCharts
+            data={chartData}
+            selectedDataType={chartDataType}
+            selectedSensorCode={filters.sensor?.code}
+          />
 
           <div className="px-4">
             <DataTable

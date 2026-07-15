@@ -4,7 +4,7 @@ import mqtt from 'mqtt'
 import { API_ENDPOINTS } from '../config'
 import { REALTIME_MODE } from '../utils/realtimeConfig'
 
-const postWaypointLog = async (vehicleCode, missionId, missionName, waypointCount, status, message, initiatedAt, resolvedAt) => {
+const postWaypointLog = async (vehicleCode, missionId, missionName, waypointCount, status, message, initiatedAt, resolvedAt, mqttPublishedAt) => {
   try {
     await axios.post(API_ENDPOINTS.WAYPOINT_LOGS.CREATE, {
       vehicle_code: vehicleCode,
@@ -14,7 +14,8 @@ const postWaypointLog = async (vehicleCode, missionId, missionName, waypointCoun
       status,
       message: message || '',
       initiated_at: initiatedAt,
-      resolved_at: resolvedAt || null
+      resolved_at: resolvedAt || null,
+      mqtt_published_at: mqttPublishedAt || null
     })
   } catch {
     // log failure is non-blocking
@@ -57,9 +58,7 @@ const getMqttClient = async () => {
 
   const mqttUrl = buildMqttUrl()
   if (!mqttUrl) {
-    throw new Error(
-      'MQTT config is missing. Set VITE_MQTT_WS_URL or VITE_MQTT_BROKER.'
-    )
+    throw new Error('Connection to vehicle is not configured. Please contact your administrator.')
   }
 
   mqttClientPromise = new Promise((resolve, reject) => {
@@ -82,7 +81,7 @@ const getMqttClient = async () => {
       client.end(true)
       mqttClient = null
       mqttClientPromise = null
-      reject(err || new Error('Failed to connect to MQTT broker'))
+      reject(err || new Error('Could not connect to the vehicle. Please check your network.'))
     }
 
     client.once('connect', handleConnect)
@@ -123,7 +122,7 @@ const publishWaypointToMqtt = async (client, vehicleCode, payload) => {
         resolve()
       })
     }),
-    timeout(MQTT_PUBLISH_TIMEOUT_MS, 'MQTT waypoint publish timeout')
+    timeout(MQTT_PUBLISH_TIMEOUT_MS, 'Upload timed out. Please check your connection and try again.')
   ])
 }
 
@@ -149,22 +148,20 @@ const isWaypointRelated = text => {
 
 const waitForWaypointAck = (client, vehicleCode) =>
   new Promise((resolve, reject) => {
-    const statusTopic = `seano/${String(vehicleCode || '').trim()}/waypoint/status`
+    const responseTopic = `seano/${String(vehicleCode || '').trim()}/waypoint/response`
     const timeoutId = setTimeout(() => {
       cleanup()
-      reject(new Error('MQTT waypoint acknowledgement timeout'))
+      reject(new Error('The vehicle did not respond in time. Please check the vehicle status and try again.'))
     }, MQTT_WAYPOINT_ACK_TIMEOUT_MS)
 
     const cleanup = () => {
       clearTimeout(timeoutId)
       client.removeListener('message', onMessage)
-      client.unsubscribe(statusTopic, () => {})
+      client.unsubscribe(responseTopic, () => {})
     }
 
     const onMessage = (topic, payloadBuffer) => {
-      if (topic !== statusTopic) {
-        return
-      }
+      if (topic !== responseTopic) return
 
       let payload = {}
       try {
@@ -173,47 +170,29 @@ const waitForWaypointAck = (client, vehicleCode) =>
         return
       }
 
-      const payloadVehicle =
-        payload.vehicle_id || payload.vehicle_code || payload.vehicleCode
+      const payloadVehicle = payload.vehicle_id || payload.vehicle_code || payload.vehicleCode
       const sameVehicle =
         !payloadVehicle ||
         normalizeText(payloadVehicle) === normalizeText(vehicleCode)
-      if (!sameVehicle) {
-        return
-      }
+      if (!sameVehicle) return
 
-      const status = String(payload.status || payload.result || '')
+      const status = normalizeText(payload.status || payload.result || '')
       const message = String(payload.message || payload.detail || '')
-      const command = String(payload.command || payload.action || '')
-      const evidence = `${status} ${message} ${command}`
-
-      if (!isWaypointRelated(evidence)) {
-        return
-      }
-
-      if (isFailureText(status) || isFailureText(message)) {
-        cleanup()
-        resolve({
-          success: false,
-          message: message || 'Waypoint upload failed'
-        })
-        return
-      }
 
       cleanup()
-      resolve({
-        success: true,
-        message: message || 'Waypoint uploaded successfully'
-      })
+      if (status === 'SUCCESS' || status === 'OK') {
+        resolve({ success: true, message: message || 'Mission uploaded successfully' })
+      } else {
+        resolve({ success: false, message: message || 'Waypoint upload failed on USV' })
+      }
     }
 
-    client.subscribe(statusTopic, { qos: 0 }, err => {
+    client.subscribe(responseTopic, { qos: 0 }, err => {
       if (err) {
         cleanup()
         reject(err)
         return
       }
-
       client.on('message', onMessage)
     })
   })
@@ -247,7 +226,7 @@ const useMissionUpload = () => {
       } catch (error) {
         setUploadState(prev => ({
           ...prev,
-          error: 'Failed to get vehicle info',
+          error: 'Could not load vehicle information. Please try again.',
           currentStep: 'error'
         }))
         return null
@@ -263,24 +242,23 @@ const useMissionUpload = () => {
     const errors = []
 
     if (!mission.name || mission.name.trim() === '') {
-      errors.push('Mission name is required')
+      errors.push('Please give your mission a name')
     }
 
     if (!mission.waypoints || mission.waypoints.length === 0) {
-      errors.push('Mission must have at least one waypoint')
+      errors.push('Add at least one waypoint to your mission')
     }
 
     if (!mission.home_location) {
-      errors.push('Home location is required')
+      errors.push('Set a home location before uploading')
     }
 
-    // Validate waypoints structure
     if (mission.waypoints && mission.waypoints.length > 0) {
       const invalidWaypoints = mission.waypoints.filter(
         wp => typeof wp.lat !== 'number' || typeof wp.lng !== 'number'
       )
       if (invalidWaypoints.length > 0) {
-        errors.push('Invalid waypoint coordinates detected')
+        errors.push('Some waypoints have invalid coordinates')
       }
     }
 
@@ -321,7 +299,7 @@ const useMissionUpload = () => {
         // Get vehicle code
         const vehicleInfo = await getVehicleInfo(vehicleId)
         if (!vehicleInfo || !vehicleInfo.vehicleCode) {
-          throw new Error('Vehicle code not found')
+          throw new Error('Could not find the selected vehicle. Please try again.')
         }
 
         const vehicleCode = vehicleInfo.vehicleCode
@@ -362,7 +340,7 @@ const useMissionUpload = () => {
           return {
             success: true,
             data: response.data,
-            message: response.data?.message || 'Mission queued for vehicle'
+            message: response.data?.message || 'Mission sent to vehicle'
           }
         }
 
@@ -401,7 +379,7 @@ const useMissionUpload = () => {
           getMqttClient(),
           new Promise((_, reject) => {
             setTimeout(
-              () => reject(new Error('MQTT connect timeout')),
+              () => reject(new Error('Connection to vehicle timed out. Please try again.')),
               MQTT_CONNECT_TIMEOUT_MS
             )
           })
@@ -409,10 +387,23 @@ const useMissionUpload = () => {
 
         // Publish waypoint to vehicle
         await publishWaypointToMqtt(client, vehicleCode, waypointPayload)
+        const mqttPublishedAt = new Date().toISOString()
 
-        // Log mission upload
-        const resolvedAt = new Date().toISOString()
-        postWaypointLog(vehicleCode, missionId, missionName, waypointCount, 'success', 'Mission uploaded to vehicle', initiatedAt, resolvedAt)
+        // Log as pending — backend will update to success/failed when MQTT ACK arrives
+        postWaypointLog(vehicleCode, missionId, missionName, waypointCount, 'pending', 'Waiting for vehicle confirmation', initiatedAt, null, mqttPublishedAt)
+
+        // Wait for USV to ACK the upload via seano/{vehicleCode}/waypoint/response
+        setUploadState(prev => ({
+          ...prev,
+          progress: 70,
+          currentStep: 'waiting_ack'
+        }))
+
+        const ack = await waitForWaypointAck(client, vehicleCode)
+
+        if (!ack.success) {
+          throw new Error(ack.message)
+        }
 
         // Update mission record: set vehicle_id and status to Ongoing
         try {
@@ -440,12 +431,12 @@ const useMissionUpload = () => {
             mission_id: missionId,
             vehicle_id: vehicleId,
             vehicle_code: vehicleCode,
-            status_message: 'Mission uploaded successfully'
+            status_message: ack.message
           },
-          message: 'Mission uploaded successfully to vehicle'
+          message: ack.message
         }
       } catch (error) {
-        const errMsg = error.response?.data?.message || error.message || 'Upload failed'
+        const errMsg = error.response?.data?.message || error.message || 'Upload failed. Please try again.'
         // Best-effort log: initiatedAt may be undefined if error happened before vehicleCode was set
         const _vehicleCode = missionData?.vehicle_code || missionData?.vehicleCode || ''
         if (_vehicleCode && !isPollingMode) {
@@ -490,10 +481,11 @@ const useMissionUpload = () => {
     if (error) return error
 
     const messages = {
-      validating: 'Validating mission data...',
-      uploading: 'Uploading mission to vehicle...',
+      validating: 'Checking mission details...',
+      uploading: 'Sending mission to vehicle...',
+      waiting_ack: 'Waiting for vehicle response...',
       complete: 'Mission uploaded successfully!',
-      error: 'Upload failed'
+      error: 'Upload failed. Please try again.'
     }
 
     return messages[currentStep] || 'Preparing...'

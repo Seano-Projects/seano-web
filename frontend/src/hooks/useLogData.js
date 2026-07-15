@@ -11,15 +11,24 @@ const LOG_LIMIT = 200
 const WS_FLUSH_INTERVAL_MS = 250
 const MAX_RAW_LOG_CHARS = 512
 
+const getTZOffset = () => {
+  const offset = -new Date().getTimezoneOffset()
+  const sign = offset >= 0 ? '+' : '-'
+  const h = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')
+  const m = String(Math.abs(offset) % 60).padStart(2, '0')
+  return `${sign}${h}:${m}`
+}
+
 const buildDateRangeParams = ({ startDate, endDate, startTime, endTime }) => {
   const params = new URLSearchParams()
+  const tz = getTZOffset()
 
   if (startDate) {
-    params.set('start_time', `${startDate}T${startTime || '00:00:00'}`)
+    params.set('start_time', `${startDate}T${startTime || '00:00:00'}${tz}`)
   }
 
   if (endDate) {
-    params.set('end_time', `${endDate}T${endTime || '23:59:59'}`)
+    params.set('end_time', `${endDate}T${endTime || '23:59:59'}${tz}`)
   }
 
   return params
@@ -113,6 +122,38 @@ const BATTERY_STORAGE_KEY = 'batteryData'
 
 // WebSocket receipt ACK is disabled to avoid extra database writes.
 const ackWsReceipt = () => {}
+
+// Module-level clock offset (server_clock - browser_clock in ms).
+// Populated on mount via /server-time pings.
+let _clockOffsetMs = 0
+let _clockSynced = false
+let _pendingAcks = []
+
+export const getClockOffsetMs = () => _clockOffsetMs
+
+const _dispatchLatencyAck = (logType, logId, receivedAt) => {
+  const token = localStorage.getItem('access_token')
+  if (!token || !logId) return
+  const adjustedMs = new Date(receivedAt).getTime() + _clockOffsetMs
+  const body = { ws_received_at: new Date(adjustedMs).toISOString() }
+  axios.patch(`${API_URL}/latency-acks/by-log/${logType}/${logId}`, body, {
+    headers: { Authorization: `Bearer ${token}` }
+  }).catch(() => {})
+}
+
+const flushPendingAcks = () => {
+  const pending = _pendingAcks.splice(0)
+  pending.forEach(({ logType, logId, receivedAt }) => _dispatchLatencyAck(logType, logId, receivedAt))
+}
+
+const postLatencyAck = (logType, logId, vehicleId, sensorId, receivedAt) => {
+  if (!logId) return
+  if (!_clockSynced) {
+    _pendingAcks.push({ logType, logId, receivedAt })
+    return
+  }
+  _dispatchLatencyAck(logType, logId, receivedAt)
+}
 
 const normalizeBatteryMap = rawBatteryMap => {
   if (!rawBatteryMap || typeof rawBatteryMap !== 'object') {
@@ -221,6 +262,42 @@ export const useLogData = (options = {}) => {
   useEffect(() => {
     pauseRealtimeRef.current = pauseRealtime
   }, [pauseRealtime])
+
+  // Sync server clock to correct seg_ws_ms cross-clock skew.
+  // Sets offset immediately after first sample so queued ACKs can flush,
+  // then refines with median of 5 total samples. Re-syncs every 2 minutes.
+  useEffect(() => {
+    const sample = async () => {
+      const t0 = Date.now()
+      const { data } = await axios.get(`${API_URL}/server-time`)
+      const t1 = Date.now()
+      const rtt = t1 - t0
+      return { offset: new Date(data.server_time).getTime() - (t0 + rtt / 2), rtt }
+    }
+    const syncClock = async () => {
+      const samples = []
+      try {
+        const first = await sample()
+        samples.push(first)
+        _clockOffsetMs = first.offset
+        if (!_clockSynced) {
+          _clockSynced = true
+          flushPendingAcks()
+        }
+      } catch {}
+      for (let i = 0; i < 4; i++) {
+        try { samples.push(await sample()) } catch {}
+        if (i < 3) await new Promise(r => setTimeout(r, 100))
+      }
+      if (samples.length > 1) {
+        const offsets = samples.map(s => s.offset).sort((a, b) => a - b)
+        _clockOffsetMs = offsets[Math.floor(offsets.length / 2)]
+      }
+    }
+    syncClock()
+    const interval = setInterval(syncClock, 2 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const flushQueues = useCallback(() => {
     if (vehicleQueueRef.current.length > 0) {
@@ -746,7 +823,7 @@ export const useLogData = (options = {}) => {
               })
 
               if (message.data.id) {
-                ackWsReceipt(`/vehicle-logs/${message.data.id}/ws-received`, receivedAt)
+                postLatencyAck('vehicle', message.data.id, message.data.vehicle_id, null, receivedAt)
               }
             }
           } else if (message.type === 'sensor_log' && enableSensorLogs) {
@@ -763,7 +840,7 @@ export const useLogData = (options = {}) => {
               })
 
               if (message.data.id) {
-                ackWsReceipt(`/sensor-logs/${message.data.id}/ws-received`, receivedAt)
+                postLatencyAck('sensor', message.data.id, message.data.vehicle_id, message.data.sensor_id, receivedAt)
               }
             }
           } else if (message.type === 'raw_log' && enableRawLogs) {
@@ -793,7 +870,7 @@ export const useLogData = (options = {}) => {
               })
 
               if (message.data.id) {
-                ackWsReceipt(`/command-logs/${message.data.id}/ws-received`, receivedAt)
+                postLatencyAck('command', message.data.id, message.data.vehicle_id, null, receivedAt)
               }
             }
           } else if (message.type === 'waypoint_log' && enableWaypointLogs) {
@@ -810,16 +887,25 @@ export const useLogData = (options = {}) => {
               })
 
               if (message.data.id) {
-                ackWsReceipt(`/waypoint-logs/${message.data.id}/ws-received`, receivedAt)
+                postLatencyAck('waypoint', message.data.id, message.data.vehicle_id, null, receivedAt)
               }
             }
           } else if (message.type === 'thruster_log' && enableThrusterLogs) {
+            const receivedAt = new Date().toISOString()
             if (message.data) {
               wsClientSeqRef.current += 1
               thrusterQueueRef.current.push({
                 ...message.data,
-                _client_id: `thruster-${new Date().toISOString()}-${wsClientSeqRef.current}`
+                ws_sent_at: message.ws_sent_at || '',
+                ws_received_at: receivedAt,
+                _received_at: receivedAt,
+                _source: 'ws',
+                _client_id: `thruster-${receivedAt}-${wsClientSeqRef.current}`
               })
+
+              if (message.data.id) {
+                postLatencyAck('thruster', message.data.id, message.data.vehicle_id, null, receivedAt)
+              }
             }
           } else if (message.type === 'battery' && enableBatteryData) {
             const { vehicle_id } = message

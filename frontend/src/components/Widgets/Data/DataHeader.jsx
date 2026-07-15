@@ -38,6 +38,11 @@ const DATA_TYPES = [
     labelKey: "pages.data.types.thrusterLogs",
     endpoint: "THRUSTER_LOGS",
   },
+  {
+    value: "latency_logs",
+    labelKey: "pages.data.types.latencyLogs",
+    endpoint: "LATENCY_LOGS",
+  },
 ];
 
 const DATE_RANGE_OPTIONS = [
@@ -51,7 +56,8 @@ const DATE_RANGE_OPTIONS = [
 const EXPORT_FILTER_DEFAULTS = {
   vehicle: null,
   sensor: null,
-  dataType: null, // akan di-set saat modal dibuka
+  dataType: null,
+  latencyLogType: "vehicle",
   startDate: "",
   startTime: "00:00",
   endDate: "",
@@ -168,6 +174,13 @@ const DataHeader = ({
       params.sensor_id = activeFilters.sensor.id;
     }
 
+    if (type === "latency_logs") {
+      params.log_type = activeFilters.latencyLogType || "vehicle";
+      if (activeFilters.latencyLogType === "sensor" && activeFilters.sensor?.id) {
+        params.sensor_id = activeFilters.sensor.id;
+      }
+    }
+
     return params;
   };
 
@@ -208,9 +221,6 @@ const DataHeader = ({
         "RSSI",
         "Temperature",
         "UsvTimestamp",
-        "MqttReceivedAt",
-        "WsSentAt",
-        "WsReceivedAt",
       ];
 
       lines.push(headers.join(","));
@@ -248,9 +258,6 @@ const DataHeader = ({
         const rssi = row.rssi || "";
         const temp = row.temperature_system || row.temperatureSystem || "";
         const usvTs = row.usv_timestamp || "";
-        const mqttTs = row.mqtt_received_at || "";
-        const wsSentAt = row.ws_sent_at || "";
-        const wsReceivedAt = row.ws_received_at || "";
 
         const vals = [
           ts,
@@ -274,9 +281,6 @@ const DataHeader = ({
           rssi,
           temp,
           usvTs,
-          mqttTs,
-          wsSentAt,
-          wsReceivedAt,
         ].map(escapeCsvValue);
         lines.push(vals.join(","));
       });
@@ -288,9 +292,6 @@ const DataHeader = ({
         "Mission",
         "Data",
         "UsvTimestamp",
-        "MqttReceivedAt",
-        "WsSentAt",
-        "WsReceivedAt",
       ];
       lines.push(headers.join(","));
 
@@ -320,9 +321,6 @@ const DataHeader = ({
             ? JSON.stringify(row.data)
             : row.data || row.Data || "";
         const usvTs = row.usv_timestamp || "";
-        const mqttTs = row.mqtt_received_at || row.mqttReceivedAt || "";
-        const wsSentAt = row.ws_sent_at || "";
-        const wsReceivedAt = row.ws_received_at || "";
 
         const vals = [
           ts,
@@ -331,9 +329,6 @@ const DataHeader = ({
           mission,
           dataField,
           usvTs,
-          mqttTs,
-          wsSentAt,
-          wsReceivedAt,
         ].map(escapeCsvValue);
         lines.push(vals.join(","));
       });
@@ -647,7 +642,11 @@ const DataHeader = ({
         }
 
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-        downloadCsvBlob(blob, exportType);
+        const localDownloadName =
+          exportType === "latency_logs"
+            ? `latency_${exportFilters.latencyLogType || "vehicle"}_logs`
+            : exportType;
+        downloadCsvBlob(blob, localDownloadName);
         toast.success(
           `${exportTypeConfig.label || "Data"} exported successfully!`,
         );
@@ -691,7 +690,11 @@ const DataHeader = ({
         return;
       }
 
-      downloadCsvBlob(response.data, exportType);
+      const downloadName =
+        exportType === "latency_logs"
+          ? `latency_${exportFilters.latencyLogType || "vehicle"}_logs`
+          : exportType;
+      downloadCsvBlob(response.data, downloadName);
 
       toast.success(
         `${exportTypeConfig.label || "Data"} exported successfully!`,
@@ -709,7 +712,11 @@ const DataHeader = ({
           const blob = new Blob([csvContent], {
             type: "text/csv;charset=utf-8",
           });
-          downloadCsvBlob(blob, exportType);
+          const fallbackName =
+            exportType === "latency_logs"
+              ? `latency_${exportFilters.latencyLogType || "vehicle"}_logs`
+              : exportType;
+          downloadCsvBlob(blob, fallbackName);
           toast.success(t("pages.data.messages.exportFromLoadedData"));
           return;
         }
@@ -828,7 +835,7 @@ const DataHeader = ({
 
       {/* Export Filter Modal */}
       {showExportModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/50">
           <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-6 max-h-[95vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -973,9 +980,51 @@ const DataHeader = ({
                 />
               </div>
 
-              {/* Sensor filter - only for sensor_logs */}
+              {/* Log Type filter - only for latency_logs */}
               {(exportFilters.dataType || selectedDataType) ===
-                "sensor_logs" && (
+                "latency_logs" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Log Type
+                  </label>
+                  <Dropdown
+                    items={[
+                      { value: "vehicle", label: "Vehicle" },
+                      { value: "sensor", label: "Sensor" },
+                      { value: "thruster", label: "Thruster" },
+                      { value: "command", label: "Command" },
+                      { value: "waypoint", label: "Waypoint" },
+                    ]}
+                    selectedItem={[
+                      { value: "vehicle", label: "Vehicle" },
+                      { value: "sensor", label: "Sensor" },
+                      { value: "thruster", label: "Thruster" },
+                      { value: "command", label: "Command" },
+                      { value: "waypoint", label: "Waypoint" },
+                    ].find((x) => x.value === (exportFilters.latencyLogType || "vehicle"))}
+                    onItemChange={(item) =>
+                      setExportFilters((prev) => ({
+                        ...prev,
+                        latencyLogType: item.value,
+                        sensor: null,
+                      }))
+                    }
+                    getItemKey={(item) => item.value}
+                    renderSelectedItem={(item) => (
+                      <span className="text-sm text-gray-900 dark:text-white">{item.label}</span>
+                    )}
+                    renderItem={(item) => (
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+                    )}
+                    useFixedPositioning={true}
+                  />
+                </div>
+              )}
+
+              {/* Sensor filter - only for sensor_logs or latency_logs+sensor */}
+              {((exportFilters.dataType || selectedDataType) === "sensor_logs" ||
+                ((exportFilters.dataType || selectedDataType) === "latency_logs" &&
+                  exportFilters.latencyLogType === "sensor")) && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Sensor

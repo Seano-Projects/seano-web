@@ -1,48 +1,6 @@
 import { useMemo } from "react";
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { FaClock, FaMapMarkerAlt, FaWater, FaDatabase } from "react-icons/fa";
-import useMapTile from "../../../../hooks/useMapTile";
-import usvPointIcon from "../../../../assets/usv-point.webp";
-
-const createBoatIcon = () =>
-  L.divIcon({
-    html: `<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));">
-      <img src="${usvPointIcon}" style="width:100%;height:100%;object-fit:contain;" />
-    </div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    className: "ctd-cast-map-icon",
-  });
-
-const BOAT_ICON = createBoatIcon();
-
-// Just the map, no card wrapper
-export const CastMiniMap = ({ lat, lon }) => {
-  const { url: tileUrl } = useMapTile();
-
-  if (lat == null || lon == null) return null;
-
-  return (
-    <div className="mb-4 w-full h-96 rounded-xl overflow-hidden">
-      <MapContainer
-        center={[lat, lon]}
-        zoom={14}
-        style={{ height: "100%", width: "100%" }}
-        zoomControl={true}
-        scrollWheelZoom={true}
-        doubleClickZoom={true}
-        dragging={true}
-        attributionControl={false}
-      >
-        <TileLayer url={tileUrl} />
-        <Marker position={[lat, lon]} icon={BOAT_ICON} />
-      </MapContainer>
-      <style>{`.ctd-cast-map-icon { background:none!important; border:none!important; }`}</style>
-    </div>
-  );
-};
+import useTranslation from "../../../../hooks/useTranslation";
 
 const StatCard = ({ icon, iconBg, value, title, subtitle }) => (
   <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6 hover:bg-gray-50 dark:hover:bg-slate-600/30 transition-colors duration-200 group">
@@ -62,6 +20,7 @@ const StatCard = ({ icon, iconBg, value, title, subtitle }) => (
 );
 
 export const CastInfoBar = ({ ctdData }) => {
+  const { t } = useTranslation();
   const castInfo = useMemo(() => {
     if (!ctdData || ctdData.length === 0) return null;
 
@@ -101,7 +60,7 @@ export const CastInfoBar = ({ ctdData }) => {
     : "—";
   const coordSub = hasCoord
     ? `${Number(Math.abs(lon)).toFixed(4)}° ${lon >= 0 ? "E" : "W"}`
-    : "Koordinat tidak tersedia";
+    : t("pages.ctd.castInfo.noCoordinates");
 
   return (
     <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -109,29 +68,29 @@ export const CastInfoBar = ({ ctdData }) => {
         icon={<FaClock className="text-blue-500 text-lg" />}
         iconBg="bg-blue-100 dark:bg-blue-900/30"
         value={timeLabel}
-        title="Waktu Cast"
-        subtitle="Timestamp cast terakhir"
+        title={t("pages.ctd.castInfo.castTime")}
+        subtitle={t("pages.ctd.castInfo.castTimeSub")}
       />
       <StatCard
         icon={<FaMapMarkerAlt className="text-green-500 text-lg" />}
         iconBg="bg-green-100 dark:bg-green-900/30"
         value={coordLabel}
-        title="Koordinat"
+        title={t("pages.ctd.castInfo.coordinates")}
         subtitle={coordSub}
       />
       <StatCard
         icon={<FaWater className="text-cyan-500 text-lg" />}
         iconBg="bg-cyan-100 dark:bg-cyan-900/30"
         value={depthMax > 0 ? `${depthMax.toFixed(1)} m` : "—"}
-        title="Kedalaman Maks"
-        subtitle="Titik terdalam cast"
+        title={t("pages.ctd.castInfo.maxDepth")}
+        subtitle={t("pages.ctd.castInfo.maxDepthSub")}
       />
       <StatCard
         icon={<FaDatabase className="text-purple-500 text-lg" />}
         iconBg="bg-purple-100 dark:bg-purple-900/30"
         value={`${castEntries.length}`}
-        title="Jumlah Data"
-        subtitle="Total titik pengukuran"
+        title={t("pages.ctd.castInfo.dataCount")}
+        subtitle={t("pages.ctd.castInfo.dataCountSub")}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { FaTrash } from "react-icons/fa";
-import { DataTable as BaseDataTable } from "../../ui";
+import { DataTable as BaseDataTable, Modal } from "../../ui";
 import axios from "../../../utils/axiosConfig";
 import { API_ENDPOINTS } from "../../../config";
 import { toast } from "../../ui";
@@ -18,6 +18,7 @@ const DataTable = ({
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
   const [error, setError] = useState(null);
+  const [viewJsonData, setViewJsonData] = useState(null);
 
   // Data type configurations
   const DATA_TYPE_CONFIG = {
@@ -51,6 +52,18 @@ const DataTable = ({
       searchKeys: ["vehicle_id", "command", "status"],
       searchPlaceholderKey: "pages.data.table.searchCommand",
     },
+    thruster_logs: {
+      labelKey: "pages.data.types.thrusterLogs",
+      endpoint: API_ENDPOINTS.THRUSTER_LOGS,
+      searchKeys: ["vehicle_code", "event"],
+      searchPlaceholderKey: "pages.data.table.searchThruster",
+    },
+    latency_logs: {
+      labelKey: "pages.data.types.latencyLogs",
+      endpoint: API_ENDPOINTS.LATENCY_LOGS,
+      searchKeys: ["log_type", "log_id", "vehicle_id"],
+      searchPlaceholderKey: "pages.data.table.searchCommand",
+    },
   };
 
   // Build query params from filters
@@ -59,19 +72,20 @@ const DataTable = ({
     if (f.vehicle?.id) params.append("vehicle_id", f.vehicle.id);
     if (f.mission?.id) params.append("mission_id", f.mission.id);
 
-    if (f.startDate) {
-      const time = f.startTime || "00:00:00";
-      const d = new Date(`${f.startDate}T${time}`);
-      if (!isNaN(d)) params.append("start_time", d.toISOString());
-    }
-    if (f.endDate) {
-      const time = f.endTime ? `${f.endTime}:59` : "23:59:59";
-      const d = new Date(`${f.endDate}T${time}`);
-      if (!isNaN(d)) params.append("end_time", d.toISOString());
-    }
-
-    // date range shortcuts → convert to start_time
-    if (f.dateRange && f.dateRange !== "all" && !f.startDate) {
+    if (f.dateRange === "custom") {
+      // Custom range — use the explicit Start/End Date (+ time) fields.
+      if (f.startDate) {
+        const time = f.startTime || "00:00:00";
+        const d = new Date(`${f.startDate}T${time}`);
+        if (!isNaN(d)) params.append("start_time", d.toISOString());
+      }
+      if (f.endDate) {
+        const time = f.endTime ? `${f.endTime}:59` : "23:59:59";
+        const d = new Date(`${f.endDate}T${time}`);
+        if (!isNaN(d)) params.append("end_time", d.toISOString());
+      }
+    } else if (f.dateRange && f.dateRange !== "all") {
+      // Preset range shortcuts → convert to start_time
       const now = new Date();
       let from;
       if (f.dateRange === "today") {
@@ -89,11 +103,16 @@ const DataTable = ({
       }
       if (from) params.append("start_time", from.toISOString());
     }
+    // "all" → no time restriction, every record for the other filters shows up.
 
     if (f.dataScope && f.dataScope !== "all")
       params.append("source", f.dataScope);
     if (type === "sensor_logs" && f.sensor?.id) {
       params.append("sensor_id", f.sensor.id);
+    }
+    if (type === "latency_logs") {
+      // The backend matches log_type exactly (never empty) — always send one.
+      params.append("log_type", f.logType || "vehicle");
     }
     params.append("limit", "500");
     return params.toString();
@@ -143,7 +162,7 @@ const DataTable = ({
           : Boolean(config?.endpoint?.LIST);
 
       if (!config || !hasEndpoint) {
-        setError("Invalid data type or endpoint not configured");
+        setError("This data type is not available.");
         setData([]);
         return;
       }
@@ -177,7 +196,7 @@ const DataTable = ({
     } catch (err) {
       setError(
         err.message ||
-          `Failed to fetch ${DATA_TYPE_CONFIG[selectedDataType]?.label || "data"}`,
+          `Couldn't load ${DATA_TYPE_CONFIG[selectedDataType]?.label || "data"}. Please try again.`,
       );
       setData([]);
     } finally {
@@ -443,11 +462,32 @@ const DataTable = ({
         {
           header: t("pages.data.table.columns.dataJson"),
           accessorKey: "data",
-          cell: (row) => (
-            <span className="text-xs text-gray-600 dark:text-gray-400 max-w-[280px] sm:max-w-[360px] md:max-w-[520px] whitespace-normal break-all font-mono inline-block">
-              {formatJsonPayload(row.data) || "N/A"}
-            </span>
-          ),
+          cell: (row) => {
+            const jsonStr = formatJsonPayload(row.data);
+            if (!jsonStr)
+              return (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  N/A
+                </span>
+              );
+            return (
+              <div className="flex items-center gap-2 max-w-70 sm:max-w-90 md:max-w-130">
+                <span className="text-xs text-gray-600 dark:text-gray-400 font-mono truncate">
+                  {jsonStr}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setViewJsonData(jsonStr);
+                  }}
+                  className="shrink-0 text-xs px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors"
+                >
+                  {t("pages.data.table.view") || "View"}
+                </button>
+              </div>
+            );
+          },
         },
         {
           header: t("pages.data.table.columns.mission"),
@@ -549,7 +589,8 @@ const DataTable = ({
           accessorKey: "mission_name",
           cell: (row) => (
             <span className="text-xs px-2 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-              {row.mission_name || (row.mission_id ? `#${row.mission_id}` : "—")}
+              {row.mission_name ||
+                (row.mission_id ? `#${row.mission_id}` : "—")}
             </span>
           ),
         },
@@ -658,6 +699,162 @@ const DataTable = ({
           ),
         },
       ];
+    } else if (selectedDataType === "thruster_logs") {
+      dataColumns = [
+        {
+          header: t("pages.data.table.columns.timestamp"),
+          accessorKey: "created_at",
+          cell: (row) => (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {row.created_at
+                ? new Date(row.created_at).toLocaleString()
+                : "Unknown"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.vehicle"),
+          accessorKey: "vehicle_code",
+          cell: (row) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.vehicle?.code || row.vehicle_code || `V${row.vehicle_id}`}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.event"),
+          accessorKey: "event",
+          cell: (row) => (
+            <span
+              className={`text-xs px-2 py-1 rounded-full font-medium ${
+                row.event === "OVERRIDE"
+                  ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+                  : "bg-gray-100 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300"
+              }`}
+            >
+              {row.event || "—"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.throttle"),
+          accessorKey: "throttle_pct",
+          cell: (row) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.throttle_pct != null ? `${row.throttle_pct}%` : "—"}
+            </span>
+          ),
+        },
+        {
+          header: t("pages.data.table.columns.steering"),
+          accessorKey: "steering_pct",
+          cell: (row) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.steering_pct != null ? `${row.steering_pct}%` : "—"}
+            </span>
+          ),
+        },
+        {
+          header: "Initiated",
+          accessorKey: "initiated_at",
+          cell: (row) => (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {row.initiated_at
+                ? new Date(row.initiated_at).toLocaleTimeString()
+                : "—"}
+            </span>
+          ),
+        },
+      ];
+    } else if (selectedDataType === "latency_logs") {
+      dataColumns = [
+        {
+          header: "Created At",
+          accessorKey: "created_at",
+          cell: (row) => (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {row.created_at ? new Date(row.created_at).toLocaleString() : "—"}
+            </span>
+          ),
+        },
+        {
+          header: "Log Type",
+          accessorKey: "log_type",
+          cell: (row) => (
+            <span
+              className={`text-xs px-2 py-1 rounded-full font-medium ${
+                row.log_type === "vehicle"
+                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                  : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+              }`}
+            >
+              {row.log_type || "—"}
+            </span>
+          ),
+        },
+        {
+          header: "Vehicle ID",
+          accessorKey: "vehicle_id",
+          cell: (row) => (
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {row.vehicle_id || "—"}
+            </span>
+          ),
+        },
+        {
+          header: "Log ID",
+          accessorKey: "log_id",
+          cell: (row) => (
+            <span className="text-xs font-mono text-gray-600 dark:text-gray-400">
+              #{row.log_id}
+            </span>
+          ),
+        },
+        {
+          // vehicle/sensor logs originate on the USV (usv_timestamp is when the
+          // device captured the reading); thruster/command/waypoint logs
+          // originate from the web/backend instead, so there's no USV-side
+          // timestamp — initiated_at is the meaningful "origin" time there.
+          header:
+            filters.logType === "vehicle" || filters.logType === "sensor"
+              ? "USV Timestamp"
+              : "Initiated At",
+          accessorKey: "origin_timestamp",
+          cell: (row) => {
+            const value = row.usv_timestamp ?? row.initiated_at;
+            return (
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                {value
+                  ? new Date(value).toLocaleTimeString([], {
+                      hour12: false,
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      fractionalSecondDigits: 3,
+                    })
+                  : "—"}
+              </span>
+            );
+          },
+        },
+        {
+          header: "WS Received At",
+          accessorKey: "ws_received_at",
+          cell: (row) => (
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+              {row.ws_received_at
+                ? new Date(row.ws_received_at).toLocaleTimeString([], {
+                    hour12: false,
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    fractionalSecondDigits: 3,
+                  })
+                : "—"}
+            </span>
+          ),
+        },
+      ];
     }
 
     return [checkboxColumn, ...dataColumns, actionsColumn];
@@ -720,7 +917,10 @@ const DataTable = ({
       {loading ? (
         <div className="animate-pulse space-y-2 py-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800 rounded-lg" />
+            <div
+              key={i}
+              className="h-10 bg-gray-100 dark:bg-gray-800 rounded-lg"
+            />
           ))}
         </div>
       ) : selectedDataType === "battery_logs" && !filters.vehicle?.id ? (
@@ -781,6 +981,25 @@ const DataTable = ({
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={!!viewJsonData}
+        onClose={() => setViewJsonData(null)}
+        title={t("pages.data.table.columns.dataJson")}
+        size="lg"
+      >
+        <pre className="text-xs font-mono text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-all max-h-[60vh] overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
+          {viewJsonData
+            ? (() => {
+                try {
+                  return JSON.stringify(JSON.parse(viewJsonData), null, 2);
+                } catch {
+                  return viewJsonData;
+                }
+              })()
+            : ""}
+        </pre>
+      </Modal>
     </div>
   );
 };

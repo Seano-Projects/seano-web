@@ -33,17 +33,19 @@ const Sensor = () => {
   const handleCreateSensor = async (sensorData) => {
     try {
       await axios.post(API_ENDPOINTS.SENSORS.CREATE, sensorData);
-      await notify.success("Sensor created successfully!", {
-        title: "Sensor Created",
+      await notify.success(t("pages.management.sensor.created"), {
+        title: t("pages.management.sensor.createdTitle"),
         action: notify.ACTIONS.SENSOR_CREATED,
       });
       setShowAddSensorModal(false);
       fetchSensors();
     } catch (error) {
       await notify.error(
-        error.response?.data?.detail || "Failed to create sensor",
+        error.response?.data?.error ||
+          error.response?.data?.detail ||
+          t("pages.management.sensor.createFailed"),
         {
-          title: "Sensor Creation Failed",
+          title: t("pages.management.sensor.createFailedTitle"),
           action: notify.ACTIONS.SENSOR_CREATED,
         },
       );
@@ -66,8 +68,8 @@ const Sensor = () => {
   const handleUpdateSensor = async (sensorData) => {
     try {
       await axios.put(API_ENDPOINTS.SENSORS.UPDATE(editData.id), sensorData);
-      await notify.success("Sensor updated successfully!", {
-        title: "Sensor Updated",
+      await notify.success(t("pages.management.sensor.updated"), {
+        title: t("pages.management.sensor.updatedTitle"),
         action: notify.ACTIONS.SENSOR_UPDATED,
       });
       fetchSensors();
@@ -75,9 +77,11 @@ const Sensor = () => {
       setEditData(null);
     } catch (error) {
       await notify.error(
-        error.response?.data?.detail || "Failed to update sensor",
+        error.response?.data?.error ||
+          error.response?.data?.detail ||
+          t("pages.management.sensor.updateFailed"),
         {
-          title: "Sensor Update Failed",
+          title: t("pages.management.sensor.updateFailedTitle"),
           action: notify.ACTIONS.SENSOR_UPDATED,
         },
       );
@@ -94,8 +98,8 @@ const Sensor = () => {
 
     try {
       await axios.delete(API_ENDPOINTS.SENSORS.DELETE(deleteTarget.id));
-      await notify.success("Sensor deleted successfully!", {
-        title: "Sensor Deleted",
+      await notify.success(t("pages.management.sensor.deleted"), {
+        title: t("pages.management.sensor.deletedTitle"),
         action: notify.ACTIONS.SENSOR_DELETED,
       });
       setShowDeleteModal(false);
@@ -103,9 +107,11 @@ const Sensor = () => {
       fetchSensors();
     } catch (error) {
       await notify.error(
-        error.response?.data?.detail || "Failed to delete sensor",
+        error.response?.data?.error ||
+          error.response?.data?.detail ||
+          t("pages.management.sensor.deleteFailed"),
         {
-          title: "Sensor Deletion Failed",
+          title: t("pages.management.sensor.deleteFailedTitle"),
           action: notify.ACTIONS.SENSOR_DELETED,
         },
       );
@@ -129,7 +135,7 @@ const Sensor = () => {
       await notify.success(
         `${deleteTarget.ids.length} sensor(s) deleted successfully!`,
         {
-          title: "Bulk Sensor Deletion",
+          title: t("pages.management.sensor.bulkDeletedTitle"),
           action: notify.ACTIONS.SENSOR_DELETED,
         },
       );
@@ -137,8 +143,8 @@ const Sensor = () => {
       setDeleteTarget(null);
       fetchSensors();
     } catch (error) {
-      await notify.error("Failed to delete some sensors", {
-        title: "Bulk Deletion Failed",
+      await notify.error(t("pages.management.sensor.bulkDeleteFailed"), {
+        title: t("pages.management.sensor.bulkDeleteFailedTitle"),
         action: notify.ACTIONS.SENSOR_DELETED,
       });
     }

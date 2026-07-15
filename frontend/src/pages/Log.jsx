@@ -19,7 +19,6 @@ import {
   FiNavigation,
   FiPause,
   FiPlay,
-  FiDownload,
 } from "react-icons/fi";
 import useTranslation from "../hooks/useTranslation";
 
@@ -201,22 +200,18 @@ const Log = () => {
   const [thrusterVisibleKeys, setThrusterVisibleKeys] =
     useState(THRUSTER_COL_DEFAULT);
 
-  // Get Anti Theft and Failsafe logs from alerts
-  const antiTheftLogs = useMemo(() => {
-    return alerts.filter(
-      (alert) =>
-        alert.alert_type?.toLowerCase() === "anti-theft" ||
-        alert.type?.toLowerCase() === "anti-theft",
-    );
-  }, [alerts]);
+  const isAntiTheft = (alert) => {
+    const t = (alert.alert_type || alert.type || "").toLowerCase().replace(/[-_\s]/g, "");
+    return t === "antitheft";
+  };
+  const isFailsafe = (alert) => {
+    const t = (alert.alert_type || alert.type || "").toLowerCase();
+    return t === "failsafe";
+  };
 
-  const failsafeLogs = useMemo(() => {
-    return alerts.filter(
-      (alert) =>
-        alert.alert_type?.toLowerCase() === "failsafe" ||
-        alert.type?.toLowerCase() === "failsafe",
-    );
-  }, [alerts]);
+  // Get Anti Theft and Failsafe logs from alerts
+  const antiTheftLogs = useMemo(() => alerts.filter(isAntiTheft), [alerts]);
+  const failsafeLogs = useMemo(() => alerts.filter(isFailsafe), [alerts]);
 
   // Use loading timeout to prevent infinite skeleton loading
   const { loading: timeoutLoading } = useLoadingTimeout(loading, 5000);
@@ -248,8 +243,18 @@ const Log = () => {
   const filteredVehicleLogs = filterLogsByVehicle(vehicleLogs);
   const filteredSensorLogs = filterLogsByVehicle(sensorLogs);
   const filteredRawLogs = filterLogsByVehicle(rawLogs);
-  const filteredAntiTheftLogs = filterLogsByVehicle(antiTheftLogs);
-  const filteredFailsafeLogs = filterLogsByVehicle(failsafeLogs);
+  const filterAlertsByVehicle = (logs) => {
+    if (!selectedVehicle) return logs;
+    return logs.filter(
+      (log) =>
+        log.vehicle_id === selectedVehicle.id ||
+        log.vehicle_name === selectedVehicle.name ||
+        log.vehicle_name === selectedVehicle.code,
+    );
+  };
+
+  const filteredAntiTheftLogs = filterAlertsByVehicle(antiTheftLogs);
+  const filteredFailsafeLogs = filterAlertsByVehicle(failsafeLogs);
   const filteredCommandLogs = filterActionLogsByVehicle(commandLogs);
   const filteredWaypointLogs = filterActionLogsByVehicle(waypointLogs);
   const filteredThrusterLogs = filterActionLogsByVehicle(thrusterLogs);
@@ -494,10 +499,10 @@ const Log = () => {
         <div className="flex flex-wrap gap-1">
           {row.armed !== null && (
             <span
-              className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
+              className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
                 row.armed
-                  ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
-                  : "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700"
+                  ? "bg-red-600 text-white"
+                  : "bg-green-600 text-white"
               }`}
             >
               {row.armed ? "Armed" : "Disarmed"}
@@ -505,10 +510,10 @@ const Log = () => {
           )}
           {row.gps_ok !== null && (
             <span
-              className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
+              className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
                 row.gps_ok
-                  ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700"
-                  : "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-500 text-white"
               }`}
             >
               {row.gps_ok ? "GPS OK" : "GPS Lost"}
@@ -535,8 +540,8 @@ const Log = () => {
         <span
           className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
             row.system_status === "OK"
-              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+              ? "bg-green-600 text-white"
+              : "bg-yellow-500 text-white"
           }`}
         >
           {row.system_status || "Unknown"}
@@ -633,18 +638,14 @@ const Log = () => {
       sortable: true,
       cell: (row) => {
         const colorMap = {
-          success:
-            "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-          failed:
-            "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-          timeout:
-            "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-          pending:
-            "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+          success: "bg-green-600 text-white",
+          failed: "bg-red-600 text-white",
+          timeout: "bg-yellow-500 text-white",
+          pending: "bg-blue-600 text-white",
         };
         return (
           <span
-            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${colorMap[row.status] || "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}
+            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${colorMap[row.status] || "bg-gray-500 text-white"}`}
           >
             {row.status || "unknown"}
           </span>
@@ -722,18 +723,14 @@ const Log = () => {
       sortable: true,
       cell: (row) => {
         const colorMap = {
-          success:
-            "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-          failed:
-            "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-          timeout:
-            "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-          pending:
-            "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+          success: "bg-green-600 text-white",
+          failed: "bg-red-600 text-white",
+          timeout: "bg-yellow-500 text-white",
+          pending: "bg-blue-600 text-white",
         };
         return (
           <span
-            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${colorMap[row.status] || "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}
+            className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${colorMap[row.status] || "bg-gray-500 text-white"}`}
           >
             {row.status || "unknown"}
           </span>
@@ -784,8 +781,8 @@ const Log = () => {
           <span
             className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
               isRelease
-                ? "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                : "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
+                ? "bg-gray-500 text-white"
+                : "bg-orange-500 text-white"
             }`}
           >
             {row.event || "OVERRIDE"}
@@ -824,27 +821,6 @@ const Log = () => {
       },
     },
   ];
-
-  const handleExportThrusterLogs = () => {
-    const token = localStorage.getItem("access_token");
-    const params = new URLSearchParams();
-    if (selectedVehicle) params.set("vehicle_code", selectedVehicle.code);
-    const url = `${import.meta.env.VITE_API_URL || ""}/thruster-logs/export?${params.toString()}`;
-    const a = document.createElement("a");
-    a.href = url;
-    a.setAttribute("download", "thruster_logs.csv");
-    document.body.appendChild(a);
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.blob())
-      .then((blob) => {
-        const objectUrl = URL.createObjectURL(blob);
-        a.href = objectUrl;
-        a.click();
-        URL.revokeObjectURL(objectUrl);
-        document.body.removeChild(a);
-      })
-      .catch(() => document.body.removeChild(a));
-  };
 
   return (
     <div
@@ -1108,7 +1084,7 @@ const Log = () => {
                           {formatTimestamp(log.timestamp || log.created_at)}
                         </span>
                         {log.acknowledged && (
-                          <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700 rounded-full">
+                          <span className="text-xs px-2 py-0.5 bg-green-600 text-white rounded-full">
                             ✓ {t("pages.logs.acknowledged")}
                           </span>
                         )}
@@ -1119,17 +1095,17 @@ const Log = () => {
                     </div>
                     <div className="flex items-center gap-2 mb-2">
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase border ${
+                        className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase ${
                           log.severity === "critical"
-                            ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                            ? "bg-red-600 text-white"
                             : log.severity === "warning"
-                              ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700"
-                              : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700"
+                              ? "bg-amber-500 text-white"
+                              : "bg-blue-600 text-white"
                         }`}
                       >
                         {log.severity || "info"}
                       </span>
-                      <span className="text-xs font-semibold px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700 rounded-full">
+                      <span className="text-xs font-semibold px-2 py-0.5 bg-orange-500 text-white rounded-full">
                         {t("pages.logs.alerts.antiTheft")}
                       </span>
                     </div>
@@ -1186,7 +1162,7 @@ const Log = () => {
                           {formatTimestamp(log.timestamp || log.created_at)}
                         </span>
                         {log.acknowledged && (
-                          <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700 rounded-full">
+                          <span className="text-xs px-2 py-0.5 bg-green-600 text-white rounded-full">
                             ✓ {t("pages.logs.acknowledged")}
                           </span>
                         )}
@@ -1197,17 +1173,17 @@ const Log = () => {
                     </div>
                     <div className="flex items-center gap-2 mb-2">
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase border ${
+                        className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase ${
                           log.severity === "critical"
-                            ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700"
+                            ? "bg-red-600 text-white"
                             : log.severity === "warning"
-                              ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700"
-                              : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700"
+                              ? "bg-amber-500 text-white"
+                              : "bg-blue-600 text-white"
                         }`}
                       >
                         {log.severity || "info"}
                       </span>
-                      <span className="text-xs font-semibold px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 rounded-full">
+                      <span className="text-xs font-semibold px-2 py-0.5 bg-red-600 text-white rounded-full">
                         {t("pages.logs.alerts.failsafe")}
                       </span>
                     </div>
@@ -1320,8 +1296,7 @@ const Log = () => {
             className="p-6"
             key={`thruster-${isRealtimePaused ? "paused" : "live"}`}
           >
-            <div className="flex items-center justify-between mb-3">
-              <ColumnToggle
+            <ColumnToggle
                 allKeys={THRUSTER_COL_KEYS}
                 labels={THRUSTER_COL_LABELS}
                 visibleKeys={thrusterVisibleKeys}
@@ -1343,15 +1318,6 @@ const Log = () => {
                 }
                 maxColumns={THRUSTER_MAX}
               />
-              <button
-                onClick={handleExportThrusterLogs}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
-                title={t("pages.logs.exportThruster")}
-              >
-                <FiDownload size={14} />
-                {t("pages.logs.exportThruster")}
-              </button>
-            </div>
             <DataTable
               key={`thruster-table-${isRealtimePaused ? "paused" : "live"}-${thrusterTablePageSize}`}
               columns={thrusterLogColumns.filter((col) =>

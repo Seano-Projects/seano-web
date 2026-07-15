@@ -86,17 +86,17 @@ const VehicleStatusPanel = React.memo(({ selectedVehicle }) => {
   const getModeColor = (mode) => {
     switch (mode?.toUpperCase()) {
       case "AUTO":
-        return "text-green-600 bg-green-100 dark:bg-green-900/30";
+        return "bg-green-600 text-white";
       case "GUIDED":
-        return "text-blue-600 bg-blue-100 dark:bg-blue-900/30";
+        return "bg-blue-600 text-white";
       case "MANUAL":
-        return "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30";
+        return "bg-yellow-500 text-white";
       case "HOLD":
-        return "text-orange-700 bg-orange-100 dark:bg-orange-900/30";
+        return "bg-orange-500 text-white";
       case "RTL":
-        return "text-purple-600 bg-purple-100 dark:bg-purple-900/30";
+        return "bg-purple-600 text-white";
       default:
-        return "text-gray-600 bg-gray-100 dark:bg-gray-900/30";
+        return "bg-gray-500 text-white";
     }
   };
 

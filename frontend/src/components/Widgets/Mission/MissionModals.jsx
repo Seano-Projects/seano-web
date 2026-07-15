@@ -142,8 +142,8 @@ const MissionModals = ({
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
                         isCompleted
-                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-500 text-white"
                       }`}
                     >
                       {isCompleted && <FaCheckCircle className="text-green-500" />}

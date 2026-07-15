@@ -133,7 +133,7 @@ const MissionPlanner = ({ isSidebarOpen, darkMode }) => {
       distanceFormatted: formatDistance(distanceMeters),
       time: timeMinutes,
       timeFormatted: formatTime(timeMinutes),
-      battery: Math.round(batteryPercent),
+      battery: batteryPercent < 1 ? batteryPercent.toFixed(1) : Math.round(batteryPercent),
     };
   }, [waypoints, homeLocation, missionParams.speed]);
 

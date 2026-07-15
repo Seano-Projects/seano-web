@@ -160,9 +160,164 @@ const VehicleLogsCharts = ({ data }) => {
   );
 };
 
-const SensorLogsCharts = ({ data }) => {
+// Sensor instrument type is signalled by a code prefix app-wide (see
+// useCTDData.js / useADCPData.js), there's no dedicated "type" field.
+const detectKindFromCode = (code) => {
+  const upper = String(code || "").toUpperCase();
+  if (upper.includes("ADCP")) return "adcp";
+  if (upper.includes("CTD")) return "ctd";
+  return null;
+};
+
+const detectKindFromPayload = (payload) => {
+  if (Array.isArray(payload?.columns) && Array.isArray(payload?.data))
+    return "ctd";
+  if (
+    payload?.current_speed_ms != null ||
+    payload?.current_direction_deg != null ||
+    payload?.v1_ms != null
+  )
+    return "adcp";
+  if (
+    payload?.temperature != null ||
+    payload?.salinity != null ||
+    payload?.depth != null ||
+    payload?.conductivity != null
+  )
+    return "ctd";
+  return null;
+};
+
+const SensorLogsCharts = ({ data, sensorCode }) => {
   const { t } = useTranslation();
-  const [selectedMetric, setSelectedMetric] = useState("temperature");
+
+  const sensorKind = useMemo(() => {
+    const fromCode = detectKindFromCode(sensorCode);
+    if (fromCode) return fromCode;
+    for (const row of data) {
+      try {
+        const kind = detectKindFromPayload(JSON.parse(row?.data || "{}"));
+        if (kind) return kind;
+      } catch {
+        // skip unparsable row
+      }
+    }
+    return "ctd";
+  }, [data, sensorCode]);
+
+  const metricOptions = useMemo(() => {
+    if (sensorKind === "adcp") {
+      return [
+        {
+          key: "current_speed_ms",
+          label: t("pages.data.charts.currentSpeed"),
+          unit: "m/s",
+          color: "#f97316",
+        },
+        {
+          key: "current_direction_deg",
+          label: t("pages.data.charts.currentDirection"),
+          unit: "deg",
+          color: "#0ea5e9",
+        },
+        {
+          key: "temperature_c",
+          label: t("pages.data.charts.temperature"),
+          unit: "C",
+          color: "#6366f1",
+        },
+        {
+          key: "water_depth_m",
+          label: t("pages.data.charts.waterDepth"),
+          unit: "m",
+          color: "#22c55e",
+        },
+      ];
+    }
+    return [
+      {
+        key: "temperature",
+        label: t("pages.data.charts.temperature"),
+        unit: "C",
+        color: "#f97316",
+      },
+      {
+        key: "salinity",
+        label: t("pages.data.charts.salinity"),
+        unit: "PSU",
+        color: "#0ea5e9",
+      },
+      {
+        key: "depth",
+        label: t("pages.data.charts.depth"),
+        unit: "m",
+        color: "#6366f1",
+      },
+      {
+        key: "conductivity",
+        label: t("pages.data.charts.conductivity"),
+        unit: "S/m",
+        color: "#22c55e",
+      },
+    ];
+  }, [sensorKind, t]);
+
+  const [selectedMetric, setSelectedMetric] = useState(metricOptions[0].key);
+
+  // Reset the selected metric whenever the sensor kind changes so a stale
+  // key from the previous kind (e.g. "temperature" vs "temperature_c")
+  // doesn't silently fall through to the default option.
+  useEffect(() => {
+    setSelectedMetric(metricOptions[0].key);
+  }, [sensorKind]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Extract metric values from a payload, supporting the CTD flat format
+  // ({temperature, salinity, ...}), the columnar format sent by the USV
+  // ({columns: [...], data: [[...]]}) averaged per log row, and the flat
+  // ADCP format ({current_speed_ms, current_direction_deg, ...}).
+  const extractMetrics = (payload) => {
+    if (sensorKind === "adcp") {
+      return {
+        current_speed_ms: Number(payload?.current_speed_ms),
+        current_direction_deg: Number(payload?.current_direction_deg),
+        temperature_c: Number(payload?.temperature_c ?? payload?.temperature),
+        water_depth_m: Number(payload?.water_depth_m),
+      };
+    }
+
+    if (
+      Array.isArray(payload?.columns) &&
+      Array.isArray(payload?.data) &&
+      payload.data.length > 0
+    ) {
+      const colIdx = {};
+      payload.columns.forEach((col, i) => {
+        colIdx[col] = i;
+      });
+      const average = (name) => {
+        const i = colIdx[name];
+        if (i === undefined) return NaN;
+        const values = payload.data
+          .map((row) => Number(row?.[i]))
+          .filter((v) => Number.isFinite(v));
+        if (!values.length) return NaN;
+        return values.reduce((sum, v) => sum + v, 0) / values.length;
+      };
+      return {
+        temperature: average("temperature"),
+        salinity: average("salinity"),
+        depth: average("depth"),
+        conductivity: average("conductivity"),
+      };
+    }
+
+    return {
+      temperature: Number(payload?.temperature),
+      salinity: Number(payload?.salinity),
+      depth: Number(payload?.depth),
+      conductivity: Number(payload?.conductivity),
+    };
+  };
 
   const parsed = useMemo(() => {
     return data
@@ -177,50 +332,23 @@ const SensorLogsCharts = ({ data }) => {
           return {
             time: `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}:${String(time.getSeconds()).padStart(2, "0")}`,
             epoch: time.getTime(),
-            temperature: Number(payload.temperature),
-            salinity: Number(payload.salinity),
-            depth: Number(payload.depth),
-            conductivity: Number(payload.conductivity),
+            ...extractMetrics(payload),
           };
         } catch {
           return null;
         }
       })
       .filter(Boolean)
-      .filter(
-        (row) =>
-          Number.isFinite(row.temperature) ||
-          Number.isFinite(row.salinity) ||
-          Number.isFinite(row.depth) ||
-          Number.isFinite(row.conductivity),
+      .filter((row) =>
+        metricOptions.some((option) => Number.isFinite(row[option.key])),
       )
       .sort((a, b) => a.epoch - b.epoch)
       .slice(-MAX_SENSOR_POINTS)
       .map(({ epoch: _epoch, ...rest }) => rest);
-  }, [data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, sensorKind]);
 
-  const metricOptions = [
-    {
-      key: "temperature",
-      label: t("pages.data.charts.temperature"),
-      color: "#f97316",
-    },
-    {
-      key: "salinity",
-      label: t("pages.data.charts.salinity"),
-      color: "#0ea5e9",
-    },
-    {
-      key: "depth",
-      label: t("pages.data.charts.depth"),
-      color: "#6366f1",
-    },
-    {
-      key: "conductivity",
-      label: t("pages.data.charts.conductivity"),
-      color: "#22c55e",
-    },
-  ];
+  const overviewMetrics = metricOptions.slice(0, 3);
 
   const selectedOption =
     metricOptions.find((option) => option.key === selectedMetric) ||
@@ -258,11 +386,16 @@ const SensorLogsCharts = ({ data }) => {
     );
   };
 
+  const sensorKindLabel = sensorKind === "adcp" ? "ADCP" : "CTD";
+
   return (
     <div className="space-y-4">
       <ChartCard
         title={t("pages.data.charts.allDataChart")}
-        subtitle={t("pages.data.charts.allDataSubtitle")}
+        subtitle={t("pages.data.charts.sensorTrendsSubtitle").replace(
+          "{{type}}",
+          sensorKindLabel,
+        )}
         bodyClassName="h-[420px]"
       >
         {!parsed.length ? (
@@ -274,18 +407,23 @@ const SensorLogsCharts = ({ data }) => {
               margin={{ top: 5, right: 10, bottom: 5, left: -12 }}
             >
               <defs>
-                <linearGradient id="sensor-temp" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="sensor-sal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="sensor-depth" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
+                {overviewMetrics.map((option) => (
+                  <linearGradient
+                    key={option.key}
+                    id={`sensor-grad-${option.key}`}
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="5%"
+                      stopColor={option.color}
+                      stopOpacity={0.25}
+                    />
+                    <stop offset="95%" stopColor={option.color} stopOpacity={0} />
+                  </linearGradient>
+                ))}
               </defs>
               <XAxis
                 dataKey="time"
@@ -303,30 +441,17 @@ const SensorLogsCharts = ({ data }) => {
                 axisLine={false}
               />
               <Tooltip content={renderTooltip} />
-              <Area
-                type="monotone"
-                dataKey="temperature"
-                name={`${t("pages.data.charts.temperature")} (C)`}
-                stroke="#f97316"
-                fill="url(#sensor-temp)"
-                dot={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="salinity"
-                name={`${t("pages.data.charts.salinity")} (PSU)`}
-                stroke="#0ea5e9"
-                fill="url(#sensor-sal)"
-                dot={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="depth"
-                name={`${t("pages.data.charts.depth")} (m)`}
-                stroke="#6366f1"
-                fill="url(#sensor-depth)"
-                dot={false}
-              />
+              {overviewMetrics.map((option) => (
+                <Area
+                  key={option.key}
+                  type="monotone"
+                  dataKey={option.key}
+                  name={`${option.label} (${option.unit})`}
+                  stroke={option.color}
+                  fill={`url(#sensor-grad-${option.key})`}
+                  dot={false}
+                />
+              ))}
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -498,11 +623,15 @@ const BatteryLogsCharts = ({ data }) => {
   );
 };
 
-const DataCharts = ({ data, selectedDataType }) => {
+const DataCharts = ({ data, selectedDataType, selectedSensorCode }) => {
   const { t } = useTranslation();
 
-  // waypoint_logs and command_logs don't have charts
-  if (selectedDataType === "waypoint_logs" || selectedDataType === "command_logs") {
+  // waypoint_logs, command_logs, and thruster_logs don't have charts
+  if (
+    selectedDataType === "waypoint_logs" ||
+    selectedDataType === "command_logs" ||
+    selectedDataType === "thruster_logs"
+  ) {
     return null;
   }
 
@@ -521,7 +650,9 @@ const DataCharts = ({ data, selectedDataType }) => {
   return (
     <div className="px-4">
       {selectedDataType === "vehicle_logs" && <VehicleLogsCharts data={data} />}
-      {selectedDataType === "sensor_logs" && <SensorLogsCharts data={data} />}
+      {selectedDataType === "sensor_logs" && (
+        <SensorLogsCharts data={data} sensorCode={selectedSensorCode} />
+      )}
       {selectedDataType === "battery_logs" && <BatteryLogsCharts data={data} />}
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useMissionData from "../../../hooks/useMissionData";
 import useTranslation from "../../../hooks/useTranslation";
@@ -6,6 +6,8 @@ import { ColumnToggle, DataTable, ConfirmModal } from "../../ui";
 import DataCard from "../DataCard";
 import { FaEdit, FaEye, FaTrash } from "react-icons/fa";
 import { formatDistance, formatTime } from "../../../utils/missionCalculations";
+import axios from "../../../utils/axiosConfig";
+import { API_ENDPOINTS } from "../../../config";
 
 const ALL_COLUMN_KEYS = [
   "name",
@@ -53,6 +55,37 @@ const MissionTable = () => {
   const [selectedMission, setSelectedMission] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [visibleKeys, setVisibleKeys] = useState(DEFAULT_VISIBLE);
+  const [missionStatsById, setMissionStatsById] = useState({});
+
+  // Batched: one request covers every mission on this page instead of one
+  // request per row. Keyed on the id set (not the mission array reference)
+  // so frequent progress/status updates don't trigger a refetch.
+  const missionIdsKey = missionData.map((mission) => mission.id).join(",");
+
+  useEffect(() => {
+    const ids = missionIdsKey
+      ? missionIdsKey.split(",").map(Number).filter(Boolean)
+      : [];
+
+    if (ids.length === 0) {
+      setMissionStatsById({});
+      return;
+    }
+
+    let cancelled = false;
+    axios
+      .get(API_ENDPOINTS.VEHICLE_LOGS.MISSION_STATS_BATCH(ids))
+      .then((res) => {
+        if (!cancelled) setMissionStatsById(res.data?.data || {});
+      })
+      .catch(() => {
+        if (!cancelled) setMissionStatsById({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missionIdsKey]);
 
   const toggleColumn = (key) => {
     setVisibleKeys((prev) => {
@@ -103,13 +136,21 @@ const MissionTable = () => {
   };
 
   // Get status badge color
+  const STATUS_DISPLAY = {
+    Completed: t("missionComponents.table.completed"),
+    Ongoing: t("missionComponents.table.ongoing"),
+    Failed: t("missionComponents.table.failed"),
+    Cancelled: t("missionComponents.table.failed"),
+    Draft: t("missionComponents.table.draft"),
+  };
+
   const getStatusBadge = (status) => {
     const statusClasses = {
-      Completed:
-        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      Ongoing: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-      Failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-      Draft: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+      Completed: "bg-green-600 text-white",
+      Ongoing: "bg-blue-600 text-white",
+      Failed: "bg-orange-500 text-white",
+      Cancelled: "bg-orange-500 text-white",
+      Draft: "bg-gray-500 text-white",
     };
 
     return (
@@ -118,7 +159,7 @@ const MissionTable = () => {
           statusClasses[status] || statusClasses.Draft
         }`}
       >
-        {status}
+        {STATUS_DISPLAY[status] || status}
       </span>
     );
   };
@@ -132,19 +173,33 @@ const MissionTable = () => {
     const displayWaypointTotal =
       mission.status === "Completed" ? completedWaypoints : waypointCount;
 
-    // Progress: for completed use stored progress, otherwise calculate
+    // Progress: completed missions are always 100%, regardless of stored progress
     const progressValue =
       mission.status === "Completed"
-        ? Math.round(mission.progress || 100)
+        ? 100
         : displayWaypointTotal > 0
           ? Math.min(
               100,
               Math.round((completedWaypoints / displayWaypointTotal) * 100),
             )
           : Math.round(mission.progress || 0);
+    const telemetryStats = missionStatsById[mission.id];
+    const batteryStart = telemetryStats?.battery_start;
+    const batteryEnd = telemetryStats?.battery_end;
+
     const energyStatus = mission.energy_budget
       ? `${(mission.energy_consumed || 0).toFixed(1)}/${mission.energy_budget.toFixed(1)} kWh`
-      : "N/A";
+      : Number.isFinite(batteryStart) && Number.isFinite(batteryEnd)
+        ? `${Math.max(0, batteryStart - batteryEnd).toFixed(1)}% batt`
+        : "N/A";
+
+    const durationSeconds =
+      mission.time_elapsed ||
+      (telemetryStats?.first_ping_at && telemetryStats?.last_ping_at
+        ? (new Date(telemetryStats.last_ping_at) -
+            new Date(telemetryStats.first_ping_at)) /
+          1000
+        : 0);
 
     return {
       id: mission.id,
@@ -159,8 +214,8 @@ const MissionTable = () => {
       energy: energyStatus,
       energyConsumed: mission.energy_consumed || 0,
       energyBudget: mission.energy_budget || 0,
-      duration: formatTimeElapsed(mission.time_elapsed || 0),
-      timeElapsed: mission.time_elapsed || 0,
+      duration: formatTimeElapsed(durationSeconds),
+      timeElapsed: durationSeconds,
       totalDistance: mission.total_distance || 0,
       estimatedTime: mission.estimated_time || 0,
       created: new Date(mission.created_at).toLocaleDateString("en-US", {
@@ -293,9 +348,18 @@ const MissionTable = () => {
       return (
         <div className="flex items-center justify-center gap-3 w-full h-full">
           <button
-            onClick={() => handleViewClick(row)}
-            className="inline-flex items-center justify-center p-2 text-white bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600 transition-all rounded-lg cursor-pointer shadow-sm hover:shadow-md"
-            title="View Mission Details"
+            onClick={() => isCompleted && handleViewClick(row)}
+            disabled={!isCompleted}
+            className={`inline-flex items-center justify-center p-2 text-white transition-all rounded-lg shadow-sm ${
+              isCompleted
+                ? "bg-sky-600 hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-600 cursor-pointer hover:shadow-md"
+                : "bg-gray-400 dark:bg-gray-600 cursor-not-allowed opacity-50"
+            }`}
+            title={
+              isCompleted
+                ? "View Mission Details"
+                : "Only completed missions can be viewed"
+            }
           >
             <FaEye size={16} />
           </button>
@@ -338,7 +402,7 @@ const MissionTable = () => {
     { key: "Draft", label: t("missionComponents.table.draft") },
     { key: "Ongoing", label: t("missionComponents.table.ongoing") },
     { key: "Completed", label: t("missionComponents.table.completed") },
-    { key: "Failed", label: t("missionComponents.table.failed") },
+    { key: "Cancelled", label: t("missionComponents.table.failed") },
   ];
 
   const columnToggle = (

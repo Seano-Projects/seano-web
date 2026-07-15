@@ -4,6 +4,8 @@ import { VehicleDropdown, DatePickerField, Dropdown } from "../index";
 import useMissionData from "../../../hooks/useMissionData";
 import useTranslation from "../../../hooks/useTranslation";
 import MissionCardSkeleton from "../../Skeleton/MissionCardSkeleton";
+import axios from "../../../utils/axiosConfig";
+import { API_ENDPOINTS } from "../../../config";
 
 const normalizeStatus = (status) => {
   if (!status) return "";
@@ -18,7 +20,7 @@ const normalizeStatus = (status) => {
   }
 
   if (["failed", "error", "cancelled"].includes(normalized)) {
-    return "Failed";
+    return "Cancelled";
   }
 
   return status;
@@ -52,6 +54,38 @@ const MissionLogs = ({
     setCurrentPage(1);
   }, [statusFilter, selectedVessel, startDate, endDate]);
 
+  const [missionStatsById, setMissionStatsById] = useState({});
+
+  // Batched: one request covers every mission in the list instead of one
+  // request per card. Keyed on the id set (not the mission array reference)
+  // so frequent progress/status updates don't trigger a refetch.
+  const missionIdsKey = missionData.map((mission) => mission.id).join(",");
+
+  useEffect(() => {
+    const ids = missionIdsKey
+      ? missionIdsKey.split(",").map(Number).filter(Boolean)
+      : [];
+
+    if (ids.length === 0) {
+      setMissionStatsById({});
+      return;
+    }
+
+    let cancelled = false;
+    axios
+      .get(API_ENDPOINTS.VEHICLE_LOGS.MISSION_STATS_BATCH(ids))
+      .then((res) => {
+        if (!cancelled) setMissionStatsById(res.data?.data || {});
+      })
+      .catch(() => {
+        if (!cancelled) setMissionStatsById({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missionIdsKey]);
+
   // Helper to get vehicle color
   const getVehicleColor = (vehicleId) => {
     if (!vehicleId) return "gray";
@@ -83,8 +117,28 @@ const MissionLogs = ({
         normalizeStatus(mission.status) === "Completed"
           ? 100
           : Math.round(mission.progress || 0),
-      energy: getEnergyStatus(mission),
-      timeElapsed: formatTimeElapsed(mission.time_elapsed || 0),
+      energy: (() => {
+        if (mission.energy_budget) return getEnergyStatus(mission);
+        const telemetryStats = missionStatsById[mission.id];
+        const batteryStart = telemetryStats?.battery_start;
+        const batteryEnd = telemetryStats?.battery_end;
+        return Number.isFinite(batteryStart) && Number.isFinite(batteryEnd)
+          ? `${Math.max(0, batteryStart - batteryEnd).toFixed(1)}% batt`
+          : "N/A";
+      })(),
+      timeElapsed: formatTimeElapsed(
+        mission.time_elapsed ||
+          (() => {
+            const telemetryStats = missionStatsById[mission.id];
+            if (!telemetryStats?.first_ping_at || !telemetryStats?.last_ping_at)
+              return 0;
+            return (
+              (new Date(telemetryStats.last_ping_at) -
+                new Date(telemetryStats.first_ping_at)) /
+              1000
+            );
+          })(),
+      ),
       rawData: mission,
     };
   });
@@ -95,13 +149,13 @@ const MissionLogs = ({
         const status = normalizeStatus(mission.status);
         if (status === "Ongoing") acc.Ongoing += 1;
         if (status === "Completed") acc.Completed += 1;
-        if (status === "Failed") acc.Failed += 1;
+        if (status === "Cancelled") acc.Cancelled += 1;
         return acc;
       },
       {
         Ongoing: 0,
         Completed: 0,
-        Failed: 0,
+        Cancelled: 0,
       },
     );
   }, [missions]);
@@ -118,8 +172,8 @@ const MissionLogs = ({
         label: `${t("missionComponents.stats.completed")} (${statusCounts.Completed})`,
       },
       {
-        value: "Failed",
-        label: `${t("missionComponents.stats.failed")} (${statusCounts.Failed})`,
+        value: "Cancelled",
+        label: `${t("missionComponents.stats.failed")} (${statusCounts.Cancelled})`,
       },
     ],
     [statusCounts, t],
@@ -131,8 +185,8 @@ const MissionLogs = ({
         return "text-green-500 border-green-500/30";
       case "Ongoing":
         return "text-blue-500 border-blue-500/30";
-      case "Failed":
-        return "text-red-500 border-red-500/30";
+      case "Cancelled":
+        return "text-orange-500 border-orange-500/30";
       default:
         return "text-gray-500 border-gray-500/30";
     }
@@ -157,8 +211,8 @@ const MissionLogs = ({
         return "bg-green-500";
       case "Ongoing":
         return "bg-blue-500";
-      case "Failed":
-        return "bg-red-500";
+      case "Cancelled":
+        return "bg-orange-500";
       default:
         return "bg-gray-500";
     }
@@ -234,7 +288,7 @@ const MissionLogs = ({
 
   return (
     <div className="dark:bg-black border border-gray-300 dark:border-slate-600 rounded-xl p-4 md:p-6 h-full flex flex-col">
-      <div ref={filterPopoverRef} className="shrink-0">
+      <div ref={filterPopoverRef} className="shrink-0 relative">
         {/* Header */}
         <div className="flex items-center justify-between gap-2 mb-4">
           <h3 className="text-lg font-semibold text-black dark:text-white shrink-0">
@@ -264,9 +318,9 @@ const MissionLogs = ({
           </div>
         </div>
 
-        {/* Panel filter di bawah header (bukan overlay) */}
+        {/* Floating filter card, overlays the list instead of pushing it down */}
         {filterPopoverOpen && (
-          <div className="mb-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="absolute right-0 top-full z-20 mt-2 w-full max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-black sm:w-[520px] lg:w-[640px]">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">

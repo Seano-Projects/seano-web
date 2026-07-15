@@ -22,7 +22,6 @@ import {
   FaMapMarkerAlt,
   FaPlayCircle,
   FaRoute,
-  FaSatelliteDish,
   FaShip,
   FaUser,
 } from "react-icons/fa";
@@ -34,11 +33,10 @@ import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 
 const statusClasses = {
-  Draft: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-  Ongoing: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200",
-  Completed:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200",
-  Failed: "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200",
+  Draft: "bg-gray-500 text-white",
+  Ongoing: "bg-sky-600 text-white",
+  Completed: "bg-emerald-600 text-white",
+  Failed: "bg-rose-600 text-white",
 };
 
 const toNumberOrNull = (value) => {
@@ -178,7 +176,13 @@ const FitMapBounds = ({ points }) => {
 
 const MissionJourneyMap = ({ mission, journeyPoints }) => {
   const { t } = useTranslation();
-  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
+  const {
+    url: tileUrl,
+    attribution: tileAttribution,
+    maxNativeZoom: tileMaxNativeZoom,
+    tileSize,
+    zoomOffset,
+  } = useMapTile();
   const executionWaypoints = useMemo(
     () =>
       (mission?.waypoints || []).filter(
@@ -267,8 +271,10 @@ const MissionJourneyMap = ({ mission, journeyPoints }) => {
           attribution={tileAttribution}
           url={tileUrl}
           noWrap={true}
-          maxZoom={20}
-          maxNativeZoom={18}
+          maxZoom={22}
+          maxNativeZoom={tileMaxNativeZoom}
+          tileSize={tileSize}
+          zoomOffset={zoomOffset}
         />
         <FitMapBounds points={combinedPoints} />
 
@@ -420,8 +426,16 @@ const MissionDetails = () => {
   const navigate = useNavigate();
   const [mission, setMission] = useState(null);
   const [journeyLogs, setJourneyLogs] = useState([]);
+  const [trajectoryPoints, setTrajectoryPoints] = useState([]);
+  const [missionStats, setMissionStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [journeyPage, setJourneyPage] = useState(1);
+  const [journeyPageSize, setJourneyPageSize] = useState(10);
+  const [journeyTotal, setJourneyTotal] = useState(0);
+  const [journeyPageLogs, setJourneyPageLogs] = useState([]);
+  const [journeyPageLoading, setJourneyPageLoading] = useState(false);
 
   useEffect(() => {
     const loadMissionDetails = async () => {
@@ -439,22 +453,28 @@ const MissionDetails = () => {
 
         if (!missionData?.vehicle_id) {
           setJourneyLogs([]);
+          setTrajectoryPoints([]);
+          setMissionStats(null);
           return;
         }
 
-        const { start, end } = getMissionWindow(missionData);
         const params = new URLSearchParams({
-          vehicle_id: String(missionData.vehicle_id),
           mission_id: String(missionData.id),
-          limit: "500",
+          limit: "5000",
         });
 
-        if (start) params.append("start_time", start);
-        if (end) params.append("end_time", end);
-
-        const logResponse = await axios.get(
-          `${API_ENDPOINTS.VEHICLE_LOGS.LIST}?${params.toString()}`,
-        );
+        const [logResponse, statsResponse, trajectoryResponse] =
+          await Promise.all([
+            axios.get(
+              `${API_ENDPOINTS.VEHICLE_LOGS.LIST}?${params.toString()}`,
+            ),
+            axios
+              .get(API_ENDPOINTS.VEHICLE_LOGS.MISSION_STATS(missionData.id))
+              .catch(() => null),
+            axios
+              .get(API_ENDPOINTS.VEHICLE_LOGS.MISSION_TRAJECTORY(missionData.id))
+              .catch(() => null),
+          ]);
 
         const logs = Array.isArray(logResponse.data)
           ? logResponse.data
@@ -469,6 +489,14 @@ const MissionDetails = () => {
           );
 
         setJourneyLogs(sortedLogs);
+        setMissionStats(statsResponse?.data || null);
+
+        const trajectoryLogs = Array.isArray(trajectoryResponse?.data?.data)
+          ? trajectoryResponse.data.data
+          : null;
+        setTrajectoryPoints(
+          trajectoryLogs ? trajectoryLogs.map(normalizeJourneyLog) : sortedLogs,
+        );
       } catch (requestError) {
         setError(
           requestError?.response?.data?.error ||
@@ -477,6 +505,8 @@ const MissionDetails = () => {
         );
         setMission(null);
         setJourneyLogs([]);
+        setTrajectoryPoints([]);
+        setMissionStats(null);
       } finally {
         setLoading(false);
       }
@@ -517,19 +547,73 @@ const MissionDetails = () => {
     return () => clearInterval(intervalId);
   }, [missionId]);
 
+  // Journey Data table is paginated server-side so missions with thousands
+  // of pings (hours/days of logging) never require loading everything into
+  // the browser just to show one page of rows.
+  useEffect(() => {
+    if (!missionId) return;
+
+    let cancelled = false;
+
+    const loadJourneyPage = async () => {
+      setJourneyPageLoading(true);
+      try {
+        const params = new URLSearchParams({
+          mission_id: String(missionId),
+          limit: String(journeyPageSize),
+          offset: String((journeyPage - 1) * journeyPageSize),
+          order: "desc",
+        });
+
+        const response = await axios.get(
+          `${API_ENDPOINTS.VEHICLE_LOGS.LIST}?${params.toString()}`,
+        );
+        if (cancelled) return;
+
+        const logs = Array.isArray(response.data)
+          ? response.data
+          : response.data?.data || [];
+
+        setJourneyPageLogs(logs.map(normalizeJourneyLog));
+        setJourneyTotal(response.data?.count ?? logs.length);
+      } catch {
+        if (!cancelled) {
+          setJourneyPageLogs([]);
+          setJourneyTotal(0);
+        }
+      } finally {
+        if (!cancelled) setJourneyPageLoading(false);
+      }
+    };
+
+    void loadJourneyPage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missionId, journeyPage, journeyPageSize]);
+
   const journeyPoints = useMemo(
     () =>
-      journeyLogs.filter(
+      trajectoryPoints.filter(
         (log) =>
           Number.isFinite(log?.latitude) && Number.isFinite(log?.longitude),
       ),
-    [journeyLogs],
+    [trajectoryPoints],
   );
 
   const telemetryStats = useMemo(() => {
+    if (missionStats && missionStats.sample_count > 0) {
+      return {
+        firstPing: formatDateTime(missionStats.first_ping_at),
+        lastPing: formatDateTime(missionStats.last_ping_at),
+        avgSpeed: `${Number(missionStats.avg_speed || 0).toFixed(2)} m/s`,
+        maxSpeed: `${Number(missionStats.max_speed || 0).toFixed(2)} m/s`,
+      };
+    }
+
     if (journeyLogs.length === 0) {
       return {
-        samples: 0,
         firstPing: "-",
         lastPing: "-",
         avgSpeed: "0 m/s",
@@ -537,6 +621,8 @@ const MissionDetails = () => {
       };
     }
 
+    // Fallback for when the aggregate stats endpoint is unavailable — derived
+    // only from the capped log fetch, so it can be off for very long missions.
     const speeds = journeyLogs
       .map((log) => Number(log?.speed || 0))
       .filter((value) => Number.isFinite(value) && value > 0);
@@ -550,13 +636,12 @@ const MissionDetails = () => {
       speeds.length > 0 ? `${Math.max(...speeds).toFixed(2)} m/s` : "0 m/s";
 
     return {
-      samples: journeyLogs.length,
       firstPing: formatDateTime(journeyLogs[0]?.created_at),
       lastPing: formatDateTime(journeyLogs[journeyLogs.length - 1]?.created_at),
       avgSpeed: averageSpeed,
       maxSpeed,
     };
-  }, [journeyLogs]);
+  }, [missionStats, journeyLogs]);
 
   const missionEvents = useMemo(() => {
     if (!mission) return [];
@@ -578,10 +663,12 @@ const MissionDetails = () => {
       });
     }
 
-    if (journeyLogs[0]?.created_at) {
+    const firstTelemetryTime =
+      missionStats?.first_ping_at || journeyLogs[0]?.created_at;
+    if (firstTelemetryTime) {
       events.push({
         label: t("pages.missionDetails.eventFirstTelemetry"),
-        time: journeyLogs[0].created_at,
+        time: firstTelemetryTime,
         detail: t("pages.missionDetails.eventJourneyRecorded"),
       });
     }
@@ -605,7 +692,7 @@ const MissionDetails = () => {
     return events
       .filter((event) => event.time)
       .sort((left, right) => new Date(left.time) - new Date(right.time));
-  }, [journeyLogs, mission, t]);
+  }, [journeyLogs, mission, missionStats, t]);
 
   const planSteps = useMemo(() => {
     if (!mission) return [];
@@ -643,9 +730,49 @@ const MissionDetails = () => {
     return steps;
   }, [mission, t]);
 
-  const recentTelemetry = useMemo(
-    () => [...journeyLogs].reverse().slice(0, 12),
-    [journeyLogs],
+  const journeyDataColumns = useMemo(
+    () => [
+      {
+        header: t("pages.missionDetails.time"),
+        accessorKey: "created_at",
+        cell: (log) => formatDateTime(log.created_at),
+      },
+      {
+        header: t("pages.missionDetails.coordinates"),
+        sortable: false,
+        cell: (log) =>
+          Number.isFinite(log.latitude) && Number.isFinite(log.longitude)
+            ? `${formatCoordinate(log.latitude)}, ${formatCoordinate(log.longitude)}`
+            : "-",
+      },
+      {
+        header: t("pages.missionDetails.mode"),
+        accessorKey: "mode",
+        cell: (log) => log.mode || "-",
+      },
+      {
+        header: t("pages.missionDetails.speed"),
+        accessorKey: "speed",
+        cell: (log) =>
+          Number.isFinite(Number(log.speed))
+            ? `${Number(log.speed).toFixed(2)} m/s`
+            : "-",
+      },
+      {
+        header: t("pages.missionDetails.battery"),
+        accessorKey: "battery_percentage",
+        cell: (log) =>
+          Number.isFinite(Number(log.battery_percentage))
+            ? `${Number(log.battery_percentage).toFixed(1)}%`
+            : "-",
+      },
+      {
+        header: t("pages.missionDetails.system"),
+        accessorKey: "system_status",
+        cell: (log) => log.system_status || "-",
+      },
+    ],
+    [t],
   );
 
   const executionWaypointCount = useMemo(
@@ -655,6 +782,78 @@ const MissionDetails = () => {
       ).length,
     [mission?.waypoints],
   );
+
+  const totalRoutePointCount = useMemo(
+    () => executionWaypointCount + (mission?.home_location ? 1 : 0),
+    [executionWaypointCount, mission?.home_location],
+  );
+
+  const journeyTotalPages = Math.max(
+    1,
+    Math.ceil(journeyTotal / journeyPageSize),
+  );
+
+  useEffect(() => {
+    setJourneyPage(1);
+  }, [missionId]);
+
+  const batteryUsage = useMemo(() => {
+    const startBattery =
+      missionStats?.battery_start ?? journeyLogs[0]?.battery_percentage;
+    const endBattery =
+      missionStats?.battery_end ??
+      journeyLogs[journeyLogs.length - 1]?.battery_percentage;
+
+    if (!Number.isFinite(startBattery) || !Number.isFinite(endBattery)) {
+      return null;
+    }
+
+    return {
+      startBattery,
+      endBattery,
+      consumed: Math.max(0, startBattery - endBattery),
+    };
+  }, [missionStats, journeyLogs]);
+
+  const durationSeconds = useMemo(() => {
+    if (missionStats?.first_ping_at && missionStats?.last_ping_at) {
+      const firstMs = new Date(missionStats.first_ping_at).getTime();
+      const lastMs = new Date(missionStats.last_ping_at).getTime();
+
+      if (!Number.isNaN(firstMs) && !Number.isNaN(lastMs)) {
+        return Math.max(0, (lastMs - firstMs) / 1000);
+      }
+    }
+
+    if (journeyLogs.length > 1) {
+      const firstMs = new Date(journeyLogs[0].created_at).getTime();
+      const lastMs = new Date(
+        journeyLogs[journeyLogs.length - 1].created_at,
+      ).getTime();
+
+      if (!Number.isNaN(firstMs) && !Number.isNaN(lastMs)) {
+        return Math.max(0, (lastMs - firstMs) / 1000);
+      }
+    }
+
+    if (Number.isFinite(mission?.time_elapsed) && mission.time_elapsed > 0) {
+      return mission.time_elapsed;
+    }
+
+    const { start, end } = getMissionWindow(mission);
+    if (!start) return 0;
+
+    const startMs = new Date(start).getTime();
+    const endMs = end ? new Date(end).getTime() : Date.now();
+    if (Number.isNaN(startMs) || Number.isNaN(endMs)) return 0;
+
+    return Math.max(0, (endMs - startMs) / 1000);
+  }, [mission, journeyLogs, missionStats]);
+
+  const displayStartTime =
+    mission?.start_time ||
+    missionStats?.first_ping_at ||
+    journeyLogs[0]?.created_at;
 
   const breadcrumbItems = useMemo(
     () => [
@@ -786,7 +985,8 @@ const MissionDetails = () => {
     );
   }
 
-  const progressPercent = Math.round(mission.progress || 0);
+  const progressPercent =
+    mission.status === "Completed" ? 100 : Math.round(mission.progress || 0);
   const statusClass = statusClasses[mission.status] || statusClasses.Draft;
 
   return (
@@ -847,7 +1047,7 @@ const MissionDetails = () => {
           iconColor="text-amber-500"
           iconBg="bg-amber-50 dark:bg-amber-950/40"
           label={t("pages.missionDetails.waypointProgress")}
-          value={`${mission.completed_waypoint || 0}/${executionWaypointCount} ${t("pages.missionDetails.waypointUnit")}`}
+          value={`${mission.completed_waypoint || 0}/${totalRoutePointCount} ${t("pages.missionDetails.waypointUnit")}`}
         />
         <DetailItem
           icon={<FaCheckCircle />}
@@ -861,21 +1061,14 @@ const MissionDetails = () => {
           iconColor="text-violet-500"
           iconBg="bg-violet-50 dark:bg-violet-950/40"
           label={t("pages.missionDetails.duration")}
-          value={formatDuration(mission.time_elapsed || 0)}
+          value={formatDuration(durationSeconds)}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.85fr]">
         <DataCard title={t("pages.missionDetails.journeyMission")}>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-              <DetailItem
-                icon={<FaSatelliteDish />}
-                iconColor="text-cyan-500"
-                iconBg="bg-cyan-50 dark:bg-cyan-950/40"
-                label={t("pages.missionDetails.telemetrySamples")}
-                value={String(telemetryStats.samples)}
-              />
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <DetailItem
                 icon={<FaPlayCircle />}
                 iconColor="text-green-500"
@@ -929,7 +1122,7 @@ const MissionDetails = () => {
               iconColor="text-green-500"
               iconBg="bg-green-50 dark:bg-green-950/40"
               label={t("pages.missionDetails.startTime")}
-              value={formatDateTime(mission.start_time)}
+              value={formatDateTime(displayStartTime)}
             />
             <DetailItem
               icon={<FaCheckCircle />}
@@ -946,7 +1139,9 @@ const MissionDetails = () => {
               value={
                 mission.energy_budget
                   ? `${Number(mission.energy_consumed || 0).toFixed(1)} / ${Number(mission.energy_budget).toFixed(1)} kWh`
-                  : t("pages.missionDetails.noEnergyBudget")
+                  : batteryUsage
+                    ? `${batteryUsage.consumed.toFixed(1)}% ${t("pages.missionDetails.batteryUsed")} (${batteryUsage.startBattery.toFixed(1)}% → ${batteryUsage.endBattery.toFixed(1)}%)`
+                    : t("pages.missionDetails.noEnergyBudget")
               }
             />
             <DetailItem
@@ -954,7 +1149,7 @@ const MissionDetails = () => {
               iconColor="text-pink-500"
               iconBg="bg-pink-50 dark:bg-pink-950/40"
               label={t("pages.missionDetails.currentWaypoint")}
-              value={`${mission.current_waypoint || 0}/${executionWaypointCount}`}
+              value={`${mission.current_waypoint || 0}/${totalRoutePointCount}`}
             />
           </div>
         </DataCard>
@@ -1033,67 +1228,101 @@ const MissionDetails = () => {
       </div>
 
       <DataCard title={t("pages.missionDetails.telemetryJourney")}>
-        <div className="w-full max-w-full overflow-x-auto">
-          <table className="w-full min-w-max divide-y divide-slate-200 text-sm dark:divide-slate-700">
-            <thead>
-              <tr className="text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                <th className="px-4 py-3">{t("pages.missionDetails.time")}</th>
-                <th className="px-4 py-3">
-                  {t("pages.missionDetails.coordinates")}
-                </th>
-                <th className="px-4 py-3">{t("pages.missionDetails.mode")}</th>
-                <th className="px-4 py-3">{t("pages.missionDetails.speed")}</th>
-                <th className="px-4 py-3">
-                  {t("pages.missionDetails.battery")}
-                </th>
-                <th className="px-4 py-3">
-                  {t("pages.missionDetails.system")}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {recentTelemetry.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
-                  >
-                    {t("pages.missionDetails.noTelemetry")}
-                  </td>
+        <div className="space-y-3">
+          <div className="w-full max-w-full overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+            <table className="w-full min-w-max divide-y divide-slate-200 text-sm dark:divide-slate-700">
+              <thead>
+                <tr className="text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                  {journeyDataColumns.map((column) => (
+                    <th key={column.header} className="px-4 py-3">
+                      {column.header}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                recentTelemetry.map((log) => (
-                  <tr key={log.id || log.created_at}>
-                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
-                      {formatDateTime(log.created_at)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                      {Number.isFinite(log.latitude) &&
-                      Number.isFinite(log.longitude)
-                        ? `${formatCoordinate(log.latitude)}, ${formatCoordinate(log.longitude)}`
-                        : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                      {log.mode || "-"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                      {Number.isFinite(Number(log.speed))
-                        ? `${Number(log.speed).toFixed(2)} m/s`
-                        : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                      {Number.isFinite(Number(log.battery_percentage))
-                        ? `${Number(log.battery_percentage).toFixed(1)}%`
-                        : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                      {log.system_status || "-"}
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                {journeyPageLoading ? (
+                  <tr>
+                    <td
+                      colSpan={journeyDataColumns.length}
+                      className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
+                    >
+                      {t("common.loading")}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : journeyPageLogs.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={journeyDataColumns.length}
+                      className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
+                    >
+                      {t("pages.missionDetails.noTelemetry")}
+                    </td>
+                  </tr>
+                ) : (
+                  journeyPageLogs.map((log) => (
+                    <tr key={log.id || log.created_at}>
+                      {journeyDataColumns.map((column) => (
+                        <td
+                          key={column.header}
+                          className="px-4 py-3 text-slate-700 dark:text-slate-200"
+                        >
+                          {column.cell(log)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {journeyTotal > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-2">
+                <span>{t("common.show")}</span>
+                <select
+                  value={journeyPageSize}
+                  onChange={(event) => {
+                    setJourneyPageSize(Number(event.target.value));
+                    setJourneyPage(1);
+                  }}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-transparent"
+                >
+                  {[10, 25, 50, 100].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+                <span>
+                  {t("common.of")} {journeyTotal.toLocaleString()}{" "}
+                  {t("common.results")}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={journeyPage <= 1}
+                  onClick={() => setJourneyPage((page) => page - 1)}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-700"
+                >
+                  ← Prev
+                </button>
+                <span>
+                  {journeyPage} / {journeyTotalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={journeyPage >= journeyTotalPages}
+                  onClick={() => setJourneyPage((page) => page + 1)}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-700"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </DataCard>
     </div>

@@ -1,13 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { HeadingIndicator } from "react-flight-indicators";
 import useTitle from "../../hooks/useTitle";
 import { Title } from "../../components/ui";
 import { WidgetCard } from "../../components/Widgets";
-import {
-  VehicleDropdown,
-  DatePickerField,
-  TimePickerField,
-} from "../../components/Widgets";
 import {
   ADCPMap,
   ADCPTable,
@@ -16,7 +11,7 @@ import {
   SpeedDirectionChart,
   BeamVelocityChart,
 } from "../../components/Widgets/SensorMonitoring";
-import { useVehicleData, useADCPData } from "../../hooks";
+import { useADCPData } from "../../hooks";
 import useTranslation from "../../hooks/useTranslation";
 import {
   FaWater, FaCompass, FaArrowDown, FaThermometerHalf,
@@ -26,50 +21,15 @@ const ADCP = () => {
   const { t } = useTranslation();
   useTitle(t("pages.adcp.title"));
 
-  const {
-    vehicles,
-    loading: vehicleLoading,
-    selectedVehicleId,
-    setSelectedVehicleId,
-  } = useVehicleData();
-  const selectedVehicle = useMemo(
-    () => vehicles.find((v) => v.id === selectedVehicleId) ?? null,
-    [vehicles, selectedVehicleId],
-  );
-
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-
-  const { adcpData, isConnected } = useADCPData(selectedVehicle);
-
-  const filteredData = useMemo(() => {
-    if (!startDate && !endDate && !startTime && !endTime) return adcpData;
-    return adcpData.filter((d) => {
-      const dt = new Date(d.timestamp);
-      if (startDate) {
-        const from = new Date(startTime ? `${startDate}T${startTime}` : startDate);
-        if (!startTime) from.setHours(0, 0, 0, 0);
-        if (dt < from) return false;
-      }
-      if (endDate) {
-        const to = new Date(endTime ? `${endDate}T${endTime}` : endDate);
-        if (!endTime) to.setHours(23, 59, 59, 999);
-        if (dt > to) return false;
-      }
-      return true;
-    });
-  }, [adcpData, startDate, endDate, startTime, endTime]);
+  // Get ADCP data from WebSocket + historical REST API — realtime, unfiltered
+  const { adcpData, isConnected } = useADCPData();
 
   const latest = useMemo(() => {
-    if (!filteredData.length) return null;
-    return [...filteredData].sort(
+    if (!adcpData.length) return null;
+    return [...adcpData].sort(
       (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
     )[0];
-  }, [filteredData]);
-
-  const hasFilters = selectedVehicle || startDate || endDate || startTime || endTime;
+  }, [adcpData]);
 
   const speedColor = (v) => {
     if (v == null) return undefined;
@@ -124,55 +84,6 @@ const ADCP = () => {
         <div className="flex items-center gap-3">
           <Title title={t("pages.adcp.title")} subtitle={t("pages.adcp.subtitle")} />
         </div>
-
-        <div className="flex w-full flex-wrap items-center gap-2 2xl:w-auto 2xl:justify-end">
-          <div className="flex w-full flex-wrap items-center gap-2 2xl:w-auto">
-            <DatePickerField
-              value={startDate}
-              onChange={(date) => { setStartDate(date); if (endDate && date && new Date(date) > new Date(endDate)) setEndDate(""); }}
-              placeholder={t("pages.adcp.startDate")}
-              maxDate={endDate || new Date().toISOString().split("T")[0]}
-              className="w-36"
-            />
-            <TimePickerField value={startTime} onChange={setStartTime} placeholder="00:00" className="w-28" />
-            <span className="text-gray-500 dark:text-gray-400 text-sm">{t("pages.adcp.to")}</span>
-            <DatePickerField
-              value={endDate}
-              onChange={setEndDate}
-              placeholder={t("pages.adcp.endDate")}
-              minDate={startDate || undefined}
-              className="w-36"
-            />
-            <TimePickerField value={endTime} onChange={setEndTime} placeholder="23:59" className="w-28" />
-          </div>
-
-          <div className="w-full sm:w-48">
-            <VehicleDropdown
-              vehicles={vehicles}
-              selectedVehicle={selectedVehicle}
-              onVehicleChange={(v) => setSelectedVehicleId(v?.id)}
-              placeholder={
-                vehicleLoading ? t("pages.adcp.loadingVehicles")
-                  : !vehicles?.length ? t("pages.adcp.noVehicles")
-                  : t("pages.adcp.allVehicles")
-              }
-              className="text-sm"
-              disabled={vehicleLoading}
-            />
-          </div>
-
-          {hasFilters && (
-            <button
-              onClick={() => { setSelectedVehicleId(null); setStartDate(""); setEndDate(""); setStartTime(""); setEndTime(""); }}
-              className="shrink-0 px-3 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 text-sm rounded-xl transition-all flex items-center gap-2 font-medium"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              {t("pages.adcp.clear")}
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Row 1: 4 stat cards */}
@@ -218,19 +129,19 @@ const ADCP = () => {
         </div>
 
         {/* Current Rose */}
-        <CurrentRose adcpData={filteredData} />
+        <CurrentRose adcpData={adcpData} />
       </div>
 
       {/* Row 3: Speed+Direction chart | Beam velocity history */}
       <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SpeedDirectionChart adcpData={filteredData} />
-        <BeamVelocityChart adcpData={filteredData} />
+        <SpeedDirectionChart adcpData={adcpData} />
+        <BeamVelocityChart adcpData={adcpData} />
       </div>
 
       {/* Row 4: Map + Beam velocity bars */}
       <div className="mb-4 grid grid-cols-1 lg:grid-cols-3 gap-4 lg:items-stretch">
         <div className="lg:col-span-2">
-          <ADCPMap adcpData={filteredData} />
+          <ADCPMap adcpData={adcpData} />
         </div>
         <div className="flex flex-col gap-4">
           <BeamVelocityBars
@@ -268,7 +179,7 @@ const ADCP = () => {
               },
               {
                 label: t("pages.adcp.totalRecords"),
-                value: filteredData.length,
+                value: adcpData.length,
               },
             ].map(({ label, value }) => (
               <div key={label} className="flex justify-between items-center text-sm">
@@ -281,7 +192,7 @@ const ADCP = () => {
       </div>
 
       {/* Row 5: Table */}
-      <ADCPTable adcpData={filteredData} />
+      <ADCPTable adcpData={adcpData} />
     </div>
   );
 };

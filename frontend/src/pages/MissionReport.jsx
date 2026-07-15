@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import useTranslation from "../hooks/useTranslation";
 import {
   MapContainer,
   Marker,
@@ -28,11 +29,10 @@ import axios from "../utils/axiosConfig";
 import { API_ENDPOINTS } from "../config";
 
 const statusClasses = {
-  Draft: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
-  Ongoing: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200",
-  Completed:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200",
-  Failed: "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200",
+  Draft: "bg-gray-500 text-white",
+  Ongoing: "bg-sky-600 text-white",
+  Completed: "bg-emerald-600 text-white",
+  Failed: "bg-rose-600 text-white",
 };
 
 const formatDateTime = (value) => {
@@ -55,6 +55,22 @@ const toNum = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
+
+const inferWaypointType = (waypoint) => {
+  if (!waypoint) return "path";
+  if (waypoint.type) return waypoint.type;
+
+  return waypoint.shape || waypoint.bounds || Array.isArray(waypoint.vertices)
+    ? "zone"
+    : "path";
+};
+
+const MAX_CELL_LENGTH = 60;
+
+const truncateText = (value) =>
+  value.length > MAX_CELL_LENGTH
+    ? `${value.slice(0, MAX_CELL_LENGTH)}...`
+    : value;
 
 const formatDuration = (seconds) => {
   if (!Number.isFinite(seconds) || seconds <= 0) return "00h 00m 00s";
@@ -79,15 +95,35 @@ const FitMapBounds = ({ points }) => {
   return null;
 };
 
-const actualIcon = L.divIcon({
-  html: `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#c084fc);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;border:2px solid rgba(255,255,255,0.9);box-shadow:0 4px 12px rgba(0,0,0,0.25)">A</div>`,
-  className: "",
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-});
+const makeDotIcon = (label, gradient) =>
+  L.divIcon({
+    html: `<div style="width:28px;height:28px;border-radius:50%;background:${gradient};display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;border:2px solid rgba(255,255,255,0.9);box-shadow:0 4px 12px rgba(0,0,0,0.25)">${label}</div>`,
+    className: "",
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+
+const actualIcon = makeDotIcon("A", "linear-gradient(135deg,#7c3aed,#c084fc)");
+const homeIcon = makeDotIcon("H", "linear-gradient(135deg,#0f766e,#14b8a6)");
+
+const WAYPOINT_GRADIENTS = {
+  completed: "linear-gradient(135deg,#15803d,#22c55e)",
+  current: "linear-gradient(135deg,#2563eb,#38bdf8)",
+  pending: "linear-gradient(135deg,#475569,#94a3b8)",
+};
+
+const waypointIconFor = (label, state) =>
+  makeDotIcon(label, WAYPOINT_GRADIENTS[state] || WAYPOINT_GRADIENTS.pending);
 
 const MissionTrajectoryMap = ({ journeyLogs, mission }) => {
-  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
+  const { t } = useTranslation();
+  const {
+    url: tileUrl,
+    attribution: tileAttribution,
+    maxNativeZoom: tileMaxNativeZoom,
+    tileSize,
+    zoomOffset,
+  } = useMapTile();
   const actualPoints = useMemo(
     () =>
       (journeyLogs || [])
@@ -98,6 +134,14 @@ const MissionTrajectoryMap = ({ journeyLogs, mission }) => {
         )
         .map((l) => [toNum(l.latitude), toNum(l.longitude)]),
     [journeyLogs],
+  );
+
+  const executionWaypoints = useMemo(
+    () =>
+      (mission?.waypoints || []).filter(
+        (waypoint) => inferWaypointType(waypoint) !== "zone",
+      ),
+    [mission?.waypoints],
   );
 
   const plannedPoints = useMemo(() => {
@@ -111,16 +155,18 @@ const MissionTrajectoryMap = ({ journeyLogs, mission }) => {
         toNum(mission.home_location.lng),
       ]);
     }
-    (mission?.waypoints || []).forEach((wp) => {
+    executionWaypoints.forEach((wp) => {
       if (Number.isFinite(toNum(wp?.lat)) && Number.isFinite(toNum(wp?.lng))) {
         pts.push([toNum(wp.lat), toNum(wp.lng)]);
       }
     });
     return pts;
-  }, [mission]);
+  }, [mission, executionWaypoints]);
 
   const combined = [...plannedPoints, ...actualPoints];
   const center = combined[0] || [-6.2, 106.816666];
+  const completedCount = mission?.completed_waypoint || 0;
+  const currentIndex = mission?.current_waypoint ?? completedCount;
 
   return (
     <div className="relative h-96 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
@@ -134,8 +180,10 @@ const MissionTrajectoryMap = ({ journeyLogs, mission }) => {
           attribution={tileAttribution}
           url={tileUrl}
           noWrap={true}
-          maxZoom={20}
-          maxNativeZoom={18}
+          maxZoom={22}
+          maxNativeZoom={tileMaxNativeZoom}
+          tileSize={tileSize}
+          zoomOffset={zoomOffset}
         />
         <FitMapBounds points={combined} />
         {plannedPoints.length > 1 && (
@@ -155,6 +203,64 @@ const MissionTrajectoryMap = ({ journeyLogs, mission }) => {
             pathOptions={{ color: "#8b5cf6", weight: 4, opacity: 0.85 }}
           />
         )}
+        {mission?.home_location &&
+          Number.isFinite(toNum(mission.home_location.lat)) &&
+          Number.isFinite(toNum(mission.home_location.lng)) && (
+            <Marker
+              position={[
+                toNum(mission.home_location.lat),
+                toNum(mission.home_location.lng),
+              ]}
+              icon={homeIcon}
+            >
+              <Popup>
+                <div className="text-sm">
+                  <div className="font-semibold">
+                    {t("pages.missionDetails.homeLocation")}
+                  </div>
+                  <div>
+                    {formatCoordinate(mission.home_location.lat)},{" "}
+                    {formatCoordinate(mission.home_location.lng)}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+        {executionWaypoints.map((waypoint, index) => {
+          if (
+            !Number.isFinite(toNum(waypoint?.lat)) ||
+            !Number.isFinite(toNum(waypoint?.lng))
+          ) {
+            return null;
+          }
+
+          const state =
+            index < completedCount
+              ? "completed"
+              : index === currentIndex
+                ? "current"
+                : "pending";
+
+          return (
+            <Marker
+              key={`waypoint-${index}`}
+              position={[toNum(waypoint.lat), toNum(waypoint.lng)]}
+              icon={waypointIconFor(String(index + 1), state)}
+            >
+              <Popup>
+                <div className="text-sm space-y-1">
+                  <div className="font-semibold">
+                    {waypoint?.name || `WP ${index + 1}`}
+                  </div>
+                  <div>
+                    {formatCoordinate(waypoint.lat)},{" "}
+                    {formatCoordinate(waypoint.lng)}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
         {actualPoints.length > 0 && (
           <Marker
             position={actualPoints[actualPoints.length - 1]}
@@ -162,7 +268,7 @@ const MissionTrajectoryMap = ({ journeyLogs, mission }) => {
           >
             <Popup>
               <div className="text-sm">
-                <div className="font-semibold">Posisi Terakhir</div>
+                <div className="font-semibold">{t("missionReport.lastPosition")}</div>
                 <div>
                   {formatCoordinate(actualPoints[actualPoints.length - 1][0])},{" "}
                   {formatCoordinate(actualPoints[actualPoints.length - 1][1])}
@@ -177,6 +283,7 @@ const MissionTrajectoryMap = ({ journeyLogs, mission }) => {
 };
 
 const SensorSection = ({ sensor, logs }) => {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const perPage = 50;
 
@@ -325,7 +432,7 @@ const SensorSection = ({ sensor, logs }) => {
           <table className="w-full min-w-max divide-y divide-slate-200 text-sm dark:divide-slate-700">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                <th className="whitespace-nowrap px-3 py-2">Waktu</th>
+                <th className="whitespace-nowrap px-3 py-2">{t("missionReport.tableTime")}</th>
                 {allKeys.map((k) => (
                   <th key={k} className="whitespace-nowrap px-3 py-2">
                     {k}
@@ -342,19 +449,24 @@ const SensorSection = ({ sensor, logs }) => {
                   <td className="whitespace-nowrap px-3 py-2 text-slate-600 dark:text-slate-300">
                     {formatDateTime(log.created_at)}
                   </td>
-                  {allKeys.map((k) => (
-                    <td
-                      key={k}
-                      className="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-200"
-                    >
-                      {log._parsed?.[k] !== undefined &&
+                  {allKeys.map((k) => {
+                    const cellValue =
+                      log._parsed?.[k] !== undefined &&
                       log._parsed?.[k] !== null
                         ? typeof log._parsed[k] === "object"
                           ? JSON.stringify(log._parsed[k])
                           : String(log._parsed[k])
-                        : "-"}
-                    </td>
-                  ))}
+                        : "-";
+                    return (
+                      <td
+                        key={k}
+                        className="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-200"
+                        title={cellValue}
+                      >
+                        {truncateText(cellValue)}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -393,13 +505,16 @@ const SensorSection = ({ sensor, logs }) => {
 };
 
 const MissionReport = () => {
-  useTitle("Laporan Misi");
+  const { t } = useTranslation();
+  useTitle(t("missionReport.pageTitle"));
   const { url: tileUrl, attribution: tileAttribution } = useMapTile();
   const { missionId } = useParams();
 
   const [mission, setMission] = useState(null);
   const [sensorLogs, setSensorLogs] = useState([]);
   const [vehicleLogs, setVehicleLogs] = useState([]);
+  const [trajectoryPoints, setTrajectoryPoints] = useState([]);
+  const [missionStats, setMissionStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeSensorId, setActiveSensorId] = useState(null);
@@ -411,13 +526,21 @@ const MissionReport = () => {
       setLoading(true);
       setError("");
       try {
-        const [missionRes, sensorRes, vehicleRes] = await Promise.all([
-          axios.get(API_ENDPOINTS.MISSIONS.BY_ID(missionId)),
-          axios.get(API_ENDPOINTS.MISSIONS.SENSOR_LOGS(missionId)),
-          axios.get(API_ENDPOINTS.MISSIONS.VEHICLE_LOGS(missionId)),
-        ]);
+        const [missionRes, sensorRes, vehicleRes, statsRes, trajectoryRes] =
+          await Promise.all([
+            axios.get(API_ENDPOINTS.MISSIONS.BY_ID(missionId)),
+            axios.get(API_ENDPOINTS.MISSIONS.SENSOR_LOGS(missionId)),
+            axios.get(API_ENDPOINTS.MISSIONS.VEHICLE_LOGS(missionId)),
+            axios
+              .get(API_ENDPOINTS.VEHICLE_LOGS.MISSION_STATS(missionId))
+              .catch(() => null),
+            axios
+              .get(API_ENDPOINTS.VEHICLE_LOGS.MISSION_TRAJECTORY(missionId))
+              .catch(() => null),
+          ]);
 
         setMission(missionRes.data);
+        setMissionStats(statsRes?.data || null);
 
         const sLogs = Array.isArray(sensorRes.data)
           ? sensorRes.data
@@ -432,11 +555,16 @@ const MissionReport = () => {
             new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
         );
         setVehicleLogs(sorted);
+
+        const trajectoryLogs = Array.isArray(trajectoryRes?.data?.data)
+          ? trajectoryRes.data.data
+          : null;
+        setTrajectoryPoints(trajectoryLogs || sorted);
       } catch (err) {
         setError(
           err?.response?.data?.error ||
             err?.message ||
-            "Gagal memuat laporan misi.",
+            t("missionReport.loadError"),
         );
       } finally {
         setLoading(false);
@@ -467,6 +595,48 @@ const MissionReport = () => {
     () => sensorGroups.map((g) => g.sensor?.id || g.logs[0]?.sensor_id),
     [sensorGroups],
   );
+
+  const totalRoutePointCount = useMemo(() => {
+    const executionWaypointCount = (mission?.waypoints || []).filter(
+      (waypoint) => inferWaypointType(waypoint) !== "zone",
+    ).length;
+    return executionWaypointCount + (mission?.home_location ? 1 : 0);
+  }, [mission?.waypoints, mission?.home_location]);
+
+  const durationSeconds = useMemo(() => {
+    if (missionStats?.first_ping_at && missionStats?.last_ping_at) {
+      const firstMs = new Date(missionStats.first_ping_at).getTime();
+      const lastMs = new Date(missionStats.last_ping_at).getTime();
+
+      if (!Number.isNaN(firstMs) && !Number.isNaN(lastMs)) {
+        return Math.max(0, (lastMs - firstMs) / 1000);
+      }
+    }
+
+    // Fallback for when the aggregate stats endpoint is unavailable — derived
+    // only from the capped log fetch, so it can be off for very long missions.
+    if (vehicleLogs.length > 1) {
+      const firstMs = new Date(vehicleLogs[0].created_at).getTime();
+      const lastMs = new Date(
+        vehicleLogs[vehicleLogs.length - 1].created_at,
+      ).getTime();
+
+      if (!Number.isNaN(firstMs) && !Number.isNaN(lastMs)) {
+        return Math.max(0, (lastMs - firstMs) / 1000);
+      }
+    }
+
+    if (Number.isFinite(mission?.time_elapsed) && mission.time_elapsed > 0) {
+      return mission.time_elapsed;
+    }
+
+    return 0;
+  }, [vehicleLogs, mission, missionStats]);
+
+  const displayStartTime =
+    mission?.start_time ||
+    missionStats?.first_ping_at ||
+    vehicleLogs[0]?.created_at;
 
   useEffect(() => {
     if (sensorIds.length > 0 && activeSensorId === null) {
@@ -544,17 +714,17 @@ const MissionReport = () => {
 
   const breadcrumbItems = [
     { name: "Dashboard", path: "/dashboard" },
-    { name: "Misi", path: "/missions" },
-    { name: mission?.name || "Detail Misi", path: `/missions/${missionId}` },
-    { name: "Laporan Sensor", path: null },
+    { name: t("missionReport.breadcrumb.missions"), path: "/missions" },
+    { name: mission?.name || t("missionReport.breadcrumb.missionDetails"), path: `/missions/${missionId}` },
+    { name: t("missionReport.breadcrumb.sensorReport"), path: null },
   ];
 
   if (loading) {
     return (
       <div className="space-y-4 p-4">
         <Title
-          title="Laporan Sensor Misi"
-          subtitle="Memuat data..."
+          title={t("missionReport.title")}
+          subtitle={t("missionReport.loadingSubtitle")}
           breadcrumbItems={breadcrumbItems}
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -573,19 +743,19 @@ const MissionReport = () => {
     return (
       <div className="space-y-4 p-4">
         <Title
-          title="Laporan Sensor Misi"
-          subtitle="Terjadi kesalahan"
+          title={t("missionReport.title")}
+          subtitle={t("missionReport.errorSubtitle")}
           breadcrumbItems={breadcrumbItems}
         />
         <DataCard>
           <p className="text-sm text-rose-600 dark:text-rose-400">
-            {error || "Misi tidak ditemukan."}
+            {error || t("missionReport.notFound")}
           </p>
           <Link
             to="/missions"
             className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:underline dark:text-slate-300"
           >
-            <FaArrowLeft size={12} /> Kembali ke daftar misi
+            <FaArrowLeft size={12} /> {t("missionReport.backToMissions")}
           </Link>
         </DataCard>
       </div>
@@ -599,8 +769,8 @@ const MissionReport = () => {
       {/* Header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <Title
-          title={`Laporan Sensor — ${mission.name}`}
-          subtitle={`${mission.mission_code} · ${mission.vehicle?.name || mission.vehicle?.code || "Tanpa kendaraan"}`}
+          title={`${t("missionReport.title")} — ${mission.name}`}
+          subtitle={`${mission.mission_code} · ${mission.vehicle?.name || mission.vehicle?.code || t("missionReport.noVehicle")}`}
           breadcrumbItems={breadcrumbItems}
         />
         <div className="flex flex-wrap items-center gap-3">
@@ -616,14 +786,14 @@ const MissionReport = () => {
             className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             <FaDownload size={12} />
-            Export CSV
+            {t("missionReport.exportCsv")}
           </button>
           <Link
             to={`/missions/${missionId}`}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             <FaArrowLeft size={12} />
-            Detail Misi
+            {t("missionReport.missionDetailsLink")}
           </Link>
         </div>
       </div>
@@ -633,29 +803,29 @@ const MissionReport = () => {
         {[
           {
             icon: <FaShip />,
-            label: "Kendaraan",
+            label: t("missionReport.stats.vehicle"),
             value: mission.vehicle?.name || mission.vehicle?.code || "-",
             iconColor: "text-sky-500",
             iconBg: "bg-sky-50 dark:bg-sky-950/40",
           },
           {
             icon: <FaFlask />,
-            label: "Jenis Sensor",
+            label: t("missionReport.stats.sensorType"),
             value: `${sensorGroups.length} sensor`,
             iconColor: "text-violet-500",
             iconBg: "bg-violet-50 dark:bg-violet-950/40",
           },
           {
             icon: <FaCheckCircle />,
-            label: "Total Data Sensor",
+            label: t("missionReport.stats.totalSensorData"),
             value: sensorLogs.length.toLocaleString(),
             iconColor: "text-emerald-500",
             iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
           },
           {
             icon: <FaClock />,
-            label: "Durasi",
-            value: formatDuration(mission.time_elapsed || 0),
+            label: t("missionReport.stats.duration"),
+            value: formatDuration(durationSeconds),
             iconColor: "text-amber-500",
             iconBg: "bg-amber-50 dark:bg-amber-950/40",
           },
@@ -686,29 +856,29 @@ const MissionReport = () => {
         {[
           {
             icon: <FaCalendarAlt />,
-            label: "Dibuat",
+            label: t("missionReport.stats.created"),
             value: formatDateTime(mission.created_at),
             iconColor: "text-rose-500",
             iconBg: "bg-rose-50 dark:bg-rose-950/40",
           },
           {
             icon: <FaRoute />,
-            label: "Mulai",
-            value: formatDateTime(mission.start_time),
+            label: t("missionReport.stats.start"),
+            value: formatDateTime(displayStartTime),
             iconColor: "text-green-500",
             iconBg: "bg-green-50 dark:bg-green-950/40",
           },
           {
             icon: <FaCheckCircle />,
-            label: "Selesai",
+            label: t("missionReport.stats.end"),
             value: formatDateTime(mission.end_time),
             iconColor: "text-emerald-500",
             iconBg: "bg-emerald-50 dark:bg-emerald-950/40",
           },
           {
             icon: <FaRoute />,
-            label: "Waypoint",
-            value: `${mission.completed_waypoint || 0}/${mission.total_waypoints || 0}`,
+            label: t("missionReport.stats.waypoint"),
+            value: `${mission.completed_waypoint || 0}/${totalRoutePointCount}`,
             iconColor: "text-orange-500",
             iconBg: "bg-orange-50 dark:bg-orange-950/40",
           },
@@ -735,23 +905,23 @@ const MissionReport = () => {
       </div>
 
       {/* Trajectory Map */}
-      {vehicleLogs.length > 0 && (
-        <DataCard title="Trajektori Misi">
-          <MissionTrajectoryMap journeyLogs={vehicleLogs} mission={mission} />
+      {trajectoryPoints.length > 0 && (
+        <DataCard title={t("missionReport.trajectoryTitle")}>
+          <MissionTrajectoryMap journeyLogs={trajectoryPoints} mission={mission} />
           <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
             <span className="flex items-center gap-1.5">
               <span
                 className="inline-block h-2 w-6 rounded"
                 style={{ background: "#f59e0b", opacity: 0.9 }}
               />
-              Rute Direncanakan
+              {t("missionReport.plannedRoute")}
             </span>
             <span className="flex items-center gap-1.5">
               <span
                 className="inline-block h-2 w-6 rounded"
                 style={{ background: "#8b5cf6" }}
               />
-              Jalur Aktual
+              {t("missionReport.actualPath")}
             </span>
           </div>
         </DataCard>
@@ -759,12 +929,11 @@ const MissionReport = () => {
 
       {/* Sensor Data */}
       {sensorGroups.length === 0 ? (
-        <DataCard title="Data Sensor">
+        <DataCard title={t("missionReport.sensorDataTitle")}>
           <div className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            Belum ada data sensor yang ter-link ke misi ini.
+            {t("missionReport.noSensorData")}
             <div className="mt-2 text-xs">
-              Data sensor akan otomatis ter-link jika misi sedang berjalan
-              (status Ongoing).
+              {t("missionReport.noSensorDataHint")}
             </div>
           </div>
         </DataCard>
@@ -800,7 +969,7 @@ const MissionReport = () => {
                     </span>
                   )}
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${isActive ? "bg-white/20" : "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300"}`}
+                    className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${isActive ? "bg-white/20" : "bg-sky-600 text-white"}`}
                   >
                     {group.logs.length}
                   </span>

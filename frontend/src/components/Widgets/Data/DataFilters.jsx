@@ -13,12 +13,23 @@ const DATE_RANGE_OPTIONS = [
   { id: "week", name: "This Week" },
   { id: "month", name: "This Month" },
   { id: "quarter", name: "This Quarter" },
+  { id: "custom", name: "Custom Range" },
 ];
 
 const DATA_SCOPE_OPTIONS = [
   { id: "all", name: "All Data" },
   { id: "mission", name: "Mission Data" },
   { id: "telemetry", name: "Telemetry Data" },
+];
+
+// Backend requires an exact log_type match (latency_acks.log_type is never
+// empty) — there is no "all" option here, a value must always be sent.
+const LOG_TYPE_OPTIONS = [
+  { id: "vehicle", name: "Vehicle" },
+  { id: "sensor", name: "Sensor" },
+  { id: "thruster", name: "Thruster" },
+  { id: "command", name: "Command" },
+  { id: "waypoint", name: "Waypoint" },
 ];
 
 const getMissionStatusColor = (status) => {
@@ -94,6 +105,16 @@ const DataFilters = ({
   const selectedSensor = filters.sensor?.id
     ? sensorItems.find((s) => s.id === filters.sensor.id) || allSensorOption
     : allSensorOption;
+
+  const logTypeOptionsLocalized = LOG_TYPE_OPTIONS.map((item) => ({
+    ...item,
+    name: t(`pages.data.filters.logType.${item.id}`),
+  }));
+
+  const selectedLogTypeLocalized =
+    logTypeOptionsLocalized.find(
+      (item) => item.id === (filters.logType || "vehicle"),
+    ) || logTypeOptionsLocalized[0];
 
   return (
     <div className="bg-white dark:bg-transparent border border-gray-300 dark:border-slate-600 rounded-xl p-6">
@@ -202,53 +223,65 @@ const DataFilters = ({
             <Dropdown
               items={dateRangeOptionsLocalized}
               selectedItem={selectedDateRangeLocalized}
-              onItemChange={(item) => onFilterChange("dateRange", item.id)}
+              onItemChange={(item) => {
+                onFilterChange("dateRange", item.id);
+                if (item.id !== "custom") {
+                  onFilterChange("startDate", "");
+                  onFilterChange("endDate", "");
+                  onFilterChange("startTime", "");
+                  onFilterChange("endTime", "");
+                }
+              }}
               getItemKey={(item) => item.id}
               className="text-sm"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {t("pages.data.filters.startDate")}
-            </label>
-            <div className="flex gap-2">
-              <DatePickerField
-                value={filters.startDate || ""}
-                onChange={(value) => onFilterChange("startDate", value)}
-                placeholder={t("pages.data.filters.startDate")}
-                maxDate={filters.endDate || undefined}
-                className="flex-1"
-              />
-              <TimePickerField
-                value={filters.startTime || ""}
-                onChange={(value) => onFilterChange("startTime", value)}
-                placeholder="00:00"
-                className="w-28"
-              />
-            </div>
-          </div>
+          {filters.dateRange === "custom" && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t("pages.data.filters.startDate")}
+                </label>
+                <div className="flex gap-2">
+                  <DatePickerField
+                    value={filters.startDate || ""}
+                    onChange={(value) => onFilterChange("startDate", value)}
+                    placeholder={t("pages.data.filters.startDate")}
+                    maxDate={filters.endDate || undefined}
+                    className="flex-1"
+                  />
+                  <TimePickerField
+                    value={filters.startTime || ""}
+                    onChange={(value) => onFilterChange("startTime", value)}
+                    placeholder="00:00"
+                    className="w-28"
+                  />
+                </div>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {t("pages.data.filters.endDate")}
-            </label>
-            <div className="flex gap-2">
-              <DatePickerField
-                value={filters.endDate || ""}
-                onChange={(value) => onFilterChange("endDate", value)}
-                placeholder={t("pages.data.filters.endDate")}
-                minDate={filters.startDate || undefined}
-                className="flex-1"
-              />
-              <TimePickerField
-                value={filters.endTime || ""}
-                onChange={(value) => onFilterChange("endTime", value)}
-                placeholder="23:59"
-                className="w-28"
-              />
-            </div>
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t("pages.data.filters.endDate")}
+                </label>
+                <div className="flex gap-2">
+                  <DatePickerField
+                    value={filters.endDate || ""}
+                    onChange={(value) => onFilterChange("endDate", value)}
+                    placeholder={t("pages.data.filters.endDate")}
+                    minDate={filters.startDate || undefined}
+                    className="flex-1"
+                  />
+                  <TimePickerField
+                    value={filters.endTime || ""}
+                    onChange={(value) => onFilterChange("endTime", value)}
+                    placeholder="23:59"
+                    className="w-28"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           {selectedDataType === "sensor_logs" && (
             <div>
@@ -262,6 +295,21 @@ const DataFilters = ({
                   onFilterChange("sensor", item.id ? item : null)
                 }
                 getItemKey={(item) => item.id ?? "all"}
+                className="text-sm"
+              />
+            </div>
+          )}
+
+          {selectedDataType === "latency_logs" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t("pages.data.filters.logTypeTitle")}
+              </label>
+              <Dropdown
+                items={logTypeOptionsLocalized}
+                selectedItem={selectedLogTypeLocalized}
+                onItemChange={(item) => onFilterChange("logType", item.id)}
+                getItemKey={(item) => item.id}
                 className="text-sm"
               />
             </div>

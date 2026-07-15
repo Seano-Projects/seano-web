@@ -62,6 +62,7 @@ const MissionSidebar = ({
   const [showClearModal, setShowClearModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadVehicleId, setUploadVehicleId] = useState(null);
+  const [showTourModal, setShowTourModal] = useState(false);
   const { t } = useTranslation();
   const { refreshData: refreshMissionData, missionData } = useMissionData();
 
@@ -617,7 +618,7 @@ const MissionSidebar = ({
           </h2>
           <button
             id="tour-start-btn"
-            onClick={onStartTour}
+            onClick={() => setShowTourModal(true)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-500 text-white border-none transition-colors"
             title="Panduan penggunaan"
           >
@@ -760,8 +761,8 @@ const MissionSidebar = ({
               <span
                 className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
                   isEditingWaypoints
-                    ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
-                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                    ? "bg-orange-500 text-white"
+                    : "bg-yellow-500 text-white"
                 }`}
               >
                 <FaEdit size={10} className="mr-1" />
@@ -1136,6 +1137,47 @@ const MissionSidebar = ({
           type="danger"
         />,
         document.body,
+      )}
+
+      {/* Tour Info Modal */}
+      {showTourModal && createPortal(
+        <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">
+                  {t("missionComponents.tour.btnLabel")}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Untuk pengalaman tour yang lengkap, sebaiknya <strong>muat misi terlebih dahulu</strong> agar semua komponen dapat ditampilkan dengan benar.
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                  Kamu tetap bisa melanjutkan tour tanpa misi, namun beberapa langkah mungkin tidak dapat ditampilkan.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-2">
+              <button
+                onClick={() => setShowTourModal(false)}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={() => { setShowTourModal(false); onStartTour(); }}
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              >
+                Mulai Tour
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Mission Upload Modal */}

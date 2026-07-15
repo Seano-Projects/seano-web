@@ -145,7 +145,7 @@ const MissionUploadModal = ({
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                    Uploading...
+                    {uploadState.currentStep === "waiting_ack" ? "Confirming..." : "Uploading..."}
                   </span>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     {uploadState.progress}%
@@ -162,10 +162,12 @@ const MissionUploadModal = ({
               {uploadState.currentStep && (
                 <p className="text-xs text-gray-600 dark:text-gray-400">
                   {uploadState.currentStep === "validating"
-                    ? "Validating mission..."
+                    ? "Checking mission details..."
                     : uploadState.currentStep === "uploading"
-                      ? "Uploading to vehicle..."
-                      : "Processing..."}
+                      ? "Sending mission to vehicle..."
+                      : uploadState.currentStep === "waiting_ack"
+                        ? "Waiting for vehicle response..."
+                        : "Getting ready..."}
                 </p>
               )}
             </div>

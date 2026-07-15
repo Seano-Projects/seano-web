@@ -10,12 +10,12 @@ import {
 } from "recharts";
 import useTranslation from "../../../../hooks/useTranslation";
 
-const METRICS = [
-  { key: "temperature",    label: "Suhu",           unit: "°C",    color: "#F97316" },
-  { key: "salinity",       label: "Salinitas",      unit: "PSU",   color: "#0EA5E9" },
-  { key: "density",        label: "Densitas",       unit: "kg/m³", color: "#22C55E" },
-  { key: "conductivity",   label: "Konduktivitas",  unit: "mS/cm", color: "#A855F7" },
-  { key: "sound_velocity", label: "Kec. Suara",     unit: "m/s",   color: "#EF4444" },
+const METRIC_DEFS = [
+  { key: "temperature",    tKey: "temperature",    unit: "°C",    color: "#F97316" },
+  { key: "salinity",       tKey: "salinity",       unit: "PSU",   color: "#0EA5E9" },
+  { key: "density",        tKey: "density",        unit: "kg/m³", color: "#22C55E" },
+  { key: "conductivity",   tKey: "conductivity",   unit: "mS/cm", color: "#A855F7" },
+  { key: "sound_velocity", tKey: "soundVelocity",  unit: "m/s",   color: "#EF4444" },
 ];
 
 const normalize = (value, min, max) =>
@@ -24,10 +24,14 @@ const normalize = (value, min, max) =>
 const TimeSeriesChart = ({ ctdData }) => {
   const { t } = useTranslation();
 
+  const metrics = useMemo(
+    () => METRIC_DEFS.map((m) => ({ ...m, label: t(`pages.ctd.metrics.${m.tKey}`) })),
+    [t],
+  );
+
   const { profileData, ranges } = useMemo(() => {
     if (!ctdData || ctdData.length === 0) return { profileData: [], ranges: {} };
 
-    // Use the latest batch (most recent timestamp)
     const latestTs = ctdData.reduce(
       (max, item) => (!max || new Date(item.timestamp) > new Date(max) ? item.timestamp : max),
       null,
@@ -37,16 +41,15 @@ const TimeSeriesChart = ({ ctdData }) => {
       .filter(item => item.timestamp === latestTs)
       .sort((a, b) => a.depth - b.depth);
 
-    // Compute min/max per metric for normalization
     const ranges = {};
-    METRICS.forEach(({ key }) => {
+    METRIC_DEFS.forEach(({ key }) => {
       const vals = batch.map(d => d[key]).filter(v => v !== null && v !== undefined);
       ranges[key] = { min: Math.min(...vals), max: Math.max(...vals) };
     });
 
     const profileData = batch.map(item => {
       const row = { depth: item.depth };
-      METRICS.forEach(({ key }) => {
+      METRIC_DEFS.forEach(({ key }) => {
         row[key] = item[key];
         row[`${key}_norm`] = normalize(item[key], ranges[key].min, ranges[key].max);
       });
@@ -63,9 +66,9 @@ const TimeSeriesChart = ({ ctdData }) => {
     return (
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-lg min-w-44">
         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
-          Kedalaman: {Number(d.depth).toFixed(2)} m
+          {t("pages.data.charts.depth")}: {Number(d.depth).toFixed(2)} m
         </p>
-        {METRICS.map(({ key, label, unit, color }) => (
+        {metrics.map(({ key, label, unit, color }) => (
           <p key={key} className="text-xs font-medium" style={{ color }}>
             {label}: {Number(d[key] ?? 0).toFixed(3)} {unit}
           </p>
@@ -87,7 +90,7 @@ const TimeSeriesChart = ({ ctdData }) => {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
-        {METRICS.map(({ key, label, unit, color }) => (
+        {metrics.map(({ key, label, unit, color }) => (
           <div key={key} className="flex items-center gap-1.5">
             <span className="inline-block w-3 rounded" style={{ backgroundColor: color, height: '2px', minWidth: 12 }} />
             <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -121,7 +124,7 @@ const TimeSeriesChart = ({ ctdData }) => {
                 axisLine={false}
                 tickFormatter={v => `${v}%`}
                 label={{
-                  value: "Nilai ternormalisasi (%)",
+                  value: `${t("pages.ctd.charts.customSelectTitle")} (%)`,
                   position: "insideBottom",
                   offset: -12,
                   fill: "#9CA3AF",
@@ -138,7 +141,7 @@ const TimeSeriesChart = ({ ctdData }) => {
                 tickLine={false}
                 axisLine={false}
                 label={{
-                  value: "Depth (m)",
+                  value: `${t("pages.data.charts.depth")} (m)`,
                   angle: -90,
                   position: "insideLeft",
                   fill: "#9CA3AF",
@@ -146,7 +149,7 @@ const TimeSeriesChart = ({ ctdData }) => {
                 }}
               />
               <Tooltip content={<CustomTooltip />} />
-              {METRICS.map(({ key, color }) => (
+              {metrics.map(({ key, color }) => (
                 <Line
                   key={key}
                   type="monotone"

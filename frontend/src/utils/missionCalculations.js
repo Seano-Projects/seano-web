@@ -108,5 +108,8 @@ export const formatTime = minutes => {
     const mins = Math.round(minutes % 60)
     return `${hours}h ${mins}m`
   }
+  if (minutes < 1) {
+    return `${Math.round(minutes * 60)} sec`
+  }
   return `${Math.round(minutes)} min`
 }
