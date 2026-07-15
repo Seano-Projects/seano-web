@@ -7,6 +7,7 @@ import { Title, ConfirmModal } from "../components/ui";
 import useTranslation from "../hooks/useTranslation";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useVehicleConnection } from "../contexts/VehicleConnectionContext";
+import { useSystemSettings } from "../contexts/SystemSettingsContext";
 
 const Card = ({ title, children }) => (
   <div className="bg-white dark:bg-black border border-gray-200 dark:border-gray-700 rounded-xl p-5 mb-4">
@@ -33,6 +34,7 @@ const Settings = ({ darkMode, toggleDarkMode }) => {
   const { t } = useTranslation();
   const { language, changeLanguage } = useLanguage();
   const { isConnected: wsConnected } = useVehicleConnection();
+  const { settings } = useSystemSettings();
   useTitle(t("pages.settings.title"));
 
   const mqttBroker = import.meta.env.VITE_MQTT_BROKER || import.meta.env.VITE_MQTT_WS_URL || null;
@@ -53,14 +55,18 @@ const Settings = ({ darkMode, toggleDarkMode }) => {
 
   const mapTileOptions = [
     { id: "street", label: "Street" },
-    { id: "satellite", label: "Satellite" },
+    { id: "satellite", label: "Satellite (ESRI)" },
     { id: "dark", label: "Dark" },
+    { id: "mapbox-satellite", label: "Mapbox Satellite", disabled: !settings.mapbox_enabled },
+    { id: "google-satellite", label: "Google Satellite", disabled: !settings.google_maps_enabled },
   ];
 
   const TILE_URLS = {
     street: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    "mapbox-satellite": `https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?access_token=${settings.mapbox_token}`,
+    "google-satellite": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
   };
 
   const languages = [
@@ -117,11 +123,18 @@ const Settings = ({ darkMode, toggleDarkMode }) => {
               {mapTileOptions.map((opt) => (
                 <button
                   key={opt.id}
-                  onClick={() => setMapTile(opt.id)}
+                  type="button"
+                  disabled={opt.disabled}
+                  title={opt.disabled ? "Temporarily unavailable" : undefined}
+                  onClick={() => {
+                    if (!opt.disabled) setMapTile(opt.id);
+                  }}
                   className={`px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                    mapTile === opt.id
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
-                      : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500"
+                    opt.disabled
+                      ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 opacity-50 cursor-not-allowed"
+                      : mapTile === opt.id
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                        : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500"
                   }`}
                 >
                   {opt.label}

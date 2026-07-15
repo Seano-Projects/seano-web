@@ -261,8 +261,8 @@ const Vehicle = () => {
           API_ENDPOINTS.VEHICLES.UPDATE(vehicleId),
           vehicleData,
         );
-        await notify.success("Vehicle updated successfully!", {
-          title: "Vehicle Updated",
+        await notify.success(t("pages.management.vehicle.updated"), {
+          title: t("pages.management.vehicle.updatedTitle"),
           action: notify.ACTIONS.VEHICLE_UPDATED,
           vehicleId: vehicleId,
         });
@@ -276,8 +276,8 @@ const Vehicle = () => {
         // Extract vehicle ID from response (backend returns vehicle directly)
         const newVehicleId = response.data?.id;
 
-        await notify.success("Vehicle created successfully!", {
-          title: "Vehicle Created",
+        await notify.success(t("pages.management.vehicle.created"), {
+          title: t("pages.management.vehicle.createdTitle"),
           action: notify.ACTIONS.VEHICLE_CREATED,
           vehicleId: newVehicleId,
         });
@@ -289,11 +289,13 @@ const Vehicle = () => {
 
       // Refresh vehicle list immediately
       refreshVehicles();
+
+      return { success: true };
     } catch (error) {
-      let errorMessage = "Failed to save vehicle";
+      let errorMessage = t("pages.management.vehicle.saveFailed");
 
       if (error.response?.status === 401) {
-        errorMessage = "Authentication failed. Please login again.";
+        errorMessage = t("pages.management.vehicle.authFailed");
       } else if (error.response?.data?.detail) {
         if (Array.isArray(error.response.data.detail)) {
           errorMessage = error.response.data.detail
@@ -312,12 +314,18 @@ const Vehicle = () => {
       }
 
       await notify.error(errorMessage, {
-        title: vehicleId ? "Vehicle Update Failed" : "Vehicle Creation Failed",
+        title: vehicleId ? t("pages.management.vehicle.updateFailedTitle") : t("pages.management.vehicle.createFailedTitle"),
         action: vehicleId
           ? notify.ACTIONS.VEHICLE_UPDATED
           : notify.ACTIONS.VEHICLE_CREATED,
         persist: false,
       });
+
+      return {
+        success: false,
+        error: errorMessage,
+        field: error.response?.status === 409 ? "code" : null,
+      };
     }
   };
 
@@ -351,7 +359,7 @@ const Vehicle = () => {
       await notify.success(
         `Vehicle "${vehicleToDelete.name}" deleted successfully!`,
         {
-          title: "Vehicle Deleted",
+          title: t("pages.management.vehicle.deletedTitle"),
           action: notify.ACTIONS.VEHICLE_DELETED,
           // Don't send vehicleId - vehicle already deleted from DB
         },
@@ -364,15 +372,15 @@ const Vehicle = () => {
       // Refresh vehicle list immediately
       refreshVehicles();
     } catch (error) {
-      let errorMessage = "Failed to delete vehicle";
+      let errorMessage = t("pages.management.vehicle.deleteFailed");
       if (error.response?.status === 401) {
-        errorMessage = "Authentication failed. Please login again.";
+        errorMessage = t("pages.management.vehicle.authFailed");
       } else if (error.response?.data?.detail) {
         errorMessage = error.response.data.detail;
       }
 
       await notify.error(errorMessage, {
-        title: "Vehicle Deletion Failed",
+        title: t("pages.management.vehicle.deleteFailedTitle"),
         action: notify.ACTIONS.VEHICLE_DELETED,
         // Don't send vehicleId for failed deletion
       });
@@ -406,7 +414,7 @@ const Vehicle = () => {
       await notify.success(
         `${vehicleToDelete.ids.length} vehicle(s) deleted successfully!`,
         {
-          title: "Bulk Vehicle Deletion",
+          title: t("pages.management.vehicle.bulkDeletedTitle"),
           action: notify.ACTIONS.VEHICLE_DELETED,
         },
       );
@@ -414,8 +422,8 @@ const Vehicle = () => {
       setVehicleToDelete(null);
       refreshVehicles();
     } catch (error) {
-      await notify.error("Failed to delete some vehicles", {
-        title: "Bulk Deletion Failed",
+      await notify.error(t("pages.management.vehicle.bulkDeleteFailed"), {
+        title: t("pages.management.vehicle.bulkDeleteFailedTitle"),
         action: notify.ACTIONS.VEHICLE_DELETED,
       });
     } finally {

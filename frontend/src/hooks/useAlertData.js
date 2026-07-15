@@ -157,12 +157,21 @@ export const useAlertData = (options = {}) => {
 
             // Handle different message types
             if (data.type === 'alert') {
+              const resolvedType = (() => {
+                if (data.alert_type) return data.alert_type;
+                const msg = (data.message || '').toLowerCase();
+                if (msg.includes('failsafe') || msg.includes('rtl') || msg.includes('gps signal') || msg.includes('signal lost') || msg.includes('battery low') || msg.includes('geofence')) return 'failsafe';
+                if (msg.includes('theft') || msg.includes('unauthorized') || msg.includes('anti-theft')) return 'anti_theft';
+                return 'System';
+              })();
+
               const newAlert = {
                 id: data.id || Date.now(),
                 vehicle_id: data.vehicle_id,
                 vehicle_name: data.vehicle_name || 'Unknown',
                 severity: data.severity || 'info',
-                type: data.alert_type || 'System',
+                type: resolvedType,
+                alert_type: resolvedType,
                 message: data.message || '',
                 timestamp: data.timestamp || new Date().toISOString(),
                 acknowledged: false,
@@ -172,7 +181,7 @@ export const useAlertData = (options = {}) => {
               }
 
               // Notify global modal for failsafe / anti-theft alerts
-              const alertTypeLower = (data.alert_type || '').toLowerCase()
+              const alertTypeLower = resolvedType.toLowerCase()
               if (
                 alertTypeLower === 'failsafe' ||
                 alertTypeLower === 'anti_theft' ||

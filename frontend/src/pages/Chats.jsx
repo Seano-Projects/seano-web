@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import useTitle from "../hooks/useTitle";
 import { API_BASE_URL } from "../config";
+import { useSystemSettings } from "../contexts/SystemSettingsContext";
 import { useTranslation } from "../hooks/useTranslation";
 import {
   FaPlus,
@@ -10,12 +11,16 @@ import {
   FaTrash,
   FaBars,
   FaTimes,
+  FaChevronLeft,
+  FaChevronRight,
 } from "react-icons/fa";
 import DeleteConfirmModal from "../components/Widgets/DeleteConfirmModal";
 
 const Chats = () => {
   useTitle("Chats");
   const { t } = useTranslation();
+  const { settings } = useSystemSettings();
+  const aiChatEnabled = settings.ai_chat_enabled;
 
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -25,6 +30,7 @@ const Chats = () => {
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState(null);
   const messagesEndRef = useRef(null);
@@ -87,7 +93,7 @@ const Chats = () => {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+    if (!aiChatEnabled || !input.trim() || loading) return;
 
     const userText = input.trim();
     setInput("");
@@ -232,11 +238,11 @@ const Chats = () => {
         />
       )}
 
-      {/* LEFT PANEL */}
+      {/* LEFT PANEL — desktop */}
       <div
-        className={`${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0 fixed md:relative z-40 md:z-auto w-72 h-full py-3 shrink-0 flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-black overflow-x-visible overflow-y-hidden transition-transform duration-200`}
+        className={`hidden md:flex flex-col shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-black overflow-hidden transition-all duration-200 ${
+          sidebarCollapsed ? "w-0" : "w-72"
+        }`}
       >
         <div className="px-4 pt-4 pb-3 shrink-0">
           <button
@@ -268,7 +274,6 @@ const Chats = () => {
                 onClick={() => {
                   setSelectedSession(s.id);
                   fetchMessages(s.id);
-                  setSidebarOpen(false);
                 }}
               >
                 <p className="flex-1 text-sm truncate text-gray-900 dark:text-gray-100">
@@ -290,7 +295,7 @@ const Chats = () => {
                   {openMenuId === s.id && (
                     <div
                       data-menu
-                      className="absolute right-0 top-full mt-1 w-36 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-9999 bg-white dark:bg-black py-1 px-4"
+                      className="absolute right-0 top-full mt-1 w-36 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 bg-white dark:bg-black py-1 px-4"
                     >
                       <button
                         onClick={(e) => {
@@ -304,6 +309,53 @@ const Chats = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Toggle button — separate flex item, always visible */}
+      <button
+        onClick={() => setSidebarCollapsed((v) => !v)}
+        className="hidden md:flex self-center -mx-3.5 z-50 w-7 h-7 shrink-0 items-center justify-center rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400"
+      >
+        {sidebarCollapsed ? <FaChevronRight size={10} /> : <FaChevronLeft size={10} />}
+      </button>
+
+      {/* LEFT PANEL — mobile only */}
+      <div
+        className={`${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:hidden fixed z-40 w-72 h-full shrink-0 flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-black overflow-hidden transition-transform duration-200`}
+      >
+        <div className="px-4 pt-4 pb-3 shrink-0">
+          <button
+            onClick={startNewChat}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition"
+          >
+            <FaPlus size={12} /> {t("chats.newChat")}
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-3 space-y-0.5">
+          {sessions.length === 0 ? (
+            <p className="text-xs text-center text-gray-500 py-8">{t("chats.noChats")}</p>
+          ) : (
+            sessions.map((s) => (
+              <div
+                key={s.id}
+                className={`group relative flex items-center rounded-lg cursor-pointer px-3 py-1.5 transition border ${
+                  selectedSession === s.id
+                    ? "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                    : "border-transparent hover:bg-gray-100 dark:hover:bg-gray-800"
+                }`}
+                onClick={() => {
+                  setSelectedSession(s.id);
+                  fetchMessages(s.id);
+                  setSidebarOpen(false);
+                }}
+              >
+                <p className="flex-1 text-sm truncate text-gray-900 dark:text-gray-100">{s.title}</p>
               </div>
             ))
           )}
@@ -325,6 +377,12 @@ const Chats = () => {
           </span>
         </div>
 
+        {!aiChatEnabled && (
+          <div className="mx-4 md:mx-32 mt-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-xs shrink-0">
+            AI Chat is temporarily unavailable.
+          </div>
+        )}
+
         {messages.length === 0 && !selectedSession ? (
           <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-32">
             <div className="w-full max-w-2xl flex flex-col items-center">
@@ -342,12 +400,13 @@ const Chats = () => {
                       sendMessage();
                     }
                   }}
+                  disabled={!aiChatEnabled}
                   placeholder={t("chats.emptyPlaceholder")}
-                  className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
+                  className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:cursor-not-allowed"
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={loading || !input.trim()}
+                  disabled={!aiChatEnabled || loading || !input.trim()}
                   className="p-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white transition shrink-0"
                 >
                   {loading ? (
@@ -409,12 +468,13 @@ const Chats = () => {
                       sendMessage();
                     }
                   }}
+                  disabled={!aiChatEnabled}
                   placeholder={t("chats.inputPlaceholder")}
-                  className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
+                  className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:cursor-not-allowed"
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={loading || !input.trim()}
+                  disabled={!aiChatEnabled || loading || !input.trim()}
                   className="p-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white transition shrink-0"
                 >
                   {loading ? (

@@ -94,7 +94,7 @@ const FullscreenMiniMap = ({
   vehicleTrail,
   vehicleHeading,
 }) => {
-  const { url: tileUrl } = useMapTile();
+  const { url: tileUrl, maxNativeZoom: tileMaxNativeZoom, tileSize, zoomOffset } = useMapTile();
   return (
     <MapContainer
       center={vehiclePosition || DEFAULT_POS}
@@ -106,7 +106,7 @@ const FullscreenMiniMap = ({
       doubleClickZoom={true}
       attributionControl={false}
     >
-      <TileLayer url={tileUrl} />
+      <TileLayer key={tileUrl} url={tileUrl} maxNativeZoom={tileMaxNativeZoom} maxZoom={22} tileSize={tileSize} zoomOffset={zoomOffset} />
       {vehicleTrail && vehicleTrail.length > 1 && (
         <Polyline
           positions={vehicleTrail}

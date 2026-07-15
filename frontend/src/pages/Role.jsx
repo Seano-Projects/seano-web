@@ -72,16 +72,16 @@ const Role = () => {
     }
 
     if (result.success) {
-      await notify.success("Role created successfully!", {
-        title: "Role Created",
+      await notify.success(t("pages.management.role.created"), {
+        title: t("pages.management.role.createdTitle"),
         action: notify.ACTIONS.ROLE_CREATED,
       });
       setShowAddModal(false);
       // Refresh role data to get updated permissions
       actions.refreshData();
     } else {
-      await notify.error(result.message || "Failed to create role", {
-        title: "Role Creation Failed",
+      await notify.error(result.message || t("pages.management.role.createFailed"), {
+        title: t("pages.management.role.createFailedTitle"),
         action: notify.ACTIONS.ROLE_CREATED,
       });
     }
@@ -166,16 +166,16 @@ const Role = () => {
     }
 
     if (result.success) {
-      await notify.success("Role updated successfully!", {
-        title: "Role Updated",
+      await notify.success(t("pages.management.role.updated"), {
+        title: t("pages.management.role.updatedTitle"),
         action: notify.ACTIONS.ROLE_UPDATED,
       });
       setShowEditModal(false);
       setSelectedRole(null);
       actions.refreshData();
     } else {
-      await notify.error(result.message || "Failed to update role", {
-        title: "Role Update Failed",
+      await notify.error(result.message || t("pages.management.role.updateFailed"), {
+        title: t("pages.management.role.updateFailedTitle"),
         action: notify.ACTIONS.ROLE_UPDATED,
       });
     }
@@ -194,15 +194,15 @@ const Role = () => {
 
     const result = await actions.deleteRole(selectedRole.id);
     if (result.success) {
-      await notify.success("Role deleted successfully!", {
-        title: "Role Deleted",
+      await notify.success(t("pages.management.role.deleted"), {
+        title: t("pages.management.role.deletedTitle"),
         action: notify.ACTIONS.ROLE_DELETED,
       });
       setShowDeleteModal(false);
       setSelectedRole(null);
     } else {
-      await notify.error(result.message || "Failed to delete role", {
-        title: "Role Deletion Failed",
+      await notify.error(result.message || t("pages.management.role.deleteFailed"), {
+        title: t("pages.management.role.deleteFailedTitle"),
         action: notify.ACTIONS.ROLE_DELETED,
       });
     }
@@ -243,7 +243,7 @@ const Role = () => {
       await notify.success(
         `${selectedRole.ids.length} role(s) deleted successfully!`,
         {
-          title: "Bulk Role Deletion",
+          title: t("pages.management.role.bulkDeletedTitle"),
           action: notify.ACTIONS.ROLE_DELETED,
         },
       );
@@ -251,8 +251,8 @@ const Role = () => {
       setSelectedRole(null);
       actions.refreshData();
     } catch (error) {
-      await notify.error("Failed to delete some roles", {
-        title: "Bulk Deletion Failed",
+      await notify.error(t("pages.management.role.bulkDeleteFailed"), {
+        title: t("pages.management.role.bulkDeleteFailedTitle"),
         action: notify.ACTIONS.ROLE_DELETED,
       });
     }

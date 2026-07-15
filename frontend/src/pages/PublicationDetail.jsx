@@ -5,11 +5,11 @@ import { API_ENDPOINTS, API_BASE_URL } from '../config'
 import { useTranslation } from '../hooks/useTranslation'
 
 const typeColor = {
-  'Conference Paper':   'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',
-  'Journal Article':    'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300',
-  'Technical Report':   'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-  'KTI / Tugas Akhir':  'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-  'Laporan Penelitian': 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300',
+  'Conference Paper':   'bg-sky-600 text-white',
+  'Journal Article':    'bg-violet-600 text-white',
+  'Technical Report':   'bg-emerald-600 text-white',
+  'KTI / Tugas Akhir':  'bg-amber-500 text-white',
+  'Laporan Penelitian': 'bg-rose-600 text-white',
 }
 
 const typeBg = {
@@ -120,7 +120,7 @@ export default function PublicationDetail() {
 
         <div className="flex flex-col gap-5">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${typeColor[pub.type] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}>
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${typeColor[pub.type] ?? 'bg-gray-500 text-white'}`}>
               {pub.type}
             </span>
             {pub.year && (

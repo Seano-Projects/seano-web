@@ -241,6 +241,8 @@ const Control = () => {
   // Confirmation states
   const [showDisarmConfirm, setShowDisarmConfirm] = useState(false);
   const [showArmConfirm, setShowArmConfirm] = useState(false);
+  const [showClearMissionConfirm, setShowClearMissionConfirm] = useState(false);
+  const [clearMissionTarget, setClearMissionTarget] = useState(null); // { missionId, vehicleCode }
   const [pendingMode, setPendingMode] = useState(null);
   const [lastArmFailureMessage, setLastArmFailureMessage] = useState("");
 
@@ -270,9 +272,16 @@ const Control = () => {
 
   const currentMission = useMemo(() => {
     if (!selectedVehicle) return null;
-    const matching = missionData.filter((mission) =>
-      isMissionForVehicle(mission, selectedVehicle),
-    );
+    // Exclude terminal-status missions so that old Completed/Failed/Cancelled
+    // missions (which still carry vehicle_id in the DB) don't appear on the map
+    // after the current mission is cleared or a new one hasn't been uploaded yet.
+    const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
+    const matching = missionData.filter((mission) => {
+      if (TERMINAL_STATUSES.has(String(mission.status || "").toLowerCase())) {
+        return false;
+      }
+      return isMissionForVehicle(mission, selectedVehicle);
+    });
     if (matching.length === 0) return null;
     // Always use the most recently updated mission so that a newly uploaded
     // mission immediately replaces the old one on the map, even if the old
@@ -360,6 +369,20 @@ const Control = () => {
       setLastArmFailureMessage("");
     }
   }, [vehicles]);
+
+  // Show toast when hardware responds to waypoint/clear/response via WS.
+  useEffect(() => {
+    const handler = (e) => {
+      const { status, message } = e.detail ?? {};
+      if (status === "ok" || status === "success") {
+        toast.success(t("control.missionControl.clearMissionHwSuccess") + (message ? `: ${message}` : ""));
+      } else {
+        toast.error(t("control.missionControl.clearMissionHwError") + (message ? `: ${message}` : ""));
+      }
+    };
+    window.addEventListener("mission_clear_response", handler);
+    return () => window.removeEventListener("mission_clear_response", handler);
+  }, [t]);
 
   // Refresh mission data when a mission upload is detected via waypoint_log event.
   // A waypoint_log broadcast is emitted by the backend whenever a mission is
@@ -775,7 +798,7 @@ const Control = () => {
         // Wait for ICE gathering to complete
         const sdpOffer = await new Promise((resolve, reject) => {
           const timeout = setTimeout(
-            () => reject(new Error("ICE timeout")),
+            () => reject(new Error("Camera connection timed out. Please try again.")),
             10000,
           );
           const check = () => {
@@ -795,7 +818,7 @@ const Control = () => {
         });
 
         if (!res.ok) {
-          throw new Error(`Stream not found (${res.status})`);
+          throw new Error("Camera stream is unavailable. Please check the camera and try again.");
         }
 
         const sdpAnswer = await res.text();
@@ -807,17 +830,31 @@ const Control = () => {
     },
     [disconnectCamera],
   );
-  const handleClearMission = async (missionId) => {
+  const handleClearMission = (missionId) => {
+    if (!missionId) return;
+    setClearMissionTarget({ missionId });
+    setShowClearMissionConfirm(true);
+  };
+
+  const handleClearMissionConfirm = async () => {
+    const { missionId } = clearMissionTarget ?? {};
+    setShowClearMissionConfirm(false);
+    setClearMissionTarget(null);
     if (!missionId) return;
     try {
-      await axiosInstance.patch(
+      const res = await axiosInstance.patch(
         `${API_BASE_URL}/missions/${missionId}/clear`,
         {},
       );
-      toast.success(t("control.missionControl.clearMission") + " success");
       refreshMissionData();
-    } catch (err) {
-      toast.error("Failed to clear mission");
+      const vehicleCode = res.data?.vehicle_code;
+      if (vehicleCode) {
+        toast.success(t("control.missionControl.clearMissionClearingHw"));
+      } else {
+        toast.success(t("control.missionControl.clearMission") + " success");
+      }
+    } catch {
+      toast.error("Couldn't clear the mission. Please try again.");
     }
   };
 
@@ -938,9 +975,9 @@ const Control = () => {
       setThrusterThrottle(0);
       setThrusterSteering(0);
       await sendThruster(selectedVehicle.code, 0, 0);
-      toast.success("Motor test completed");
+      toast.success("Thruster test completed successfully");
     } catch (err) {
-      toast.error(`Motor test failed: ${err.message}`);
+      toast.error("Thruster test failed. Please check the vehicle and try again.");
     }
   }, [selectedVehicle, isArmed, sendThruster]);
 
@@ -999,14 +1036,14 @@ const Control = () => {
     lastCommandSentAtRef.current = Date.now();
     setIsArmed(true);
     setLastArmFailureMessage("");
-    toast.info("Sending FORCE_ARM command...");
+    toast.info("Sending override activation command...");
     const result = await sendCommand(selectedVehicle?.code, "FORCE_ARM");
     if (result.success) {
       if (result.queued) {
         toast.info(t("control.missionControl.commandQueued"));
         return;
       }
-      toast.success("Force arm success");
+      toast.success("Vehicle activated successfully");
       return;
     }
     // Actual failure or timeout – revert.
@@ -1156,6 +1193,41 @@ const Control = () => {
               >
                 OK
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Clear Mission confirmation modal */}
+        {showClearMissionConfirm && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-auto bg-black/40 backdrop-blur-sm">
+            <div className="bg-white dark:bg-black border border-red-500/60 rounded-2xl shadow-2xl backdrop-blur-md p-6 w-80 max-w-[90vw] flex flex-col items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-red-500/20 border-2 border-red-400 flex items-center justify-center">
+                <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <div className="text-red-400 font-bold text-base mb-1">
+                  {t("control.missionControl.clearMissionConfirmTitle")}
+                </div>
+                <div className="text-gray-500 dark:text-gray-400 text-xs mt-1 leading-relaxed">
+                  {t("control.missionControl.clearMissionConfirmMessage")}
+                </div>
+              </div>
+              <div className="flex gap-2 w-full">
+                <button
+                  onClick={() => { setShowClearMissionConfirm(false); setClearMissionTarget(null); }}
+                  className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  {t("control.missionControl.cancel")}
+                </button>
+                <button
+                  onClick={handleClearMissionConfirm}
+                  className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors"
+                >
+                  {t("control.missionControl.clearMissionConfirm")}
+                </button>
+              </div>
             </div>
           </div>
         )}

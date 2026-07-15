@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { Modal } from "../../ui";
 import { Dropdown } from "../";
 import { useAuthContext } from "../../../hooks/useAuthContext";
-import axiosInstance from "../../../utils/axiosConfig";
-import { API_ENDPOINTS } from "../../../config";
 
 const parseCapacity = (rawValue) => {
   if (rawValue === null || rawValue === undefined) {
@@ -25,10 +23,7 @@ const parseCapacity = (rawValue) => {
 const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
   const { user } = useAuthContext();
   const [loading, setLoading] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [apiKeyLoading, setApiKeyLoading] = useState(false);
-  const [apiKeyError, setApiKeyError] = useState("");
-  const [apiKeyCopied, setApiKeyCopied] = useState(false);
+  const [fieldError, setFieldError] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     code: "",
@@ -92,12 +87,11 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       });
     }
 
-    setApiKey("");
-    setApiKeyError("");
-    setApiKeyCopied(false);
+    setFieldError(null);
   }, [editData, isOpen]);
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    if (fieldError?.field === name) setFieldError(null);
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -119,15 +113,19 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       user_id: user?.id || 1, // Use logged in user ID, default to 1
     };
 
-    try {
-      await onSubmit(vehicleData, editData?.id);
+    const result = await onSubmit(vehicleData, editData?.id);
 
-      // Close modal on success (parent will handle refresh)
-      onClose();
-    } catch (error) {
-    } finally {
+    if (result?.success === false) {
+      if (result.field) {
+        setFieldError({ field: result.field, message: result.error });
+      }
       setLoading(false);
+      return;
     }
+
+    // Close modal on success (parent already handled refresh)
+    setLoading(false);
+    onClose();
   };
 
   const handleClose = () => {
@@ -139,48 +137,10 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
       battery_total_capacity_ah: "20",
       status: "idle",
     });
+    setFieldError(null);
     onClose();
   };
 
-  const handleGenerateApiKey = async () => {
-    if (!editData?.id) return;
-
-    setApiKeyLoading(true);
-    setApiKeyError("");
-    setApiKeyCopied(false);
-
-    try {
-      const response = await axiosInstance.post(
-        API_ENDPOINTS.VEHICLES.GENERATE_API_KEY(editData.id),
-      );
-      const generatedKey = response.data?.api_key;
-      if (!generatedKey) {
-        throw new Error("API key not returned");
-      }
-      setApiKey(generatedKey);
-    } catch (error) {
-      const message =
-        error.response?.data?.error ||
-        error.response?.data?.message ||
-        error.message ||
-        "Failed to generate API key";
-      setApiKeyError(message);
-    } finally {
-      setApiKeyLoading(false);
-    }
-  };
-
-  const handleCopyApiKey = async () => {
-    if (!apiKey) return;
-
-    try {
-      await navigator.clipboard.writeText(apiKey);
-      setApiKeyCopied(true);
-      setTimeout(() => setApiKeyCopied(false), 2000);
-    } catch (error) {
-      setApiKeyCopied(false);
-    }
-  };
   return (
     <Modal
       isOpen={isOpen}
@@ -219,10 +179,12 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
               required={!editData}
               readOnly={editData}
               placeholder={!editData ? "e.g. USV-003" : ""}
-              className={`w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent ${
+              className={`w-full px-3 py-2 border rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:border-transparent ${
                 editData
-                  ? "bg-gray-100 dark:bg-gray-700 cursor-not-allowed"
-                  : "bg-transparent"
+                  ? "bg-gray-100 dark:bg-gray-700 cursor-not-allowed border-gray-300 dark:border-slate-600"
+                  : fieldError?.field === "code"
+                    ? "bg-transparent border-red-500 focus:ring-red-500"
+                    : "bg-transparent border-gray-300 dark:border-slate-600 focus:ring-fourth"
               }`}
             />
             {editData && (
@@ -230,52 +192,10 @@ const VehicleModal = ({ isOpen, onClose, onSubmit, editData = null }) => {
                 Registration code cannot be changed
               </p>
             )}
+            {fieldError?.field === "code" && (
+              <p className="text-xs text-red-500 mt-1">{fieldError.message}</p>
+            )}
           </div>
-
-          {editData && (
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-white mb-1">
-                Vehicle API Key
-              </label>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleGenerateApiKey}
-                  disabled={apiKeyLoading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-fourth hover:bg-blue-700 transition-colors rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {apiKeyLoading ? "Generating..." : "Generate API Key"}
-                </button>
-                {apiKey && (
-                  <button
-                    type="button"
-                    onClick={handleCopyApiKey}
-                    className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                  >
-                    {apiKeyCopied ? "Copied" : "Copy"}
-                  </button>
-                )}
-              </div>
-              {apiKey && (
-                <div className="mt-2 w-full px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-slate-600">
-                  <span className="block text-xs text-gray-700 dark:text-gray-300 font-mono break-all">
-                    {apiKey}
-                  </span>
-                </div>
-              )}
-              {apiKeyError && (
-                <p className="text-xs text-red-600 dark:text-red-400 mt-2">
-                  {apiKeyError}
-                </p>
-              )}
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                API key only appears after generation. Save it on the USV.
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Generating a new key replaces the previous one.
-              </p>
-            </div>
-          )}
 
           {/* Description */}
           <div className="sm:col-span-2">

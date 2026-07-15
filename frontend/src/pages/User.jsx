@@ -44,14 +44,14 @@ const User = () => {
   const handleAddUser = async (formData) => {
     const result = await actions.addUser(formData);
     if (result.success) {
-      await notify.success("User created successfully!", {
-        title: "User Created",
+      await notify.success(t("pages.management.user.created"), {
+        title: t("pages.management.user.createdTitle"),
         action: notify.ACTIONS.USER_CREATED,
       });
       setShowAddModal(false);
     } else {
-      await notify.error(result.error || "Failed to create user", {
-        title: "User Creation Failed",
+      await notify.error(result.error || t("pages.management.user.createFailed"), {
+        title: t("pages.management.user.createFailedTitle"),
         action: notify.ACTIONS.USER_CREATED,
       });
     }
@@ -74,15 +74,15 @@ const User = () => {
     const result = await actions.updateUser(selectedUser.id, payload);
 
     if (result.success) {
-      await notify.success("User updated successfully!", {
-        title: "User Updated",
+      await notify.success(t("pages.management.user.updated"), {
+        title: t("pages.management.user.updatedTitle"),
         action: notify.ACTIONS.USER_UPDATED,
       });
       setShowEditModal(false);
       setSelectedUser(null);
     } else {
-      await notify.error(result.error || "Failed to update user", {
-        title: "User Update Failed",
+      await notify.error(result.error || t("pages.management.user.updateFailed"), {
+        title: t("pages.management.user.updateFailedTitle"),
         action: notify.ACTIONS.USER_UPDATED,
       });
     }
@@ -99,15 +99,15 @@ const User = () => {
 
     const result = await actions.deleteUser(selectedUser.id);
     if (result.success) {
-      await notify.success("User deleted successfully!", {
-        title: "User Deleted",
+      await notify.success(t("pages.management.user.deleted"), {
+        title: t("pages.management.user.deletedTitle"),
         action: notify.ACTIONS.USER_DELETED,
       });
       setShowDeleteModal(false);
       setSelectedUser(null);
     } else {
-      await notify.error(result.error || "Failed to delete user", {
-        title: "User Deletion Failed",
+      await notify.error(result.error || t("pages.management.user.deleteFailed"), {
+        title: t("pages.management.user.deleteFailedTitle"),
         action: notify.ACTIONS.USER_DELETED,
       });
     }
@@ -133,7 +133,7 @@ const User = () => {
       await notify.success(
         `${selectedUser.ids.length} user(s) deleted successfully!`,
         {
-          title: "Bulk User Deletion",
+          title: t("pages.management.user.bulkDeletedTitle"),
           action: notify.ACTIONS.USER_DELETED,
         },
       );
@@ -141,8 +141,8 @@ const User = () => {
       setSelectedUser(null);
       actions.refreshData();
     } catch (error) {
-      await notify.error("Failed to delete some users", {
-        title: "Bulk Deletion Failed",
+      await notify.error(t("pages.management.user.bulkDeleteFailed"), {
+        title: t("pages.management.user.bulkDeleteFailedTitle"),
         action: notify.ACTIONS.USER_DELETED,
       });
     }

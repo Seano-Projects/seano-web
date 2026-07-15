@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { FaArrowLeft, FaFilePdf, FaExternalLinkAlt, FaTag } from 'react-icons/fa'
 import { API_ENDPOINTS, API_BASE_URL } from '../config'
 import Navbar from '../components/Section/Landing/Layout/Navbar'
+import useTranslation from '../hooks/useTranslation'
 
 const typeColor = {
   'Conference Paper':   'text-sky-400 border-sky-400/30 bg-sky-400/10',
@@ -29,6 +30,7 @@ const safeUrl = (url) => {
 }
 
 export default function PublicationPublicDetail() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const [pub, setPub] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -62,7 +64,7 @@ export default function PublicationPublicDetail() {
           className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors mb-10 group"
         >
           <FaArrowLeft size={11} className="group-hover:-translate-x-0.5 transition-transform" />
-          Kembali ke Publikasi
+          {t('publications.backToList')}
         </Link>
 
         {loading ? (
@@ -71,9 +73,9 @@ export default function PublicationPublicDetail() {
           </div>
         ) : notFound || !pub ? (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
-            <p className="text-gray-500">Publikasi tidak ditemukan.</p>
+            <p className="text-gray-500">{t('publications.notFound')}</p>
             <Link to="/#publications" className="text-primary text-sm hover:underline flex items-center gap-1">
-              <FaArrowLeft size={11} /> Kembali
+              <FaArrowLeft size={11} /> {t('publications.back')}
             </Link>
           </div>
         ) : (
@@ -93,7 +95,7 @@ export default function PublicationPublicDetail() {
                 ) : (
                   <div className={`w-full h-full flex flex-col items-center justify-center gap-3 bg-linear-to-b ${typeBg[pub.type] ?? 'from-slate-700 to-slate-900'}`}>
                     <FaFilePdf className="w-14 h-14 text-white/30" />
-                    <span className="text-xs text-white/30">Tidak ada dokumen</span>
+                    <span className="text-xs text-white/30">{t('publications.noDocument')}</span>
                   </div>
                 )}
               </div>
@@ -106,7 +108,7 @@ export default function PublicationPublicDetail() {
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors"
                   >
-                    <FaFilePdf size={14} /> Buka PDF
+                    <FaFilePdf size={14} /> {t('publications.openPdf')}
                   </a>
                 )}
                 {safeUrl(pub.doi) && (
@@ -116,7 +118,7 @@ export default function PublicationPublicDetail() {
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 py-3 border border-white/10 hover:border-white/25 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-medium transition-colors"
                   >
-                    <FaExternalLinkAlt size={12} /> Lihat DOI / Link
+                    <FaExternalLinkAlt size={12} /> {t('publications.viewDoi')}
                   </a>
                 )}
               </div>
@@ -144,14 +146,14 @@ export default function PublicationPublicDetail() {
 
               {/* Authors */}
               <div>
-                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-1.5">Penulis</p>
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-1.5">{t('publications.authorsLabel')}</p>
                 <p className="text-sm text-gray-300">{pub.authors}</p>
               </div>
 
               {/* Venue */}
               {pub.venue && (
                 <div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-1.5">Venue / Institusi</p>
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-1.5">{t('publications.venueLabel')}</p>
                   <p className="text-sm text-gray-300">{pub.venue}</p>
                 </div>
               )}

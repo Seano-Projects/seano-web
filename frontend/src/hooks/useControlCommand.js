@@ -3,6 +3,9 @@ import mqtt from 'mqtt'
 import axios from '../utils/axiosConfig'
 import { API_ENDPOINTS } from '../config'
 import { REALTIME_MODE } from '../utils/realtimeConfig'
+import { getClockOffsetMs } from './useLogData'
+
+const clockAdjust = (iso) => new Date(new Date(iso).getTime() + getClockOffsetMs()).toISOString()
 
 const postCommandLog = async (vehicleCode, command, status, message, initiatedAt, resolvedAt, mqttPublishedAt, usvAckAt, ackReceivedAt) => {
   try {
@@ -124,10 +127,10 @@ const getMqttClient = async () => {
   }
 }
 
-const publishThrusterToMqtt = async (vehicleCode, throttle, steering) => {
+const publishThrusterToMqtt = async (vehicleCode, throttle, steering, initiatedAt) => {
   const client = await getMqttClient()
   const topic = `seano/${String(vehicleCode || '').trim()}/thruster`
-  const payload = JSON.stringify({ throttle, steering })
+  const payload = JSON.stringify({ throttle, steering, initiated_at: initiatedAt })
   return new Promise((resolve, reject) => {
     // qos 0 keeps joystick interaction snappy — no broker PUBACK wait per message
     client.publish(topic, payload, { qos: 0 }, err => {
@@ -265,13 +268,13 @@ const waitForCommandAck = (client, vehicleCode, command) =>
       }
     }
 
+    // Attach listener immediately before SUBACK so we don't miss a fast USV response
+    client.on('message', onMessage)
     client.subscribe(statusTopic, { qos: 0 }, err => {
       if (err) {
         cleanup()
         reject(err)
-        return
       }
-      client.on('message', onMessage)
     })
   })
 
@@ -317,32 +320,35 @@ const useControlCommand = () => {
     try {
       if (useMqttForCommand) {
         setIsLoading(true)
-        const initiatedAt = new Date().toISOString()
+        const initiatedAt = clockAdjust(new Date().toISOString())
         const topicSuffix = calibrationCommand ? 'battery/cmd' : 'command'
-        const mqttPublishedAt = await publishCommandToMqtt(vehicleCode, mqttCommand, topicSuffix)
 
-        // For ARM/DISARM/mode commands, wait for hardware ACK to confirm execution.
-        // Calibration commands remain fire-and-forget.
+        // For ARM/DISARM/mode commands, subscribe to ACK topic BEFORE publishing
+        // so we don't miss a fast USV response (~91ms) due to subscription race.
         if (!calibrationCommand) {
           try {
             const client = await getMqttClient()
-            const ackResult = await waitForCommandAck(client, vehicleCode, mqttCommand)
-            const resolvedAt = new Date().toISOString()
+            const ackPromise = waitForCommandAck(client, vehicleCode, mqttCommand)
+            const mqttPublishedAt = clockAdjust(await publishCommandToMqtt(vehicleCode, mqttCommand, topicSuffix))
+            const ackResult = await ackPromise
+            const ackReceivedAt = clockAdjust(new Date().toISOString())
+            const resolvedAt = ackReceivedAt
             if (ackResult.success) {
-              postCommandLog(vehicleCode, mqttCommand, 'success', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt)
+              postCommandLog(vehicleCode, mqttCommand, 'success', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt, ackReceivedAt)
               return { success: true, message: ackResult.message }
             } else {
-              postCommandLog(vehicleCode, mqttCommand, 'failed', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt)
+              postCommandLog(vehicleCode, mqttCommand, 'failed', ackResult.message, initiatedAt, resolvedAt, mqttPublishedAt, ackResult.usvAckAt, ackReceivedAt)
               return { success: false, error: ackResult.error || 'hardware_error', message: ackResult.message }
             }
           } catch {
             // ACK timeout – hardware did not respond
             const resolvedAt = new Date().toISOString()
-            postCommandLog(vehicleCode, mqttCommand, 'timeout', 'No ACK from hardware', initiatedAt, resolvedAt, mqttPublishedAt)
+            postCommandLog(vehicleCode, mqttCommand, 'timeout', 'No ACK from hardware', initiatedAt, resolvedAt, null)
             return { success: false, error: 'timeout', message: 'No ACK from hardware' }
           }
         }
 
+        const mqttPublishedAt = clockAdjust(await publishCommandToMqtt(vehicleCode, mqttCommand, topicSuffix))
         const resolvedAt = new Date().toISOString()
         postCommandLog(vehicleCode, mqttCommand, 'success', 'Command sent via MQTT', initiatedAt, resolvedAt, mqttPublishedAt)
         return { success: true, message: 'Command sent via MQTT' }
@@ -465,7 +471,8 @@ const useControlCommand = () => {
       }
     }
     try {
-      await publishThrusterToMqtt(vehicleCode, throttle, steering)
+      const initiatedAt = clockAdjust(new Date().toISOString())
+      await publishThrusterToMqtt(vehicleCode, throttle, steering, initiatedAt)
       return { success: true }
     } catch (err) {
       return { success: false, error: 'mqtt_unavailable', message: err.message }

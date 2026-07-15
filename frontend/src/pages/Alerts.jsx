@@ -62,10 +62,10 @@ const Alerts = () => {
   const getSeverityColor = (severity) => {
     const sev = severity?.toLowerCase() || "info";
     if (sev === "critical" || sev === "error")
-      return "bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700";
+      return "bg-red-600 text-white";
     if (sev === "warning" || sev === "warn")
-      return "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700";
-    return "bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700";
+      return "bg-amber-500 text-white";
+    return "bg-blue-600 text-white";
   };
 
   // Get severity icon

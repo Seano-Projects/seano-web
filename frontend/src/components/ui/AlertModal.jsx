@@ -82,7 +82,7 @@ const AlertModal = () => {
   const progress = ((COUNTDOWN_SECONDS - countdown) / COUNTDOWN_SECONDS) * 100;
 
   return createPortal(
-    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[10100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div
         className={`relative bg-white dark:bg-black border-2 ${ringColor} rounded-2xl shadow-2xl p-6 w-96 max-w-[90vw]`}
       >

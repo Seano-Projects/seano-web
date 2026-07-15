@@ -3,7 +3,7 @@ import useTranslation from "../../../hooks/useTranslation";
 import { API_BASE_URL } from "../../../config";
 import { FaRobot, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSpinner, FaChartLine, FaThermometerHalf, FaBolt, FaChargingStation, FaSyncAlt } from "react-icons/fa";
 
-export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
+export const BatteryAIAnalysis = ({ selectedVehicle, batteryData, disabled = false }) => {
   const { t } = useTranslation();
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -47,7 +47,7 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
   }, [selectedVehicle?.id]);
 
   const runAnalysis = async () => {
-    if (!selectedVehicle?.id || loading) return;
+    if (disabled || !selectedVehicle?.id || loading) return;
     setLoading(true);
     setError(null);
 
@@ -110,7 +110,14 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
       }
 
       const data = await response.json();
-      setAnalysis(data);
+      setAnalysis({
+        ...data,
+        metrics: Array.isArray(data?.metrics) ? data.metrics : [],
+        issues: Array.isArray(data?.issues) ? data.issues : [],
+        recommendations: Array.isArray(data?.recommendations) ? data.recommendations : [],
+        summary: typeof data?.summary === "string" ? data.summary : "",
+        confidence: typeof data?.confidence === "string" ? data.confidence : "",
+      });
       setLastAnalyzedAt(new Date());
     } catch (err) {
       setError(err.message);
@@ -171,7 +178,8 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
           )}
           <button
             onClick={runAnalysis}
-            disabled={loading || !selectedVehicle?.id}
+            disabled={disabled || loading || !selectedVehicle?.id}
+            title={disabled ? "AI analysis is temporarily unavailable" : undefined}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-blue-200 dark:border-blue-800"
           >
             {loading ? (
@@ -184,6 +192,12 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
         </div>
       </div>
 
+      {disabled && (
+        <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-xs mb-3">
+          AI battery analysis is temporarily unavailable.
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center justify-center py-8 text-gray-500 dark:text-gray-400">
           <FaSpinner className="w-5 h-5 animate-spin mr-2" />
@@ -191,7 +205,7 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
         </div>
       )}
 
-      {!loading && !analysis && !error && (
+      {!disabled && !loading && !analysis && !error && (
         <div className="py-8 text-center text-gray-400 dark:text-gray-500 text-sm space-y-2">
           <FaRobot className="w-8 h-8 mx-auto opacity-30" />
           <p>Click <strong className="text-gray-500 dark:text-gray-400">Analyze</strong> to run AI battery health analysis</p>
@@ -227,8 +241,8 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {analysis.metrics.map((metric, idx) => (
                 <div key={idx} className="p-2.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">{metric.label}</p>
-                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">{metric.value}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-0.5">{String(metric?.label ?? "")}</p>
+                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">{String(metric?.value ?? "")}</p>
                 </div>
               ))}
             </div>
@@ -242,7 +256,7 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
                 {analysis.issues.map((issue, idx) => (
                   <li key={idx} className="flex gap-2 text-xs text-gray-700 dark:text-gray-300">
                     <span className="text-red-500 dark:text-red-400 font-bold shrink-0">⚠</span>
-                    <span>{issue}</span>
+                    <span>{String(issue ?? "")}</span>
                   </li>
                 ))}
               </ul>
@@ -366,7 +380,7 @@ export const BatteryAIAnalysis = ({ selectedVehicle, batteryData }) => {
                 {analysis.recommendations.map((rec, idx) => (
                   <li key={idx} className="flex gap-2 text-xs text-gray-700 dark:text-gray-300">
                     <span className="text-blue-500 dark:text-blue-400 font-bold shrink-0">→</span>
-                    <span>{rec}</span>
+                    <span>{String(rec ?? "")}</span>
                   </li>
                 ))}
               </ul>

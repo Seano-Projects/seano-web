@@ -4,7 +4,7 @@ import { Card } from "./WeatherPrimitives";
 import { FaRobot, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaSpinner, FaSyncAlt } from "react-icons/fa";
 import { API_BASE_URL } from "../../../config";
 
-export const WeatherAIAnalysis = ({ weather, forecast }) => {
+export const WeatherAIAnalysis = ({ weather, forecast, disabled = false }) => {
   const { t } = useTranslation();
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -12,7 +12,7 @@ export const WeatherAIAnalysis = ({ weather, forecast }) => {
   const [lastAnalyzedAt, setLastAnalyzedAt] = useState(null);
 
   const runAnalysis = async () => {
-    if (!weather || loading) return;
+    if (disabled || !weather || loading) return;
     setLoading(true);
     setError(null);
 
@@ -104,7 +104,8 @@ export const WeatherAIAnalysis = ({ weather, forecast }) => {
           )}
           <button
             onClick={runAnalysis}
-            disabled={loading || !weather}
+            disabled={disabled || loading || !weather}
+            title={disabled ? "AI analysis is temporarily unavailable" : undefined}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-blue-200 dark:border-blue-800"
           >
             {loading ? (
@@ -117,6 +118,12 @@ export const WeatherAIAnalysis = ({ weather, forecast }) => {
         </div>
       </div>
 
+      {disabled && (
+        <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-xs mb-3">
+          AI weather analysis is temporarily unavailable.
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center justify-center py-8 text-gray-500 dark:text-gray-400">
           <FaSpinner className="w-5 h-5 animate-spin mr-2" />
@@ -124,7 +131,7 @@ export const WeatherAIAnalysis = ({ weather, forecast }) => {
         </div>
       )}
 
-      {!loading && !analysis && !error && (
+      {!disabled && !loading && !analysis && !error && (
         <div className="py-8 text-center text-gray-400 dark:text-gray-500 text-sm space-y-2">
           <FaRobot className="w-8 h-8 mx-auto opacity-30" />
           <p>Click <strong className="text-gray-500 dark:text-gray-400">Analyze</strong> to run AI weather analysis</p>

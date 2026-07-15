@@ -6,6 +6,7 @@ import { API_ENDPOINTS } from "../../../config";
 import { WizardModal } from "../../ui";
 import useNotify from "../../../hooks/useNotify";
 import Dropdown from "../Dropdown";
+import useTranslation from "../../../hooks/useTranslation";
 
 const parseCapacity = (rawValue) => {
   if (rawValue === null || rawValue === undefined) {
@@ -25,6 +26,7 @@ const parseCapacity = (rawValue) => {
 };
 
 const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const notify = useNotify();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,8 +64,8 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
       const response = await axiosInstance.get(API_ENDPOINTS.SENSORS.LIST);
       setAvailableSensors(response.data);
     } catch (error) {
-      await notify.error("Failed to load sensors", {
-        title: "Sensor Load Failed",
+      await notify.error(t("pages.management.vehicle_wizard.sensorListError"), {
+        title: t("pages.management.vehicle_wizard.sensorListErrorTitle"),
         action: notify.ACTIONS.VEHICLE_CREATED,
       });
     }
@@ -89,24 +91,24 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
     const parsedBatteryCount = Number(formData.battery_count);
 
     if (!formData.name.trim() || !formData.code.trim()) {
-      notify.error("Name and Code are required", {
-        title: "Validation Error",
-        persist: false, // Don't save validation errors to DB
+      notify.error(t("pages.management.vehicle_wizard.requiredFields"), {
+        title: t("pages.management.vehicle_wizard.requiredFieldsTitle"),
+        persist: false,
       });
       return;
     }
 
     if (parsedBatteryCount !== 1 && parsedBatteryCount !== 2) {
-      notify.error("Battery count must be 1 or 2", {
-        title: "Validation Error",
+      notify.error(t("pages.management.vehicle_wizard.batteryCountError"), {
+        title: t("pages.management.vehicle_wizard.batteryCountErrorTitle"),
         persist: false,
       });
       return;
     }
 
     if (!parsedCapacity || parsedCapacity <= 0) {
-      notify.error("Total battery capacity must be greater than 0", {
-        title: "Validation Error",
+      notify.error(t("pages.management.vehicle_wizard.batteryCapacityError"), {
+        title: t("pages.management.vehicle_wizard.batteryCapacityErrorTitle"),
         persist: false,
       });
       return;
@@ -153,8 +155,8 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
         await Promise.all(assignPromises);
       }
 
-      await notify.success("Vehicle created successfully!", {
-        title: "Vehicle Created",
+      await notify.success(t("pages.management.vehicle_wizard.created"), {
+        title: t("pages.management.vehicle_wizard.createdTitle"),
         action: notify.ACTIONS.VEHICLE_CREATED,
         vehicleId: newVehicleId,
       });
@@ -165,15 +167,15 @@ const AddVehicleWizard = ({ isOpen, onClose, onSuccess }) => {
       const msg =
         error.response?.data?.error ||
         error.response?.data?.detail ||
-        "Failed to create vehicle";
+        t("pages.management.vehicle_wizard.createFailed");
 
       if (error.response?.status === 409) {
         setStep(1);
-        setFieldError({ field: "code", message: "Registration code already exists. Use a different code." });
+        setFieldError({ field: "code", message: t("pages.management.vehicle_wizard.codeConflict") });
       }
 
       await notify.error(msg, {
-        title: "Vehicle Creation Failed",
+        title: t("pages.management.vehicle_wizard.createFailedTitle"),
         action: notify.ACTIONS.VEHICLE_CREATED,
         persist: false,
       });

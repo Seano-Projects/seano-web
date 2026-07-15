@@ -60,7 +60,7 @@ const LatestAlerts = () => {
         message: "text-gray-600 dark:text-gray-300",
         timestamp: "text-gray-400 dark:text-gray-500",
         badge:
-          "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700",
+          "bg-red-600 text-white",
       };
     } else if (lowerSeverity === "warning" || lowerSeverity === "warn") {
       return {
@@ -71,7 +71,7 @@ const LatestAlerts = () => {
         message: "text-gray-600 dark:text-gray-300",
         timestamp: "text-gray-400 dark:text-gray-500",
         badge:
-          "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700",
+          "bg-amber-500 text-white",
       };
     } else {
       // info, success, or default
@@ -83,7 +83,7 @@ const LatestAlerts = () => {
         message: "text-gray-600 dark:text-gray-300",
         timestamp: "text-gray-400 dark:text-gray-500",
         badge:
-          "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700",
+          "bg-blue-600 text-white",
       };
     }
   };

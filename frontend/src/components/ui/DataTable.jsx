@@ -270,7 +270,7 @@ const DataTable = ({
               </tr>
             ) : (
               paginatedData.map((row, rowIndex) => {
-                const rowKey =
+                const rowIdentity =
                   row?._client_id ||
                   row?.id ||
                   row?.created_at ||
@@ -286,7 +286,12 @@ const DataTable = ({
                       }-${
                         row.message || row.logs || row.data || row.status || ""
                       }`
-                    : rowIndex);
+                    : "row");
+                // Append rowIndex: identity fields (e.g. timestamp) can repeat
+                // across rows within the same page (e.g. multi-depth CTD
+                // profiles sharing one timestamp), which breaks React's key
+                // uniqueness and lets stale rows leak past pagination.
+                const rowKey = `${rowIdentity}-${rowIndex}`;
 
                 return (
                   <tr

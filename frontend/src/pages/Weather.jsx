@@ -4,6 +4,7 @@ import useVehicleData from "../hooks/useVehicleData";
 import { useVehicleConnectionStatus } from "../hooks";
 import { useLogDataContext } from "../contexts/LogDataContext";
 import { useWeatherData } from "../hooks/useWeatherData";
+import { useSystemSettings } from "../contexts/SystemSettingsContext";
 import useTranslation from "../hooks/useTranslation";
 import {
   FaExclamationCircle,
@@ -22,7 +23,6 @@ import {
   WeatherAIAnalysis,
 } from "../components/Widgets/Weather";
 import {
-  OWM_API_KEY,
   INDONESIA_CITIES,
   buildDailyForecast,
   buildTodayHourly,
@@ -31,6 +31,9 @@ import {
 const Weather = () => {
   const { t } = useTranslation();
   useTitle(t("weather.title"));
+
+  const { settings } = useSystemSettings();
+  const OWM_API_KEY = settings.weather_enabled ? settings.openweather_api_key : null;
 
   const {
     vehicles,
@@ -142,7 +145,7 @@ const Weather = () => {
       setCitiesWeather(results.filter(Boolean));
       setMapLoading(false);
     });
-  }, [refreshKey]);
+  }, [refreshKey, OWM_API_KEY]);
 
   const handleRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -327,7 +330,7 @@ const Weather = () => {
             )}
 
             {/* ── AI Operational Analysis ────────────────────────────── */}
-            <WeatherAIAnalysis weather={weather} forecast={forecast} />
+            <WeatherAIAnalysis weather={weather} forecast={forecast} disabled={!settings.ai_weather_analysis_enabled} />
 
             <p className="text-xs text-gray-300 dark:text-gray-700 text-right">
               Data by{" "}

@@ -194,7 +194,7 @@ const ControlMapLayer = ({
   missionMarkers = [],
   vehicleTrail = [],
 }) => {
-  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
+  const { url: tileUrl, attribution: tileAttribution, maxNativeZoom: tileMaxNativeZoom, tileSize, zoomOffset } = useMapTile();
   const vehicleIcon =
     vehiclePosition && selectedVehicle ? createVehicleIcon(heading) : null;
 
@@ -242,12 +242,15 @@ const ControlMapLayer = ({
         )}
 
         <TileLayer
+          key={tileUrl}
           attribution={tileAttribution}
           url={tileUrl}
           noWrap={true}
           minZoom={3}
           maxZoom={22}
-          maxNativeZoom={19}
+          maxNativeZoom={tileMaxNativeZoom}
+          tileSize={tileSize}
+          zoomOffset={zoomOffset}
         />
 
         {/* ── Vehicle trail (history path) ── */}

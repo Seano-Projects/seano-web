@@ -14,11 +14,20 @@ const WeatherMap = ({ citiesWeather, activeCoords, weather, iconCode, temp, humi
           center={[-2.5, 118]}
           zoom={5}
           style={{ height: "100%", width: "100%" }}
-          scrollWheelZoom={false}
+          scrollWheelZoom={true}
+          worldCopyJump={false}
+          maxBounds={[
+            [-85, -180],
+            [85, 180],
+          ]}
+          maxBoundsViscosity={1}
+          minZoom={3}
         >
           <TileLayer
             attribution={tileAttribution}
             url={tileUrl}
+            noWrap={true}
+            minZoom={3}
             maxZoom={20}
           />
 

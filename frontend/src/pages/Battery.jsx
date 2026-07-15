@@ -13,10 +13,13 @@ import {
   BatteryAIAnalysis,
 } from "../components/Widgets/Battery";
 import useTranslation from "../hooks/useTranslation";
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { useSystemSettings } from "../contexts/SystemSettingsContext";
 
 const Battery = () => {
   const { t } = useTranslation();
   useTitle(t("pages.battery.title"));
+  const { settings } = useSystemSettings();
 
   const {
     vehicles,
@@ -94,7 +97,9 @@ const Battery = () => {
         </div>
 
         {/* Battery Display */}
-        <div className={`md:col-span-1 lg:col-span-2 grid gap-2 ${batteryCount === 2 ? "grid-rows-2" : "grid-rows-1"}`}>
+        <div
+          className={`md:col-span-1 lg:col-span-2 grid gap-2 ${batteryCount === 2 ? "grid-rows-2" : "grid-rows-1"}`}
+        >
           {batteryUnits.map((unit, index) => (
             <BatteryDisplay
               key={unit}
@@ -114,7 +119,13 @@ const Battery = () => {
 
       {/* Row 2: AI Analysis */}
       <div className="mt-3">
-        <BatteryAIAnalysis selectedVehicle={selectedVehicle} batteryData={batteryData} />
+        <ErrorBoundary>
+          <BatteryAIAnalysis
+            selectedVehicle={selectedVehicle}
+            batteryData={batteryData}
+            disabled={!settings.ai_battery_analysis_enabled}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* Row 3: Full-width Data Logs */}

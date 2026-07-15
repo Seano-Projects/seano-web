@@ -78,12 +78,12 @@ const Notification = () => {
   const getPriorityColor = (type) => {
     const t = type?.toLowerCase() || "info";
     if (t === "critical" || t === "error")
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+      return "bg-red-600 text-white";
     if (t === "warning" || t === "warn")
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+      return "bg-yellow-500 text-white";
     if (t === "success")
-      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
-    return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+      return "bg-green-600 text-white";
+    return "bg-blue-600 text-white";
   };
 
   // Get type icon

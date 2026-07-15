@@ -157,11 +157,11 @@ const MemberForm = ({ form, onChange, onSubmit, onCancel, onUpload, isEdit, t })
 
 // ─── Member Card (admin view) ──────────────────────────────────────────────────
 const divisionColor = {
-  'Dosen Pembimbing':    'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  'Software & Kontrol':  'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
-  'Hardware & Mekanik':  'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
-  'Sensor & Akuisisi':   'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
-  'Riset & Dokumentasi': 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
+  'Dosen Pembimbing':    'bg-amber-500 text-white',
+  'Software & Kontrol':  'bg-violet-600 text-white',
+  'Hardware & Mekanik':  'bg-sky-600 text-white',
+  'Sensor & Akuisisi':   'bg-emerald-600 text-white',
+  'Riset & Dokumentasi': 'bg-rose-600 text-white',
 }
 const avatarGrads = [
   'from-sky-500 to-blue-700', 'from-violet-500 to-purple-700',
@@ -197,7 +197,7 @@ const MemberCard = ({ member, index, onEdit, onDelete }) => {
       </div>
       <div className="p-3 flex flex-col gap-1.5">
         {member.division && (
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${divisionColor[member.division] ?? 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300'}`}>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit ${divisionColor[member.division] ?? 'bg-gray-500 text-white'}`}>
             {member.division}
           </span>
         )}

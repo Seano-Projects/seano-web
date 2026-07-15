@@ -3,23 +3,45 @@ import L from "leaflet";
 export const OWM_ICON = (code, size = "@2x") =>
   `https://openweathermap.org/img/wn/${code}${size}.png`;
 
-export const OWM_API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
-
 export const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export const todayStr = () => new Date().toDateString();
 
 export const INDONESIA_CITIES = [
-  { name: "Jakarta",    lat: -6.2088,  lon: 106.8456 },
-  { name: "Bandung",    lat: -6.9175,  lon: 107.6191 },
-  { name: "Surabaya",   lat: -7.2575,  lon: 112.7521 },
-  { name: "Medan",      lat: 3.5952,   lon: 98.6722  },
-  { name: "Makassar",   lat: -5.1477,  lon: 119.4327 },
-  { name: "Denpasar",   lat: -8.6500,  lon: 115.2167 },
-  { name: "Semarang",   lat: -6.9667,  lon: 110.4167 },
-  { name: "Manado",     lat: 1.4931,   lon: 124.8413 },
-  { name: "Palembang",  lat: -2.9761,  lon: 104.7754 },
-  { name: "Balikpapan", lat: -1.2654,  lon: 116.8312 },
+  { name: "Jakarta",       lat: -6.2088,  lon: 106.8456 },
+  { name: "Bandung",       lat: -6.9175,  lon: 107.6191 },
+  { name: "Surabaya",      lat: -7.2575,  lon: 112.7521 },
+  { name: "Medan",         lat: 3.5952,   lon: 98.6722  },
+  { name: "Makassar",      lat: -5.1477,  lon: 119.4327 },
+  { name: "Denpasar",      lat: -8.6500,  lon: 115.2167 },
+  { name: "Semarang",      lat: -6.9667,  lon: 110.4167 },
+  { name: "Manado",        lat: 1.4931,   lon: 124.8413 },
+  { name: "Palembang",     lat: -2.9761,  lon: 104.7754 },
+  { name: "Balikpapan",    lat: -1.2654,  lon: 116.8312 },
+  { name: "Yogyakarta",    lat: -7.7956,  lon: 110.3695 },
+  { name: "Malang",        lat: -7.9666,  lon: 112.6326 },
+  { name: "Padang",        lat: -0.9471,  lon: 100.4172 },
+  { name: "Pekanbaru",     lat: 0.5071,   lon: 101.4478 },
+  { name: "Batam",         lat: 1.1301,   lon: 104.0529 },
+  { name: "Banjarmasin",   lat: -3.3186,  lon: 114.5944 },
+  { name: "Pontianak",     lat: -0.0263,  lon: 109.3425 },
+  { name: "Samarinda",     lat: -0.5022,  lon: 117.1536 },
+  { name: "Jayapura",      lat: -2.5337,  lon: 140.7181 },
+  { name: "Ambon",         lat: -3.6954,  lon: 128.1814 },
+  { name: "Kupang",        lat: -10.1772, lon: 123.6070 },
+  { name: "Mataram",       lat: -8.5833,  lon: 116.1167 },
+  { name: "Bengkulu",      lat: -3.7928,  lon: 102.2608 },
+  { name: "Jambi",         lat: -1.6101,  lon: 103.6131 },
+  { name: "Banda Aceh",    lat: 5.5483,   lon: 95.3238  },
+  { name: "Gorontalo",     lat: 0.5435,   lon: 123.0568 },
+  { name: "Palu",          lat: -0.8917,  lon: 119.8707 },
+  { name: "Kendari",       lat: -3.9450,  lon: 122.4989 },
+  { name: "Serang",        lat: -6.1200,  lon: 106.1503 },
+  { name: "Bandar Lampung", lat: -5.4292, lon: 105.2610 },
+  { name: "Pangkal Pinang", lat: -2.1316, lon: 106.1169 },
+  { name: "Tanjung Pinang", lat: 0.9284,  lon: 104.4593 },
+  { name: "Sorong",        lat: -0.8762,  lon: 131.2558 },
+  { name: "Ternate",       lat: 0.7909,   lon: 127.3844 },
 ];
 
 export const getWindSafety = (mps, t) => {

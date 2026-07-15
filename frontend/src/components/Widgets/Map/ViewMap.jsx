@@ -139,7 +139,7 @@ const MapInstanceGetter = ({ onMapReady, onMapIdle, onUserInteraction }) => {
 };
 
 const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
-  const { url: tileUrl, attribution: tileAttribution } = useMapTile();
+  const { url: tileUrl, attribution: tileAttribution, maxNativeZoom: tileMaxNativeZoom, tileSize, zoomOffset } = useMapTile();
   const [showFocusButton, setShowFocusButton] = useState(false);
   const [isMapReady, setIsMapReady] = useState(false);
   const [showTrails, setShowTrails] = useState(true); // Toggle untuk menampilkan/menyembunyikan jalur
@@ -646,13 +646,16 @@ const ViewMap = ({ darkMode, selectedVehicle, vehicles: propVehicles }) => {
         />
 
         <TileLayer
+          key={tileUrl}
           attribution={tileAttribution}
           url={tileUrl}
           noWrap={true}
           updateWhenZooming={false}
           keepBuffer={4}
           maxZoom={22}
-          maxNativeZoom={19}
+          maxNativeZoom={tileMaxNativeZoom}
+          tileSize={tileSize}
+          zoomOffset={zoomOffset}
         />
 
         {/* Vehicle Trail/History Lines */}

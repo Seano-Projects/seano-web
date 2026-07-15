@@ -90,12 +90,10 @@ const VehicleTable = ({
   // Get status badge
   const getStatusBadge = (status) => {
     const statusClasses = {
-      Online:
-        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      Deployed: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-      Maintenance:
-        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-      Offline: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+      Online: "bg-green-600 text-white",
+      Deployed: "bg-blue-600 text-white",
+      Maintenance: "bg-yellow-500 text-white",
+      Offline: "bg-gray-500 text-white",
     };
 
     return (

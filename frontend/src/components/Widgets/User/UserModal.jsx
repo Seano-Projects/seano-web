@@ -1,20 +1,32 @@
+import { useState } from "react";
 import { Modal } from "../../ui";
 
 const UserModal = ({ isOpen, onClose, onSubmit }) => {
-  const handleSubmit = (e) => {
+  const [fieldError, setFieldError] = useState(null);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
 
     const userData = {
+      username: formData.get("username"),
       email: formData.get("email"),
-      password_hash: formData.get("password"), // Will be hashed on backend
-      full_name: formData.get("full_name"),
-      is_active: true, // Default active status
+      password: formData.get("password"),
     };
 
-    onSubmit(userData);
+    const result = await onSubmit(userData);
 
-    // Reset form
+    if (result?.success === false) {
+      const message = (result.error || "").toLowerCase();
+      if (message.includes("username")) {
+        setFieldError({ field: "username", message: result.error });
+      } else if (message.includes("email")) {
+        setFieldError({ field: "email", message: result.error });
+      }
+      return;
+    }
+
+    setFieldError(null);
     e.target.reset();
   };
 
@@ -26,6 +38,35 @@ const UserModal = ({ isOpen, onClose, onSubmit }) => {
     <Modal isOpen={isOpen} onClose={handleClose} title="Add New User" size="md">
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
+          {/* Username */}
+          <div>
+            <label
+              htmlFor="user-username"
+              className="block text-sm font-medium text-gray-700 dark:text-white mb-1"
+            >
+              Username *
+            </label>
+            <input
+              id="user-username"
+              type="text"
+              name="username"
+              required
+              autoComplete="username"
+              placeholder="Enter username"
+              onChange={() =>
+                fieldError?.field === "username" && setFieldError(null)
+              }
+              className={`w-full px-3 py-2 border rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:border-transparent ${
+                fieldError?.field === "username"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 dark:border-slate-600 focus:ring-fourth"
+              }`}
+            />
+            {fieldError?.field === "username" && (
+              <p className="text-xs text-red-500 mt-1">{fieldError.message}</p>
+            )}
+          </div>
+
           {/* Email */}
           <div>
             <label
@@ -41,8 +82,18 @@ const UserModal = ({ isOpen, onClose, onSubmit }) => {
               required
               autoComplete="email"
               placeholder="Enter email address"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent"
+              onChange={() =>
+                fieldError?.field === "email" && setFieldError(null)
+              }
+              className={`w-full px-3 py-2 border rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:border-transparent ${
+                fieldError?.field === "email"
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 dark:border-slate-600 focus:ring-fourth"
+              }`}
             />
+            {fieldError?.field === "email" && (
+              <p className="text-xs text-red-500 mt-1">{fieldError.message}</p>
+            )}
           </div>
 
           {/* Password */}
@@ -61,25 +112,6 @@ const UserModal = ({ isOpen, onClose, onSubmit }) => {
               autoComplete="new-password"
               minLength={6}
               placeholder="Enter password"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent"
-            />
-          </div>
-
-          {/* Full Name */}
-          <div>
-            <label
-              htmlFor="user-fullname"
-              className="block text-sm font-medium text-gray-700 dark:text-white mb-1"
-            >
-              Full Name *
-            </label>
-            <input
-              id="user-fullname"
-              type="text"
-              name="full_name"
-              required
-              autoComplete="name"
-              placeholder="Enter full name"
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-fourth focus:border-transparent"
             />
           </div>

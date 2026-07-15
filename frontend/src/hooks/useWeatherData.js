@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { useSystemSettings } from "../contexts/SystemSettingsContext";
 
-const OWM_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
 const OWM_CURRENT = "https://api.openweathermap.org/data/2.5/weather";
 const OWM_FORECAST = "https://api.openweathermap.org/data/2.5/forecast";
 
@@ -9,6 +9,8 @@ const OWM_FORECAST = "https://api.openweathermap.org/data/2.5/forecast";
  * @param {{ lat: number|null, lon: number|null, refreshKey: number }} params
  */
 export const useWeatherData = ({ lat, lon, refreshKey = 0 } = {}) => {
+  const { settings } = useSystemSettings();
+  const OWM_KEY = settings.weather_enabled ? settings.openweather_api_key : null;
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -56,8 +58,7 @@ export const useWeatherData = ({ lat, lon, refreshKey = 0 } = {}) => {
       });
 
     return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lat, lon, refreshKey]);
+  }, [lat, lon, refreshKey, OWM_KEY]);
 
   return { weather, forecast, loading, error, hasApiKey: !!OWM_KEY };
 };
