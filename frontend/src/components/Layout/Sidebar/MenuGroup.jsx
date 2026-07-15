@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useContext, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
+import { FaLock } from "react-icons/fa6";
 import LinkItem from "./LinkItem";
 import { usePermission } from "../../../hooks/usePermission";
 import { AuthContext } from "../../../contexts/AuthContext";
@@ -142,6 +143,26 @@ const MenuGroup = ({
         <ul className="py-1">
           {filteredItems.map((item, index) => {
             const Icon = item.icon;
+            if (item.disabled) {
+              return (
+                <li key={index} className="group relative">
+                  <div
+                    aria-disabled="true"
+                    className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-not-allowed text-gray-400 dark:text-gray-600"
+                  >
+                    {Icon && <Icon size={14} className="shrink-0 opacity-50" aria-hidden="true" />}
+                    <span className="flex-1 opacity-50">{t(item.text)}</span>
+                    <FaLock className="text-[9px] text-amber-500/70 shrink-0" aria-hidden="true" />
+                  </div>
+                  <div
+                    role="tooltip"
+                    className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-10 w-max max-w-56 px-2.5 py-1.5 rounded-lg text-[11px] bg-gray-900 text-white dark:bg-gray-800 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    {item.disabledReason || "This feature is currently unavailable"}
+                  </div>
+                </li>
+              );
+            }
             return (
               <li key={index}>
                 <NavLink

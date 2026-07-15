@@ -19,6 +19,7 @@ import {
   useSelectedVehicleContext,
 } from "./contexts/SelectedVehicleContext";
 import { LogDataProvider } from "./contexts/LogDataContext";
+import { SystemSettingsProvider } from "./contexts/SystemSettingsContext";
 
 // Setup React Query client dengan caching configuration
 const queryClient = new QueryClient({
@@ -55,6 +56,7 @@ const Notification = lazy(() => import("./pages/Notification"));
 const User = lazy(() => import("./pages/User"));
 const Role = lazy(() => import("./pages/Role"));
 const Permission = lazy(() => import("./pages/Permission"));
+const SystemManagement = lazy(() => import("./pages/SystemManagement"));
 const PublicationAdmin = lazy(() => import("./pages/PublicationAdmin"));
 const PublicationDetail = lazy(() => import("./pages/PublicationDetail"));
 const PublicationPublicDetail = lazy(
@@ -305,6 +307,7 @@ function App() {
     "/user",
     "/role",
     "/permission",
+    "/system-management",
     "/team",
     "/publications",
     "/docs",
@@ -728,6 +731,14 @@ function App() {
                   }
                 />
                 <Route
+                  path="/system-management"
+                  element={
+                    <ProtectedRoute adminOnly>
+                      <SystemManagement darkMode={darkMode} />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/publications"
                   element={
                     <ProtectedRoute adminOnly>
@@ -814,11 +825,13 @@ const AppWithRouter = () => (
     <BrowserRouter>
       <AuthProvider>
         <PermissionProvider>
-          <SelectedVehicleProvider>
-            <LogDataProvider>
-              <App />
-            </LogDataProvider>
-          </SelectedVehicleProvider>
+          <SystemSettingsProvider>
+            <SelectedVehicleProvider>
+              <LogDataProvider>
+                <App />
+              </LogDataProvider>
+            </SelectedVehicleProvider>
+          </SystemSettingsProvider>
         </PermissionProvider>
       </AuthProvider>
     </BrowserRouter>

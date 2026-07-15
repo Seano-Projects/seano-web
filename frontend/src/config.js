@@ -101,7 +101,6 @@ export const API_ENDPOINTS = {
     CREATE: `${API_BASE_URL}/vehicles/`,
     UPDATE: id => `${API_BASE_URL}/vehicles/${id}`,
     DELETE: id => `${API_BASE_URL}/vehicles/${id}`,
-    GENERATE_API_KEY: id => `${API_BASE_URL}/vehicles/${id}/api-key`,
     ALERTS: id => `${API_BASE_URL}/vehicles/${id}/alerts`,
     RAW_LOGS: vehicleId => `${API_BASE_URL}/raw-logs/?vehicle_id=${vehicleId}`,
     LOGS: vehicleId => `${API_BASE_URL}/vehicle-logs/?vehicle_id=${vehicleId}`,
@@ -132,7 +131,10 @@ export const API_ENDPOINTS = {
     DELETE: id => `${API_BASE_URL}/vehicle-logs/${id}`,
     LATEST: vehicleId => `${API_BASE_URL}/vehicle-logs/latest/${vehicleId}`,
     EXPORT: `${API_BASE_URL}/vehicle-logs/export`,
-    IMPORT: `${API_BASE_URL}/vehicle-logs/import`
+    IMPORT: `${API_BASE_URL}/vehicle-logs/import`,
+    MISSION_STATS: missionId => `${API_BASE_URL}/vehicle-logs/mission-stats/${missionId}`,
+    MISSION_STATS_BATCH: missionIds => `${API_BASE_URL}/vehicle-logs/missions-stats-batch?mission_ids=${missionIds.join(",")}`,
+    MISSION_TRAJECTORY: (missionId, maxPoints = 2000) => `${API_BASE_URL}/vehicle-logs/mission-trajectory/${missionId}?max_points=${maxPoints}`
   },
 
   // Gyroscope endpoints (custom)
@@ -166,7 +168,7 @@ export const API_ENDPOINTS = {
     UPDATE_PROGRESS: id => `${API_BASE_URL}/missions/${id}/progress`,
     UPLOAD_TO_VEHICLE: id => `${API_BASE_URL}/missions/${id}/upload-to-vehicle`,
     SENSOR_LOGS: (missionId, limit = 2000) => `${API_BASE_URL}/sensor-logs/?mission_id=${missionId}&limit=${limit}`,
-    VEHICLE_LOGS: (missionId, limit = 500) => `${API_BASE_URL}/vehicle-logs/?mission_id=${missionId}&limit=${limit}`
+    VEHICLE_LOGS: (missionId, limit = 5000) => `${API_BASE_URL}/vehicle-logs/?mission_id=${missionId}&limit=${limit}`
   },
 
   // Alerts endpoints
@@ -248,6 +250,13 @@ export const API_ENDPOINTS = {
   // Contact endpoint
   CONTACT: {
     SEND: `${API_BASE_URL}/contact`,
+  },
+
+  // Latency Acks endpoints
+  LATENCY_LOGS: {
+    LIST: `${API_BASE_URL}/latency-acks`,
+    DELETE: id => `${API_BASE_URL}/latency-acks/${id}`,
+    EXPORT: `${API_BASE_URL}/latency-acks/export`,
   },
 
   // Waypoint Logs endpoints

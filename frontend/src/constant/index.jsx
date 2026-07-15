@@ -50,6 +50,7 @@ import {
   FaRegUser,
   FaComments,
   FaBookOpen,
+  FaGear,
 } from "react-icons/fa6";
 import { HiOutlineStatusOffline, HiOutlineStatusOnline } from "react-icons/hi";
 import { RiRouteLine, RiShieldUserLine, RiUser3Line } from "react-icons/ri";
@@ -71,6 +72,9 @@ export const chatsLink = {
   text: "nav.chats",
   size: sizeIcon,
   userOnly: true,
+  // Resolved dynamically against System Settings (see Sidebar.jsx) — not hardcoded.
+  flagKey: "ai_chat_enabled",
+  disabledReason: "AI Chat is temporarily unavailable",
 };
 
 export const menuGroups = [
@@ -91,6 +95,9 @@ export const menuGroups = [
         icon: TbSunWind,
         text: "nav.weather",
         size: sizeIcon,
+        // Resolved dynamically against System Settings (see Sidebar.jsx) — not hardcoded.
+        flagKey: "weather_enabled",
+        disabledReason: "Weather is temporarily unavailable",
       },
       {
         href: "/control",
@@ -191,8 +198,8 @@ export const menuGroups = [
         requiredPermission: "sensor-monitoring.read",
         badge: {
           text: "SOON",
-          color: "bg-amber-100 text-amber-800",
-          darkColor: "dark:bg-amber-900/30 dark:text-amber-300",
+          color: "bg-amber-500 text-white",
+          darkColor: "",
         },
       },
       {
@@ -203,8 +210,8 @@ export const menuGroups = [
         requiredPermission: "sensor-monitoring.read",
         badge: {
           text: "SOON",
-          color: "bg-amber-100 text-amber-800",
-          darkColor: "dark:bg-amber-900/30 dark:text-amber-300",
+          color: "bg-amber-500 text-white",
+          darkColor: "",
         },
       },
     ],
@@ -285,6 +292,20 @@ export const menuGroups = [
         href: "/team",
         icon: RiUser3Line,
         text: "nav.team",
+        size: sizeIcon,
+        adminOnly: true,
+      },
+    ],
+  },
+  {
+    title: "nav.systemManagement",
+    icon: FaGear,
+    adminOnly: true,
+    items: [
+      {
+        href: "/system-management",
+        icon: FaGear,
+        text: "nav.systemManagement",
         size: sizeIcon,
         adminOnly: true,
       },

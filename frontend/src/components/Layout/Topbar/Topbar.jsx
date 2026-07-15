@@ -203,14 +203,14 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
       <div className="flex items-center gap-2 dark:text-white text-sm min-w-0">
         <div className="flex items-center gap-2 shrink-0">
           <span
-            className={`relative flex items-center gap-2 px-2.5 py-1.5 text-sm font-semibold rounded-full ${
+            className={`relative flex items-center gap-2 px-2.5 py-1.5 text-sm font-semibold rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-black ${
               usvStatus === "online"
-                ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+                ? "text-green-600"
                 : usvStatus === "idle"
-                  ? "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400"
+                  ? "text-yellow-600"
                   : usvStatus === "offline"
-                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-                    : "bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    ? "text-red-600"
+                    : "text-gray-500"
             }`}
           >
             {/* Bullet with breathe */}
@@ -223,7 +223,7 @@ const Topbar = ({ isSidebarOpen, selectedVehicle, setSelectedVehicle }) => {
                       ? "bg-yellow-500"
                       : usvStatus === "offline"
                         ? "bg-red-500"
-                        : "bg-gray-500"
+                        : "bg-gray-400"
                 }`}
               ></span>
             </span>

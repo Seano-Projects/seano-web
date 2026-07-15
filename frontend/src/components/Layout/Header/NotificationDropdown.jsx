@@ -207,7 +207,7 @@ const NotificationDropdown = ({ isOpen, onClose, onUpdate }) => {
             </h3>
           </div>
           {stats.unread > 0 && (
-            <span className="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 px-2.5 py-1 rounded-full text-xs font-bold">
+            <span className="bg-blue-600 text-white px-2.5 py-1 rounded-full text-xs font-bold">
               {stats.unread}
             </span>
           )}

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { NavLink } from "react-router-dom";
+import { FaLock } from "react-icons/fa6";
 import { useAuthContext } from "../../../hooks/useAuthContext";
 import useTranslation from "../../../hooks/useTranslation";
 
@@ -16,6 +17,8 @@ const LinkItem = ({
   type,
   action,
   hideIcon,
+  disabled,
+  disabledReason,
 }) => {
   const { logout } = useAuthContext();
   const { t } = useTranslation();
@@ -56,26 +59,11 @@ const LinkItem = ({
   }, [showTooltip, isSidebarOpen]);
 
   const openTooltip = () => {
-    if (!isSidebarOpen && text) setShowTooltip(true);
+    // Disabled items always explain themselves on hover; enabled items only
+    // need a tooltip when the sidebar is collapsed (label isn't visible).
+    if ((disabled || !isSidebarOpen) && text) setShowTooltip(true);
   };
   const closeTooltip = () => setShowTooltip(false);
-
-  const tooltipPortal =
-    showTooltip &&
-    text &&
-    createPortal(
-      <div
-        role="tooltip"
-        className="px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-white text-black shadow-xl ring-1 ring-black/10 dark:bg-black dark:text-white dark:ring-white/20"
-        style={{
-          ...tooltipStyle,
-          visibility: tooltipStyle.left != null ? "visible" : "hidden",
-        }}
-      >
-        {t(text)}
-      </div>,
-      document.body,
-    );
 
   const triggerProps = {
     ref: triggerRef,
@@ -90,6 +78,66 @@ const LinkItem = ({
       WebkitTapHighlightColor: "transparent",
     },
   };
+
+  const tooltipPortal =
+    showTooltip &&
+    text &&
+    createPortal(
+      disabled ? (
+        <div
+          role="tooltip"
+          className="flex items-start gap-2 max-w-56 px-3 py-2.5 rounded-xl text-xs bg-white shadow-xl ring-1 ring-black/10 dark:bg-gray-900 dark:ring-white/10"
+          style={{
+            ...tooltipStyle,
+            visibility: tooltipStyle.left != null ? "visible" : "hidden",
+          }}
+        >
+          <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-500/15 flex items-center justify-center">
+            <FaLock className="text-[9px] text-amber-600 dark:text-amber-400" />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-semibold text-gray-800 dark:text-gray-100">
+              {t(text)}
+            </span>
+            <span className="block mt-0.5 text-gray-500 dark:text-gray-400 whitespace-normal">
+              {disabledReason || "This feature is currently unavailable"}
+            </span>
+          </span>
+        </div>
+      ) : (
+        <div
+          role="tooltip"
+          className="px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-white text-black shadow-xl ring-1 ring-black/10 dark:bg-black dark:text-white dark:ring-white/20"
+          style={{
+            ...tooltipStyle,
+            visibility: tooltipStyle.left != null ? "visible" : "hidden",
+          }}
+        >
+          {t(text)}
+        </div>
+      ),
+      document.body,
+    );
+
+  if (disabled) {
+    return (
+      <li>
+        <div
+          {...triggerProps}
+          aria-disabled="true"
+          className={`flex items-center p-2 rounded-lg gap-2 cursor-not-allowed opacity-40 touch-manipulation
+          ${!isSidebarOpen ? "justify-center" : ""}
+          text-gray-500 dark:text-gray-500`}
+        >
+          {!hideIcon && <Icon size={size} />}
+          <span className={`me-3 ${isSidebarOpen ? "flex-1" : "hidden"}`}>
+            {t(text)}
+          </span>
+        </div>
+        {tooltipPortal}
+      </li>
+    );
+  }
 
   if (type === "button") {
     const isLogout = action === "logout";

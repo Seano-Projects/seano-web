@@ -10,11 +10,13 @@ import { FaRegUser, FaChevronUp, FaChevronDown, FaCog } from "react-icons/fa";
 import { FiLogOut } from "react-icons/fi";
 import useTranslation from "../../../hooks/useTranslation";
 import QuickSearch from "./QuickSearch";
+import { useSystemSettings } from "../../../contexts/SystemSettingsContext";
 
 const Sidebar = ({ isSidebarOpen, onHoverChange, onClose }) => {
   const location = useLocation();
   const { user, logout } = useAuthContext();
   const { t } = useTranslation();
+  const { settings } = useSystemSettings();
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isThrustFullscreen, setIsThrustFullscreen] = useState(false);
@@ -99,18 +101,30 @@ const Sidebar = ({ isSidebarOpen, onHoverChange, onClose }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
+  const chatsLinkResolved = useMemo(
+    () =>
+      chatsLink.flagKey
+        ? { ...chatsLink, disabled: !settings[chatsLink.flagKey] }
+        : chatsLink,
+    [settings],
+  );
+
   const menuGroupsWithBadges = useMemo(
     () =>
       menuGroups.map((group) => ({
         ...group,
         items: (group.items || []).map((item) => {
+          if (item.flagKey) {
+            item = { ...item, disabled: !settings[item.flagKey] };
+          }
+
           if (item.href === "/alerts" && unreadAlertCount > 0) {
             return {
               ...item,
               badge: {
                 text: unreadAlertCount > 99 ? "99+" : String(unreadAlertCount),
-                color: "bg-red-100 text-red-800",
-                darkColor: "dark:bg-red-900/30 dark:text-red-300",
+                color: "bg-red-600 text-white",
+                darkColor: "",
               },
             };
           }
@@ -123,8 +137,8 @@ const Sidebar = ({ isSidebarOpen, onHoverChange, onClose }) => {
                   unreadNotificationCount > 99
                     ? "99+"
                     : String(unreadNotificationCount),
-                color: "bg-blue-100 text-blue-800",
-                darkColor: "dark:bg-blue-900/30 dark:text-blue-300",
+                color: "bg-blue-600 text-white",
+                darkColor: "",
               },
             };
           }
@@ -132,7 +146,7 @@ const Sidebar = ({ isSidebarOpen, onHoverChange, onClose }) => {
           return item;
         }),
       })),
-    [unreadAlertCount, unreadNotificationCount],
+    [unreadAlertCount, unreadNotificationCount, settings],
   );
 
   return (
@@ -172,7 +186,7 @@ const Sidebar = ({ isSidebarOpen, onHoverChange, onClose }) => {
             <div className="mb-3 mt-2">
               <ul className="space-y-2 font-semibold">
                 <LinkItem isSidebarOpen={isExpanded} {...dashboardLink} />
-                <LinkItem isSidebarOpen={isExpanded} {...chatsLink} />
+                <LinkItem isSidebarOpen={isExpanded} {...chatsLinkResolved} />
               </ul>
             </div>
 

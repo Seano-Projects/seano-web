@@ -24,11 +24,13 @@ import useTranslation from "../../../hooks/useTranslation";
 import NotificationDropdown from "./NotificationDropdown";
 import AlertDropdown from "./AlertDropdown";
 import { API_BASE_URL } from "../../../config";
+import { useSystemSettings } from "../../../contexts/SystemSettingsContext";
 
 const Header = ({ darkMode, toggleDarkMode, themeMode, setThemeMode }) => {
   const { user, logout } = useAuthContext();
   const { t, language } = useTranslation();
   const { style: mapStyle, setStyle: setMapStyle } = useMapTile();
+  const { settings } = useSystemSettings();
   const [time, setTime] = useState(new Date());
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null); // "theme" | "map" | null
@@ -40,6 +42,15 @@ const Header = ({ darkMode, toggleDarkMode, themeMode, setThemeMode }) => {
   const userMenuRef = useRef(null);
   const notificationsRef = useRef(null);
   const alertsRef = useRef(null);
+
+  // Keep map style in sync with theme: Dark only in dark mode, Street only in light mode
+  useEffect(() => {
+    if (darkMode && mapStyle === "street") {
+      setMapStyle("dark");
+    } else if (!darkMode && mapStyle === "dark") {
+      setMapStyle("street");
+    }
+  }, [darkMode, mapStyle, setMapStyle]);
 
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(
@@ -423,17 +434,28 @@ const Header = ({ darkMode, toggleDarkMode, themeMode, setThemeMode }) => {
                             style={{ zIndex: 10003 }}
                           >
                             {[
-                              { key: "street", label: "Street" },
+                              ...(darkMode ? [] : [{ key: "street", label: "Street" }]),
                               { key: "satellite", label: "Satellite" },
-                              { key: "dark", label: "Dark" },
-                            ].map(({ key, label }) => (
+                              ...(darkMode ? [{ key: "dark", label: "Dark" }] : []),
+                              { key: "mapbox-satellite", label: "Mapbox Satellite", disabled: !settings.mapbox_enabled },
+                              { key: "google-satellite", label: "Google Satellite", disabled: !settings.google_maps_enabled },
+                            ].map(({ key, label, disabled }) => (
                               <button
                                 key={key}
-                                onClick={() => { setMapStyle(key); setOpenSubmenu(null); setIsUserMenuOpen(false); }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white transition text-left"
+                                disabled={disabled}
+                                title={disabled ? "Temporarily unavailable" : undefined}
+                                onClick={() => {
+                                  if (disabled) return;
+                                  setMapStyle(key); setOpenSubmenu(null); setIsUserMenuOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition text-left ${
+                                  disabled
+                                    ? "text-gray-400 dark:text-gray-600 opacity-50 cursor-not-allowed"
+                                    : "hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white"
+                                }`}
                               >
                                 <span className="flex-1">{label}</span>
-                                {mapStyle === key && <FaCheck className="text-xs text-blue-500" />}
+                                {!disabled && mapStyle === key && <FaCheck className="text-xs text-blue-500" />}
                               </button>
                             ))}
                           </div>

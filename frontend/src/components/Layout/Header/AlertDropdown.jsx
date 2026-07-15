@@ -230,16 +230,16 @@ const AlertDropdown = ({ isOpen, onClose, onUpdate }) => {
   };
 
   const getSeverityBadge = (severity) => {
-    const baseClass = "text-xs font-semibold px-2 py-0.5 rounded-full border";
+    const baseClass = "text-xs font-semibold px-2 py-0.5 rounded-full";
     switch (severity?.toLowerCase()) {
       case "critical":
-        return `${baseClass} bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700`;
+        return `${baseClass} bg-red-600 text-white`;
       case "warning":
-        return `${baseClass} bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700`;
+        return `${baseClass} bg-amber-500 text-white`;
       case "info":
-        return `${baseClass} bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700`;
+        return `${baseClass} bg-blue-600 text-white`;
       default:
-        return `${baseClass} bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600`;
+        return `${baseClass} bg-gray-500 text-white`;
     }
   };
 
