@@ -174,8 +174,9 @@
     "userManagement": "Manajemen Pengguna",
     "publicationManagement": "Manajemen Publikasi",
     "team": "Anggota Tim",
+    "systemManagement": "Manajemen Sistem",
     "user": "Pengguna",
-    "cam": "Live Stream",
+    "cam": "Camera Stream",
     "role": "Peran",
     "permission": "Izin",
     "publications": "Publikasi",
@@ -200,17 +201,17 @@
     "welcome": "Selamat datang kembali",
     "overview": "Ringkasan",
     "cards": {
-      "totalVehicles": "Total Kendaraan",
-      "vehiclesOnMission": "Kendaraan Dalam Misi",
+      "totalVehicles": "Total Kapal",
+      "vehiclesOnMission": "Kapal Dalam Misi",
       "totalMissions": "Total Misi",
       "missionsInProgress": "Misi Sedang Berjalan",
       "totalAlerts": "Total Peringatan",
-      "vehiclesRegistered": "kendaraan terdaftar",
-      "vehiclesActive": "kendaraan aktif",
+      "vehiclesRegistered": "kapal terdaftar",
+      "vehiclesActive": "kapal aktif",
       "missionsCreated": "misi dibuat",
       "missionsRunning": "misi berjalan",
       "alertsPending": "peringatan tertunda",
-      "noVehiclesAvailable": "Tidak ada kendaraan tersedia",
+      "noVehiclesAvailable": "Tidak ada kapal tersedia",
       "noActiveMissions": "Tidak ada misi aktif",
       "noMissionsAvailable": "Tidak ada misi tersedia",
       "noAlerts": "Tidak ada peringatan"
@@ -251,7 +252,7 @@
       "title": "Tingkat Keberhasilan Misi",
       "completed": "Selesai",
       "ongoing": "Berjalan",
-      "failed": "Gagal",
+      "failed": "Dibatalkan",
       "draft": "Draft",
       "optimal": "OPTIMAL",
       "good": "BAGUS",
@@ -273,9 +274,9 @@
   },
   "tracking": {
     "vehicleStatus": {
-      "loading": "Memuat status kendaraan...",
-      "title": "Status Kendaraan",
-      "noVehicle": "Tidak Ada Kendaraan Dipilih",
+      "loading": "Memuat status kapal...",
+      "title": "Status Kapal",
+      "noVehicle": "Tidak Ada Kapal Dipilih",
       "connection": "Koneksi",
       "online": "Online",
       "offline": "Offline",
@@ -355,7 +356,7 @@
     "alerts": {
       "title": "Peringatan Terbaru",
       "noAlerts": "Tidak ada peringatan ditemukan",
-      "operatingNormally": "Kendaraan beroperasi normal",
+      "operatingNormally": "Kapal beroperasi normal",
       "defaultVehicleCode": "-",
       "footerCount": "peringatan",
       "lastUpdated": "Terakhir diperbarui"
@@ -421,6 +422,12 @@
       "waypointsOf": "dari",
       "waypointsLabel": "titik rute selesai",
       "clearMission": "HAPUS MISI",
+      "clearMissionConfirmTitle": "Hapus Misi",
+      "clearMissionConfirmMessage": "Ini juga akan menghapus daftar waypoint dari hardware. Lanjutkan?",
+      "clearMissionConfirm": "Ya, Hapus",
+      "clearMissionClearingHw": "Menghapus waypoint di hardware...",
+      "clearMissionHwSuccess": "Waypoint hardware berhasil dihapus",
+      "clearMissionHwError": "Gagal menghapus waypoint hardware",
       "sendingCommand": "Mengirim permintaan kontrol...",
       "waitingAck": "Menunggu respons...",
       "commandQueued": "Permintaan diantrekan — menunggu kendaraan",
@@ -446,7 +453,7 @@
       "RTL": "Kembali ke Titik Awal"
     },
     "camera": {
-      "title": "Kontrol Kamera",
+      "title": "Camera Stream",
       "subtitle": "Kamera langsung dari kapal Anda",
       "connect": "Hubungkan",
       "disconnect": "Putuskan",
@@ -507,6 +514,51 @@
         "sectionHeatmapNoData": "Data belum tersedia untuk heatmap",
         "density": "Densitas",
         "soundVelocity": "Kecepatan Suara"
+      },
+      "metrics": {
+        "temperature": "Suhu",
+        "salinity": "Salinitas",
+        "density": "Densitas",
+        "conductivity": "Konduktivitas",
+        "soundVelocity": "Kec. Suara"
+      },
+      "castInfo": {
+        "castTime": "Waktu Cast",
+        "castTimeSub": "Timestamp cast terakhir",
+        "coordinates": "Koordinat",
+        "noCoordinates": "Koordinat tidak tersedia",
+        "maxDepth": "Kedalaman Maks",
+        "maxDepthSub": "Titik terdalam cast",
+        "dataCount": "Jumlah Data",
+        "dataCountSub": "Total titik pengukuran"
+      },
+      "heatmap": {
+        "surfaceTemp": "Suhu Permukaan",
+        "surfaceTempSub": "Rata-rata 0-5 m atas",
+        "bottomTemp": "Suhu Dasar",
+        "bottomTempSub": "Rata-rata 5 m terdalam",
+        "thermocline": "Termoklin",
+        "thermoclineAround": "Termoklin sekitar",
+        "noThermocline": "Tidak ada termoklin stabil",
+        "gradient": "Gradien",
+        "gradientSub": "Perubahan vertikal terjal",
+        "coverage": "Cakupan",
+        "coverageSub": "Cakupan sampling",
+        "dataFlags": "tanda data",
+        "stationaryProfile": "Profil stasioner terdeteksi",
+        "stationaryProfileDesc": "Heatmap penampang dirancang untuk survei transek (USV bergerak horizontal). Untuk cast vertikal stasioner, gunakan grafik Profil Kedalaman.",
+        "noGps": "Data GPS tidak tersedia dalam payload CTD",
+        "noGpsDesc": "USV tidak mengirim lat/lon bersama data CTD. Sumbu X tidak dapat merepresentasikan jarak horizontal; semua bacaan ditumpuk di 0 km. Pastikan koordinat GPS disertakan dalam payload MQTT CTD.",
+        "strengthInsufficient": "Tidak Cukup",
+        "strengthStrong": "Kuat",
+        "strengthModerate": "Sedang",
+        "strengthWeak": "Lemah"
+      },
+      "multicast": {
+        "min1": "1 menit",
+        "min5": "5 menit",
+        "min10": "10 menit",
+        "min30": "30 menit"
       }
     },
     "adcp": {
@@ -602,7 +654,8 @@
         "batteryLogs": "Riwayat Baterai",
         "waypointLogs": "Log Waypoint",
         "commandLogs": "Log Perintah",
-        "thrusterLogs": "Riwayat Thruster"
+        "thrusterLogs": "Riwayat Thruster",
+        "latencyLogs": "Riwayat Latensi"
       },
       "actions": {
         "refresh": "Muat Ulang",
@@ -635,6 +688,7 @@
         "startDate": "Tanggal Mulai",
         "endDate": "Tanggal Akhir",
         "sensorTypeTitle": "Tipe Sensor",
+        "logTypeTitle": "Tipe Log",
         "selectDataType": "Pilih tipe data",
         "active": "Filter aktif sedang diterapkan.",
         "dateRange": {
@@ -642,7 +696,8 @@
           "today": "Hari Ini",
           "week": "Minggu Ini",
           "month": "Bulan Ini",
-          "quarter": "Kuartal Ini"
+          "quarter": "Kuartal Ini",
+          "custom": "Rentang Kustom"
         },
         "dataScope": {
           "all": "Semua Data",
@@ -655,6 +710,13 @@
           "adcp": "ADCP",
           "sbes": "SBES (Segera Hadir)",
           "mbes": "MBES (Segera Hadir)"
+        },
+        "logType": {
+          "vehicle": "Vehicle",
+          "sensor": "Sensor",
+          "thruster": "Thruster",
+          "command": "Command",
+          "waypoint": "Waypoint"
         }
       },
       "widgets": {
@@ -673,7 +735,8 @@
         "avgTempEmpty": "Rata-rata Suhu: -",
         "avgTemp": "Rata-rata Suhu: {{value}} C",
         "avgSocEmpty": "Rata-rata SOC: -",
-        "avgSoc": "Rata-rata SOC: {{value}}%"
+        "avgSoc": "Rata-rata SOC: {{value}}%",
+        "thrusterOverrides": "{{count}} perintah override"
       },
       "table": {
         "dataRecords": "Rekaman Data",
@@ -690,6 +753,7 @@
         "searchBattery": "Cari berdasarkan baterai, kendaraan, atau status...",
         "searchWaypoint": "Cari berdasarkan kendaraan, misi, atau status...",
         "searchCommand": "Cari berdasarkan kendaraan, perintah, atau status...",
+        "searchThruster": "Cari berdasarkan kendaraan atau peristiwa...",
         "empty": "Tidak ada data. Data akan muncul saat kendaraan mengirimkan informasi.",
         "emptyWithFilters": "Tidak ada data untuk filter yang dipilih. Coba sesuaikan filter di atas.",
         "deleteBulkConfirm": "Yakin ingin menghapus {{count}} {{type}}? Tindakan ini tidak bisa dibatalkan.",
@@ -698,6 +762,7 @@
         "deleteSingleConfirm": "Yakin ingin menghapus {{type}} ini?",
         "deleteSingleSuccess": "{{type}} berhasil dihapus!",
         "deleteSingleFailed": "Gagal menghapus {{type}}",
+        "view": "Lihat",
         "columns": {
           "id": "ID",
           "vehicle": "Kendaraan",
@@ -715,7 +780,10 @@
           "current": "Arus",
           "temperature": "Suhu",
           "status": "Status",
-          "message": "Pesan"
+          "message": "Pesan",
+          "event": "Peristiwa",
+          "throttle": "Throttle",
+          "steering": "Kemudi"
         }
       },
       "charts": {
@@ -726,16 +794,20 @@
         "vehicleMapEmpty": "Titik belum cukup untuk menampilkan rute",
         "allDataChart": "Grafik Ringkasan",
         "allDataSubtitle": "Tren CTD dari waktu ke waktu",
+        "sensorTrendsSubtitle": "Tren {{type}} dari waktu ke waktu",
         "customSelectChart": "Grafik Pilihan",
         "customSelectSubtitle": "Pilih metrik untuk melihat tren",
-        "sensorEmpty": "Data CTD belum tersedia",
+        "sensorEmpty": "Data sensor belum tersedia",
         "batteryUsageChart": "Grafik Penggunaan Baterai",
         "batteryUsageSubtitle": "SOC, tegangan, dan arus terhadap waktu",
         "batteryEmpty": "Riwayat baterai belum tersedia",
         "temperature": "Suhu",
         "salinity": "Salinitas",
         "depth": "Kedalaman",
-        "conductivity": "Konduktivitas"
+        "conductivity": "Konduktivitas",
+        "currentSpeed": "Kecepatan Arus",
+        "currentDirection": "Arah Arus",
+        "waterDepth": "Kedalaman Air"
       },
       "errorLoadingPage": "Gagal Memuat Halaman",
       "unexpectedError": "Terjadi kesalahan yang tidak terduga",
@@ -842,8 +914,8 @@
         "vehicle": "Riwayat Kendaraan",
         "sensor": "Riwayat Sensor",
         "raw": "Data Detail",
-        "antitheft": "Peringatan Keamanan",
-        "failsafe": "Peringatan Keselamatan",
+        "antitheft": "Peringatan Anti Pencurian",
+        "failsafe": "Peringatan Failsafe",
         "command": "Riwayat Kontrol",
         "waypoint": "Titik Rute",
         "thruster": "Riwayat Thruster"
@@ -855,8 +927,8 @@
       "emptyVehicle": "Belum ada riwayat kendaraan. Menunggu data...",
       "emptySensor": "Belum ada riwayat sensor. Menunggu data...",
       "emptyRaw": "Belum ada data detail. Menunggu data...",
-      "emptyAntiTheft": "Tidak ada peringatan keamanan",
-      "emptyFailsafe": "Tidak ada peringatan keselamatan",
+      "emptyAntiTheft": "Tidak ada peringatan anti pencurian",
+      "emptyFailsafe": "Tidak ada peringatan failsafe",
       "emptyCommand": "Belum ada riwayat kontrol.",
       "emptyWaypoint": "Belum ada pembaruan rute. Upload misi untuk melihatnya di sini.",
       "normalOperation": "Kendaraan beroperasi normal",
@@ -876,15 +948,15 @@
         "steering": "Steering"
       },
       "alerts": {
-        "antiTheft": "PERINGATAN KEAMANAN",
-        "failsafe": "PERINGATAN KESELAMATAN"
+        "antiTheft": "PERINGATAN ANTI PENCURIAN",
+        "failsafe": "PERINGATAN FAILSAFE"
       },
       "widgets": {
         "vehicle": "Riwayat Kendaraan",
         "sensor": "Riwayat Sensor",
         "raw": "Data Detail",
-        "antiTheft": "Peringatan Keamanan",
-        "failsafe": "Peringatan Keselamatan",
+        "antiTheft": "Peringatan Anti Pencurian",
+        "failsafe": "Peringatan Failsafe",
         "vsYesterday": "{{count}}% vs kemarin",
         "unacknowledged": "{{count}} belum ditandai",
         "noAlerts": "Tidak ada alert"
@@ -907,7 +979,6 @@
       "progress": "Progress",
       "duration": "Durasi",
       "journeyMission": "Rute Misi",
-      "telemetrySamples": "Sampel Perjalanan",
       "firstPing": "Ping Pertama",
       "lastPing": "Ping Terakhir",
       "avgSpeed": "Kecepatan Rata-rata",
@@ -920,6 +991,7 @@
       "energy": "Energi",
       "currentWaypoint": "Titik Rute Saat Ini",
       "noEnergyBudget": "Belum ada budget energi",
+      "batteryUsed": "baterai terpakai",
       "planHistory": "Riwayat Rencana",
       "missionHistory": "Riwayat Misi",
       "noPlan": "Misi ini belum memiliki home location atau titik rute.",
@@ -958,13 +1030,43 @@
         "subtitle": "Kelola pengguna",
         "add": "Tambah Pengguna",
         "addModalTitle": "Tambah Pengguna Baru",
-        "deleteTitle": "Hapus Pengguna"
+        "deleteTitle": "Hapus Pengguna",
+        "created": "Pengguna berhasil dibuat!",
+        "createdTitle": "Pengguna Dibuat",
+        "createFailed": "Gagal membuat pengguna",
+        "createFailedTitle": "Gagal Membuat Pengguna",
+        "updated": "Pengguna berhasil diperbarui!",
+        "updatedTitle": "Pengguna Diperbarui",
+        "updateFailed": "Gagal memperbarui pengguna",
+        "updateFailedTitle": "Gagal Memperbarui Pengguna",
+        "deleted": "Pengguna berhasil dihapus!",
+        "deletedTitle": "Pengguna Dihapus",
+        "deleteFailed": "Gagal menghapus pengguna",
+        "deleteFailedTitle": "Gagal Menghapus Pengguna",
+        "bulkDeletedTitle": "Hapus Banyak Pengguna",
+        "bulkDeleteFailed": "Gagal menghapus beberapa pengguna",
+        "bulkDeleteFailedTitle": "Gagal Hapus Banyak"
       },
       "role": {
         "title": "Manajemen Peran",
         "subtitle": "Kelola peran",
         "add": "Tambah Peran",
-        "deleteTitle": "Hapus Peran"
+        "deleteTitle": "Hapus Peran",
+        "created": "Peran berhasil dibuat!",
+        "createdTitle": "Peran Dibuat",
+        "createFailed": "Gagal membuat peran",
+        "createFailedTitle": "Gagal Membuat Peran",
+        "updated": "Peran berhasil diperbarui!",
+        "updatedTitle": "Peran Diperbarui",
+        "updateFailed": "Gagal memperbarui peran",
+        "updateFailedTitle": "Gagal Memperbarui Peran",
+        "deleted": "Peran berhasil dihapus!",
+        "deletedTitle": "Peran Dihapus",
+        "deleteFailed": "Gagal menghapus peran",
+        "deleteFailedTitle": "Gagal Menghapus Peran",
+        "bulkDeletedTitle": "Hapus Banyak Peran",
+        "bulkDeleteFailed": "Gagal menghapus beberapa peran",
+        "bulkDeleteFailedTitle": "Gagal Hapus Banyak"
       },
       "permission": {
         "title": "Manajemen Izin",
@@ -977,7 +1079,22 @@
         "title": "Manajemen Sensor",
         "subtitle": "Kelola dan pantau semua perangkat sensor",
         "add": "Tambah Sensor",
-        "deleteTitle": "Hapus Sensor"
+        "deleteTitle": "Hapus Sensor",
+        "created": "Sensor berhasil dibuat!",
+        "createdTitle": "Sensor Dibuat",
+        "createFailed": "Gagal membuat sensor",
+        "createFailedTitle": "Gagal Membuat Sensor",
+        "updated": "Sensor berhasil diperbarui!",
+        "updatedTitle": "Sensor Diperbarui",
+        "updateFailed": "Gagal memperbarui sensor",
+        "updateFailedTitle": "Gagal Memperbarui Sensor",
+        "deleted": "Sensor berhasil dihapus!",
+        "deletedTitle": "Sensor Dihapus",
+        "deleteFailed": "Gagal menghapus sensor",
+        "deleteFailedTitle": "Gagal Menghapus Sensor",
+        "bulkDeletedTitle": "Hapus Banyak Sensor",
+        "bulkDeleteFailed": "Gagal menghapus beberapa sensor",
+        "bulkDeleteFailedTitle": "Gagal Hapus Banyak"
       },
       "sensorType": {
         "title": "Manajemen Tipe Sensor",
@@ -986,10 +1103,41 @@
         "deleteTitle": "Hapus Tipe Sensor"
       },
       "vehicle": {
-        "title": "Manajemen Kendaraan",
-        "subtitle": "Kelola dan pantau semua kendaraan USV",
-        "add": "Tambah Kendaraan",
-        "deleteTitle": "Hapus Kendaraan"
+        "title": "Manajemen Kapal",
+        "subtitle": "Kelola dan pantau semua kapal USV",
+        "add": "Tambah Kapal",
+        "deleteTitle": "Hapus Kapal",
+        "created": "Kendaraan berhasil dibuat!",
+        "createdTitle": "Kendaraan Dibuat",
+        "updated": "Kendaraan berhasil diperbarui!",
+        "updatedTitle": "Kendaraan Diperbarui",
+        "saveFailed": "Gagal menyimpan kendaraan",
+        "saveFailedTitle": "Gagal Menyimpan Kendaraan",
+        "updateFailedTitle": "Gagal Memperbarui Kendaraan",
+        "createFailedTitle": "Gagal Membuat Kendaraan",
+        "deleted": "Kendaraan berhasil dihapus!",
+        "deletedTitle": "Kendaraan Dihapus",
+        "deleteFailed": "Gagal menghapus kendaraan",
+        "deleteFailedTitle": "Gagal Menghapus Kendaraan",
+        "bulkDeletedTitle": "Hapus Banyak Kendaraan",
+        "bulkDeleteFailed": "Gagal menghapus beberapa kendaraan",
+        "bulkDeleteFailedTitle": "Gagal Hapus Banyak",
+        "authFailed": "Autentikasi gagal. Silakan masuk kembali."
+      },
+      "vehicle_wizard": {
+        "sensorListError": "Tidak dapat memuat daftar sensor. Silakan coba lagi.",
+        "sensorListErrorTitle": "Daftar Sensor Tidak Tersedia",
+        "requiredFields": "Harap isi nama kendaraan dan kode identifikasi.",
+        "requiredFieldsTitle": "Kolom Wajib Kosong",
+        "batteryCountError": "Pilih 1 atau 2 baterai.",
+        "batteryCountErrorTitle": "Konfigurasi Baterai Tidak Valid",
+        "batteryCapacityError": "Kapasitas baterai harus lebih dari 0 Ah.",
+        "batteryCapacityErrorTitle": "Kapasitas Baterai Tidak Valid",
+        "created": "Kendaraan berhasil dibuat!",
+        "createdTitle": "Kendaraan Dibuat",
+        "createFailed": "Tidak dapat membuat kendaraan. Silakan coba lagi.",
+        "createFailedTitle": "Kendaraan Tidak Dibuat",
+        "codeConflict": "Kode ini sudah digunakan. Pilih kode lain."
       }
     },
     "settings": {
@@ -1182,7 +1330,7 @@
       "draft": "Draf",
       "completed": "Selesai",
       "ongoing": "Berlangsung",
-      "failed": "Gagal"
+      "failed": "Dibatalkan"
     },
     "modals": {
       "createTitle": "Buat Misi Baru",
@@ -1210,7 +1358,7 @@
       "draft": "Draf",
       "ongoing": "Berlangsung",
       "completed": "Selesai",
-      "failed": "Gagal",
+      "failed": "Dibatalkan",
       "colName": "Nama Misi",
       "colStatus": "Status",
       "colVehicle": "Kendaraan",
@@ -1482,6 +1630,41 @@
     "deleteTitle": "Hapus Percakapan",
     "deleteMessage": "Apakah kamu yakin ingin menghapus percakapan ini? Tindakan ini tidak dapat dibatalkan.",
     "delete": "Hapus"
+  },
+  "missionReport": {
+    "pageTitle": "Laporan Misi",
+    "title": "Laporan Sensor Misi",
+    "loadingSubtitle": "Memuat data...",
+    "errorSubtitle": "Terjadi kesalahan",
+    "loadError": "Gagal memuat laporan misi. Silakan coba lagi.",
+    "notFound": "Misi tidak ditemukan.",
+    "backToMissions": "Kembali ke daftar misi",
+    "missionDetailsLink": "Detail Misi",
+    "noVehicle": "Tanpa kendaraan",
+    "lastPosition": "Posisi Terakhir",
+    "tableTime": "Waktu",
+    "exportCsv": "Ekspor CSV",
+    "trajectoryTitle": "Trajektori Misi",
+    "plannedRoute": "Rute Direncanakan",
+    "actualPath": "Jalur Aktual",
+    "sensorDataTitle": "Data Sensor",
+    "noSensorData": "Belum ada data sensor yang ter-link ke misi ini.",
+    "noSensorDataHint": "Data sensor akan otomatis ter-link jika misi sedang berjalan.",
+    "breadcrumb": {
+      "missions": "Misi",
+      "missionDetails": "Detail Misi",
+      "sensorReport": "Laporan Sensor"
+    },
+    "stats": {
+      "vehicle": "Kendaraan",
+      "sensorType": "Jenis Sensor",
+      "totalSensorData": "Total Data Sensor",
+      "duration": "Durasi",
+      "created": "Dibuat",
+      "start": "Mulai",
+      "end": "Selesai",
+      "waypoint": "Waypoint"
+    }
   },
   "footer": {
     "copyright": "Hak Cipta © 2026. Seano. Semua Hak Dilindungi.",

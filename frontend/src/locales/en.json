@@ -174,8 +174,9 @@
     "userManagement": "User Management",
     "publicationManagement": "Publication Management",
     "team": "Team Members",
+    "systemManagement": "System Management",
     "user": "User",
-    "cam": "Live Stream",
+    "cam": "Camera Stream",
     "role": "Role",
     "permission": "Permission",
     "publications": "Publications",
@@ -200,24 +201,24 @@
     "welcome": "Welcome back",
     "overview": "Overview",
     "cards": {
-      "totalVehicles": "Total Vehicles",
-      "vehiclesOnMission": "Vehicles On Mission",
+      "totalVehicles": "Total Vessels",
+      "vehiclesOnMission": "Vessels On Mission",
       "totalMissions": "Total Missions",
       "missionsInProgress": "Missions In Progress",
       "totalAlerts": "Total Alerts",
-      "vehiclesRegistered": "vehicles registered",
-      "vehiclesActive": "vehicles active",
+      "vehiclesRegistered": "vessels registered",
+      "vehiclesActive": "vessels active",
       "missionsCreated": "missions created",
       "missionsRunning": "missions running",
       "alertsPending": "alerts pending",
-      "noVehiclesAvailable": "No vehicles available",
+      "noVehiclesAvailable": "No vessels available",
       "noActiveMissions": "No active missions",
       "noMissionsAvailable": "No missions available",
       "noAlerts": "No alerts"
     },
     "vehicleQuickView": {
       "title": "Vessels Quick View",
-      "selectVehicle": "Select Vehicle",
+      "selectVehicle": "Select Vessel",
       "placeholder": "Select a vessel to view details",
       "status": "Status",
       "lastUpdate": "Last Update",
@@ -251,7 +252,7 @@
       "title": "Mission Success Rate",
       "completed": "Completed",
       "ongoing": "Ongoing",
-      "failed": "Failed",
+      "failed": "Cancelled",
       "draft": "Draft",
       "optimal": "OPTIMAL",
       "good": "GOOD",
@@ -273,9 +274,9 @@
   },
   "tracking": {
     "vehicleStatus": {
-      "loading": "Loading vehicle status...",
-      "title": "Vehicle Status",
-      "noVehicle": "No Vehicle Selected",
+      "loading": "Loading vessel status...",
+      "title": "Vessel Status",
+      "noVehicle": "No Vessel Selected",
       "connection": "Connection",
       "online": "Online",
       "offline": "Offline",
@@ -355,7 +356,7 @@
     "alerts": {
       "title": "Latest Alerts",
       "noAlerts": "No alerts found",
-      "operatingNormally": "Vehicle is operating normally",
+      "operatingNormally": "Vessel is operating normally",
       "defaultVehicleCode": "-",
       "footerCount": "alerts",
       "lastUpdated": "Last updated"
@@ -421,6 +422,12 @@
       "waypointsOf": "of",
       "waypointsLabel": "route points completed",
       "clearMission": "CLEAR MISSION",
+      "clearMissionConfirmTitle": "Clear Mission",
+      "clearMissionConfirmMessage": "This will also clear the waypoint list from the hardware. Continue?",
+      "clearMissionConfirm": "Yes, Clear",
+      "clearMissionClearingHw": "Clearing hardware waypoints...",
+      "clearMissionHwSuccess": "Hardware waypoints cleared",
+      "clearMissionHwError": "Hardware clear failed",
       "sendingCommand": "Sending control request...",
       "waitingAck": "Waiting for response...",
       "commandQueued": "Request queued — waiting for vehicle",
@@ -446,7 +453,7 @@
       "RTL": "Return to Launch"
     },
     "camera": {
-      "title": "Live Stream",
+      "title": "Camera Stream",
       "subtitle": "Live camera from your vessel",
       "connect": "Connect",
       "disconnect": "Disconnect",
@@ -507,6 +514,51 @@
         "sectionHeatmapNoData": "No data available for heatmap",
         "density": "Density",
         "soundVelocity": "Sound Velocity"
+      },
+      "metrics": {
+        "temperature": "Temperature",
+        "salinity": "Salinity",
+        "density": "Density",
+        "conductivity": "Conductivity",
+        "soundVelocity": "Sound Velocity"
+      },
+      "castInfo": {
+        "castTime": "Cast Time",
+        "castTimeSub": "Latest cast timestamp",
+        "coordinates": "Coordinates",
+        "noCoordinates": "Coordinates unavailable",
+        "maxDepth": "Max Depth",
+        "maxDepthSub": "Deepest measurement point",
+        "dataCount": "Data Points",
+        "dataCountSub": "Total measurement points"
+      },
+      "heatmap": {
+        "surfaceTemp": "Surface Temp",
+        "surfaceTempSub": "Upper 0-5 m average",
+        "bottomTemp": "Bottom Temp",
+        "bottomTempSub": "Deepest 5 m average",
+        "thermocline": "Thermocline",
+        "thermoclineAround": "Thermocline around",
+        "noThermocline": "No stable thermocline detected",
+        "gradient": "Gradient",
+        "gradientSub": "Sharpest vertical change",
+        "coverage": "Coverage",
+        "coverageSub": "Sampling coverage",
+        "dataFlags": "data flags",
+        "stationaryProfile": "Stationary profile detected",
+        "stationaryProfileDesc": "The section heatmap is designed for transect surveys (USV moving horizontally). For a stationary vertical cast, use the Depth Profile chart instead.",
+        "noGps": "GPS data not available in CTD payload",
+        "noGpsDesc": "USV is not sending lat/lon with CTD data. The X-axis cannot represent horizontal distance; all readings are stacked at 0 km. Ensure GPS coordinates are included in the CTD MQTT payload.",
+        "strengthInsufficient": "Insufficient",
+        "strengthStrong": "Strong",
+        "strengthModerate": "Moderate",
+        "strengthWeak": "Weak"
+      },
+      "multicast": {
+        "min1": "1 minute",
+        "min5": "5 minutes",
+        "min10": "10 minutes",
+        "min30": "30 minutes"
       }
     },
     "adcp": {
@@ -602,7 +654,8 @@
         "batteryLogs": "Battery History",
         "waypointLogs": "Waypoint Logs",
         "commandLogs": "Command Logs",
-        "thrusterLogs": "Thruster History"
+        "thrusterLogs": "Thruster History",
+        "latencyLogs": "Latency History"
       },
       "actions": {
         "refresh": "Refresh",
@@ -635,6 +688,7 @@
         "startDate": "Start Date",
         "endDate": "End Date",
         "sensorTypeTitle": "Sensor Type",
+        "logTypeTitle": "Log Type",
         "selectDataType": "Select data type",
         "active": "Active filters are applied.",
         "dateRange": {
@@ -642,7 +696,8 @@
           "today": "Today",
           "week": "This Week",
           "month": "This Month",
-          "quarter": "This Quarter"
+          "quarter": "This Quarter",
+          "custom": "Custom Range"
         },
         "dataScope": {
           "all": "All Data",
@@ -655,6 +710,13 @@
           "adcp": "ADCP",
           "sbes": "SBES (Coming Soon)",
           "mbes": "MBES (Coming Soon)"
+        },
+        "logType": {
+          "vehicle": "Vehicle",
+          "sensor": "Sensor",
+          "thruster": "Thruster",
+          "command": "Command",
+          "waypoint": "Waypoint"
         }
       },
       "widgets": {
@@ -673,7 +735,8 @@
         "avgTempEmpty": "Avg Temp: -",
         "avgTemp": "Avg Temp: {{value}} C",
         "avgSocEmpty": "Avg SOC: -",
-        "avgSoc": "Avg SOC: {{value}}%"
+        "avgSoc": "Avg SOC: {{value}}%",
+        "thrusterOverrides": "{{count}} override commands"
       },
       "table": {
         "dataRecords": "Data Records",
@@ -690,6 +753,7 @@
         "searchBattery": "Search by battery, vehicle, or status...",
         "searchWaypoint": "Search by vehicle, mission, or status...",
         "searchCommand": "Search by vehicle, command, or status...",
+        "searchThruster": "Search by vehicle or event...",
         "empty": "No data found. Data will appear here when vehicles send information.",
         "emptyWithFilters": "No data found for the selected filters. Try adjusting the filters above.",
         "deleteBulkConfirm": "Are you sure you want to delete {{count}} {{type}}? This action cannot be undone.",
@@ -698,6 +762,7 @@
         "deleteSingleConfirm": "Are you sure you want to delete this {{type}}?",
         "deleteSingleSuccess": "{{type}} deleted successfully!",
         "deleteSingleFailed": "Failed to delete {{type}}",
+        "view": "View",
         "columns": {
           "id": "ID",
           "vehicle": "Vehicle",
@@ -715,7 +780,10 @@
           "current": "Current",
           "temperature": "Temperature",
           "status": "Status",
-          "message": "Message"
+          "message": "Message",
+          "event": "Event",
+          "throttle": "Throttle",
+          "steering": "Steering"
         }
       },
       "charts": {
@@ -726,16 +794,20 @@
         "vehicleMapEmpty": "Not enough points to show the route",
         "allDataChart": "Overview Chart",
         "allDataSubtitle": "CTD trends over time",
+        "sensorTrendsSubtitle": "{{type}} trends over time",
         "customSelectChart": "Selected Metric",
         "customSelectSubtitle": "Pick a metric to view",
-        "sensorEmpty": "No CTD data available",
+        "sensorEmpty": "No sensor data available",
         "batteryUsageChart": "Battery Usage Chart",
         "batteryUsageSubtitle": "SOC, voltage, and current over time",
         "batteryEmpty": "No battery history available",
         "temperature": "Temperature",
         "salinity": "Salinity",
         "depth": "Depth",
-        "conductivity": "Conductivity"
+        "conductivity": "Conductivity",
+        "currentSpeed": "Current Speed",
+        "currentDirection": "Current Direction",
+        "waterDepth": "Water Depth"
       },
       "errorLoadingPage": "Error Loading Page",
       "unexpectedError": "An unexpected error occurred",
@@ -842,8 +914,8 @@
         "vehicle": "Vehicle History",
         "sensor": "Sensor History",
         "raw": "Detailed Data",
-        "antitheft": "Security Alerts",
-        "failsafe": "Safety Alerts",
+        "antitheft": "Anti Theft Alerts",
+        "failsafe": "Failsafe Alerts",
         "command": "Control History",
         "waypoint": "Route Points",
         "thruster": "Thruster History"
@@ -855,8 +927,8 @@
       "emptyVehicle": "No vehicle history yet. Waiting for data...",
       "emptySensor": "No sensor history yet. Waiting for data...",
       "emptyRaw": "No detailed data yet. Waiting for data...",
-      "emptyAntiTheft": "No security alerts found",
-      "emptyFailsafe": "No safety alerts found",
+      "emptyAntiTheft": "No anti theft alerts found",
+      "emptyFailsafe": "No failsafe alerts found",
       "emptyCommand": "No control history yet.",
       "emptyWaypoint": "No route updates yet. Upload a mission to see updates here.",
       "normalOperation": "Vehicle is operating normally",
@@ -876,15 +948,15 @@
         "steering": "Steering"
       },
       "alerts": {
-        "antiTheft": "SECURITY ALERT",
-        "failsafe": "SAFETY ALERT"
+        "antiTheft": "ANTI THEFT ALERT",
+        "failsafe": "FAILSAFE ALERT"
       },
       "widgets": {
         "vehicle": "Vehicle History",
         "sensor": "Sensor History",
         "raw": "Detailed Data",
-        "antiTheft": "Security Alerts",
-        "failsafe": "Safety Alerts",
+        "antiTheft": "Anti Theft Alerts",
+        "failsafe": "Failsafe Alerts",
         "vsYesterday": "{{count}}% vs yesterday",
         "unacknowledged": "{{count}} unacknowledged",
         "noAlerts": "No alerts"
@@ -907,7 +979,6 @@
       "progress": "Progress",
       "duration": "Duration",
       "journeyMission": "Mission Route",
-      "telemetrySamples": "Journey Samples",
       "firstPing": "First Ping",
       "lastPing": "Last Ping",
       "avgSpeed": "Avg Speed",
@@ -920,6 +991,7 @@
       "energy": "Energy",
       "currentWaypoint": "Current Route Point",
       "noEnergyBudget": "No energy budget yet",
+      "batteryUsed": "battery used",
       "planHistory": "Plan History",
       "missionHistory": "Mission History",
       "noPlan": "This mission has no home location or route points yet.",
@@ -958,13 +1030,43 @@
         "subtitle": "Manage your users",
         "add": "Add User",
         "addModalTitle": "Add New User",
-        "deleteTitle": "Delete User"
+        "deleteTitle": "Delete User",
+        "created": "User created successfully!",
+        "createdTitle": "User Created",
+        "createFailed": "Failed to create user",
+        "createFailedTitle": "User Creation Failed",
+        "updated": "User updated successfully!",
+        "updatedTitle": "User Updated",
+        "updateFailed": "Failed to update user",
+        "updateFailedTitle": "User Update Failed",
+        "deleted": "User deleted successfully!",
+        "deletedTitle": "User Deleted",
+        "deleteFailed": "Failed to delete user",
+        "deleteFailedTitle": "User Deletion Failed",
+        "bulkDeletedTitle": "Bulk User Deletion",
+        "bulkDeleteFailed": "Failed to delete some users",
+        "bulkDeleteFailedTitle": "Bulk Deletion Failed"
       },
       "role": {
         "title": "Role Management",
         "subtitle": "Manage roles",
         "add": "Add Role",
-        "deleteTitle": "Delete Role"
+        "deleteTitle": "Delete Role",
+        "created": "Role created successfully!",
+        "createdTitle": "Role Created",
+        "createFailed": "Failed to create role",
+        "createFailedTitle": "Role Creation Failed",
+        "updated": "Role updated successfully!",
+        "updatedTitle": "Role Updated",
+        "updateFailed": "Failed to update role",
+        "updateFailedTitle": "Role Update Failed",
+        "deleted": "Role deleted successfully!",
+        "deletedTitle": "Role Deleted",
+        "deleteFailed": "Failed to delete role",
+        "deleteFailedTitle": "Role Deletion Failed",
+        "bulkDeletedTitle": "Bulk Role Deletion",
+        "bulkDeleteFailed": "Failed to delete some roles",
+        "bulkDeleteFailedTitle": "Bulk Deletion Failed"
       },
       "permission": {
         "title": "Permission Management",
@@ -977,7 +1079,22 @@
         "title": "Sensor Management",
         "subtitle": "Manage and monitor all sensor devices",
         "add": "Add Sensor",
-        "deleteTitle": "Delete Sensor"
+        "deleteTitle": "Delete Sensor",
+        "created": "Sensor created successfully!",
+        "createdTitle": "Sensor Created",
+        "createFailed": "Failed to create sensor",
+        "createFailedTitle": "Sensor Creation Failed",
+        "updated": "Sensor updated successfully!",
+        "updatedTitle": "Sensor Updated",
+        "updateFailed": "Failed to update sensor",
+        "updateFailedTitle": "Sensor Update Failed",
+        "deleted": "Sensor deleted successfully!",
+        "deletedTitle": "Sensor Deleted",
+        "deleteFailed": "Failed to delete sensor",
+        "deleteFailedTitle": "Sensor Deletion Failed",
+        "bulkDeletedTitle": "Bulk Sensor Deletion",
+        "bulkDeleteFailed": "Failed to delete some sensors",
+        "bulkDeleteFailedTitle": "Bulk Deletion Failed"
       },
       "sensorType": {
         "title": "Sensor Type Management",
@@ -986,10 +1103,41 @@
         "deleteTitle": "Delete Sensor Type"
       },
       "vehicle": {
-        "title": "Vehicle Management",
-        "subtitle": "Manage and monitor all USV vehicles",
-        "add": "Add Vehicle",
-        "deleteTitle": "Delete Vehicle"
+        "title": "Vessel Management",
+        "subtitle": "Manage and monitor all USV vessels",
+        "add": "Add Vessel",
+        "deleteTitle": "Delete Vessel",
+        "created": "Vehicle created successfully!",
+        "createdTitle": "Vehicle Created",
+        "updated": "Vehicle updated successfully!",
+        "updatedTitle": "Vehicle Updated",
+        "saveFailed": "Failed to save vehicle",
+        "saveFailedTitle": "Vehicle Save Failed",
+        "updateFailedTitle": "Vehicle Update Failed",
+        "createFailedTitle": "Vehicle Creation Failed",
+        "deleted": "Vehicle deleted successfully!",
+        "deletedTitle": "Vehicle Deleted",
+        "deleteFailed": "Failed to delete vehicle",
+        "deleteFailedTitle": "Vehicle Deletion Failed",
+        "bulkDeletedTitle": "Bulk Vehicle Deletion",
+        "bulkDeleteFailed": "Failed to delete some vehicles",
+        "bulkDeleteFailedTitle": "Bulk Deletion Failed",
+        "authFailed": "Authentication failed. Please login again."
+      },
+      "vehicle_wizard": {
+        "sensorListError": "Couldn't load the sensor list. Please try again.",
+        "sensorListErrorTitle": "Sensor List Unavailable",
+        "requiredFields": "Please fill in the vehicle name and identification code.",
+        "requiredFieldsTitle": "Required Fields Missing",
+        "batteryCountError": "Please select either 1 or 2 battery packs.",
+        "batteryCountErrorTitle": "Invalid Battery Configuration",
+        "batteryCapacityError": "Battery capacity must be greater than 0 Ah.",
+        "batteryCapacityErrorTitle": "Invalid Battery Capacity",
+        "created": "Vehicle created successfully!",
+        "createdTitle": "Vehicle Created",
+        "createFailed": "Couldn't create the vehicle. Please try again.",
+        "createFailedTitle": "Vehicle Not Created",
+        "codeConflict": "This code is already in use. Please choose a different one."
       }
     },
     "settings": {
@@ -1182,7 +1330,7 @@
       "draft": "Draft",
       "completed": "Completed",
       "ongoing": "Ongoing",
-      "failed": "Failed"
+      "failed": "Cancelled"
     },
     "modals": {
       "createTitle": "Create New Mission",
@@ -1210,7 +1358,7 @@
       "draft": "Draft",
       "ongoing": "Ongoing",
       "completed": "Completed",
-      "failed": "Failed",
+      "failed": "Cancelled",
       "colName": "Mission Name",
       "colStatus": "Status",
       "colVehicle": "Vehicle",
@@ -1482,6 +1630,41 @@
     "deleteTitle": "Delete Conversation",
     "deleteMessage": "Are you sure you want to delete this conversation? This action cannot be undone.",
     "delete": "Delete"
+  },
+  "missionReport": {
+    "pageTitle": "Mission Report",
+    "title": "Mission Sensor Report",
+    "loadingSubtitle": "Loading data...",
+    "errorSubtitle": "An error occurred",
+    "loadError": "Couldn't load the mission report. Please try again.",
+    "notFound": "Mission not found.",
+    "backToMissions": "Back to missions",
+    "missionDetailsLink": "Mission Details",
+    "noVehicle": "No vehicle",
+    "lastPosition": "Last Position",
+    "tableTime": "Time",
+    "exportCsv": "Export CSV",
+    "trajectoryTitle": "Mission Trajectory",
+    "plannedRoute": "Planned Route",
+    "actualPath": "Actual Path",
+    "sensorDataTitle": "Sensor Data",
+    "noSensorData": "No sensor data linked to this mission yet.",
+    "noSensorDataHint": "Sensor data will be linked automatically once the mission is running.",
+    "breadcrumb": {
+      "missions": "Missions",
+      "missionDetails": "Mission Details",
+      "sensorReport": "Sensor Report"
+    },
+    "stats": {
+      "vehicle": "Vehicle",
+      "sensorType": "Sensor Types",
+      "totalSensorData": "Total Sensor Data",
+      "duration": "Duration",
+      "created": "Created",
+      "start": "Start",
+      "end": "End",
+      "waypoint": "Waypoint"
+    }
   },
   "footer": {
     "copyright": "Copyright © 2026. Seano. All Rights Reserved.",
