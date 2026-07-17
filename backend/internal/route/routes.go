@@ -92,6 +92,8 @@ func SetupRoutes(app *fiber.App, db *gorm.DB, wsHub *wsocket.Hub, cmdPublisher *
 			return c.IP()
 		},
 		LimitReached: func(c *fiber.Ctx) error {
+			// Provide Retry-After header (seconds) so client knows how long to wait
+			c.Set("Retry-After", fmt.Sprintf("%d", int(15*time.Minute/time.Second)))
 			return c.Status(429).JSON(fiber.Map{"error": "Too many requests. Please try again later."})
 		},
 	})

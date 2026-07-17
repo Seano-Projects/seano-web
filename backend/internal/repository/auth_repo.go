@@ -30,7 +30,9 @@ func CreateUserWithEmail(db *gorm.DB, email, token string) (*model.User, error) 
 		IsVerified:         false,
 	}
 
-	result := db.Create(user)
+	// Omit username column so the DB stores NULL instead of empty string
+	// This avoids violating unique index if multiple users are created without usernames
+	result := db.Omit("username").Create(user)
 	if result.Error != nil {
 		return nil, result.Error
 	}

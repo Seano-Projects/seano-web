@@ -78,6 +78,42 @@ const useAuth = () => {
     }
   }
 
+  // Resend verification email function
+  const resendVerification = async email => {
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch(API_ENDPOINTS.AUTH.RESEND_VERIFICATION, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        return {
+          success: true,
+          message: data.message || 'Verification email resent successfully! Please check your inbox.'
+        }
+      } else {
+        const errorMsg = data.error || data.detail || data.message || 'Failed to resend verification email. Please try again.'
+        setError(errorMsg)
+        return {
+          success: false,
+          error: errorMsg
+        }
+      }
+    } catch {
+      const errorMessage = 'Unable to connect to server. Please check your internet connection and try again.'
+      setError(errorMessage)
+      return { success: false, error: errorMessage }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Verify email function
   const verifyEmail = async token => {
     setLoading(true)
@@ -181,6 +217,7 @@ const useAuth = () => {
     error,
     login,
     registerEmail,
+    resendVerification,
     verifyEmail,
     setCredentials,
     logout,

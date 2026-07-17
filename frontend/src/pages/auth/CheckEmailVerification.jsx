@@ -1,8 +1,51 @@
-import SeanoLogo from "../../assets/logo_seano.webp";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { FaEnvelope, FaMoon, FaSun } from "react-icons/fa6";
+import SeanoLogo from "../../assets/logo_seano.webp";
+import useAuth from "../../hooks/useAuth";
+import { LoadingDots, toast } from "../../components/ui";
+
+const RESEND_COOLDOWN_SECONDS = 30;
 
 export default function CheckEmailVerification({ darkMode, toggleDarkMode }) {
+  const location = useLocation();
+  const { resendVerification, loading } = useAuth();
+  const [cooldown, setCooldown] = useState(0);
+
+  const email =
+    location.state?.email || localStorage.getItem("registrationEmail") || "";
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  const handleResend = async () => {
+    if (loading || cooldown > 0) return;
+
+    if (!email) {
+      toast.error(
+        "We couldn't find your email address. Please register again.",
+      );
+      return;
+    }
+
+    const result = await resendVerification(email);
+
+    if (result.success) {
+      toast.success(result.message, { title: "Email Sent", duration: 3000 });
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+    } else {
+      toast.error(result.error, {
+        title: "Failed to Resend",
+        duration: 5000,
+      });
+    }
+  };
+
   return (
     <div
       className={`min-h-screen grid grid-cols-1 bg-gradient-to-br font-openSans ${
@@ -67,13 +110,32 @@ export default function CheckEmailVerification({ darkMode, toggleDarkMode }) {
               <br />
               If you don't see the email, please check your spam or junk folder.
             </p>
-            <button className="cursor-pointer mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-              Resend Email
+            <button
+              onClick={handleResend}
+              disabled={loading || cooldown > 0}
+              className="cursor-pointer mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <LoadingDots size="sm" color="white" text="Sending" />
+                </span>
+              ) : cooldown > 0 ? (
+                `Resend Email (${cooldown}s)`
+              ) : (
+                "Resend Email"
+              )}
             </button>
             <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
               Didn't receive the email?{" "}
-              <span className="font-semibold cursor-pointer text-blue-700 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300">
-                Resend
+              <span
+                onClick={handleResend}
+                className={`font-semibold underline text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 ${
+                  loading || cooldown > 0
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+              >
+                {cooldown > 0 ? `Resend (${cooldown}s)` : "Resend"}
               </span>
             </p>
           </div>

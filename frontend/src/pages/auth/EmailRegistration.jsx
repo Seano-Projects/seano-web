@@ -9,7 +9,7 @@ import useTranslation from "../../hooks/useTranslation";
 export default function EmailRegistration({ darkMode, toggleDarkMode }) {
   const [email, setEmail] = useState("");
   const { registerEmail, loading } = useAuth();
-  const [errors, setErrors] = useState({ email: false });
+  const [errors, setErrors] = useState({ email: "" });
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -19,15 +19,17 @@ export default function EmailRegistration({ darkMode, toggleDarkMode }) {
 
     // Email validation
     if (!email || email.trim() === "") {
-      setErrors({ email: true });
-      toast.error(t("auth.register.errors.emailRequired"));
+      const msg = t("auth.register.errors.emailRequired");
+      setErrors({ email: msg });
+      toast.error(msg);
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setErrors({ email: true });
-      toast.error(t("auth.register.errors.invalidEmail"));
+      const msg = t("auth.register.errors.invalidEmail");
+      setErrors({ email: msg });
+      toast.error(msg);
       return;
     }
 
@@ -44,11 +46,13 @@ export default function EmailRegistration({ darkMode, toggleDarkMode }) {
         navigate("/auth/email-verification", { state: { email } });
       }, 1500);
     } else {
-      toast.error(result.error || t("auth.register.errors.failedToRegister"), {
+      const serverMsg =
+        result.error || t("auth.register.errors.failedToRegister");
+      toast.error(serverMsg, {
         title: t("auth.register.errors.registrationFailed"),
         duration: 5000,
       });
-      setErrors({ email: true });
+      setErrors({ email: serverMsg });
     }
   };
 
@@ -123,7 +127,7 @@ export default function EmailRegistration({ darkMode, toggleDarkMode }) {
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  setErrors({ email: false });
+                  setErrors({ email: "" });
                 }}
                 required
                 autoComplete="email"
@@ -135,11 +139,7 @@ export default function EmailRegistration({ darkMode, toggleDarkMode }) {
                 }`}
               />
               {errors.email && (
-                <p className="text-red-500 text-sm mt-1">
-                  {!email.trim()
-                    ? t("auth.register.errors.emailRequired")
-                    : t("auth.register.errors.invalidEmail")}
-                </p>
+                <p className="text-red-500 text-sm mt-1">{errors.email}</p>
               )}
             </div>
 

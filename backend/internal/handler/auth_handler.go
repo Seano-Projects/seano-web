@@ -70,6 +70,8 @@ func (h *AuthHandler) RegisterEmail(c *fiber.Ctx) error {
 				"error": "This email is already registered. Please login instead.",
 			})
 		}
+		// Log the underlying error for debugging (do not expose internal errors to clients)
+		log.Printf("Failed to create user for email %s: %v", req.Email, err)
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Unable to register your account. Please try again later.",
 		})
